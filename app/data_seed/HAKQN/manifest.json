@@ -1,0 +1,89 @@
+{
+  "app": "DGVC",
+  "schemaVersion": 1,
+  "installId": "INS-4FF27BB228",
+  "installCode": "HAKQN",
+  "unitCode": "HAKQN",
+  "createdAt": "2026-09-24T22:10:00+07:00",
+  "dataVersion": 1,
+  "lastBackupAt": null,
+  "sequences": {
+    "GD": 18,
+    "KY": 0,
+    "TC": 0,
+    "CR": 0,
+    "IB": 2,
+    "EX": 0,
+    "AL": 0
+  },
+  "files": {
+    "tables/DON_VI.json": {
+      "sha256": "1e2cfc168c5ec5d23ca9d5e3a5409d47a7957c43c7241f8f2296186b9c55cbe3",
+      "rows": 5
+    },
+    "tables/XE.json": {
+      "sha256": "60eba79dda9e4f1da132c6fabf3c509e21ac904715e47c539b4626b9231f9037",
+      "rows": 17
+    },
+    "tables/TUYEN_VC.json": {
+      "sha256": "0b1fd86736564701a5b67a2534d30282602456cf87ab5b26c5f939d605fbff7f",
+      "rows": 12
+    },
+    "tables/PRICE_HISTORY.json": {
+      "sha256": "387c36d93b92de5432049cf75a86312f4369412168234017dc66d9598db42267",
+      "rows": 12
+    },
+    "tables/HOP_DONG.json": {
+      "sha256": "133505792dcdf1171fd416888f2fc66f36bf8c7abeb4bc7fa7bbbcbdf7639a78",
+      "rows": 3
+    },
+    "tables/HOP_DONG_XE.json": {
+      "sha256": "b318eb1b1d39ff90abb266974c6b68b488aa4575967267d0119379cfc720527b",
+      "rows": 27
+    },
+    "tables/PHIEU_CAN/2026.json": {
+      "sha256": "017d0a7f66d45bcce05746c17c49e48981fbe4e8fc0561f87f11981e095e5c42",
+      "rows": 326
+    },
+    "tables/GIAO_NHAN_DAU/2026.json": {
+      "sha256": "4bedd81e0e35a029488d10d8bee6d5e9a3306514e89409e7d7038eb9ab3546fe",
+      "rows": 18
+    },
+    "tables/IMPORT_BATCH.json": {
+      "sha256": "10ff079f4c6ffced136360fbd4a635a8777c36f2565467a955a8056bd0599206",
+      "rows": 2
+    },
+    "tables/KY_TINH.json": {
+      "sha256": "f96c9b0518de1cbb652eb6cd26ef9f21ec8126d8a3bfa2366110a82cc962dcb2",
+      "rows": 0
+    },
+    "tables/TRANSPORT_CALCULATION.json": {
+      "sha256": "46f30a6ad5e9b54da85cb3d8aa4fd1b2b06f8da7eafcb373bd516fbdff9c46d2",
+      "rows": 0
+    },
+    "tables/BKVC_LINE.json": {
+      "sha256": "a5c9c5aba4374001c05a233d0f05519385062cf86dbfad22a1332ed2cc13e004",
+      "rows": 0
+    },
+    "tables/CALC_RUN.json": {
+      "sha256": "791bd36fa75f5b9fb4f0576cffabb550a552fb0574065a5f712dde5e5ad75579",
+      "rows": 0
+    },
+    "tables/USERS.json": {
+      "sha256": "fa54307bbe5a0d598cc66eb163e8ab815ae0d20a5732c47dd898d2545b09f09e",
+      "rows": 2
+    },
+    "tables/CONFIG.json": {
+      "sha256": "acf316af261cafc964985d5a9d2f70115164310f81abbbd2d4ba0a92ddfc6e6b",
+      "rows": 39
+    },
+    "tables/EXCHANGE_LOG.json": {
+      "sha256": "1597ce1f3a75b3c46e25ce1740325e0bbeecaf980daad6d51f18c7fff03ce0d5",
+      "rows": 0
+    },
+    "tables/SYNC_REMINDER.json": {
+      "sha256": "8e63aa8c8a17ec46726fa6b02f58dc6881fe2b95a1642e62c001fdbb837c75f4",
+      "rows": 0
+    }
+  }
+}

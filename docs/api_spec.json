@@ -1,0 +1,5092 @@
+{
+ "version": "1.0.0-desktop",
+ "transport": "window.dgvc.api(action, payload) → ipcRenderer.invoke('api')",
+ "envelope": {
+  "ok": "boolean",
+  "data": "object|null",
+  "error": "{code,message,details}|null",
+  "warnings": "array",
+  "meta": "{requestId,durationMs,dataVersion}"
+ },
+ "actions": [
+  {
+   "action": "setup.status",
+   "group": "Khởi tạo",
+   "desc": "Lần mở đầu: đã có thư mục dữ liệu chưa, bản cài của đơn vị nào, còn user chưa đặt mật khẩu không",
+   "roles": [
+    "(chưa đăng nhập)"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{initialized, dataFolder, installId, installCode, unitCode, schemaVersion, usersNeedPassword:[username]}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "setup.init",
+   "group": "Khởi tạo",
+   "desc": "Tạo thư mục dữ liệu mới (chọn đơn vị của bản cài, ADMIN đầu tiên) hoặc mở thư mục có sẵn / nhận gói DANH_MUC ban đầu",
+   "roles": [
+    "(chưa đăng nhập)"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "mode",
+     "enum(NEW|OPEN_EXISTING)",
+     true,
+     ""
+    ],
+    [
+     "dataFolder",
+     "string",
+     true,
+     "đường dẫn đã chọn bằng dialog.openFolder"
+    ],
+    [
+     "unitCode",
+     "string",
+     false,
+     "bắt buộc khi NEW"
+    ],
+    [
+     "admin",
+     "object",
+     false,
+     "{username, fullName, password} khi NEW"
+    ],
+    [
+     "catalogPackagePath",
+     "string",
+     false,
+     "gói DANH_MUC để nạp danh mục ban đầu"
+    ]
+   ],
+   "output": "{manifest}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "STORAGE_ERROR",
+    "INTEGRITY_ERROR",
+    "DATA_LOCKED"
+   ],
+   "reads": [],
+   "writes": [
+    "USERS",
+    "CONFIG",
+    "DON_VI",
+    "XE",
+    "TUYEN_VC",
+    "PRICE_HISTORY"
+   ],
+   "audit": "SETUP",
+   "lock": true
+  },
+  {
+   "action": "auth.login",
+   "group": "Đăng nhập",
+   "desc": "Đăng nhập tài khoản nội bộ → sessionToken (giữ trong bộ nhớ main process)",
+   "roles": [
+    "(chưa đăng nhập)"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "username",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "password",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{sessionToken, user:{username, fullName, role, unitCode, canUnlock}, mustChangePassword}",
+   "errors": [
+    "AUTH_FAILED",
+    "ACCOUNT_LOCKED",
+    "PASSWORD_NOT_SET"
+   ],
+   "reads": [
+    "USERS"
+   ],
+   "writes": [
+    "USERS"
+   ],
+   "audit": "LOGIN",
+   "lock": true
+  },
+  {
+   "action": "auth.setFirstPassword",
+   "group": "Đăng nhập",
+   "desc": "User chưa có mật khẩu (dữ liệu mẫu / ADMIN vừa tạo) đặt mật khẩu lần đầu",
+   "roles": [
+    "(chưa đăng nhập)"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "username",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "newPassword",
+     "string",
+     true,
+     "≥ 8 ký tự, có chữ và số"
+    ]
+   ],
+   "output": "{ok}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "BUSINESS_RULE:E_PASSWORD_ALREADY_SET"
+   ],
+   "reads": [
+    "USERS"
+   ],
+   "writes": [
+    "USERS"
+   ],
+   "audit": "SET_PASSWORD",
+   "lock": true
+  },
+  {
+   "action": "auth.changePassword",
+   "group": "Đăng nhập",
+   "desc": "Đổi mật khẩu",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "oldPassword",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "newPassword",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{ok}",
+   "errors": [
+    "AUTH_FAILED",
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "USERS"
+   ],
+   "writes": [
+    "USERS"
+   ],
+   "audit": "CHANGE_PASSWORD",
+   "lock": true
+  },
+  {
+   "action": "auth.logout",
+   "group": "Đăng nhập",
+   "desc": "Đăng xuất (hủy session)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{ok}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": "LOGOUT",
+   "lock": false
+  },
+  {
+   "action": "auth.me",
+   "group": "Đăng nhập",
+   "desc": "Người dùng hiện tại, quyền, đơn vị bản cài",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{username, fullName, role, unitCode, canUnlock, installUnitCode, permissions: [action]}",
+   "errors": [
+    "SESSION_EXPIRED"
+   ],
+   "reads": [
+    "USERS"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "meta.bootstrap",
+   "group": "Hệ thống",
+   "desc": "Tải khi mở APP: danh mục, enum, cấu hình hiển thị, mã lỗi, thông tin bản cài",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{install:{installId, installCode, unitCode, dataFolder}, units, vehicles, routes, activePrices, contracts (vai trò: CARRIER|CUSTOMER), config, enums, errorCodes, dataVersion}",
+   "errors": [],
+   "reads": [
+    "DON_VI",
+    "XE",
+    "TUYEN_VC",
+    "PRICE_HISTORY",
+    "HOP_DONG",
+    "HOP_DONG_XE",
+    "CONFIG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "system.health",
+   "group": "Hệ thống",
+   "desc": "Kiểm tra toàn vẹn: manifest, SHA-256 từng file, journal dở dang, dung lượng, lần sao lưu gần nhất",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{schemaVersion, files:[{path, rows, sizeBytes, sha256Ok}], pendingJournal, lastBackupAt, freeDiskBytes}",
+   "errors": [
+    "INTEGRITY_ERROR"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "dialog.openFile",
+   "group": "Hệ thống",
+   "desc": "Hộp thoại chọn file (Excel / gói .dgvc)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "filters",
+     "array<{name, extensions}>",
+     false,
+     ""
+    ]
+   ],
+   "output": "{path|null}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "dialog.openFolder",
+   "group": "Hệ thống",
+   "desc": "Hộp thoại chọn thư mục",
+   "roles": [
+    "(chưa đăng nhập)"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{path|null}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "dialog.saveFile",
+   "group": "Hệ thống",
+   "desc": "Hộp thoại chọn nơi lưu file xuất",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "defaultName",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "filters",
+     "array",
+     false,
+     ""
+    ]
+   ],
+   "output": "{path|null}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "system.openPath",
+   "group": "Hệ thống",
+   "desc": "Mở file / thư mục bằng Windows Explorer (sau khi xuất file)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "path",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{ok}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "units.list",
+   "group": "Danh mục",
+   "desc": "Danh sách đơn vị",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "q",
+     "string",
+     false,
+     "tìm kiếm"
+    ],
+    [
+     "includeInactive",
+     "boolean",
+     false,
+     ""
+    ],
+    [
+     "page",
+     "integer",
+     false,
+     "mặc định 1"
+    ],
+    [
+     "pageSize",
+     "integer",
+     false,
+     "mặc định 100, tối đa 1000"
+    ],
+    [
+     "sort",
+     "string",
+     false,
+     "vd `weigh1_date:desc`"
+    ]
+   ],
+   "output": "{items:[…], total}",
+   "errors": [],
+   "reads": [
+    "DON_VI"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "units.save",
+   "group": "Danh mục",
+   "desc": "Thêm / sửa đơn vị",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "record",
+     "object",
+     true,
+     "bản ghi DON_VI (camelCase)"
+    ],
+    [
+     "rowVersion",
+     "integer",
+     false,
+     "bắt buộc khi sửa"
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "DUPLICATE",
+    "CONFLICT_VERSION"
+   ],
+   "reads": [
+    "DON_VI"
+   ],
+   "writes": [
+    "DON_VI"
+   ],
+   "audit": "CREATE/UPDATE",
+   "lock": true
+  },
+  {
+   "action": "units.setActive",
+   "group": "Danh mục",
+   "desc": "Ngừng / dùng lại đơn vị (không xóa cứng)",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "unitCode",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "active",
+     "boolean",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "NOT_FOUND",
+    "CONFLICT_VERSION",
+    "BUSINESS_RULE:E_IN_USE"
+   ],
+   "reads": [
+    "DON_VI"
+   ],
+   "writes": [
+    "DON_VI"
+   ],
+   "audit": "SET_ACTIVE",
+   "lock": true
+  },
+  {
+   "action": "vehicles.list",
+   "group": "Danh mục",
+   "desc": "Danh sách xe",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "q",
+     "string",
+     false,
+     "tìm kiếm"
+    ],
+    [
+     "includeInactive",
+     "boolean",
+     false,
+     ""
+    ],
+    [
+     "page",
+     "integer",
+     false,
+     "mặc định 1"
+    ],
+    [
+     "pageSize",
+     "integer",
+     false,
+     "mặc định 100, tối đa 1000"
+    ],
+    [
+     "sort",
+     "string",
+     false,
+     "vd `weigh1_date:desc`"
+    ]
+   ],
+   "output": "{items:[…], total}",
+   "errors": [],
+   "reads": [
+    "XE"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "vehicles.save",
+   "group": "Danh mục",
+   "desc": "Thêm / sửa xe",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "record",
+     "object",
+     true,
+     "bản ghi XE (camelCase)"
+    ],
+    [
+     "rowVersion",
+     "integer",
+     false,
+     "bắt buộc khi sửa"
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "DUPLICATE",
+    "CONFLICT_VERSION"
+   ],
+   "reads": [
+    "XE"
+   ],
+   "writes": [
+    "XE"
+   ],
+   "audit": "CREATE/UPDATE",
+   "lock": true
+  },
+  {
+   "action": "vehicles.setActive",
+   "group": "Danh mục",
+   "desc": "Ngừng / dùng lại xe (không xóa cứng)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "plateNo",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "active",
+     "boolean",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "NOT_FOUND",
+    "CONFLICT_VERSION",
+    "BUSINESS_RULE:E_IN_USE"
+   ],
+   "reads": [
+    "XE"
+   ],
+   "writes": [
+    "XE"
+   ],
+   "audit": "SET_ACTIVE",
+   "lock": true
+  },
+  {
+   "action": "routes.list",
+   "group": "Danh mục",
+   "desc": "Danh sách tuyến",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "q",
+     "string",
+     false,
+     "tìm kiếm"
+    ],
+    [
+     "includeInactive",
+     "boolean",
+     false,
+     ""
+    ],
+    [
+     "page",
+     "integer",
+     false,
+     "mặc định 1"
+    ],
+    [
+     "pageSize",
+     "integer",
+     false,
+     "mặc định 100, tối đa 1000"
+    ],
+    [
+     "sort",
+     "string",
+     false,
+     "vd `weigh1_date:desc`"
+    ]
+   ],
+   "output": "{items:[…], total}",
+   "errors": [],
+   "reads": [
+    "TUYEN_VC"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "routes.save",
+   "group": "Danh mục",
+   "desc": "Thêm / sửa tuyến",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "record",
+     "object",
+     true,
+     "bản ghi TUYEN_VC (camelCase)"
+    ],
+    [
+     "rowVersion",
+     "integer",
+     false,
+     "bắt buộc khi sửa"
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "DUPLICATE",
+    "CONFLICT_VERSION"
+   ],
+   "reads": [
+    "TUYEN_VC"
+   ],
+   "writes": [
+    "TUYEN_VC"
+   ],
+   "audit": "CREATE/UPDATE",
+   "lock": true
+  },
+  {
+   "action": "routes.setActive",
+   "group": "Danh mục",
+   "desc": "Ngừng / dùng lại tuyến (không xóa cứng)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "routeCode",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "active",
+     "boolean",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "NOT_FOUND",
+    "CONFLICT_VERSION",
+    "BUSINESS_RULE:E_IN_USE"
+   ],
+   "reads": [
+    "TUYEN_VC"
+   ],
+   "writes": [
+    "TUYEN_VC"
+   ],
+   "audit": "SET_ACTIVE",
+   "lock": true
+  },
+  {
+   "action": "vehicles.resolvePlate",
+   "group": "Danh mục",
+   "desc": "Chuẩn hóa mã xe bất kỳ (`DH_92H00192`, `92H00195`) → biển số chuẩn",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "codes",
+     "array<string>",
+     true,
+     ""
+    ]
+   ],
+   "output": "{results:[{input, plateNo|null, ownerUnitCode}]}",
+   "errors": [],
+   "reads": [
+    "XE"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "vehicles.usage",
+   "group": "Danh mục",
+   "desc": "Xe đang dùng ở đâu: phiếu cân, dòng dầu, kỳ tính, hợp đồng — biết có sửa biển số / xóa được không",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "plateNo",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{tickets, fuelRows, fuelInPeriod, periodLines, contracts, blockers, canRename}",
+   "errors": [],
+   "reads": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "FUEL_DETAIL",
+    "BKVC_LINE",
+    "TRANSPORT_DETAIL",
+    "HOP_DONG_XE"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "vehicleKm.list",
+   "group": "Danh mục",
+   "desc": "Các lần chốt đồng hồ km của xe (vd đầu năm / cuối năm) + cảnh báo đồng hồ giảm",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "plateNo",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{items[{id, date, odometer, readAt(DAU_NGAY|CUOI_NGAY), point, note}], warnings[{date, message}]}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "XE_KM"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "vehicleKm.save",
+   "group": "Danh mục",
+   "desc": "Lưu các lần chốt đồng hồ km của 1 xe: thêm / sửa; số đồng hồ để trống = xóa lần chốt ngày đó",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "plateNo",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "rows",
+     "array<{date, odometer, readAt, note}>",
+     true,
+     "readAt: DAU_NGAY (trước các chuyến trong ngày) | CUOI_NGAY (sau các chuyến)"
+    ]
+   ],
+   "output": "{added, updated, deleted, warnings}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "XE_KM",
+    "XE"
+   ],
+   "writes": [
+    "XE_KM"
+   ],
+   "audit": "CREATE/UPDATE/DELETE",
+   "lock": true
+  },
+  {
+   "action": "vehicles.rename",
+   "group": "Danh mục",
+   "desc": "Sửa biển số xe nhập nhầm: tạo xe đúng, chuyển phạm vi xe hợp đồng + dòng dầu chưa tính kỳ, xóa xe sai. Chỉ khi xe sai chưa có phiếu cân / chưa vào kỳ",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "plateNo",
+     "string",
+     true,
+     "biển số đang sai"
+    ],
+    [
+     "newPlateNo",
+     "string",
+     true,
+     "biển số đúng"
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ],
+    [
+     "reason",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{record, from, to, contractRows, fuelRows, warnings}",
+   "errors": [
+    "NOT_FOUND",
+    "VALIDATION_FAILED",
+    "DUPLICATE",
+    "CONFLICT_VERSION"
+   ],
+   "reads": [
+    "XE",
+    "HOP_DONG_XE",
+    "GIAO_NHAN_DAU"
+   ],
+   "writes": [
+    "XE",
+    "HOP_DONG_XE",
+    "GIAO_NHAN_DAU"
+   ],
+   "audit": "RENAME",
+   "lock": true
+  },
+  {
+   "action": "vehicles.delete",
+   "group": "Danh mục",
+   "desc": "Xóa xe nhập nhầm — chỉ khi chưa dùng ở đâu (không phiếu cân, dòng dầu, hợp đồng); đã dùng thì Ngừng dùng",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "plateNo",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{deleted, warnings}",
+   "errors": [
+    "NOT_FOUND",
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "XE"
+   ],
+   "writes": [
+    "XE"
+   ],
+   "audit": "DELETE",
+   "lock": true
+  },
+  {
+   "action": "prices.list",
+   "group": "Đơn giá",
+   "desc": "Lịch sử phiên bản giá theo tuyến (+ hợp đồng)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "routeCode",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "contractId",
+     "string",
+     false,
+     "trống = giá chung"
+    ],
+    [
+     "status",
+     "enum(DRAFT|ACTIVE|CLOSED)",
+     false,
+     ""
+    ]
+   ],
+   "output": "{items:[PRICE_HISTORY + contractPrice tính sẵn]}",
+   "errors": [],
+   "reads": [
+    "PRICE_HISTORY"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "prices.preview",
+   "group": "Đơn giá",
+   "desc": "Tính Tầng A (ĐG 1 chuyến → ĐG_HĐ) cho 1 bộ tham số, không lưu — dùng khi nhập giá mới",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "record",
+     "object",
+     true,
+     "tham số giá + tuyến"
+    ]
+   ],
+   "output": "{tripPrice, fuelPerTrip, fuelCostPerTrip, fuelCostRatio, priceNoDiesel, contractPrice, trace}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "TUYEN_VC",
+    "CONFIG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "prices.createVersion",
+   "group": "Đơn giá",
+   "desc": "Tạo phiên bản giá mới (DRAFT); phiên bản cũ không bị sửa",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "record",
+     "object",
+     true,
+     "routeCode, contractId?, effectiveFrom, newPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, basePriceExclVat, sourceNote"
+    ]
+   ],
+   "output": "{record, contractPrice}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "BUSINESS_RULE:E_PRICE_DATE_OVERLAP"
+   ],
+   "reads": [
+    "PRICE_HISTORY"
+   ],
+   "writes": [
+    "PRICE_HISTORY"
+   ],
+   "audit": "PRICE_CREATE",
+   "lock": true
+  },
+  {
+   "action": "prices.updateDraft",
+   "group": "Đơn giá",
+   "desc": "Sửa phiên bản DRAFT (cấm khi ACTIVE đã dùng)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "priceId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "record",
+     "object",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "BUSINESS_RULE:E_PRICE_USED",
+    "CONFLICT_VERSION"
+   ],
+   "reads": [
+    "PRICE_HISTORY"
+   ],
+   "writes": [
+    "PRICE_HISTORY"
+   ],
+   "audit": "PRICE_UPDATE",
+   "lock": true
+  },
+  {
+   "action": "prices.activate",
+   "group": "Đơn giá",
+   "desc": "Kích hoạt DRAFT → ACTIVE; tự đóng phiên bản trước (effective_to = ngày mới − 1)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "priceId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{activated, closed}",
+   "errors": [
+    "BUSINESS_RULE:E_PRICE_DATE_OVERLAP"
+   ],
+   "reads": [
+    "PRICE_HISTORY"
+   ],
+   "writes": [
+    "PRICE_HISTORY"
+   ],
+   "audit": "PRICE_ACTIVATE",
+   "lock": true
+  },
+  {
+   "action": "contracts.list",
+   "group": "Hợp đồng",
+   "desc": "Danh sách hợp đồng (KE_TOAN chỉ thấy HĐ đơn vị mình là bên VC hoặc bên thuê)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "unit_code ∈ {carrier, customer}; ADMIN: tất cả",
+   "input": [
+    [
+     "includeInactive",
+     "boolean",
+     false,
+     ""
+    ]
+   ],
+   "output": "{items:[HOP_DONG + signers đã xác định + vehicleCount]}",
+   "errors": [],
+   "reads": [
+    "HOP_DONG",
+    "HOP_DONG_XE",
+    "DON_VI"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "contracts.save",
+   "group": "Hợp đồng",
+   "desc": "Tạo / sửa hợp đồng: số HĐ, ngày hiệu lực, bên thuê, bên VC (người dùng tự điền)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "KE_TOAN: chỉ HĐ mà đơn vị mình là bên VC",
+   "input": [
+    [
+     "record",
+     "object",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     false,
+     "khi sửa"
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "DUPLICATE",
+    "BUSINESS_RULE:E_SAME_PARTY",
+    "BUSINESS_RULE:E_NOT_CARRIER"
+   ],
+   "reads": [
+    "HOP_DONG",
+    "DON_VI"
+   ],
+   "writes": [
+    "HOP_DONG"
+   ],
+   "audit": "CREATE/UPDATE",
+   "lock": true
+  },
+  {
+   "action": "archive.years",
+   "group": "Dữ liệu",
+   "desc": "Lưu trữ theo năm: số phiếu / dầu / kỳ từng năm đang dùng, các năm đã lưu trữ, năm đang mở xem",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{items[{year, archived, live{tickets, fuel, periods, drafts}, archive{archivedAt, by, counts, zip, sizeBytes, folderOk}, mounted, canArchive, canReopen}], archivedThrough, mounted}",
+   "errors": [],
+   "reads": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "KY_TINH"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "archive.preview",
+   "group": "Dữ liệu",
+   "desc": "Xem trước lưu trữ đến hết năm Y: số dòng chuyển đi, kỳ nháp, phiếu / dầu chưa tính, kỳ vắt năm được giữ lại",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "year",
+     "integer",
+     true,
+     ""
+    ]
+   ],
+   "output": "{year, counts, tickets, fuel, periods, drafts, unusedTickets, unusedFuel, keptPeriods, checks}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "KY_TINH",
+    "TRANSPORT_DETAIL",
+    "FUEL_DETAIL"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "archive.archive",
+   "group": "Dữ liệu",
+   "desc": "Lưu trữ đến hết năm Y: sao lưu an toàn → ghi archive/<Y> + file zip lưu trữ (chép ra USB/Drive) → bỏ khỏi kho đang dùng",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "year",
+     "integer",
+     true,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{year, counts, zip, sizeBytes, mirrored, safetyBackup}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "KY_TINH"
+   ],
+   "writes": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "KY_TINH",
+    "TRANSPORT_CALCULATION",
+    "TRANSPORT_DETAIL",
+    "FUEL_DETAIL",
+    "BKVC_LINE",
+    "CALC_RUN",
+    "AUDIT_LOG"
+   ],
+   "audit": "ARCHIVE_YEAR",
+   "lock": true
+  },
+  {
+   "action": "archive.mount",
+   "group": "Dữ liệu",
+   "desc": "Mở năm lưu trữ để XEM (chỉ đọc) — báo cáo / tra cứu theo khoảng ngày chạm năm lưu trữ cũng tự mở",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "year",
+     "integer",
+     true,
+     ""
+    ]
+   ],
+   "output": "{year, mounted, rows}",
+   "errors": [
+    "NOT_FOUND",
+    "INTEGRITY_ERROR"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "archive.unmount",
+   "group": "Dữ liệu",
+   "desc": "Thôi xem năm lưu trữ (bỏ khỏi bộ nhớ); không truyền year = thôi xem tất cả",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "year",
+     "integer",
+     false,
+     ""
+    ]
+   ],
+   "output": "{mounted}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "archive.reopen",
+   "group": "Dữ liệu",
+   "desc": "Mở lại năm lưu trữ gần nhất: đưa dữ liệu trở lại kho đang dùng (sửa / nhập được)",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "year",
+     "integer",
+     true,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{year, counts}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "PHIEU_CAN"
+   ],
+   "writes": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "KY_TINH",
+    "AUDIT_LOG"
+   ],
+   "audit": "REOPEN_YEAR",
+   "lock": true
+  },
+  {
+   "action": "archive.restoreFile",
+   "group": "Dữ liệu",
+   "desc": "Nạp lại thư mục lưu trữ năm từ file zip lưu trữ (máy mới / sau khôi phục)",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "file",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{year, ok}",
+   "errors": [
+    "NOT_FOUND",
+    "VALIDATION_FAILED",
+    "INTEGRITY_ERROR"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "contracts.usage",
+   "group": "Hợp đồng",
+   "desc": "Hợp đồng đang dùng ở đâu (kỳ tính, dòng dầu, lô import, giá riêng, phạm vi xe) — biết có sửa mã / hai bên, xóa được không",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{periods, fuelRows, importBatches, prices, vehicles, blockers, canEditParties, canDelete}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "HOP_DONG",
+    "KY_TINH",
+    "GIAO_NHAN_DAU",
+    "IMPORT_BATCH",
+    "PRICE_HISTORY",
+    "HOP_DONG_XE"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "contracts.delete",
+   "group": "Hợp đồng",
+   "desc": "Xóa hợp đồng nhập nhầm — chỉ khi chưa có kỳ tính / dòng dầu; xóa kèm phạm vi xe và giá riêng chưa dùng. Đã dùng thì Ngừng dùng",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{deleted, contractCode, vehicleRows, priceRows, warnings}",
+   "errors": [
+    "NOT_FOUND",
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "HOP_DONG"
+   ],
+   "writes": [
+    "HOP_DONG",
+    "HOP_DONG_XE",
+    "PRICE_HISTORY"
+   ],
+   "audit": "DELETE",
+   "lock": true
+  },
+  {
+   "action": "contracts.setVehicles",
+   "group": "Hợp đồng",
+   "desc": "Ghi phạm vi xe (danh sách + hiệu lực)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "như contracts.save",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "vehicles",
+     "array<{plateNo, effectiveFrom, effectiveTo?}>",
+     true,
+     ""
+    ]
+   ],
+   "output": "{items}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "HOP_DONG_XE",
+    "XE"
+   ],
+   "writes": [
+    "HOP_DONG_XE"
+   ],
+   "audit": "CONTRACT_VEHICLES",
+   "lock": true
+  },
+  {
+   "action": "contracts.suggestVehicles",
+   "group": "Hợp đồng",
+   "desc": "Gợi ý phạm vi xe = xe bên VC + xe của các HĐ mà bên VC là bên thuê",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{plates:[{plateNo, ownerUnitCode, reason}]}",
+   "errors": [],
+   "reads": [
+    "XE",
+    "HOP_DONG",
+    "HOP_DONG_XE"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "contracts.resolveSigners",
+   "group": "Hợp đồng",
+   "desc": "Người ký 2 bên theo sign_priority (hoặc giá trị ghi đè)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{carrier:{unit, signer:{name,title}, accountant}, customer:{…}, source: RULE|OVERRIDE}",
+   "errors": [],
+   "reads": [
+    "HOP_DONG",
+    "DON_VI",
+    "CONFIG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "tickets.list",
+   "group": "Phiếu cân",
+   "desc": "Tra cứu phiếu cân",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "dateFrom",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "routeCode",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "plateNo",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "ownerUnitCode",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "contractId",
+     "string",
+     false,
+     "kèm trạng thái sử dụng theo HĐ này"
+    ],
+    [
+     "usage",
+     "enum(CHUA_TINH|DA_DUA_VAO_KY|DA_XAC_NHAN|DA_KHOA)",
+     false,
+     "cần contractId"
+    ],
+    [
+     "hasFlags",
+     "boolean",
+     false,
+     ""
+    ],
+    [
+     "q",
+     "string",
+     false,
+     "số phiếu / biển số"
+    ],
+    [
+     "page",
+     "integer",
+     false,
+     "mặc định 1"
+    ],
+    [
+     "pageSize",
+     "integer",
+     false,
+     "mặc định 100, tối đa 1000"
+    ],
+    [
+     "sort",
+     "string",
+     false,
+     "vd `weigh1_date:desc`"
+    ]
+   ],
+   "output": "{items:[PHIEU_CAN + usageByContract:[{contractCode, periodCode, state}]], total, sums:{trips, kg}}",
+   "errors": [],
+   "reads": [
+    "PHIEU_CAN",
+    "TRANSPORT_DETAIL",
+    "KY_TINH"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "tickets.get",
+   "group": "Phiếu cân",
+   "desc": "Chi tiết 1 phiếu + các kỳ đã dùng + audit",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "ticketId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{record, usages, raw, audit}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "TRANSPORT_DETAIL",
+    "AUDIT_LOG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "tickets.update",
+   "group": "Phiếu cân",
+   "desc": "Sửa phiếu — cấm nếu đang ở kỳ DA_XAC_NHAN/DA_KHOA; kỳ NHAP → needs_recalc",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "ticketId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "changes",
+     "object",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{record, affectedPeriods}",
+   "errors": [
+    "CONFLICT_VERSION",
+    "BUSINESS_RULE:E_TICKET_LOCKED",
+    "BUSINESS_RULE:E_TICKET_IDENTITY",
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "TRANSPORT_DETAIL"
+   ],
+   "writes": [
+    "PHIEU_CAN",
+    "KY_TINH"
+   ],
+   "audit": "UPDATE",
+   "lock": true
+  },
+  {
+   "action": "tickets.previewBulkDescriptive",
+   "group": "Phiếu cân",
+   "desc": "Xem trước sửa hàng loạt 1 cột mô tả (LDĐ, nguồn gốc, khách hàng, kiểu cân, đơn vị VC): đếm phiếu, phiếu ở kỳ đã xác nhận/khóa",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "field",
+     "enum(ldd|origin|customer|weigh_type|transport_unit_name)",
+     true,
+     ""
+    ],
+    [
+     "fromValue",
+     "string",
+     true,
+     "giá trị đang có (khớp chính xác)"
+    ],
+    [
+     "toValue",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "dateFrom",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ]
+   ],
+   "output": "{count, kg, inConfirmed, inLocked, periods:[periodCode], sample}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "TRANSPORT_DETAIL",
+    "KY_TINH"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "tickets.bulkUpdateDescriptive",
+   "group": "Phiếu cân",
+   "desc": "Sửa hàng loạt 1 cột mô tả — không ảnh hưởng số tính; phiếu ở kỳ đã khóa cần quyền mở khóa; bắt buộc lý do; audit từng phiếu",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "field",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "fromValue",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "toValue",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "dateFrom",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "clientRequestId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{updated, periods}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "FORBIDDEN"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "TRANSPORT_DETAIL",
+    "KY_TINH"
+   ],
+   "writes": [
+    "PHIEU_CAN"
+   ],
+   "audit": "BULK_UPDATE",
+   "lock": true
+  },
+  {
+   "action": "tickets.softDelete",
+   "group": "Phiếu cân",
+   "desc": "Xóa mềm (cấm nếu đang dùng ở kỳ chưa hủy)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "ticketId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "BUSINESS_RULE:E_IN_USE"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "TRANSPORT_DETAIL"
+   ],
+   "writes": [
+    "PHIEU_CAN"
+   ],
+   "audit": "DELETE",
+   "lock": true
+  },
+  {
+   "action": "tickets.softDeleteMany",
+   "group": "Phiếu cân",
+   "desc": "Xóa mềm nhiều phiếu (vd file import nhầm); phiếu ở kỳ đã xác nhận / khóa bỏ qua và báo lại; kỳ nháp → phải tính lại",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "ticketIds",
+     "array<string>",
+     true,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{deleted, skipped:[{ticketId, ticketNo, periodCode}], affectedPeriods}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "TRANSPORT_DETAIL"
+   ],
+   "writes": [
+    "PHIEU_CAN",
+    "KY_TINH"
+   ],
+   "audit": "DELETE",
+   "lock": true
+  },
+  {
+   "action": "tickets.restore",
+   "group": "Phiếu cân",
+   "desc": "Khôi phục phiếu đã xóa (cũng tự khôi phục khi import lại phiếu đó)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "ticketId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "PHIEU_CAN"
+   ],
+   "writes": [
+    "PHIEU_CAN"
+   ],
+   "audit": "RESTORE",
+   "lock": true
+  },
+  {
+   "action": "tickets.ackFlags",
+   "group": "Phiếu cân",
+   "desc": "Xác nhận cảnh báo (giữ nguyên dữ liệu)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "ticketIds",
+     "array<string>",
+     true,
+     ""
+    ],
+    [
+     "note",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{updated}",
+   "errors": [],
+   "reads": [
+    "PHIEU_CAN"
+   ],
+   "writes": [
+    "PHIEU_CAN"
+   ],
+   "audit": "ACK_FLAGS",
+   "lock": true
+  },
+  {
+   "action": "fuel.list",
+   "group": "Giao nhận dầu",
+   "desc": "Bảng kê dầu theo hợp đồng",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "theo quyền xem hợp đồng",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "dateFrom",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "plateNo",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "usage",
+     "enum(CHUA_TINH|DA_DUA_VAO_KY|DA_XAC_NHAN|DA_KHOA)",
+     false,
+     ""
+    ],
+    [
+     "hasFlags",
+     "boolean",
+     false,
+     ""
+    ],
+    [
+     "page",
+     "integer",
+     false,
+     "mặc định 1"
+    ],
+    [
+     "pageSize",
+     "integer",
+     false,
+     "mặc định 100, tối đa 1000"
+    ],
+    [
+     "sort",
+     "string",
+     false,
+     "vd `weigh1_date:desc`"
+    ]
+   ],
+   "output": "{items, total, sums:{liters, avgPrice}}",
+   "errors": [],
+   "reads": [
+    "GIAO_NHAN_DAU",
+    "FUEL_DETAIL"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "fuel.saveRows",
+   "group": "Giao nhận dầu",
+   "desc": "Nhập tay nhiều dòng dầu cho 1 hợp đồng (validate như import)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "như contracts.save",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "rows",
+     "array<object>",
+     true,
+     ""
+    ]
+   ],
+   "output": "{saved, rowResults}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "BUSINESS_RULE:E_NOT_CARRIER"
+   ],
+   "reads": [
+    "GIAO_NHAN_DAU",
+    "XE"
+   ],
+   "writes": [
+    "GIAO_NHAN_DAU"
+   ],
+   "audit": "CREATE",
+   "lock": true
+  },
+  {
+   "action": "fuel.update",
+   "group": "Giao nhận dầu",
+   "desc": "Sửa 1 dòng dầu (luật như tickets.update)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "receiptId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "changes",
+     "object",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{record, affectedPeriods}",
+   "errors": [
+    "CONFLICT_VERSION",
+    "BUSINESS_RULE:E_FUEL_LOCKED"
+   ],
+   "reads": [
+    "GIAO_NHAN_DAU",
+    "FUEL_DETAIL"
+   ],
+   "writes": [
+    "GIAO_NHAN_DAU",
+    "KY_TINH"
+   ],
+   "audit": "UPDATE",
+   "lock": true
+  },
+  {
+   "action": "fuel.softDelete",
+   "group": "Giao nhận dầu",
+   "desc": "Xóa mềm dòng dầu",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "receiptId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "BUSINESS_RULE:E_IN_USE"
+   ],
+   "reads": [
+    "GIAO_NHAN_DAU",
+    "FUEL_DETAIL"
+   ],
+   "writes": [
+    "GIAO_NHAN_DAU"
+   ],
+   "audit": "DELETE",
+   "lock": true
+  },
+  {
+   "action": "fuel.ackFlags",
+   "group": "Giao nhận dầu",
+   "desc": "Xác nhận cảnh báo dòng dầu (vd nghi trùng nhưng không trùng)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "receiptIds",
+     "array<string>",
+     true,
+     ""
+    ],
+    [
+     "note",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{updated}",
+   "errors": [],
+   "reads": [
+    "GIAO_NHAN_DAU"
+   ],
+   "writes": [
+    "GIAO_NHAN_DAU"
+   ],
+   "audit": "ACK_FLAGS",
+   "lock": true
+  },
+  {
+   "action": "import.template",
+   "group": "Import",
+   "desc": "Tạo FILE EXCEL MẪU để import theo danh mục hiện tại của bản cài: sheet nhập liệu (tiêu đề đúng tên cột phần mềm nhận, cột bắt buộc có *, định dạng ô, danh sách chọn tuyến / xe / đơn vị, tô màu ô thiếu / KL lệch), HUONG_DAN, DANH_MUC, VI_DU",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "importType",
+     "enum(PHIEU_CAN|GIAO_NHAN_DAU)",
+     true,
+     ""
+    ],
+    [
+     "contractId",
+     "string",
+     false,
+     "bắt buộc với GIAO_NHAN_DAU (danh sách xe của hợp đồng)"
+    ],
+    [
+     "targetPath",
+     "string",
+     false,
+     "từ dialog.saveFile; trống = thư mục exports"
+    ]
+   ],
+   "output": "{path, sizeBytes, sheet, firstDataRow, columns[{header, required}]}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "TUYEN_VC",
+    "XE",
+    "HOP_DONG_XE",
+    "DON_VI",
+    "HOP_DONG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "import.preview",
+   "group": "Import",
+   "desc": "Bước 1: main process đọc file Excel/CSV theo đường dẫn → gợi ý mapping, kiểm tra từng dòng, giữ dữ liệu tạm trong bộ nhớ theo batchId. KHÔNG ghi dữ liệu",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "importType",
+     "enum(PHIEU_CAN|GIAO_NHAN_DAU)",
+     true,
+     ""
+    ],
+    [
+     "contractId",
+     "string",
+     false,
+     "bắt buộc với GIAO_NHAN_DAU; HĐ bên VC = đơn vị bản cài"
+    ],
+    [
+     "filePath",
+     "string",
+     true,
+     "từ dialog.openFile"
+    ],
+    [
+     "sheetName",
+     "string",
+     false,
+     "trống = sheet đầu / tự dò sheet có header phù hợp"
+    ],
+    [
+     "headerRow",
+     "integer",
+     false,
+     "trống = tự dò"
+    ],
+    [
+     "mapping",
+     "object",
+     false,
+     "trống = tự gợi ý; gửi lại để preview với mapping mới"
+    ]
+   ],
+   "output": "{batchId, fileSha256, sameFileImportedBefore, sheets, mapping, summary:{total, ok, warning, error, duplicate}, rows:[{rowNo, status, flags:[code], normalized}] (trang đầu), page}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "BUSINESS_RULE:E_MAPPING_REQUIRED",
+    "BUSINESS_RULE:E_NOT_CARRIER",
+    "STORAGE_ERROR"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "XE",
+    "TUYEN_VC",
+    "DON_VI",
+    "IMPORT_BATCH"
+   ],
+   "writes": [
+    "IMPORT_BATCH"
+   ],
+   "audit": "IMPORT_PREVIEW",
+   "lock": true
+  },
+  {
+   "action": "import.previewRows",
+   "group": "Import",
+   "desc": "Xem trang tiếp theo / lọc dòng lỗi của lô đang preview",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "batchId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "status",
+     "enum(OK|WARNING|ERROR)",
+     false,
+     ""
+    ],
+    [
+     "page",
+     "integer",
+     false,
+     "mặc định 1"
+    ],
+    [
+     "pageSize",
+     "integer",
+     false,
+     "mặc định 100, tối đa 1000"
+    ],
+    [
+     "sort",
+     "string",
+     false,
+     "vd `weigh1_date:desc`"
+    ]
+   ],
+   "output": "{rows, total}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "import.confirm",
+   "group": "Import",
+   "desc": "Bước 2: kiểm tra lại (dữ liệu có thể đã đổi) → ghi 1 giao dịch",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "batchId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "skipRowNos",
+     "array<integer>",
+     false,
+     "dòng người dùng bỏ"
+    ],
+    [
+     "acceptWarnings",
+     "boolean",
+     true,
+     ""
+    ],
+    [
+     "clientRequestId",
+     "string",
+     true,
+     "chống bấm 2 lần"
+    ]
+   ],
+   "output": "{inserted, skipped, errors, batch}",
+   "errors": [
+    "BUSINESS_RULE:E_PREVIEW_STALE",
+    "BUSINESS_RULE:E_IMPORT_HAS_ERRORS",
+    "DUPLICATE",
+    "STORAGE_ERROR"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "XE"
+   ],
+   "writes": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "IMPORT_BATCH"
+   ],
+   "audit": "IMPORT_CONFIRM",
+   "lock": true
+  },
+  {
+   "action": "import.cancel",
+   "group": "Import",
+   "desc": "Hủy lô PREVIEW",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "batchId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{batch}",
+   "errors": [],
+   "reads": [
+    "IMPORT_BATCH"
+   ],
+   "writes": [
+    "IMPORT_BATCH"
+   ],
+   "audit": "IMPORT_CANCEL",
+   "lock": true
+  },
+  {
+   "action": "import.list",
+   "group": "Import",
+   "desc": "Lịch sử import",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "importType",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "page",
+     "integer",
+     false,
+     "mặc định 1"
+    ],
+    [
+     "pageSize",
+     "integer",
+     false,
+     "mặc định 100, tối đa 1000"
+    ],
+    [
+     "sort",
+     "string",
+     false,
+     "vd `weigh1_date:desc`"
+    ]
+   ],
+   "output": "{items, total}",
+   "errors": [],
+   "reads": [
+    "IMPORT_BATCH"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "periods.list",
+   "group": "Tính giá",
+   "desc": "Danh sách kỳ",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "theo quyền xem hợp đồng",
+   "input": [
+    [
+     "contractId",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "status",
+     "enum(NHAP|DA_XAC_NHAN|DA_KHOA|HUY)",
+     false,
+     ""
+    ],
+    [
+     "dateFrom",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "page",
+     "integer",
+     false,
+     "mặc định 1"
+    ],
+    [
+     "pageSize",
+     "integer",
+     false,
+     "mặc định 100, tối đa 1000"
+    ],
+    [
+     "sort",
+     "string",
+     false,
+     "vd `weigh1_date:desc`"
+    ]
+   ],
+   "output": "{items:[KY_TINH + tóm tắt kết quả], total}",
+   "errors": [],
+   "reads": [
+    "KY_TINH",
+    "TRANSPORT_CALCULATION"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "periods.preview",
+   "group": "Tính giá",
+   "desc": "Chọn HĐ + Từ–Đến ngày (+ tuyến) → ứng viên phiếu/dầu, lỗi, cảnh báo, kết quả dự tính. KHÔNG ghi",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "chỉ HĐ mà đơn vị user là bên VC (ADMIN: tất cả)",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "dateFrom",
+     "date",
+     true,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     true,
+     ""
+    ],
+    [
+     "routeCode",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "periodId",
+     "string",
+     false,
+     "khi tính lại kỳ đã có"
+    ],
+    [
+     "vatRate",
+     "number",
+     false,
+     "thuế suất GTGT (0.08); trống = của kỳ / theo lịch VAT_RATE_SCHEDULE"
+    ]
+   ],
+   "output": "{candidates:{tickets:[…], fuel:[…]}, blocked:[{ticketId, code, periodCode}], issues:[{code, level, message, refs}], results:[…như calculate…], canCalculate}",
+   "errors": [
+    "BUSINESS_RULE:E_NOT_CARRIER",
+    "BUSINESS_RULE:E_CONTRACT_INACTIVE"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "HOP_DONG",
+    "HOP_DONG_XE",
+    "PRICE_HISTORY",
+    "TUYEN_VC",
+    "TRANSPORT_DETAIL",
+    "FUEL_DETAIL",
+    "KY_TINH",
+    "CONFIG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "periods.calculate",
+   "group": "Tính giá",
+   "desc": "TÍNH GIÁ: tạo kỳ (nếu chưa có) hoặc tính lại; ghi kết quả + chi tiết + BKVC trong 1 CALC_RUN",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "như periods.preview",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "dateFrom",
+     "date",
+     true,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     true,
+     ""
+    ],
+    [
+     "routeCode",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "periodId",
+     "string",
+     false,
+     "tính lại"
+    ],
+    [
+     "vatRate",
+     "number",
+     false,
+     "thuế suất GTGT trong VAT_RATE_OPTIONS; trống = giữ của kỳ / theo lịch"
+    ],
+    [
+     "excludeTicketIds",
+     "array<string>",
+     false,
+     "bỏ khỏi kỳ"
+    ],
+    [
+     "excludeReceiptIds",
+     "array<string>",
+     false,
+     ""
+    ],
+    [
+     "moveFromDraft",
+     "boolean",
+     false,
+     "cho phép lấy phiếu đang ở kỳ NHAP khác (BL-34)"
+    ],
+    [
+     "overrides",
+     "array<{code, routeCode, reason, fuelPrice?}>",
+     false,
+     "vd E_NO_FUEL cho phép dầu = 0 (cần lý do + fuelPrice chưa VAT)"
+    ],
+    [
+     "reportDate",
+     "date",
+     false,
+     "ngày ký BKVC"
+    ],
+    [
+     "clientRequestId",
+     "string",
+     true,
+     "chống bấm 2 lần"
+    ]
+   ],
+   "output": "{period, runId, results:[TRANSPORT_CALCULATION], bkvc:{lines, totals}, issues}",
+   "errors": [
+    "BUSINESS_RULE:E_TICKET_USED_IN_PERIOD",
+    "BUSINESS_RULE:E_PERIOD_STATUS",
+    "BUSINESS_RULE:E_CALC_BLOCKED",
+    "BUSINESS_RULE:E_READONLY_IMPORTED",
+    "STORAGE_ERROR",
+    "CONFLICT_VERSION"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "HOP_DONG",
+    "HOP_DONG_XE",
+    "PRICE_HISTORY",
+    "TUYEN_VC",
+    "TRANSPORT_DETAIL",
+    "FUEL_DETAIL",
+    "KY_TINH",
+    "CONFIG"
+   ],
+   "writes": [
+    "CALC_RUN",
+    "KY_TINH",
+    "TRANSPORT_CALCULATION",
+    "TRANSPORT_DETAIL",
+    "FUEL_DETAIL",
+    "BKVC_LINE"
+   ],
+   "audit": "CALC/RECALC",
+   "lock": true
+  },
+  {
+   "action": "periods.get",
+   "group": "Tính giá",
+   "desc": "Chi tiết kỳ: kết quả hiện hành, BKVC, lịch sử các lần tính, phiếu / dòng dầu đã bỏ khỏi kỳ (exclusions)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "theo quyền xem hợp đồng",
+   "input": [
+    [
+     "periodId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "include",
+     "array<enum(results|bkvc|runs|issues)>",
+     false,
+     ""
+    ]
+   ],
+   "output": "{period, results, bkvc, runs, issues}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "KY_TINH",
+    "TRANSPORT_CALCULATION",
+    "BKVC_LINE",
+    "CALC_RUN"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "periods.confirm",
+   "group": "Tính giá",
+   "desc": "Xác nhận kỳ: NHAP → DA_XAC_NHAN; usage_state = CONFIRMED; PRICE_HISTORY.is_used = TRUE",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "bên VC của HĐ",
+   "input": [
+    [
+     "periodId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{period}",
+   "errors": [
+    "BUSINESS_RULE:E_PERIOD_STATUS",
+    "CONFLICT_VERSION",
+    "FORBIDDEN",
+    "BUSINESS_RULE:E_NEEDS_RECALC"
+   ],
+   "reads": [
+    "KY_TINH"
+   ],
+   "writes": [
+    "KY_TINH",
+    "TRANSPORT_DETAIL",
+    "FUEL_DETAIL",
+    "CALC_RUN",
+    "PRICE_HISTORY"
+   ],
+   "audit": "CONFIRM",
+   "lock": true
+  },
+  {
+   "action": "periods.lock",
+   "group": "Tính giá",
+   "desc": "Khóa kỳ: DA_XAC_NHAN → DA_KHOA; usage_state = LOCKED",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "bên VC của HĐ",
+   "input": [
+    [
+     "periodId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{period}",
+   "errors": [
+    "BUSINESS_RULE:E_PERIOD_STATUS",
+    "CONFLICT_VERSION",
+    "FORBIDDEN"
+   ],
+   "reads": [
+    "KY_TINH"
+   ],
+   "writes": [
+    "KY_TINH",
+    "TRANSPORT_DETAIL",
+    "FUEL_DETAIL",
+    "CALC_RUN"
+   ],
+   "audit": "LOCK",
+   "lock": true
+  },
+  {
+   "action": "periods.unlock",
+   "group": "Tính giá",
+   "desc": "Mở khóa: DA_KHOA → DA_XAC_NHAN (cần can_unlock + lý do)",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "bên VC của HĐ; hoặc user can_unlock",
+   "input": [
+    [
+     "periodId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     "bắt buộc"
+    ]
+   ],
+   "output": "{period}",
+   "errors": [
+    "BUSINESS_RULE:E_PERIOD_STATUS",
+    "CONFLICT_VERSION",
+    "FORBIDDEN"
+   ],
+   "reads": [
+    "KY_TINH"
+   ],
+   "writes": [
+    "KY_TINH",
+    "TRANSPORT_DETAIL",
+    "FUEL_DETAIL",
+    "CALC_RUN"
+   ],
+   "audit": "UNLOCK",
+   "lock": true
+  },
+  {
+   "action": "periods.reopen",
+   "group": "Tính giá",
+   "desc": "Trả về nháp để sửa/tính lại: DA_XAC_NHAN → NHAP (cần can_unlock + lý do)",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "bên VC của HĐ; hoặc user can_unlock",
+   "input": [
+    [
+     "periodId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{period}",
+   "errors": [
+    "BUSINESS_RULE:E_PERIOD_STATUS",
+    "CONFLICT_VERSION",
+    "FORBIDDEN"
+   ],
+   "reads": [
+    "KY_TINH"
+   ],
+   "writes": [
+    "KY_TINH",
+    "TRANSPORT_DETAIL",
+    "FUEL_DETAIL",
+    "CALC_RUN"
+   ],
+   "audit": "REOPEN",
+   "lock": true
+  },
+  {
+   "action": "periods.cancel",
+   "group": "Tính giá",
+   "desc": "Hủy kỳ nháp: NHAP → HUY; usage_state = RELEASED",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "bên VC của HĐ",
+   "input": [
+    [
+     "periodId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION"
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{period}",
+   "errors": [
+    "BUSINESS_RULE:E_PERIOD_STATUS",
+    "CONFLICT_VERSION",
+    "FORBIDDEN"
+   ],
+   "reads": [
+    "KY_TINH"
+   ],
+   "writes": [
+    "KY_TINH",
+    "TRANSPORT_DETAIL",
+    "FUEL_DETAIL",
+    "CALC_RUN"
+   ],
+   "audit": "CANCEL",
+   "lock": true
+  },
+  {
+   "action": "calc.trace",
+   "group": "Tính giá",
+   "desc": "XEM CHI TIẾT TÍNH: chuỗi công thức từng bước + link nguồn",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "calcId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{trace (xem §6), priceVersion, config}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "TRANSPORT_CALCULATION",
+    "PRICE_HISTORY"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "calc.tickets",
+   "group": "Tính giá",
+   "desc": "Phiếu cân cấu thành 1 dòng kết quả",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "calcId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "plateNo",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "page",
+     "integer",
+     false,
+     "mặc định 1"
+    ],
+    [
+     "pageSize",
+     "integer",
+     false,
+     "mặc định 100, tối đa 1000"
+    ],
+    [
+     "sort",
+     "string",
+     false,
+     "vd `weigh1_date:desc`"
+    ]
+   ],
+   "output": "{items:[TRANSPORT_DETAIL ⨝ PHIEU_CAN], total, sums}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "TRANSPORT_DETAIL",
+    "PHIEU_CAN"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "calc.fuel",
+   "group": "Tính giá",
+   "desc": "Dòng dầu cấu thành 1 dòng kết quả",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "calcId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{items, sums}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "FUEL_DETAIL",
+    "GIAO_NHAN_DAU"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "validation.run",
+   "group": "Kiểm tra dữ liệu",
+   "desc": "Màn hình KIỂM TRA DỮ LIỆU: quét lỗi theo phạm vi",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "dateFrom",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "codes",
+     "array<string>",
+     false,
+     "lọc mã lỗi"
+    ],
+    [
+     "includeAcked",
+     "boolean",
+     false,
+     ""
+    ]
+   ],
+   "output": "{summary:[{code, level, count}], issues:[{code, level, message, entity, entityId, fields, suggestedFix}]}",
+   "errors": [],
+   "reads": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "TUYEN_VC",
+    "PRICE_HISTORY",
+    "XE",
+    "HOP_DONG_XE"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reports.bkvc",
+   "group": "Báo cáo",
+   "desc": "Dữ liệu Bảng xác nhận KL (đã làm tròn, bằng chữ, người ký)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "periodId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{header:{title, carrier:{name,address,taxCode}, customer:{…}, periodText, reportDate, place, contractNo}, lines, totals:{trips, kg, ton, amount, vat, total}, amountInWords, signers}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "BKVC_LINE",
+    "KY_TINH",
+    "HOP_DONG",
+    "DON_VI",
+    "CONFIG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reports.bkct",
+   "group": "Báo cáo",
+   "desc": "Bảng kê chi tiết phiếu cân của kỳ (16 cột gốc)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "periodId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "plateNo",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "q",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "page",
+     "integer",
+     false,
+     "mặc định 1"
+    ],
+    [
+     "pageSize",
+     "integer",
+     false,
+     "mặc định 100, tối đa 1000"
+    ],
+    [
+     "sort",
+     "string",
+     false,
+     "vd `weigh1_date:desc`"
+    ]
+   ],
+   "output": "{items, total, sums}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "TRANSPORT_DETAIL",
+    "PHIEU_CAN"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reports.pricing",
+   "group": "Báo cáo",
+   "desc": "Bảng tính đơn giá VC của kỳ (17 cột như QR_DGVC (2))",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "periodId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{columns, rows}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "TRANSPORT_CALCULATION"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reports.contractBasis",
+   "group": "Báo cáo",
+   "desc": "Căn cứ tính đơn giá ký hợp đồng (Tầng A) cho mọi tuyến đang dùng tại ngày asOf",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     false,
+     "trống = bảng giá chung; có = giá riêng của hợp đồng thay giá chung"
+    ],
+    [
+     "asOf",
+     "date",
+     false,
+     "mặc định hôm nay"
+    ],
+    [
+     "routeCode",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{title, asOf, contract, carrier, customer, signers, rows[{routeCode, newPrice, avgLoadTon, tripPrice, fuelPerTrip, fuelCostPerTrip, fuelCostRatio, priceNoDiesel, contractPrice, priceId, source}]}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "TUYEN_VC",
+    "PRICE_HISTORY",
+    "HOP_DONG",
+    "CONFIG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reports.tickets",
+   "group": "Báo cáo",
+   "desc": "Danh sách phiếu cân theo khoảng ngày (ngày cân 1) — kèm chủ xe, kỳ tính; xuất Excel qua reports.export TICKETS",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "dateFrom",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "routeCode",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "plateNo",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "ownerUnitCode",
+     "string",
+     false,
+     "nhóm xe (chủ xe)"
+    ],
+    [
+     "customer",
+     "string",
+     false,
+     "chứa chữ"
+    ]
+   ],
+   "output": "{title, subtitle, columns, rows, totalsRow}",
+   "errors": [],
+   "reads": [
+    "PHIEU_CAN",
+    "TRANSPORT_DETAIL",
+    "KY_TINH"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reports.fuel",
+   "group": "Báo cáo",
+   "desc": "Bảng kê giao nhận dầu theo khoảng ngày (ngày nhận), mọi hợp đồng hoặc 1 hợp đồng — xuất Excel qua reports.export FUEL_LIST",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "dateFrom",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "contractId",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "giverUnitCode",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "plateNo",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{title, subtitle, columns, rows, totalsRow, avgPrice}",
+   "errors": [],
+   "reads": [
+    "GIAO_NHAN_DAU",
+    "FUEL_DETAIL",
+    "KY_TINH",
+    "HOP_DONG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reports.volume",
+   "group": "Báo cáo",
+   "desc": "Tổng hợp khối lượng vận chuyển theo khoảng ngày, gom theo 1–2 chiều: CUSTOMER (bên thuê) · OWNER (nhóm xe — chủ xe) · PLATE · ROUTE · CONTRACT · TRANSPORT_UNIT · TICKET_CUSTOMER · ORIGIN · MONTH · DAY",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "dateFrom",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "routeCode",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "groupBy",
+     "enum",
+     false,
+     "mặc định CUSTOMER"
+    ],
+    [
+     "groupBy2",
+     "enum",
+     false,
+     "chiều chi tiết, có dòng cộng từng nhóm"
+    ]
+   ],
+   "output": "{columns, rows[{stt, g1, g2, trips, vehicles, kg, ton, share, _b?}], totalsRow}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "TRANSPORT_DETAIL",
+    "HOP_DONG_XE",
+    "HOP_DONG",
+    "DON_VI"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reports.vehicleLog",
+   "group": "Báo cáo",
+   "desc": "Nhật trình vận chuyển 1 xe theo tháng / quý / năm: ngày, tuyến, cự ly, số chuyến, số km (đi + về), KL hàng, dầu nhận, dầu định mức, chủ hàng; xuất Excel / PDF qua reports.export VEHICLE_LOG",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "plateNo",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "dateFrom",
+     "date",
+     true,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     true,
+     ""
+    ],
+    [
+     "label",
+     "string",
+     false,
+     "vd \"Tháng 09/2026\", \"Quý 3/2026\""
+    ]
+   ],
+   "output": "{title, subtitle, columns, rows[{stt, date, route, distance_km, trips, km, odo, ton, fuel, depot, norm, owner, ticket_nos, _b?}], totalsRow, odo{readings, segments[{fromText, toText, odoStart, odoEnd, odoKm, trips, routeKm, diffKm, diffPct, fuel, per100}], total}, summary{trips, km, ton, fuel, norm, per100, odoKm, odoRouteKm, odoDiffKm, odoDiffPct, per100Odo}}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "GIAO_NHAN_DAU",
+    "TUYEN_VC",
+    "PRICE_HISTORY",
+    "HOP_DONG",
+    "HOP_DONG_XE",
+    "DON_VI"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reports.export",
+   "group": "Báo cáo",
+   "desc": "Xuất file ra đường dẫn đã chọn (XLSX: exceljs; PDF: in HTML báo cáo bằng printToPDF; CSV: UTF-8 BOM)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "report",
+     "enum(BKVC|BKCT|PRICING|PRICING_SHEET|FUEL_HANDOVER|CONTRACT_BASIS|INVOICE|MISA|TICKETS|FUEL_LIST|VOLUME|VEHICLE_LOG)",
+     true,
+     "PRICING_SHEET = bảng tính đơn giá mẫu in; FUEL_HANDOVER = biên bản giao nhận dầu diesel (XLSX/PDF); MISA: chỉ XLSX, chỉ bên vận chuyển"
+    ],
+    [
+     "format",
+     "enum(XLSX|CSV|PDF)",
+     true,
+     ""
+    ],
+    [
+     "params",
+     "object",
+     true,
+     "như API báo cáo tương ứng"
+    ],
+    [
+     "targetPath",
+     "string",
+     true,
+     "từ dialog.saveFile"
+    ]
+   ],
+   "output": "{path, sizeBytes, warnings}",
+   "errors": [
+    "NOT_FOUND",
+    "STORAGE_ERROR",
+    "FORBIDDEN"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "EXPORT",
+   "lock": false
+  },
+  {
+   "action": "reports.misa",
+   "group": "Báo cáo",
+   "desc": "Dữ liệu hóa đơn theo mẫu MISA meInvoice \"Hóa đơn GTGT 1 thuế suất\": 1 kỳ = 1 hóa đơn, mỗi xe 1 dòng; VAT = làm tròn(tổng tiền hàng × thuế suất)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "periodId",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "periodIds",
+     "string[]",
+     false,
+     "nhiều kỳ → nhiều hóa đơn trong 1 file"
+    ],
+    [
+     "invoiceDate",
+     "date",
+     false,
+     "mặc định ngày lập báo cáo của kỳ"
+    ]
+   ],
+   "output": "{invoices:[{no, date, buyer, payment, currency, vatPct, vat, lines, totals, bkvc}], warnings}",
+   "errors": [
+    "NOT_FOUND",
+    "FORBIDDEN"
+   ],
+   "reads": [
+    "KY_TINH",
+    "BKVC_LINE",
+    "DON_VI",
+    "CONFIG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reports.print",
+   "group": "Báo cáo",
+   "desc": "In trực tiếp BKVC / Bảng tính đơn giá / Biên bản giao nhận dầu / BKCT (hộp thoại in của Windows)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "report",
+     "enum(BKVC|PRICING_SHEET|FUEL_HANDOVER|CONTRACT_BASIS|BKCT|PRICING|TICKETS|FUEL_LIST|VOLUME|VEHICLE_LOG)",
+     true,
+     ""
+    ],
+    [
+     "params",
+     "object",
+     true,
+     ""
+    ]
+   ],
+   "output": "{printed}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": "PRINT",
+   "lock": false
+  },
+  {
+   "action": "dashboard.summary",
+   "group": "Báo cáo",
+   "desc": "Dashboard",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "theo quyền xem hợp đồng",
+   "input": [
+    [
+     "dateFrom",
+     "date",
+     true,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     true,
+     ""
+    ],
+    [
+     "routeCode",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "contractId",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "ownerUnitCode",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{trips, kg, ton, actualFuel, standardFuel, fuelDiff, avgTransportPrice (bình quân gia quyền theo tấn), routeCount, unassignedTickets, flaggedTickets}",
+   "errors": [],
+   "reads": [
+    "PHIEU_CAN",
+    "TRANSPORT_CALCULATION",
+    "KY_TINH"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "audit.list",
+   "group": "Quản trị",
+   "desc": "Lịch sử thao tác",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "KE_TOAN/XEM: thao tác trên HĐ mình được xem",
+   "input": [
+    [
+     "entity",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "entityId",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "userEmail",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "action",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "dateFrom",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "page",
+     "integer",
+     false,
+     "mặc định 1"
+    ],
+    [
+     "pageSize",
+     "integer",
+     false,
+     "mặc định 100, tối đa 1000"
+    ],
+    [
+     "sort",
+     "string",
+     false,
+     "vd `weigh1_date:desc`"
+    ]
+   ],
+   "output": "{items, total}",
+   "errors": [],
+   "reads": [
+    "AUDIT_LOG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "users.resetPassword",
+   "group": "Quản trị",
+   "desc": "ADMIN xóa mật khẩu của user → user tự đặt lại khi đăng nhập (must_change_password)",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "username",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{ok}",
+   "errors": [
+    "NOT_FOUND",
+    "BUSINESS_RULE:E_LAST_ADMIN"
+   ],
+   "reads": [
+    "USERS"
+   ],
+   "writes": [
+    "USERS"
+   ],
+   "audit": "RESET_PASSWORD",
+   "lock": true
+  },
+  {
+   "action": "users.list",
+   "group": "Quản trị",
+   "desc": "Danh sách người dùng",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "unitCode",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{items}",
+   "errors": [],
+   "reads": [
+    "USERS"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "users.save",
+   "group": "Quản trị",
+   "desc": "Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này)",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "record",
+     "object",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     false,
+     ""
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "DUPLICATE",
+    "BUSINESS_RULE:E_LAST_ADMIN"
+   ],
+   "reads": [
+    "USERS"
+   ],
+   "writes": [
+    "USERS"
+   ],
+   "audit": "USER_SAVE",
+   "lock": true
+  },
+  {
+   "action": "config.list",
+   "group": "Quản trị",
+   "desc": "Tham số cấu hình",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{items}",
+   "errors": [],
+   "reads": [
+    "CONFIG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "config.save",
+   "group": "Quản trị",
+   "desc": "Sửa tham số (làm tròn, VAT, người ký…) — áp dụng cho kỳ tính SAU; kỳ cũ giữ snapshot",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "key",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "value",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{item}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "CONFIG"
+   ],
+   "writes": [
+    "CONFIG"
+   ],
+   "audit": "CONFIG_UPDATE",
+   "lock": true
+  },
+  {
+   "action": "data.backupNow",
+   "group": "Dữ liệu",
+   "desc": "Sao lưu ngay toàn bộ thư mục dữ liệu thành 1 file .zip (backups/manual)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "note",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{path, sizeBytes, sha256}",
+   "errors": [
+    "STORAGE_ERROR"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "BACKUP",
+   "lock": false
+  },
+  {
+   "action": "data.listBackups",
+   "group": "Dữ liệu",
+   "desc": "Danh sách bản sao lưu (ngày / tháng / thủ công)",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{items:[{path, kind, createdAt, sizeBytes, dataVersion}]}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "data.restore",
+   "group": "Dữ liệu",
+   "desc": "Khôi phục từ 1 bản sao lưu: tự sao lưu hiện trạng trước, thay thư mục tables/, mở lại APP",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "backupPath",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{restoredDataVersion, safetyBackupPath}",
+   "errors": [
+    "INTEGRITY_ERROR",
+    "STORAGE_ERROR"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "RESTORE",
+   "lock": false
+  },
+  {
+   "action": "data.changeFolder",
+   "group": "Dữ liệu",
+   "desc": "Chuyển thư mục dữ liệu sang vị trí khác (copy + kiểm SHA-256 + đổi cấu hình)",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "newFolder",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{dataFolder}",
+   "errors": [
+    "STORAGE_ERROR",
+    "DATA_LOCKED"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "CHANGE_FOLDER",
+   "lock": false
+  },
+  {
+   "action": "exchange.exportPackage",
+   "group": "Trao đổi",
+   "desc": "Xuất gói .dgvc (JSON nén + SHA-256): DANH_MUC (đơn vị, xe, tuyến, giá, HĐ liên quan), PHIEU_CAN (theo khoảng ngày / xe), KY_TINH (kỳ đã xác nhận/khóa + chi tiết + BKVC)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "packageType",
+     "enum(DANH_MUC|PHIEU_CAN|KY_TINH)",
+     true,
+     ""
+    ],
+    [
+     "targetUnitCode",
+     "string",
+     false,
+     "đơn vị nhận"
+    ],
+    [
+     "periodIds",
+     "array<string>",
+     false,
+     "với KY_TINH — chỉ kỳ DA_XAC_NHAN/DA_KHOA"
+    ],
+    [
+     "dateFrom",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "plates",
+     "array<string>",
+     false,
+     "với PHIEU_CAN"
+    ],
+    [
+     "targetPath",
+     "string",
+     true,
+     "từ dialog.saveFile"
+    ]
+   ],
+   "output": "{path, packageSha256, counts}",
+   "errors": [
+    "BUSINESS_RULE:E_PERIOD_STATUS",
+    "STORAGE_ERROR"
+   ],
+   "reads": [
+    "DON_VI",
+    "XE",
+    "TUYEN_VC",
+    "PRICE_HISTORY",
+    "HOP_DONG",
+    "HOP_DONG_XE",
+    "PHIEU_CAN",
+    "KY_TINH",
+    "TRANSPORT_CALCULATION",
+    "TRANSPORT_DETAIL",
+    "FUEL_DETAIL",
+    "BKVC_LINE",
+    "GIAO_NHAN_DAU"
+   ],
+   "writes": [
+    "EXCHANGE_LOG"
+   ],
+   "audit": "EXPORT_PACKAGE",
+   "lock": true
+  },
+  {
+   "action": "exchange.previewPackage",
+   "group": "Trao đổi",
+   "desc": "Đọc gói, kiểm SHA-256 + schemaVersion, so với dữ liệu hiện có → mới / cập nhật / giống / xung đột / thay bản cũ (chỉ khi CÙNG máy gửi gửi lại) / từ chối. Kỳ cùng hợp đồng + khoảng ngày đã nhận từ MÁY KHÁC → xung đột; kỳ có phiếu cân / dòng dầu đã tính ở kỳ khác → từ chối; mã trùng nhưng khác kỳ → đổi mã, lưu riêng. KHÔNG ghi",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "filePath",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "ticketsOnly",
+     "boolean",
+     false,
+     "chỉ lấy phiếu cân trong gói (vd bản cài là bên vận chuyển nhận gói kỳ của máy khác)"
+    ]
+   ],
+   "output": "{previewId, header:{packageType, sourceUnitCode, sourceInstallId, createdAt, schemaVersion}, summary, conflicts:[{table, id, note, changes}], rejected:[{table, id, note}], canImport, ticketsOnly, ticketsInPackage, remapped}",
+   "errors": [
+    "INTEGRITY_ERROR",
+    "BUSINESS_RULE:E_PACKAGE_SCHEMA",
+    "BUSINESS_RULE:E_PACKAGE_OWN"
+   ],
+   "reads": [
+    "DON_VI",
+    "XE",
+    "TUYEN_VC",
+    "PRICE_HISTORY",
+    "HOP_DONG",
+    "HOP_DONG_XE",
+    "PHIEU_CAN",
+    "KY_TINH"
+   ],
+   "writes": [
+    "EXCHANGE_LOG"
+   ],
+   "audit": "IMPORT_PACKAGE_PREVIEW",
+   "lock": true
+  },
+  {
+   "action": "exchange.importPackage",
+   "group": "Trao đổi",
+   "desc": "Nhập gói theo quy tắc gộp (§ Trao đổi); kỳ nhận về là IMPORTED — chỉ xem",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "exchangeId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "resolve",
+     "array<{table, id, choice: LOCAL|INCOMING}>",
+     false,
+     "cách xử lý từng xung đột"
+    ],
+    [
+     "clientRequestId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{counts, exchange}",
+   "errors": [
+    "BUSINESS_RULE:E_PREVIEW_STALE",
+    "BUSINESS_RULE:E_CONFLICT_UNRESOLVED",
+    "STORAGE_ERROR"
+   ],
+   "reads": [
+    "DON_VI",
+    "XE",
+    "TUYEN_VC",
+    "PRICE_HISTORY",
+    "HOP_DONG",
+    "HOP_DONG_XE",
+    "PHIEU_CAN",
+    "KY_TINH"
+   ],
+   "writes": [
+    "DON_VI",
+    "XE",
+    "TUYEN_VC",
+    "PRICE_HISTORY",
+    "HOP_DONG",
+    "HOP_DONG_XE",
+    "PHIEU_CAN",
+    "KY_TINH",
+    "TRANSPORT_CALCULATION",
+    "TRANSPORT_DETAIL",
+    "FUEL_DETAIL",
+    "BKVC_LINE",
+    "GIAO_NHAN_DAU",
+    "EXCHANGE_LOG"
+   ],
+   "audit": "IMPORT_PACKAGE",
+   "lock": true
+  },
+  {
+   "action": "exchange.list",
+   "group": "Trao đổi",
+   "desc": "Lịch sử gói đã xuất / nhập",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "page",
+     "integer",
+     false,
+     "mặc định 1"
+    ],
+    [
+     "pageSize",
+     "integer",
+     false,
+     "mặc định 100, tối đa 1000"
+    ],
+    [
+     "sort",
+     "string",
+     false,
+     "vd `weigh1_date:desc`"
+    ]
+   ],
+   "output": "{items, total}",
+   "errors": [],
+   "reads": [
+    "EXCHANGE_LOG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reconcile.audit",
+   "group": "Đối chiếu",
+   "desc": "Kiểm tra nội bộ (chỉ đọc): phiếu cân của xe thuộc hợp đồng mình vận chuyển mà chưa tính ở kỳ nào — LATE (về muộn, ngày thuộc kỳ đã chốt) · GAP (lọt khe giữa các kỳ) · DRAFT (kỳ nháp chưa tính lại) · EXCLUDED (chủ động bỏ) · WAITING (chờ kỳ sau); kèm xe nằm trong 2 hợp đồng cùng lúc",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "dateFrom",
+     "date",
+     false,
+     "ngày cân 1 từ"
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "includeWaiting",
+     "boolean",
+     false,
+     "kèm phiếu chờ kỳ sau (mặc định không)"
+    ]
+   ],
+   "output": "{summary{LATE,GAP,DRAFT,EXCLUDED,WAITING:{label,count,kg}}, rows[{kind, ticketId, ticketNo, date, plateNo, netKg, contractCode, periodId, periodCode, periodStatus}], overlaps[{plateNo, contractA, contractB, overlap, sameCustomer}], problems}",
+   "errors": [],
+   "reads": [
+    "PHIEU_CAN",
+    "TRANSPORT_DETAIL",
+    "KY_TINH",
+    "CALC_RUN",
+    "HOP_DONG",
+    "HOP_DONG_XE"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reconcile.compare",
+   "group": "Đối chiếu",
+   "desc": "Đối chiếu phiếu cân của đơn vị khác (gói .dgvc có phiếu cân hoặc file Excel phiếu cân) với phiếu cân bên mình theo số phiếu + ngày cân 1 + biển số; không ghi gì",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "filePath",
+     "string",
+     true,
+     "từ dialog.openFile"
+    ],
+    [
+     "dateFrom",
+     "date",
+     false,
+     "mặc định theo file"
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "allPlates",
+     "boolean",
+     false,
+     "so cả xe không có trong file (mặc định chỉ xe có trong file)"
+    ]
+   ],
+   "output": "{source{fileName, sourceText, rows, unreadable, duplicates}, dateFrom, dateTo, summary{KHOP,LECH,KHAC_SO_PHIEU,THIEU_BEN_MINH,THIEU_BEN_KIA}, totals, rows[{kind, date, plateNo, ticketNo, theirTicketNo, mineKg, theirKg, diffKg, fields, periodCode}], byPlate, matched, problems}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "INTEGRITY_ERROR",
+    "E_MAPPING_REQUIRED"
+   ],
+   "reads": [
+    "PHIEU_CAN",
+    "TRANSPORT_DETAIL",
+    "KY_TINH"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reconcile.export",
+   "group": "Đối chiếu",
+   "desc": "Xuất Excel kết quả đối chiếu (nhiều sheet: Tổng hợp · Chi tiết …)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "kind",
+     "enum(AUDIT|COMPARE)",
+     true,
+     ""
+    ],
+    [
+     "params",
+     "object",
+     true,
+     "như reconcile.audit / reconcile.compare"
+    ],
+    [
+     "targetPath",
+     "string",
+     false,
+     "từ dialog.saveFile"
+    ]
+   ],
+   "output": "{path, sizeBytes}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "STORAGE_ERROR"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "EXPORT",
+   "lock": false
+  }
+ ],
+ "errors": [
+  {
+   "code": "SESSION_EXPIRED",
+   "level": 401,
+   "meaning": "Chưa đăng nhập / hết phiên (không thao tác quá SESSION_IDLE_MINUTES)"
+  },
+  {
+   "code": "AUTH_FAILED",
+   "level": 401,
+   "meaning": "Sai tên đăng nhập hoặc mật khẩu"
+  },
+  {
+   "code": "ACCOUNT_LOCKED",
+   "level": 423,
+   "meaning": "Sai mật khẩu quá LOGIN_MAX_FAILED lần — khóa LOGIN_LOCK_MINUTES phút"
+  },
+  {
+   "code": "PASSWORD_NOT_SET",
+   "level": 428,
+   "meaning": "Tài khoản chưa có mật khẩu → auth.setFirstPassword"
+  },
+  {
+   "code": "FORBIDDEN",
+   "level": 403,
+   "meaning": "Không có quyền với action / hợp đồng này"
+  },
+  {
+   "code": "NOT_FOUND",
+   "level": 404,
+   "meaning": "Không tìm thấy bản ghi"
+  },
+  {
+   "code": "VALIDATION_FAILED",
+   "level": 422,
+   "meaning": "Dữ liệu vào sai kiểu / thiếu trường; details = [{field, code, message}]"
+  },
+  {
+   "code": "DUPLICATE",
+   "level": 409,
+   "meaning": "Trùng khóa duy nhất (ticket_key, contract_code, …)"
+  },
+  {
+   "code": "CONFLICT_VERSION",
+   "level": 409,
+   "meaning": "Bản ghi đã đổi kể từ lúc mở (row_version khác) — tải lại"
+  },
+  {
+   "code": "DATA_LOCKED",
+   "level": 423,
+   "meaning": "Thư mục dữ liệu đang được mở bởi APP khác (file khóa .lock) — đóng APP kia hoặc xác nhận khóa cũ đã chết"
+  },
+  {
+   "code": "STORAGE_ERROR",
+   "level": 507,
+   "meaning": "Lỗi đọc/ghi file (đầy ổ, không có quyền, file đang bị chương trình khác giữ) — giao dịch đã hoàn tác"
+  },
+  {
+   "code": "INTEGRITY_ERROR",
+   "level": 500,
+   "meaning": "File dữ liệu không khớp SHA-256 trong manifest / JSON hỏng — đề nghị khôi phục bản sao lưu"
+  },
+  {
+   "code": "BUSINESS_RULE",
+   "level": 422,
+   "meaning": "Vi phạm luật nghiệp vụ; details.code = mã E_… bên dưới"
+  },
+  {
+   "code": "INTERNAL",
+   "level": 500,
+   "meaning": "Lỗi chương trình — đã ghi logs/, trả requestId để tra"
+  }
+ ],
+ "issues": [
+  {
+   "code": "E_TICKET_DUPLICATE",
+   "level": "ERROR",
+   "message": "(*1) Phiếu cân trùng (ticket_key đã tồn tại / trùng trong file)",
+   "usedIn": "import, tickets.update"
+  },
+  {
+   "code": "E_ROUTE_MISSING",
+   "level": "ERROR",
+   "message": "(*2) Không có mã tuyến",
+   "usedIn": "import, validation"
+  },
+  {
+   "code": "E_ROUTE_NOT_FOUND",
+   "level": "ERROR",
+   "message": "(*3) Mã tuyến không tồn tại",
+   "usedIn": "import, validation, periods"
+  },
+  {
+   "code": "E_PRICE_NOT_FOUND",
+   "level": "ERROR",
+   "message": "(*4) Không có đơn giá (không có phiên bản giá hiệu lực)",
+   "usedIn": "periods"
+  },
+  {
+   "code": "E_FUEL_NORM_MISSING",
+   "level": "ERROR",
+   "message": "(*5) Không có định mức dầu",
+   "usedIn": "prices, periods"
+  },
+  {
+   "code": "E_NO_FUEL",
+   "level": "ERROR",
+   "message": "(*6) Không có dầu thực nhận cho tuyến trong bảng kê của hợp đồng (override được, cần lý do)",
+   "usedIn": "periods"
+  },
+  {
+   "code": "E_TOTAL_KG_ZERO",
+   "level": "ERROR",
+   "message": "(*7) Tổng KL = 0",
+   "usedIn": "periods"
+  },
+  {
+   "code": "E_PRICE_NEGATIVE",
+   "level": "ERROR",
+   "message": "(*8) Đơn giá âm",
+   "usedIn": "prices, fuel"
+  },
+  {
+   "code": "E_DISTANCE_INVALID",
+   "level": "ERROR",
+   "message": "(*9) Cự ly ≤ 0",
+   "usedIn": "routes, periods"
+  },
+  {
+   "code": "E_FUEL_NORM_INVALID",
+   "level": "ERROR",
+   "message": "(*10) Định mức dầu ≤ 0",
+   "usedIn": "prices, periods"
+  },
+  {
+   "code": "E_KG_INVALID",
+   "level": "ERROR",
+   "message": "KL hàng ≤ 0",
+   "usedIn": "import"
+  },
+  {
+   "code": "E_DATE_INVALID",
+   "level": "ERROR",
+   "message": "Ngày sai / Ngày cân 2 < Ngày cân 1",
+   "usedIn": "import"
+  },
+  {
+   "code": "E_PLATE_FORMAT",
+   "level": "ERROR",
+   "message": "Biển số phiếu cân sai định dạng",
+   "usedIn": "import"
+  },
+  {
+   "code": "E_VEHICLE_NOT_FOUND",
+   "level": "ERROR",
+   "message": "Mã xe (phiếu/dầu) không quy đổi được về xe trong danh mục",
+   "usedIn": "import, fuel"
+  },
+  {
+   "code": "E_TICKET_USED_IN_PERIOD",
+   "level": "ERROR",
+   "message": "Phiếu cân này đã được sử dụng trong kỳ tính [Mã kỳ]. Không thể đưa vào kỳ mới.",
+   "usedIn": "periods"
+  },
+  {
+   "code": "E_FUEL_USED_IN_PERIOD",
+   "level": "ERROR",
+   "message": "Dòng dầu này đã được sử dụng trong kỳ tính [Mã kỳ]. Không thể đưa vào kỳ mới.",
+   "usedIn": "periods"
+  },
+  {
+   "code": "E_MULTI_FUEL_GROUP",
+   "level": "ERROR",
+   "message": "Tuyến có dầu từ nhiều Đơn vị giao / ĐVT (Excel sẽ nhân dòng)",
+   "usedIn": "periods"
+  },
+  {
+   "code": "E_PRICE_VERSION_SPLIT",
+   "level": "ERROR",
+   "message": "Kỳ cắt ngang 2 phiên bản giá — tách kỳ",
+   "usedIn": "periods"
+  },
+  {
+   "code": "E_PRICE_DATE_OVERLAP",
+   "level": "ERROR",
+   "message": "Ngày hiệu lực giá trùng / trước phiên bản đang ACTIVE",
+   "usedIn": "prices"
+  },
+  {
+   "code": "E_PRICE_USED",
+   "level": "ERROR",
+   "message": "Phiên bản giá đã dùng trong kỳ — không sửa, hãy tạo phiên bản mới",
+   "usedIn": "prices"
+  },
+  {
+   "code": "E_NOT_CARRIER",
+   "level": "ERROR",
+   "message": "Đơn vị của bạn không phải bên vận chuyển của hợp đồng",
+   "usedIn": "contracts, periods, fuel"
+  },
+  {
+   "code": "E_CONTRACT_INACTIVE",
+   "level": "ERROR",
+   "message": "Hợp đồng ngừng / hết hiệu lực trong kỳ",
+   "usedIn": "periods"
+  },
+  {
+   "code": "E_SAME_PARTY",
+   "level": "ERROR",
+   "message": "Bên thuê trùng bên vận chuyển",
+   "usedIn": "contracts"
+  },
+  {
+   "code": "E_PERIOD_STATUS",
+   "level": "ERROR",
+   "message": "Thao tác không hợp lệ với trạng thái kỳ hiện tại",
+   "usedIn": "periods.*"
+  },
+  {
+   "code": "E_NEEDS_RECALC",
+   "level": "ERROR",
+   "message": "Dữ liệu nguồn đã sửa sau lần tính — tính lại trước khi xác nhận",
+   "usedIn": "periods.confirm"
+  },
+  {
+   "code": "E_CALC_BLOCKED",
+   "level": "ERROR",
+   "message": "Còn lỗi chặn — xem issues",
+   "usedIn": "periods.calculate"
+  },
+  {
+   "code": "E_TICKET_LOCKED",
+   "level": "ERROR",
+   "message": "Phiếu nằm trong kỳ đã xác nhận/khóa — không sửa được",
+   "usedIn": "tickets.update"
+  },
+  {
+   "code": "E_FUEL_LOCKED",
+   "level": "ERROR",
+   "message": "Dòng dầu nằm trong kỳ đã xác nhận/khóa",
+   "usedIn": "fuel.update"
+  },
+  {
+   "code": "E_IN_USE",
+   "level": "ERROR",
+   "message": "Đang được dùng — chỉ ngừng sử dụng, không xóa",
+   "usedIn": "setActive, softDelete"
+  },
+  {
+   "code": "E_PREVIEW_STALE",
+   "level": "ERROR",
+   "message": "Dữ liệu đã đổi kể từ lúc preview — preview lại",
+   "usedIn": "import.confirm"
+  },
+  {
+   "code": "E_IMPORT_HAS_ERRORS",
+   "level": "ERROR",
+   "message": "Còn dòng lỗi chưa bỏ",
+   "usedIn": "import.confirm"
+  },
+  {
+   "code": "E_MAPPING_REQUIRED",
+   "level": "ERROR",
+   "message": "Chưa map đủ cột bắt buộc",
+   "usedIn": "import.preview"
+  },
+  {
+   "code": "E_LAST_ADMIN",
+   "level": "ERROR",
+   "message": "Không thể bỏ quyền ADMIN cuối cùng",
+   "usedIn": "users.save"
+  },
+  {
+   "code": "E_PASSWORD_ALREADY_SET",
+   "level": "ERROR",
+   "message": "Tài khoản đã có mật khẩu — dùng đổi mật khẩu",
+   "usedIn": "auth.setFirstPassword"
+  },
+  {
+   "code": "E_READONLY_IMPORTED",
+   "level": "ERROR",
+   "message": "Kỳ nhận từ gói của bản cài khác — chỉ xem, không tính lại/sửa",
+   "usedIn": "periods.*"
+  },
+  {
+   "code": "E_PACKAGE_SCHEMA",
+   "level": "ERROR",
+   "message": "Gói tạo từ phiên bản dữ liệu khác, không nhập được — cập nhật APP",
+   "usedIn": "exchange"
+  },
+  {
+   "code": "E_PACKAGE_OWN",
+   "level": "ERROR",
+   "message": "Gói do chính bản cài này xuất",
+   "usedIn": "exchange"
+  },
+  {
+   "code": "E_CONFLICT_UNRESOLVED",
+   "level": "ERROR",
+   "message": "Còn xung đột chưa chọn cách xử lý",
+   "usedIn": "exchange.importPackage"
+  },
+  {
+   "code": "E_AVG_LOAD_INVALID",
+   "level": "ERROR",
+   "message": "KL_TB (hoặc Thể tích TB với tuyến M3) phải > 0",
+   "usedIn": "prices, periods"
+  },
+  {
+   "code": "E_NO_FUEL_PRICE",
+   "level": "ERROR",
+   "message": "Cho phép dầu = 0 (override E_NO_FUEL) phải kèm đơn giá dầu chưa VAT để tính chênh lệch",
+   "usedIn": "periods.calculate"
+  },
+  {
+   "code": "E_NO_TICKETS",
+   "level": "ERROR",
+   "message": "Không có phiếu cân nào của hợp đồng trong kỳ",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_OVERRIDE_NO_FUEL",
+   "level": "WARNING",
+   "message": "Tính với dầu thực nhận = 0 theo xác nhận của người dùng (có lý do)",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_FUEL_IN_DRAFT_PERIOD",
+   "level": "WARNING",
+   "message": "Dòng dầu đang ở kỳ nháp khác",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_FUEL_POSSIBLE_DUPLICATE",
+   "level": "WARNING",
+   "message": "Dòng dầu nghi nhập trùng chưa xác nhận — vẫn TÍNH vào kỳ; trùng thật thì bỏ khỏi kỳ",
+   "usedIn": "periods"
+  },
+  {
+   "code": "I_FUEL_EXCLUDED",
+   "level": "INFO",
+   "message": "Dòng dầu người dùng đã bỏ khỏi kỳ (lưu theo lần tính, tính lại vẫn giữ)",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_INVOICE_DRAFT_PERIOD",
+   "level": "WARNING",
+   "message": "Xuất file hóa đơn MISA từ kỳ còn NHÁP (chưa xác nhận)",
+   "usedIn": "reports.export MISA"
+  },
+  {
+   "code": "W_INVOICE_VAT_DIFF",
+   "level": "WARNING",
+   "message": "VAT hóa đơn (làm tròn trên tổng) lệch VAT cộng từng dòng của BKVC — xem VAT_ROUND_BASIS",
+   "usedIn": "reports.export MISA"
+  },
+  {
+   "code": "E_FIELD_MISSING",
+   "level": "ERROR",
+   "message": "Dòng import thiếu trường bắt buộc",
+   "usedIn": "import"
+  },
+  {
+   "code": "E_QTY_INVALID",
+   "level": "ERROR",
+   "message": "Số lượng dầu ≤ 0 hoặc không phải số",
+   "usedIn": "import, fuel"
+  },
+  {
+   "code": "E_UNIT_NOT_FOUND",
+   "level": "ERROR",
+   "message": "Đơn vị (bên giao dầu) chưa có trong danh mục",
+   "usedIn": "import, fuel"
+  },
+  {
+   "code": "W_OWNER_MISMATCH",
+   "level": "WARNING",
+   "message": "Đơn vị VC ghi trên phiếu khác chủ xe trong danh mục",
+   "usedIn": "import"
+  },
+  {
+   "code": "W_FUEL_OFFSET",
+   "level": "WARNING",
+   "message": "Import dòng dầu bù trừ (số lít âm) — trừ vào dầu thực nhận, không tính vào đơn giá dầu bình quân",
+   "usedIn": "import"
+  },
+  {
+   "code": "I_FUEL_OFFSET",
+   "level": "INFO",
+   "message": "Kỳ có dòng dầu bù trừ (số lít âm)",
+   "usedIn": "calc"
+  },
+  {
+   "code": "W_FUEL_TOTAL_NONPOSITIVE",
+   "level": "WARNING",
+   "message": "Tổng dầu thực nhận của tuyến sau bù trừ ≤ 0 — vẫn tính, đơn giá VC tăng",
+   "usedIn": "calc"
+  },
+  {
+   "code": "E_FUEL_OFFSET_NO_PRICE",
+   "level": "ERROR",
+   "message": "Tuyến chỉ có dòng bù trừ không ghi đơn giá — không xác định được đơn giá dầu",
+   "usedIn": "calc"
+  },
+  {
+   "code": "E_YEAR_ARCHIVED",
+   "level": "ERROR",
+   "message": "Ngày thuộc năm đã lưu trữ — mở lại năm để nhập / sửa",
+   "usedIn": "import"
+  },
+  {
+   "code": "E_FIXED_PRICE_HAS_FUEL",
+   "level": "ERROR",
+   "message": "Tuyến dùng đơn giá cố định nhưng có dòng dầu trong kỳ (tuyến cố định không nhận dầu)",
+   "usedIn": "calc"
+  },
+  {
+   "code": "I_FIXED_PRICE",
+   "level": "INFO",
+   "message": "Tuyến tính theo đơn giá cố định — không tính chênh lệch dầu",
+   "usedIn": "calc"
+  },
+  {
+   "code": "W_FUEL_FIXED_ROUTE",
+   "level": "WARNING",
+   "message": "Import dầu: dòng dầu vào tuyến đang dùng đơn giá cố định",
+   "usedIn": "import"
+  },
+  {
+   "code": "W_TICKET_UPDATE",
+   "level": "WARNING",
+   "message": "Import: phiếu đã có, khác số liệu, chưa ở kỳ đã chốt → cập nhật theo file (kỳ nháp phải tính lại)",
+   "usedIn": "import"
+  },
+  {
+   "code": "W_TICKET_RESTORE",
+   "level": "WARNING",
+   "message": "Import: phiếu đã xóa trước đây → khôi phục theo file",
+   "usedIn": "import"
+  },
+  {
+   "code": "W_TICKET_LATE",
+   "level": "WARNING",
+   "message": "Phiếu mới có ngày cân thuộc kỳ đã xác nhận / đã khóa — nhập muộn, chưa được tính (xử lý ở Đối chiếu dữ liệu)",
+   "usedIn": "import"
+  },
+  {
+   "code": "W_TICKET_DESCRIPTIVE_DIFF",
+   "level": "INFO",
+   "message": "Phiếu đã có, chỉ khác ở cột mô tả (nguồn gốc, khách hàng, LDĐ…) — giữ bản đang có",
+   "usedIn": "import"
+  },
+  {
+   "code": "W_KG_MISMATCH",
+   "level": "WARNING",
+   "message": "KL hàng ≠ Cân lần 2 − Cân lần 1",
+   "usedIn": "import"
+  },
+  {
+   "code": "W_OVERNIGHT",
+   "level": "WARNING",
+   "message": "Phiếu cân qua đêm (ngày cân 2 ≠ ngày cân 1)",
+   "usedIn": "import"
+  },
+  {
+   "code": "W_BEFORE_PERIOD",
+   "level": "WARNING",
+   "message": "Ngày nhận dầu trước Từ ngày của kỳ (vẫn tính — \"tính hết bảng kê\")",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_AFTER_PERIOD",
+   "level": "WARNING",
+   "message": "Ngày nhận dầu sau Đến ngày của kỳ (vẫn tính)",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_POSSIBLE_DUPLICATE",
+   "level": "WARNING",
+   "message": "Dòng dầu nghi trùng (cùng ngày, xe, số lít)",
+   "usedIn": "import, fuel"
+  },
+  {
+   "code": "W_PLATE_FORMAT",
+   "level": "WARNING",
+   "message": "Mã xe dầu viết khác chuẩn (đã quy đổi)",
+   "usedIn": "import"
+  },
+  {
+   "code": "W_VEHICLE_NO_FUEL",
+   "level": "WARNING",
+   "message": "Xe có chạy trong kỳ nhưng không có dòng dầu",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_VEHICLE_OUT_OF_CONTRACT",
+   "level": "WARNING",
+   "message": "Dòng dầu của xe không thuộc phạm vi hợp đồng",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_TICKET_IN_DRAFT_PERIOD",
+   "level": "WARNING",
+   "message": "Phiếu đang ở kỳ nháp khác (BL-34)",
+   "usedIn": "periods"
+  },
+  {
+   "code": "I_FUEL_USED_EARLIER",
+   "level": "INFO",
+   "message": "Dầu nhận trước kỳ đã tính ở kỳ đã xác nhận — bỏ qua (gộp 1 dòng)",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_NEGATIVE_FUEL_DIFF",
+   "level": "INFO",
+   "message": "Chênh lệch dầu âm — đơn giá bị trừ",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_FLOORED_ZERO",
+   "level": "WARNING",
+   "message": "Đơn giá VC âm → đưa về 0",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_SAME_FILE_IMPORTED",
+   "level": "WARNING",
+   "message": "File này (cùng SHA-256) đã từng import",
+   "usedIn": "import.preview"
+  },
+  {
+   "code": "W_BACKUP_OLD",
+   "level": "WARNING",
+   "message": "Chưa sao lưu quá 7 ngày",
+   "usedIn": "meta.bootstrap"
+  },
+  {
+   "code": "W_VEHICLE_PARTIAL_CONTRACT",
+   "level": "WARNING",
+   "message": "Xe thuộc hợp đồng nhưng có phiếu trong kỳ nằm ngoài thời gian hiệu lực của xe (đổi hợp đồng giữa kỳ) — phiếu đó không tính",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_TICKET_NO_CONTRACT",
+   "level": "WARNING",
+   "message": "Phiếu trong kỳ của xe không thuộc hợp đồng nào mà đơn vị bản cài là bên vận chuyển — chưa được tính ở đâu",
+   "usedIn": "periods"
+  },
+  {
+   "code": "E_TICKET_IDENTITY",
+   "level": "ERROR",
+   "message": "Không sửa số phiếu / ngày cân 1 / biển số — xóa mềm rồi nhập lại",
+   "usedIn": "tickets.update"
+  }
+ ]
+}

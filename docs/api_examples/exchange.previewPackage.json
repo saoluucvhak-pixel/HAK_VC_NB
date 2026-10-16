@@ -1,0 +1,152 @@
+{
+ "previewId": "PV-96cc0c28d614",
+ "header": {
+  "format": "DGVC-PKG",
+  "formatVersion": 1,
+  "packageType": "KY_TINH",
+  "schemaVersion": 1,
+  "sourceInstallId": "INS-T12-DH",
+  "sourceUnitCode": "DH",
+  "targetUnitCode": "HAKQN",
+  "createdAt": "2026-09-25T09:50:20+07:00",
+  "createdBy": "ketoan.dh",
+  "appVersion": "1.0.0",
+  "periodCodes": [
+   "DH-HAKQN/20260918-20260923-VC.007"
+  ]
+ },
+ "fileName": "DH-HAKQN_20260918-20260923.dgvc",
+ "sizeBytes": 14141,
+ "integrity": "OK",
+ "contentSha256": "450b7991b5d2a84f0e3a00d6c9bf393a36488dbd6b5de30470aa3359e23fdf88",
+ "role": "Bản cài HAKQN nhận kỳ tính của bên vận chuyển DH — lưu để xem / in lại, không sửa được",
+ "summary": {
+  "HOP_DONG": {
+   "NEW": 0,
+   "SAME": 0,
+   "UPDATE": 0,
+   "CONFLICT": 1,
+   "SKIP": 0,
+   "REPLACE": 0,
+   "REJECT": 0
+  },
+  "HOP_DONG_XE": {
+   "NEW": 0,
+   "SAME": 5,
+   "UPDATE": 0,
+   "CONFLICT": 0,
+   "SKIP": 0,
+   "REPLACE": 0,
+   "REJECT": 0
+  },
+  "PRICE_HISTORY": {
+   "NEW": 0,
+   "SAME": 0,
+   "UPDATE": 1,
+   "CONFLICT": 0,
+   "SKIP": 0,
+   "REPLACE": 0,
+   "REJECT": 0
+  },
+  "PHIEU_CAN": {
+   "NEW": 0,
+   "SAME": 77,
+   "UPDATE": 0,
+   "CONFLICT": 0,
+   "SKIP": 0,
+   "REPLACE": 0,
+   "REJECT": 0
+  },
+  "KY_TINH": {
+   "NEW": 1,
+   "SAME": 0,
+   "UPDATE": 0,
+   "CONFLICT": 0,
+   "SKIP": 0,
+   "REPLACE": 0,
+   "REJECT": 0
+  },
+  "GIAO_NHAN_DAU": {
+   "NEW": 16,
+   "SAME": 0,
+   "UPDATE": 0,
+   "CONFLICT": 0,
+   "SKIP": 0,
+   "REPLACE": 0,
+   "REJECT": 0
+  },
+  "TRANSPORT_CALCULATION": {
+   "NEW": 1,
+   "SAME": 0,
+   "UPDATE": 0,
+   "CONFLICT": 0,
+   "SKIP": 0,
+   "REPLACE": 0,
+   "REJECT": 0
+  },
+  "TRANSPORT_DETAIL": {
+   "NEW": 77,
+   "SAME": 0,
+   "UPDATE": 0,
+   "CONFLICT": 0,
+   "SKIP": 0,
+   "REPLACE": 0,
+   "REJECT": 0
+  },
+  "FUEL_DETAIL": {
+   "NEW": 16,
+   "SAME": 0,
+   "UPDATE": 0,
+   "CONFLICT": 0,
+   "SKIP": 0,
+   "REPLACE": 0,
+   "REJECT": 0
+  },
+  "BKVC_LINE": {
+   "NEW": 5,
+   "SAME": 0,
+   "UPDATE": 0,
+   "CONFLICT": 0,
+   "SKIP": 0,
+   "REPLACE": 0,
+   "REJECT": 0
+  }
+ },
+ "conflicts": [
+  {
+   "table": "HOP_DONG",
+   "id": "HD-DH-HAKQN",
+   "changes": [
+    {
+     "field": "note",
+     "local": "bản cài này là BÊN THUÊ — chỉ xem; nhận kỳ tính qua gói KY_TINH của bên vận chuyển. Số HĐ, ngày hiệu lực: người dùng tự điền (dữ liệu mẫu để test).",
+     "incoming": "bản cài này là BÊN VẬN CHUYỂN — được lập kỳ tính. Số HĐ, ngày hiệu lực: người dùng tự điền (dữ liệu mẫu để test)."
+    }
+   ],
+   "note": "hai bên cùng sửa",
+   "default": "KEEP"
+  }
+ ],
+ "rejected": [],
+ "totals": {
+  "periods": [
+   "DH-HAKQN/20260918-20260923-VC.007"
+  ],
+  "trips": 77,
+  "ton": 1452.13,
+  "prices": [
+   {
+    "routeCode": "VC.007",
+    "transportPrice": 88900
+   }
+  ],
+  "totalInclVat": 139421905,
+  "tickets": 77,
+  "catalog": {
+   "HOP_DONG": 1,
+   "HOP_DONG_XE": 5,
+   "PRICE_HISTORY": 1
+  }
+ },
+ "canImport": true
+}

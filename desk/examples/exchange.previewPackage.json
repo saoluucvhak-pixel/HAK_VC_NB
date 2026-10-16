@@ -1,0 +1,104 @@
+{
+  "request": {
+    "action": "exchange.previewPackage",
+    "payload": {
+      "filePath": "D:\\DGVC\\nhan\\DH-HAKQN_20260918-20260923.dgvc"
+    }
+  },
+  "response": {
+    "ok": true,
+    "data": {
+      "exchangeId": "EX-HAKQN-000001",
+      "header": {
+        "format": "DGVC-PKG",
+        "formatVersion": 1,
+        "packageType": "KY_TINH",
+        "schemaVersion": 1,
+        "sourceInstallId": "INS-0E901607CE",
+        "sourceUnitCode": "DH",
+        "targetUnitCode": "HAKQN",
+        "createdAt": "2026-09-24T23:00:00+07:00",
+        "createdBy": "ketoan.dh",
+        "appVersion": "1.0.0",
+        "periodCodes": [
+          "DH-HAKQN/20260918-20260923"
+        ]
+      },
+      "packageSha256": "2deac043817db14c7394a9c3a7b17bb37b26d92e9fa9d7442edd918b5f0e9d6d",
+      "integrity": "OK",
+      "counts": {
+        "HOP_DONG": {
+          "new": 0,
+          "same": 1,
+          "updated": 0,
+          "conflict": 0
+        },
+        "HOP_DONG_XE": {
+          "new": 0,
+          "same": 5,
+          "updated": 0,
+          "conflict": 0
+        },
+        "PHIEU_CAN": {
+          "new": 0,
+          "same": 77,
+          "updated": 0,
+          "conflict": 0
+        },
+        "GIAO_NHAN_DAU": {
+          "new": 16,
+          "same": 0,
+          "updated": 0,
+          "conflict": 0
+        },
+        "KY_TINH": {
+          "new": 1,
+          "same": 0,
+          "updated": 0,
+          "conflict": 0
+        },
+        "TRANSPORT_CALCULATION": {
+          "new": 1,
+          "same": 0,
+          "updated": 0,
+          "conflict": 0
+        },
+        "TRANSPORT_DETAIL": {
+          "new": 77,
+          "same": 0,
+          "updated": 0,
+          "conflict": 0
+        },
+        "FUEL_DETAIL": {
+          "new": 16,
+          "same": 0,
+          "updated": 0,
+          "conflict": 0
+        },
+        "BKVC_LINE": {
+          "new": 5,
+          "same": 0,
+          "updated": 0,
+          "conflict": 0
+        }
+      },
+      "conflicts": [],
+      "summary": {
+        "period": "DH-HAKQN/20260918-20260923",
+        "transportPrice": 88900.0,
+        "trips": 77,
+        "ton": 1452.13,
+        "total": 139421905.0,
+        "amountInWords": "Một trăm ba mươi chín triệu, bốn trăm hai mươi mốt ngàn, chín trăm lẻ năm đồng ./."
+      },
+      "note": "Kỳ sẽ nhập với origin = IMPORTED (chỉ xem). 77 phiếu cân đã có sẵn ở HAKQN với cùng ticket_id → không tạo trùng."
+    },
+    "error": null,
+    "warnings": [],
+    "meta": {
+      "requestId": "req-ex01",
+      "durationMs": 180,
+      "dataVersion": 12
+    }
+  }
+}

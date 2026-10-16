@@ -1,0 +1,20 @@
+{
+ "table": "SYNC_REMINDER",
+ "partition": null,
+ "schemaVersion": 1,
+ "columns": [
+  "reminder_id",
+  "entity",
+  "entity_id",
+  "action",
+  "summary",
+  "source_unit_code",
+  "targets_json",
+  "done_json",
+  "status",
+  "created_at",
+  "created_by",
+  "updated_at"
+ ],
+ "rows": []
+}

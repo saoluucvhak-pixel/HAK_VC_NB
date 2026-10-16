@@ -1,0 +1,327 @@
+{
+ "table": "CONFIG",
+ "partition": null,
+ "schemaVersion": 1,
+ "columns": [
+  "config_key",
+  "config_value",
+  "value_type",
+  "description",
+  "updated_at",
+  "updated_by"
+ ],
+ "rows": [
+  {
+   "config_key": "SCHEMA_VERSION",
+   "config_value": "1",
+   "value_type": "NUM",
+   "description": "phiên bản cấu trúc dữ liệu",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "ROUND_CONTRACT_DIGITS",
+   "config_value": "-3",
+   "value_type": "NUM",
+   "description": "ĐG_HĐ làm tròn hàng nghìn",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "ROUND_FINAL_DIGITS",
+   "config_value": "-2",
+   "value_type": "NUM",
+   "description": "Đơn giá VC làm tròn hàng trăm (QR_DGVC (2))",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "ROUND_PRICE_MODE",
+   "config_value": "HALF_EVEN",
+   "value_type": "TEXT",
+   "description": "HALF_EVEN = khớp Power Query; HALF_UP = như ROUND Excel (Q10)",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "PQ_INT64_CAST",
+   "config_value": "TRUE",
+   "value_type": "BOOL",
+   "description": "mô phỏng ép Int64 của PQ khi đọc danh mục & đơn giá dầu",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "FLOOR_TRANSPORT_PRICE_AT_ZERO",
+   "config_value": "TRUE",
+   "value_type": "BOOL",
+   "description": "Đơn giá VC < 0 → 0",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "ROUND_MONEY_DIGITS",
+   "config_value": "0",
+   "value_type": "NUM",
+   "description": "tiền làm tròn đến đồng (đã chốt)",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "ROUND_MONEY_MODE",
+   "config_value": "HALF_UP",
+   "value_type": "TEXT",
+   "description": "",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "VAT_RATE",
+   "config_value": "0.08",
+   "value_type": "NUM",
+   "description": "Thuế suất GTGT mặc định (khi không có lịch VAT_RATE_SCHEDULE); từng kỳ chọn được ở màn hình Tính giá",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "FUEL_PRICE_METHOD",
+   "config_value": "AVERAGE",
+   "value_type": "TEXT",
+   "description": "trung bình cộng (đã chốt)",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "PERIOD_DATE_FIELD",
+   "config_value": "WEIGH1_DATE",
+   "value_type": "TEXT",
+   "description": "lọc phiếu theo Ngày cân 1 (Q5)",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "PRICE_VERSION_DATE",
+   "config_value": "PERIOD_END",
+   "value_type": "TEXT",
+   "description": "chọn phiên bản giá hiệu lực tại ngày cuối kỳ (Q13)",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "NO_FUEL_POLICY",
+   "config_value": "BLOCK_WITH_OVERRIDE",
+   "value_type": "TEXT",
+   "description": "không có dầu → chặn, override có log (Q6)",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "MULTI_FUEL_GROUP_POLICY",
+   "config_value": "BLOCK",
+   "value_type": "TEXT",
+   "description": "dầu nhiều Đơn vị/ĐVT trong 1 tuyến → chặn (Q7)",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "BKVC_GROUP_BY",
+   "config_value": "PLATE_ROUTE",
+   "value_type": "TEXT",
+   "description": "1 dòng / xe / tuyến (Q9)",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "BKVC_SORT",
+   "config_value": "PLATE",
+   "value_type": "TEXT",
+   "description": "",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "PLATE_REGEX",
+   "config_value": "^\\d{2}[A-Z]{1,2}-\\d{4,5}$",
+   "value_type": "TEXT",
+   "description": "kiểm tra biển số phiếu cân",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "TICKET_KEY_FIELDS",
+   "config_value": "ticket_no,weigh1_date,plate_no",
+   "value_type": "TEXT",
+   "description": "khóa chống trùng phiếu (Q16)",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "KG_CHECK_TOLERANCE",
+   "config_value": "0",
+   "value_type": "NUM",
+   "description": "|net − (cân2 − cân1)| cho phép",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "SIGNER_PRIMARY_JSON",
+   "config_value": "{\"name\":\"VÕ VĂN PHỤNG\",\"title\":\"Giám đốc\"}",
+   "value_type": "JSON",
+   "description": "ký cho bên có sign_priority nhỏ hơn",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "SIGNER_SECONDARY_JSON",
+   "config_value": "{\"name\":\"VÕ THỊ NHƯ NGỌC\",\"title\":\"Phó Giám đốc\"}",
+   "value_type": "JSON",
+   "description": "ký cho bên còn lại",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "SIGN_WITH_ACCOUNTANT",
+   "config_value": "TRUE",
+   "value_type": "BOOL",
+   "description": "BKVC có ô Kế toán 2 bên (DON_VI.accountant_name)",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "AMOUNT_WORDS_THOUSAND",
+   "config_value": "ngàn",
+   "value_type": "TEXT",
+   "description": "từ dùng cho hàng nghìn khi đọc số (như file Excel)",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "AMOUNT_WORDS_SUFFIX",
+   "config_value": "đồng y ./.",
+   "value_type": "TEXT",
+   "description": "hậu tố số tiền bằng chữ",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "SYNC_TARGET_UNITS",
+   "config_value": "HAK;HAKQN;DH;CNHAK",
+   "value_type": "TEXT",
+   "description": "các nhà máy có bản cài — sửa danh mục ở 1 nơi thì nhắc sửa các nơi còn lại",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "INVOICE_DESC_TEMPLATE",
+   "config_value": "Vận chuyển dăm gỗ từ {DIEM_DI} đến {DIEM_DEN} bằng xe thùng biển kiểm soát: {BKS_LIEN}",
+   "value_type": "TEXT",
+   "description": "diễn giải cước để viết hóa đơn (dùng khi hợp đồng chưa có mẫu riêng) — theo hóa đơn MISA thật 25/09/2026",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "INVOICE_PAYMENT_METHOD",
+   "config_value": "Chuyển khoản",
+   "value_type": "TEXT",
+   "description": "hình thức thanh toán ghi trên file nhập hóa đơn MISA",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "VAT_RATE_OPTIONS",
+   "config_value": "0;0.05;0.08;0.1",
+   "value_type": "TEXT",
+   "description": "Các thuế suất GTGT cho chọn khi tính kỳ (ngăn cách ;) — 0%, 5%, 8%, 10%",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "VAT_RATE_SCHEDULE",
+   "config_value": "",
+   "value_type": "TEXT",
+   "description": "Lịch thuế suất GTGT theo thời điểm, vd 2026-01-01=0.08;2027-01-01=0.10 — kỳ tính mặc định lấy thuế suất có hiệu lực tại ngày cuối kỳ; trống = VAT_RATE",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "VAT_ROUND_BASIS",
+   "config_value": "LINE",
+   "value_type": "TEXT",
+   "description": "LINE = VAT làm tròn từng dòng rồi cộng (như hiện tại); TOTAL = VAT tính trên tổng tiền hàng như phần mềm hóa đơn MISA, chênh lệch dồn vào dòng cuối",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "BACKUP_DAILY_KEEP",
+   "config_value": "30",
+   "value_type": "NUM",
+   "description": "số bản sao lưu ngày giữ lại",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "BACKUP_MONTHLY_KEEP",
+   "config_value": "24",
+   "value_type": "NUM",
+   "description": "số bản sao lưu tháng giữ lại",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "LOGIN_MAX_FAILED",
+   "config_value": "5",
+   "value_type": "NUM",
+   "description": "sai mật khẩu tối đa trước khi khóa",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "LOGIN_LOCK_MINUTES",
+   "config_value": "15",
+   "value_type": "NUM",
+   "description": "",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "SESSION_IDLE_MINUTES",
+   "config_value": "60",
+   "value_type": "NUM",
+   "description": "không thao tác quá thời gian này → đăng xuất",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "CATALOG_MASTER_UNIT",
+   "config_value": "",
+   "value_type": "TEXT",
+   "description": "KHÔNG DÙNG (chốt 25/09/2026): bản cài nào cũng sửa được danh mục và xuất gói DANH_MUC; APP nhắc sửa các nhà máy còn lại (SYNC_TARGET_UNITS)",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "DATA_FOLDER_DEFAULT",
+   "config_value": "%USERPROFILE%\\Documents\\DGVC_DATA",
+   "value_type": "TEXT",
+   "description": "thư mục dữ liệu mặc định; đổi được (vd D:\\DGVC_DATA) bằng data.changeFolder",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "BACKUP_MIRROR_ENABLED",
+   "config_value": "TRUE",
+   "value_type": "BOOL",
+   "description": "sao lưu ra thư mục ngoài (USB / Google Drive for Desktop) sau mỗi bản sao lưu",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  },
+  {
+   "config_key": "BACKUP_MIRROR_FOLDER",
+   "config_value": "",
+   "value_type": "TEXT",
+   "description": "thư mục ngoài — chọn khi cài đặt; trống hoặc không truy cập được → cảnh báo, không chặn làm việc",
+   "updated_at": "2026-09-24T22:10:00+07:00",
+   "updated_by": "seed@import"
+  }
+ ]
+}

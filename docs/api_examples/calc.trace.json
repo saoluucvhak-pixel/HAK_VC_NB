@@ -1,0 +1,193 @@
+{
+  "request": {
+    "action": "calc.trace",
+    "payload": {
+      "calcId": "TC-HAKQN-000001"
+    }
+  },
+  "response": {
+    "ok": true,
+    "data": {
+      "trace": {
+        "version": 1,
+        "routeCode": "VC.007",
+        "priceId": "PR-VC.007-v1",
+        "steps": [
+          {
+            "key": "trip_price",
+            "label": "ĐG 1 chuyến",
+            "formula": "Đơn giá mới × KL_TB",
+            "expr": "165.000 × 18",
+            "value": 2970000.0,
+            "unit": "đ/chuyến"
+          },
+          {
+            "key": "fuel_per_trip",
+            "label": "Tiêu hao NL/chuyến",
+            "formula": "Cự ly chuyến × Định mức (lít/km)",
+            "expr": "144 × 0,4",
+            "value": 57.6,
+            "unit": "lít"
+          },
+          {
+            "key": "fuel_cost_per_trip",
+            "label": "Tiền dầu/chuyến",
+            "formula": "ĐG dầu chưa VAT (danh mục) × Tiêu hao NL/chuyến",
+            "expr": "15.500 × 57,6",
+            "value": 892800.0,
+            "unit": "đ"
+          },
+          {
+            "key": "fuel_cost_ratio",
+            "label": "Tỷ lệ tiêu hao dầu",
+            "formula": "Tiền dầu / ĐG 1 chuyến",
+            "expr": "892.800 / 2.970.000",
+            "value": 0.3006060606060606,
+            "unit": "%"
+          },
+          {
+            "key": "price_no_diesel",
+            "label": "ĐGVC chưa diesel",
+            "formula": "(ĐG 1 chuyến − Tiền dầu) / KL_TB",
+            "expr": "(2.970.000 − 892.800) / 18",
+            "value": 115400.0,
+            "unit": "đ/tấn"
+          },
+          {
+            "key": "contract_price",
+            "label": "ĐG HĐ",
+            "formula": "ROUND(ĐGVC chưa diesel; -3) [HALF_EVEN]",
+            "expr": "ROUND(115.400,00; -3)",
+            "value": 115000.0,
+            "unit": "đ/tấn"
+          },
+          {
+            "key": "trip_count",
+            "label": "Số chuyến",
+            "formula": "số phiếu cân",
+            "expr": "326 phiếu",
+            "value": 326,
+            "unit": "chuyến",
+            "drill": "calc.tickets"
+          },
+          {
+            "key": "total_ton",
+            "label": "Tổng khối lượng",
+            "formula": "Σ KL hàng (KG) / 1000",
+            "expr": "6.143.680 / 1000",
+            "value": 6143.68,
+            "unit": "tấn",
+            "drill": "calc.tickets"
+          },
+          {
+            "key": "actual_fuel_liter",
+            "label": "Dầu thực nhận",
+            "formula": "Σ số lượng bảng kê dầu của hợp đồng",
+            "expr": "Σ 18 dòng (2026-09-20 → 2026-09-23)",
+            "value": 5853.0,
+            "unit": "lít",
+            "drill": "calc.fuel"
+          },
+          {
+            "key": "fuel_price",
+            "label": "Đơn giá dầu",
+            "formula": "Trung bình cộng đơn giá các dòng (chưa VAT)",
+            "expr": "TB(18 dòng)",
+            "value": 29940.0,
+            "unit": "đ/lít",
+            "drill": "calc.fuel"
+          },
+          {
+            "key": "standard_fuel_liter",
+            "label": "Dầu định mức",
+            "formula": "Cự ly chuyến × Số chuyến × Định mức",
+            "expr": "144 × 326 × 0,4",
+            "value": 18777.600000000002,
+            "unit": "lít"
+          },
+          {
+            "key": "fuel_diff_liter",
+            "label": "Chênh lệch dầu",
+            "formula": "Dầu định mức − Dầu thực nhận",
+            "expr": "18.777,60 − 5.853,00",
+            "value": 12924.600000000002,
+            "unit": "lít"
+          },
+          {
+            "key": "fuel_adjust_price",
+            "label": "ĐG CL Diesel",
+            "formula": "Chênh lệch × Đơn giá dầu / Tổng tấn",
+            "expr": "12.924,60 × 29.940,00 / 6.143,68",
+            "value": 62985.46213344446,
+            "unit": "đ/tấn"
+          },
+          {
+            "key": "transport_price_raw",
+            "label": "ĐG VC trước làm tròn",
+            "formula": "ĐG HĐ + ĐG CL Diesel",
+            "expr": "115.000 + 62.985,46",
+            "value": 177985.46213344447,
+            "unit": "đ/tấn"
+          },
+          {
+            "key": "transport_price",
+            "label": "Đơn giá vận chuyển",
+            "formula": "< 0 → 0; ngược lại ROUND(…; -2) [HALF_EVEN]",
+            "expr": "ROUND(177.985,46; -2)",
+            "value": 178000.0,
+            "unit": "đ/tấn"
+          }
+        ]
+      },
+      "priceVersion": {
+        "price_id": "PR-VC.007-v1",
+        "route_code": "VC.007",
+        "contract_id": "",
+        "version_no": 1,
+        "effective_from": "2025-07-10",
+        "effective_to": "",
+        "base_price_excl_vat": 150000.0,
+        "price_per_km": 2083.333333,
+        "new_price": 165000.0,
+        "fuel_price_excl_vat": 15500.0,
+        "fuel_norm_l_per_km": 0.4,
+        "avg_load_ton": 18.0,
+        "avg_volume_m3": 57.82,
+        "status": "ACTIVE",
+        "is_used": false,
+        "source_note": "TBL_DATA nhúng trong Power Query (giá trị text gốc)",
+        "created_at": "2026-09-24T22:10:00+07:00",
+        "created_by": "seed@import",
+        "updated_at": "",
+        "updated_by": "",
+        "row_version": 1
+      },
+      "config": {
+        "roundContract": -3,
+        "roundFinal": -2,
+        "priceMode": "HALF_EVEN",
+        "int64": true,
+        "floorZero": true,
+        "roundMoney": 0,
+        "moneyMode": "HALF_UP",
+        "vat": 0.08,
+        "fuelMethod": "AVERAGE",
+        "primary": {
+          "name": "VÕ VĂN PHỤNG",
+          "title": "Giám đốc"
+        },
+        "secondary": {
+          "name": "VÕ THỊ NHƯ NGỌC",
+          "title": "Phó Giám đốc"
+        }
+      }
+    },
+    "error": null,
+    "warnings": [],
+    "meta": {
+      "requestId": "req-7f3a",
+      "durationMs": 0,
+      "dataVersion": 1
+    }
+  }
+}

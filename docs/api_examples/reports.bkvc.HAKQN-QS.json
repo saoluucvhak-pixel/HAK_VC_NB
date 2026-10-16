@@ -1,0 +1,307 @@
+{
+  "request": {
+    "action": "reports.bkvc",
+    "payload": {
+      "periodId": "KY-HAKQN-000001"
+    }
+  },
+  "response": {
+    "ok": true,
+    "data": {
+      "header": {
+        "title": "BẢNG XÁC NHẬN KHỐI LƯỢNG VẬN CHUYỂN DĂM",
+        "carrier": {
+          "name": "CÔNG TY TNHH HOÀNG ANH KHÔI QUẢNG NAM",
+          "address": "Cụm Công nghiệp Quế Cường, Xã Quế Sơn Trung, TP. Đà Nẵng, Việt Nam",
+          "taxCode": "4000956057"
+        },
+        "customer": {
+          "name": "CHI NHÁNH CÔNG TY TNHH HOÀNG ANH KHÔI",
+          "address": "Cụm Công nghiệp Đông Phú, Xã Quế Sơn, TP. Đà Nẵng, Việt Nam",
+          "taxCode": "0401447476-001"
+        },
+        "periodText": "( Vận chuyển từ ngày 18/09/2026 đến ngày 23/09/2026 )",
+        "reportDate": "2026-09-24",
+        "place": "Quế Sơn Trung",
+        "contractNo": null
+      },
+      "lines": [
+        {
+          "seq": 1,
+          "plate_no": "43H-01021",
+          "owner_unit_code": "HAK",
+          "trip_count": 19,
+          "kg": 360010,
+          "ton": 360.01,
+          "unit_price": 178000.0,
+          "amount": 64081780.0,
+          "vat_rate": 0.08,
+          "vat": 5126542.0,
+          "amount_incl_vat": 69208322.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 2,
+          "plate_no": "43H-01055",
+          "owner_unit_code": "HAK",
+          "trip_count": 21,
+          "kg": 387230,
+          "ton": 387.23,
+          "unit_price": 178000.0,
+          "amount": 68926940.0,
+          "vat_rate": 0.08,
+          "vat": 5514155.0,
+          "amount_incl_vat": 74441095.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 3,
+          "plate_no": "43H-01068",
+          "owner_unit_code": "HAK",
+          "trip_count": 19,
+          "kg": 353770,
+          "ton": 353.77,
+          "unit_price": 178000.0,
+          "amount": 62971060.0,
+          "vat_rate": 0.08,
+          "vat": 5037685.0,
+          "amount_incl_vat": 68008745.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 4,
+          "plate_no": "43H-01080",
+          "owner_unit_code": "HAK",
+          "trip_count": 18,
+          "kg": 337360,
+          "ton": 337.36,
+          "unit_price": 178000.0,
+          "amount": 60050080.0,
+          "vat_rate": 0.08,
+          "vat": 4804006.0,
+          "amount_incl_vat": 64854086.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 5,
+          "plate_no": "43H-01098",
+          "owner_unit_code": "HAK",
+          "trip_count": 23,
+          "kg": 432010,
+          "ton": 432.01,
+          "unit_price": 178000.0,
+          "amount": 76897780.0,
+          "vat_rate": 0.08,
+          "vat": 6151822.0,
+          "amount_incl_vat": 83049602.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 6,
+          "plate_no": "92H-00057",
+          "owner_unit_code": "DH",
+          "trip_count": 15,
+          "kg": 279980,
+          "ton": 279.98,
+          "unit_price": 178000.0,
+          "amount": 49836440.0,
+          "vat_rate": 0.08,
+          "vat": 3986915.0,
+          "amount_incl_vat": 53823355.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 7,
+          "plate_no": "92H-00133",
+          "owner_unit_code": "DH",
+          "trip_count": 12,
+          "kg": 224990,
+          "ton": 224.99,
+          "unit_price": 178000.0,
+          "amount": 40048220.0,
+          "vat_rate": 0.08,
+          "vat": 3203858.0,
+          "amount_incl_vat": 43252078.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 8,
+          "plate_no": "92H-00141",
+          "owner_unit_code": "DH",
+          "trip_count": 16,
+          "kg": 303200,
+          "ton": 303.2,
+          "unit_price": 178000.0,
+          "amount": 53969600.0,
+          "vat_rate": 0.08,
+          "vat": 4317568.0,
+          "amount_incl_vat": 58287168.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 9,
+          "plate_no": "92H-00192",
+          "owner_unit_code": "DH",
+          "trip_count": 19,
+          "kg": 356520,
+          "ton": 356.52,
+          "unit_price": 178000.0,
+          "amount": 63460560.0,
+          "vat_rate": 0.08,
+          "vat": 5076845.0,
+          "amount_incl_vat": 68537405.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 10,
+          "plate_no": "92H-00195",
+          "owner_unit_code": "DH",
+          "trip_count": 15,
+          "kg": 287440,
+          "ton": 287.44,
+          "unit_price": 178000.0,
+          "amount": 51164320.0,
+          "vat_rate": 0.08,
+          "vat": 4093146.0,
+          "amount_incl_vat": 55257466.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 11,
+          "plate_no": "92H-00834",
+          "owner_unit_code": "HAKQN",
+          "trip_count": 20,
+          "kg": 378280,
+          "ton": 378.28,
+          "unit_price": 178000.0,
+          "amount": 67333840.0,
+          "vat_rate": 0.08,
+          "vat": 5386707.0,
+          "amount_incl_vat": 72720547.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 12,
+          "plate_no": "92H-00844",
+          "owner_unit_code": "HAKQN",
+          "trip_count": 19,
+          "kg": 364120,
+          "ton": 364.12,
+          "unit_price": 178000.0,
+          "amount": 64813360.0,
+          "vat_rate": 0.08,
+          "vat": 5185069.0,
+          "amount_incl_vat": 69998429.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 13,
+          "plate_no": "92H-00865",
+          "owner_unit_code": "HAKQN",
+          "trip_count": 25,
+          "kg": 466470,
+          "ton": 466.47,
+          "unit_price": 178000.0,
+          "amount": 83031660.0,
+          "vat_rate": 0.08,
+          "vat": 6642533.0,
+          "amount_incl_vat": 89674193.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 14,
+          "plate_no": "92H-00893",
+          "owner_unit_code": "HAKQN",
+          "trip_count": 21,
+          "kg": 396960,
+          "ton": 396.96,
+          "unit_price": 178000.0,
+          "amount": 70658880.0,
+          "vat_rate": 0.08,
+          "vat": 5652710.0,
+          "amount_incl_vat": 76311590.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 15,
+          "plate_no": "92H-00903",
+          "owner_unit_code": "HAKQN",
+          "trip_count": 19,
+          "kg": 362840,
+          "ton": 362.84,
+          "unit_price": 178000.0,
+          "amount": 64585520.0,
+          "vat_rate": 0.08,
+          "vat": 5166842.0,
+          "amount_incl_vat": 69752362.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 16,
+          "plate_no": "92H-00979",
+          "owner_unit_code": "HAKQN",
+          "trip_count": 21,
+          "kg": 397310,
+          "ton": 397.31,
+          "unit_price": 178000.0,
+          "amount": 70721180.0,
+          "vat_rate": 0.08,
+          "vat": 5657694.0,
+          "amount_incl_vat": 76378874.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 17,
+          "plate_no": "92H-00994",
+          "owner_unit_code": "HAKQN",
+          "trip_count": 24,
+          "kg": 455190,
+          "ton": 455.19,
+          "unit_price": 178000.0,
+          "amount": 81023820.0,
+          "vat_rate": 0.08,
+          "vat": 6481906.0,
+          "amount_incl_vat": 87505726.0,
+          "route_code": "VC.007"
+        }
+      ],
+      "totals": {
+        "trips": 326,
+        "kg": 6143680,
+        "ton": 6143.68,
+        "amount": 1093575040.0,
+        "vat": 87486003.0,
+        "total": 1181061043.0
+      },
+      "amountInWords": "Một tỷ, một trăm tám mươi mốt triệu, không trăm sáu mươi mốt ngàn, không trăm bốn mươi ba đồng ./.",
+      "signers": {
+        "carrier": {
+          "unitCode": "HAKQN",
+          "unitName": "CÔNG TY TNHH HOÀNG ANH KHÔI QUẢNG NAM",
+          "signer": {
+            "name": "VÕ VĂN PHỤNG",
+            "title": "Giám đốc"
+          },
+          "accountant": "TRẦN THỊ HẸN"
+        },
+        "customer": {
+          "unitCode": "CNHAK",
+          "unitName": "CHI NHÁNH CÔNG TY TNHH HOÀNG ANH KHÔI",
+          "signer": {
+            "name": "VÕ THỊ NHƯ NGỌC",
+            "title": "Phó Giám đốc"
+          },
+          "accountant": "DƯƠNG THỊ THANH NGA"
+        },
+        "source": "RULE"
+      }
+    },
+    "error": null,
+    "warnings": [],
+    "meta": {
+      "requestId": "req-7f3a",
+      "durationMs": 0,
+      "dataVersion": 1
+    }
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "request": {
+    "action": "import.preview",
+    "payload": {
+      "importType": "GIAO_NHAN_DAU",
+      "contractId": "HD-DH-HAKQN",
+      "filePath": "D:\\DGVC\\nhan\\Dongiavanchuyen_24.09_DH.xlsx",
+      "sheetName": "NL_GIAONHANDAU"
+    }
+  },
+  "response": {
+    "ok": true,
+    "data": {
+      "batchId": "IB-DH-000003",
+      "fileSha256": "(sha256 file)",
+      "sameFileImportedBefore": true,
+      "sheets": [
+        "NL_GIAONHANDAU",
+        "NL_VC",
+        "QR_DGVC (2)"
+      ],
+      "mapping": {
+        "Ngày nhận dầu": "receive_date",
+        "Mã cự ly VC": "route_code",
+        "Biển số xe": "fuel_vehicle_code",
+        "ĐVT": "uom",
+        "Số lượng (lít)": "qty_liter",
+        "Đơn giá dầu": "fuel_price_excl_vat",
+        "Ngày mua dầu": "purchase_date",
+        "Đơn vị": "giver_unit_code"
+      },
+      "summary": {
+        "total": 6,
+        "ok": 1,
+        "warning": 5,
+        "error": 0,
+        "duplicate": 0
+      },
+      "rows": [
+        {
+          "rowNo": 5,
+          "status": "WARNING",
+          "flags": [
+            "W_BEFORE_PERIOD"
+          ],
+          "acked": false,
+          "normalized": {
+            "receipt_id_on_confirm": "GD-DH-00017",
+            "receive_date": "2026-09-16",
+            "fuel_vehicle_code": " 92H-00057",
+            "plate_no": "92H-00057",
+            "owner_unit_code": "DH",
+            "qty_liter": 408.0,
+            "fuel_price_excl_vat": 28480.0,
+            "giver_unit_code": "HAKQN"
+          }
+        },
+        {
+          "rowNo": 6,
+          "status": "WARNING",
+          "flags": [
+            "W_BEFORE_PERIOD"
+          ],
+          "acked": false,
+          "normalized": {
+            "receipt_id_on_confirm": "GD-DH-00018",
+            "receive_date": "2026-09-17",
+            "fuel_vehicle_code": " 92H-00133",
+            "plate_no": "92H-00133",
+            "owner_unit_code": "DH",
+            "qty_liter": 360.0,
+            "fuel_price_excl_vat": 28480.0,
+            "giver_unit_code": "HAKQN"
+          }
+        },
+        {
+          "rowNo": 7,
+          "status": "WARNING",
+          "flags": [
+            "W_POSSIBLE_DUPLICATE"
+          ],
+          "acked": true,
+          "normalized": {
+            "receipt_id_on_confirm": "GD-DH-00019",
+            "receive_date": "2026-09-18",
+            "fuel_vehicle_code": " 92H-00192",
+            "plate_no": "92H-00192",
+            "owner_unit_code": "DH",
+            "qty_liter": 400.0,
+            "fuel_price_excl_vat": 28480.0,
+            "giver_unit_code": "HAKQN"
+          }
+        },
+        {
+          "rowNo": 8,
+          "status": "WARNING",
+          "flags": [
+            "W_POSSIBLE_DUPLICATE"
+          ],
+          "acked": true,
+          "normalized": {
+            "receipt_id_on_confirm": "GD-DH-00020",
+            "receive_date": "2026-09-18",
+            "fuel_vehicle_code": " 92H-00192",
+            "plate_no": "92H-00192",
+            "owner_unit_code": "DH",
+            "qty_liter": 400.0,
+            "fuel_price_excl_vat": 28480.0,
+            "giver_unit_code": "HAKQN"
+          }
+        },
+        {
+          "rowNo": 9,
+          "status": "OK",
+          "flags": [],
+          "acked": false,
+          "normalized": {
+            "receipt_id_on_confirm": "GD-DH-00021",
+            "receive_date": "2026-09-19",
+            "fuel_vehicle_code": " 92H-00141",
+            "plate_no": "92H-00141",
+            "owner_unit_code": "DH",
+            "qty_liter": 215.01,
+            "fuel_price_excl_vat": 28480.0,
+            "giver_unit_code": "HAKQN"
+          }
+        },
+        {
+          "rowNo": 10,
+          "status": "WARNING",
+          "flags": [
+            "W_PLATE_FORMAT"
+          ],
+          "acked": false,
+          "normalized": {
+            "receipt_id_on_confirm": "GD-DH-00022",
+            "receive_date": "2026-09-19",
+            "fuel_vehicle_code": "92H00195",
+            "plate_no": "92H-00195",
+            "owner_unit_code": "DH",
+            "qty_liter": 320.0,
+            "fuel_price_excl_vat": 28480.0,
+            "giver_unit_code": "HAKQN"
+          }
+        }
+      ]
+    },
+    "error": null,
+    "warnings": [
+      {
+        "code": "W_SAME_FILE_IMPORTED",
+        "message": "File này đã được import ngày 24/09/2026 (lô IB-DH-000002)"
+      }
+    ],
+    "meta": {
+      "requestId": "req-7f3a",
+      "durationMs": 0,
+      "dataVersion": 1
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+ "table": "HOP_DONG",
+ "partition": null,
+ "schemaVersion": 1,
+ "columns": [
+  "contract_id",
+  "contract_code",
+  "contract_no",
+  "customer_unit_code",
+  "carrier_unit_code",
+  "effective_from",
+  "effective_to",
+  "report_title",
+  "service_desc",
+  "carrier_print_name",
+  "customer_print_name",
+  "sign_place",
+  "customer_signers_json",
+  "carrier_signers_json",
+  "is_active",
+  "note",
+  "created_at",
+  "created_by",
+  "updated_at",
+  "updated_by",
+  "row_version"
+ ],
+ "rows": [
+  {
+   "contract_id": "HD-DH-HAKQN",
+   "contract_code": "DH-HAKQN",
+   "contract_no": "",
+   "customer_unit_code": "HAKQN",
+   "carrier_unit_code": "DH",
+   "effective_from": "2026-09-01",
+   "effective_to": "",
+   "report_title": "BẢNG XÁC NHẬN KHỐI LƯỢNG VẬN CHUYỂN DĂM",
+   "service_desc": "",
+   "carrier_print_name": "",
+   "customer_print_name": "",
+   "sign_place": "Quế Sơn Trung",
+   "customer_signers_json": "[]",
+   "carrier_signers_json": "[]",
+   "is_active": true,
+   "note": "Bên vận chuyển DH → bên thuê HAKQN. Số HĐ, ngày hiệu lực: người dùng tự điền (dữ liệu mẫu).",
+   "created_at": "2026-09-24T22:10:00+07:00",
+   "created_by": "seed@import",
+   "updated_at": "",
+   "updated_by": "",
+   "row_version": 1
+  }
+ ]
+}

@@ -1,0 +1,21 @@
+{
+ "table": "EXCHANGE_LOG",
+ "partition": null,
+ "schemaVersion": 1,
+ "columns": [
+  "exchange_id",
+  "direction",
+  "package_type",
+  "file_name",
+  "package_sha256",
+  "source_install_id",
+  "source_unit_code",
+  "target_unit_code",
+  "counts_json",
+  "status",
+  "message",
+  "created_at",
+  "created_by"
+ ],
+ "rows": []
+}

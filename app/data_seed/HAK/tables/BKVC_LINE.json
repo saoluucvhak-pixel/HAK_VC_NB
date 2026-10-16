@@ -1,0 +1,27 @@
+{
+ "table": "BKVC_LINE",
+ "partition": null,
+ "schemaVersion": 1,
+ "columns": [
+  "id",
+  "period_id",
+  "calc_id",
+  "contract_id",
+  "route_code",
+  "seq",
+  "plate_no",
+  "owner_unit_code",
+  "trip_count",
+  "kg",
+  "ton",
+  "unit_price",
+  "amount",
+  "vat_rate",
+  "vat",
+  "amount_incl_vat",
+  "note",
+  "is_current",
+  "created_at"
+ ],
+ "rows": []
+}

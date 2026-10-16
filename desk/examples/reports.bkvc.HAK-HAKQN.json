@@ -1,0 +1,139 @@
+{
+  "request": {
+    "action": "reports.bkvc",
+    "payload": {
+      "periodId": "KY-HAK-000001"
+    }
+  },
+  "response": {
+    "ok": true,
+    "data": {
+      "header": {
+        "title": "BẢNG XÁC NHẬN KHỐI LƯỢNG VẬN CHUYỂN DĂM",
+        "carrier": {
+          "name": "CÔNG TY TNHH HOÀNG ANH KHÔI",
+          "address": "Thửa đất số 1182, tờ bản đồ số 38, Thôn Thạch Nham Tây, Xã Bà Nà, TP. Đà Nẵng, Việt Nam",
+          "taxCode": "0401447476"
+        },
+        "customer": {
+          "name": "CÔNG TY TNHH HOÀNG ANH KHÔI QUẢNG NAM",
+          "address": "Cụm Công nghiệp Quế Cường, Xã Quế Sơn Trung, TP. Đà Nẵng, Việt Nam",
+          "taxCode": "4000956057"
+        },
+        "periodText": "( Vận chuyển từ ngày 18/09/2026 đến ngày 23/09/2026 )",
+        "reportDate": "2026-09-24",
+        "place": "Quế Sơn Trung",
+        "contractNo": null
+      },
+      "lines": [
+        {
+          "seq": 1,
+          "plate_no": "43H-01021",
+          "owner_unit_code": "HAK",
+          "trip_count": 19,
+          "kg": 360010,
+          "ton": 360.01,
+          "unit_price": 125600.0,
+          "amount": 45217256.0,
+          "vat_rate": 0.08,
+          "vat": 3617380.0,
+          "amount_incl_vat": 48834636.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 2,
+          "plate_no": "43H-01055",
+          "owner_unit_code": "HAK",
+          "trip_count": 21,
+          "kg": 387230,
+          "ton": 387.23,
+          "unit_price": 125600.0,
+          "amount": 48636088.0,
+          "vat_rate": 0.08,
+          "vat": 3890887.0,
+          "amount_incl_vat": 52526975.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 3,
+          "plate_no": "43H-01068",
+          "owner_unit_code": "HAK",
+          "trip_count": 19,
+          "kg": 353770,
+          "ton": 353.77,
+          "unit_price": 125600.0,
+          "amount": 44433512.0,
+          "vat_rate": 0.08,
+          "vat": 3554681.0,
+          "amount_incl_vat": 47988193.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 4,
+          "plate_no": "43H-01080",
+          "owner_unit_code": "HAK",
+          "trip_count": 18,
+          "kg": 337360,
+          "ton": 337.36,
+          "unit_price": 125600.0,
+          "amount": 42372416.0,
+          "vat_rate": 0.08,
+          "vat": 3389793.0,
+          "amount_incl_vat": 45762209.0,
+          "route_code": "VC.007"
+        },
+        {
+          "seq": 5,
+          "plate_no": "43H-01098",
+          "owner_unit_code": "HAK",
+          "trip_count": 23,
+          "kg": 432010,
+          "ton": 432.01,
+          "unit_price": 125600.0,
+          "amount": 54260456.0,
+          "vat_rate": 0.08,
+          "vat": 4340836.0,
+          "amount_incl_vat": 58601292.0,
+          "route_code": "VC.007"
+        }
+      ],
+      "totals": {
+        "trips": 100,
+        "kg": 1870380,
+        "ton": 1870.38,
+        "amount": 234919728.0,
+        "vat": 18793577.0,
+        "total": 253713305.0
+      },
+      "amountInWords": "Hai trăm năm mươi ba triệu, bảy trăm mười ba ngàn, ba trăm lẻ năm đồng ./.",
+      "signers": {
+        "carrier": {
+          "unitCode": "HAK",
+          "unitName": "CÔNG TY TNHH HOÀNG ANH KHÔI",
+          "signer": {
+            "name": "VÕ VĂN PHỤNG",
+            "title": "Giám đốc"
+          },
+          "accountant": null
+        },
+        "customer": {
+          "unitCode": "HAKQN",
+          "unitName": "CÔNG TY TNHH HOÀNG ANH KHÔI QUẢNG NAM",
+          "signer": {
+            "name": "VÕ THỊ NHƯ NGỌC",
+            "title": "Phó Giám đốc"
+          },
+          "accountant": "TRẦN THỊ HẸN"
+        },
+        "source": "RULE"
+      }
+    },
+    "error": null,
+    "warnings": [],
+    "meta": {
+      "requestId": "req-7f3a",
+      "durationMs": 0,
+      "dataVersion": 1
+    }
+  }
+}

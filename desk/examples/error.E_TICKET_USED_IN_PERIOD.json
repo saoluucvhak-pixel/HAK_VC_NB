@@ -1,0 +1,38 @@
+{
+  "request": {
+    "action": "periods.calculate",
+    "payload": {
+      "contractId": "HD-HAKQN-QS",
+      "dateFrom": "2026-09-18",
+      "dateTo": "2026-09-25",
+      "routeCode": "VC.007",
+      "clientRequestId": "ui-x"
+    }
+  },
+  "response": {
+    "ok": false,
+    "data": null,
+    "error": {
+      "code": "BUSINESS_RULE",
+      "message": "Còn phiếu cân đã được sử dụng trong kỳ đã xác nhận",
+      "details": {
+        "code": "E_TICKET_USED_IN_PERIOD",
+        "items": [
+          {
+            "ticketId": "PC-c0557c15e4c1",
+            "ticketNo": "573",
+            "plateNo": "43H-01080",
+            "periodCode": "HAKQN-QS/20260918-20260923",
+            "message": "Phiếu cân này đã được sử dụng trong kỳ tính HAKQN-QS/20260918-20260923. Không thể đưa vào kỳ mới."
+          }
+        ]
+      }
+    },
+    "warnings": [],
+    "meta": {
+      "requestId": "req-91bc",
+      "durationMs": 85,
+      "dataVersion": 5
+    }
+  }
+}

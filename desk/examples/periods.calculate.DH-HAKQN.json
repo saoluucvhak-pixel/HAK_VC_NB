@@ -1,0 +1,332 @@
+{
+  "request": {
+    "action": "periods.calculate",
+    "payload": {
+      "contractId": "HD-DH-HAKQN",
+      "dateFrom": "2026-09-18",
+      "dateTo": "2026-09-23",
+      "routeCode": "VC.007",
+      "reportDate": "2026-09-24",
+      "clientRequestId": "ui-DH-HAKQN-001"
+    }
+  },
+  "response": {
+    "ok": true,
+    "data": {
+      "period": {
+        "period_id": "KY-DH-000001",
+        "period_code": "DH-HAKQN/20260918-20260923",
+        "contract_id": "HD-DH-HAKQN",
+        "date_from": "2026-09-18",
+        "date_to": "2026-09-23",
+        "route_filter": "VC.007",
+        "status": "NHAP",
+        "calc_version": 1,
+        "current_run_id": "CR-DH-000001",
+        "needs_recalc": false,
+        "origin": "LOCAL",
+        "origin_install_id": "INS-0E901607CE",
+        "row_version": 1
+      },
+      "runId": "CR-DH-000001",
+      "results": [
+        {
+          "calc_id": "TC-DH-000001",
+          "period_id": "KY-DH-000001",
+          "run_id": "CR-DH-000001",
+          "calc_version": 1,
+          "is_current": true,
+          "contract_id": "HD-DH-HAKQN",
+          "route_code": "VC.007",
+          "route_name": "Xã Quế Sơn - Tiên Sa",
+          "uom": "TAN",
+          "price_id": "PR-VC.007-v1",
+          "trip_distance_km": 144.0,
+          "new_price": 165000.0,
+          "avg_load_ton": 18.0,
+          "fuel_price_catalog": 15500.0,
+          "fuel_norm_l_per_km": 0.4,
+          "avg_volume_m3": 57.82,
+          "start_date": "2026-09-18",
+          "end_date": "2026-09-23",
+          "trip_count": 77,
+          "total_kg": 1452130,
+          "total_ton": 1452.13,
+          "fuel_giver_unit": "HAKQN",
+          "fuel_uom": "LÍT",
+          "fuel_line_count": 16,
+          "actual_fuel_liter": 5734.6900000000005,
+          "fuel_start_date": "2026-09-16",
+          "fuel_end_date": "2026-09-23",
+          "fuel_price": 29210.0,
+          "fuel_import_date": "2026-09-22",
+          "trip_price": 2970000.0,
+          "fuel_per_trip": 57.6,
+          "fuel_cost_per_trip": 892800.0,
+          "fuel_cost_ratio": 0.3006060606060606,
+          "price_no_diesel": 115400.0,
+          "contract_price": 115000.0,
+          "standard_fuel_liter": 4435.2,
+          "fuel_diff_liter": -1299.4900000000007,
+          "fuel_adjust_price": -26139.60382334916,
+          "transport_price_raw": 88860.39617665084,
+          "transport_price": 88900.0,
+          "result_status": "WARNING",
+          "warnings_json": [
+            {
+              "code": "W_BEFORE_PERIOD",
+              "level": "WARNING",
+              "ref": "GD-DH-00004"
+            },
+            {
+              "code": "W_BEFORE_PERIOD",
+              "level": "WARNING",
+              "ref": "GD-DH-00005"
+            },
+            {
+              "code": "W_NEGATIVE_FUEL_DIFF",
+              "level": "INFO"
+            }
+          ],
+          "trace_json": {
+            "version": 1,
+            "routeCode": "VC.007",
+            "priceId": "PR-VC.007-v1",
+            "steps": [
+              {
+                "key": "trip_price",
+                "label": "ĐG 1 chuyến",
+                "formula": "Đơn giá mới × KL_TB",
+                "expr": "165.000 × 18",
+                "value": 2970000.0,
+                "unit": "đ/chuyến"
+              },
+              {
+                "key": "fuel_per_trip",
+                "label": "Tiêu hao NL/chuyến",
+                "formula": "Cự ly chuyến × Định mức (lít/km)",
+                "expr": "144 × 0,4",
+                "value": 57.6,
+                "unit": "lít"
+              },
+              {
+                "key": "fuel_cost_per_trip",
+                "label": "Tiền dầu/chuyến",
+                "formula": "ĐG dầu chưa VAT (danh mục) × Tiêu hao NL/chuyến",
+                "expr": "15.500 × 57,6",
+                "value": 892800.0,
+                "unit": "đ"
+              },
+              {
+                "key": "fuel_cost_ratio",
+                "label": "Tỷ lệ tiêu hao dầu",
+                "formula": "Tiền dầu / ĐG 1 chuyến",
+                "expr": "892.800 / 2.970.000",
+                "value": 0.3006060606060606,
+                "unit": "%"
+              },
+              {
+                "key": "price_no_diesel",
+                "label": "ĐGVC chưa diesel",
+                "formula": "(ĐG 1 chuyến − Tiền dầu) / KL_TB",
+                "expr": "(2.970.000 − 892.800) / 18",
+                "value": 115400.0,
+                "unit": "đ/tấn"
+              },
+              {
+                "key": "contract_price",
+                "label": "ĐG HĐ",
+                "formula": "ROUND(ĐGVC chưa diesel; -3) [HALF_EVEN]",
+                "expr": "ROUND(115.400,00; -3)",
+                "value": 115000.0,
+                "unit": "đ/tấn"
+              },
+              {
+                "key": "trip_count",
+                "label": "Số chuyến",
+                "formula": "số phiếu cân",
+                "expr": "77 phiếu",
+                "value": 77,
+                "unit": "chuyến",
+                "drill": "calc.tickets"
+              },
+              {
+                "key": "total_ton",
+                "label": "Tổng khối lượng",
+                "formula": "Σ KL hàng (KG) / 1000",
+                "expr": "1.452.130 / 1000",
+                "value": 1452.13,
+                "unit": "tấn",
+                "drill": "calc.tickets"
+              },
+              {
+                "key": "actual_fuel_liter",
+                "label": "Dầu thực nhận",
+                "formula": "Σ số lượng bảng kê dầu của hợp đồng",
+                "expr": "Σ 16 dòng (2026-09-16 → 2026-09-23)",
+                "value": 5734.6900000000005,
+                "unit": "lít",
+                "drill": "calc.fuel"
+              },
+              {
+                "key": "fuel_price",
+                "label": "Đơn giá dầu",
+                "formula": "Trung bình cộng đơn giá các dòng (chưa VAT)",
+                "expr": "TB(16 dòng)",
+                "value": 29210.0,
+                "unit": "đ/lít",
+                "drill": "calc.fuel"
+              },
+              {
+                "key": "standard_fuel_liter",
+                "label": "Dầu định mức",
+                "formula": "Cự ly chuyến × Số chuyến × Định mức",
+                "expr": "144 × 77 × 0,4",
+                "value": 4435.2,
+                "unit": "lít"
+              },
+              {
+                "key": "fuel_diff_liter",
+                "label": "Chênh lệch dầu",
+                "formula": "Dầu định mức − Dầu thực nhận",
+                "expr": "4.435,20 − 5.734,69",
+                "value": -1299.4900000000007,
+                "unit": "lít"
+              },
+              {
+                "key": "fuel_adjust_price",
+                "label": "ĐG CL Diesel",
+                "formula": "Chênh lệch × Đơn giá dầu / Tổng tấn",
+                "expr": "-1.299,49 × 29.210,00 / 1.452,13",
+                "value": -26139.60382334916,
+                "unit": "đ/tấn"
+              },
+              {
+                "key": "transport_price_raw",
+                "label": "ĐG VC trước làm tròn",
+                "formula": "ĐG HĐ + ĐG CL Diesel",
+                "expr": "115.000 + -26.139,60",
+                "value": 88860.39617665084,
+                "unit": "đ/tấn"
+              },
+              {
+                "key": "transport_price",
+                "label": "Đơn giá vận chuyển",
+                "formula": "< 0 → 0; ngược lại ROUND(…; -2) [HALF_EVEN]",
+                "expr": "ROUND(88.860,40; -2)",
+                "value": 88900.0,
+                "unit": "đ/tấn"
+              }
+            ]
+          }
+        }
+      ],
+      "bkvc": {
+        "lines": [
+          {
+            "seq": 1,
+            "plate_no": "92H-00057",
+            "owner_unit_code": "DH",
+            "trip_count": 15,
+            "kg": 279980,
+            "ton": 279.98,
+            "unit_price": 88900.0,
+            "amount": 24890222.0,
+            "vat_rate": 0.08,
+            "vat": 1991218.0,
+            "amount_incl_vat": 26881440.0,
+            "route_code": "VC.007"
+          },
+          {
+            "seq": 2,
+            "plate_no": "92H-00133",
+            "owner_unit_code": "DH",
+            "trip_count": 12,
+            "kg": 224990,
+            "ton": 224.99,
+            "unit_price": 88900.0,
+            "amount": 20001611.0,
+            "vat_rate": 0.08,
+            "vat": 1600129.0,
+            "amount_incl_vat": 21601740.0,
+            "route_code": "VC.007"
+          },
+          {
+            "seq": 3,
+            "plate_no": "92H-00141",
+            "owner_unit_code": "DH",
+            "trip_count": 16,
+            "kg": 303200,
+            "ton": 303.2,
+            "unit_price": 88900.0,
+            "amount": 26954480.0,
+            "vat_rate": 0.08,
+            "vat": 2156358.0,
+            "amount_incl_vat": 29110838.0,
+            "route_code": "VC.007"
+          },
+          {
+            "seq": 4,
+            "plate_no": "92H-00192",
+            "owner_unit_code": "DH",
+            "trip_count": 19,
+            "kg": 356520,
+            "ton": 356.52,
+            "unit_price": 88900.0,
+            "amount": 31694628.0,
+            "vat_rate": 0.08,
+            "vat": 2535570.0,
+            "amount_incl_vat": 34230198.0,
+            "route_code": "VC.007"
+          },
+          {
+            "seq": 5,
+            "plate_no": "92H-00195",
+            "owner_unit_code": "DH",
+            "trip_count": 15,
+            "kg": 287440,
+            "ton": 287.44,
+            "unit_price": 88900.0,
+            "amount": 25553416.0,
+            "vat_rate": 0.08,
+            "vat": 2044273.0,
+            "amount_incl_vat": 27597689.0,
+            "route_code": "VC.007"
+          }
+        ],
+        "totals": {
+          "trips": 77,
+          "kg": 1452130,
+          "ton": 1452.13,
+          "amount": 129094357.0,
+          "vat": 10327548.0,
+          "total": 139421905.0
+        },
+        "amountInWords": "Một trăm ba mươi chín triệu, bốn trăm hai mươi mốt ngàn, chín trăm lẻ năm đồng ./."
+      },
+      "issues": [
+        {
+          "code": "W_BEFORE_PERIOD",
+          "level": "WARNING",
+          "ref": "GD-DH-00004"
+        },
+        {
+          "code": "W_BEFORE_PERIOD",
+          "level": "WARNING",
+          "ref": "GD-DH-00005"
+        },
+        {
+          "code": "W_NEGATIVE_FUEL_DIFF",
+          "level": "INFO"
+        }
+      ]
+    },
+    "error": null,
+    "warnings": [],
+    "meta": {
+      "requestId": "req-7f3a",
+      "durationMs": 420,
+      "dataVersion": 2
+    }
+  }
+}

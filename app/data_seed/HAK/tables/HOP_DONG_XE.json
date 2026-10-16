@@ -1,0 +1,79 @@
+{
+ "table": "HOP_DONG_XE",
+ "partition": null,
+ "schemaVersion": 1,
+ "columns": [
+  "id",
+  "contract_id",
+  "plate_no",
+  "effective_from",
+  "effective_to",
+  "created_at",
+  "created_by",
+  "updated_at",
+  "updated_by",
+  "row_version"
+ ],
+ "rows": [
+  {
+   "id": "HX-HAK-HAKQN-43H01021",
+   "contract_id": "HD-HAK-HAKQN",
+   "plate_no": "43H-01021",
+   "effective_from": "2026-09-01",
+   "effective_to": "",
+   "created_at": "2026-09-24T22:10:00+07:00",
+   "created_by": "seed@import",
+   "updated_at": "",
+   "updated_by": "",
+   "row_version": 1
+  },
+  {
+   "id": "HX-HAK-HAKQN-43H01055",
+   "contract_id": "HD-HAK-HAKQN",
+   "plate_no": "43H-01055",
+   "effective_from": "2026-09-01",
+   "effective_to": "",
+   "created_at": "2026-09-24T22:10:00+07:00",
+   "created_by": "seed@import",
+   "updated_at": "",
+   "updated_by": "",
+   "row_version": 1
+  },
+  {
+   "id": "HX-HAK-HAKQN-43H01068",
+   "contract_id": "HD-HAK-HAKQN",
+   "plate_no": "43H-01068",
+   "effective_from": "2026-09-01",
+   "effective_to": "",
+   "created_at": "2026-09-24T22:10:00+07:00",
+   "created_by": "seed@import",
+   "updated_at": "",
+   "updated_by": "",
+   "row_version": 1
+  },
+  {
+   "id": "HX-HAK-HAKQN-43H01080",
+   "contract_id": "HD-HAK-HAKQN",
+   "plate_no": "43H-01080",
+   "effective_from": "2026-09-01",
+   "effective_to": "",
+   "created_at": "2026-09-24T22:10:00+07:00",
+   "created_by": "seed@import",
+   "updated_at": "",
+   "updated_by": "",
+   "row_version": 1
+  },
+  {
+   "id": "HX-HAK-HAKQN-43H01098",
+   "contract_id": "HD-HAK-HAKQN",
+   "plate_no": "43H-01098",
+   "effective_from": "2026-09-01",
+   "effective_to": "",
+   "created_at": "2026-09-24T22:10:00+07:00",
+   "created_by": "seed@import",
+   "updated_at": "",
+   "updated_by": "",
+   "row_version": 1
+  }
+ ]
+}

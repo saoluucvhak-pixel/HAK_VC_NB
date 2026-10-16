@@ -1,0 +1,2453 @@
+{
+ "schemaVersion": 1,
+ "tables": {
+  "DON_VI": {
+   "group": "Danh mục",
+   "description": "Đơn vị / công ty (bên thuê, bên vận chuyển, chủ xe, bên giao dầu)",
+   "pk": "unit_code",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {},
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "unit_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "unit_name",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "short_name",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "unit_type",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "CONG_TY",
+      "CHI_NHANH"
+     ]
+    },
+    {
+     "name": "name_aliases",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "tax_code",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "address",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "legal_rep_name",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "legal_rep_salutation",
+     "type": "ENUM",
+     "required": false,
+     "enum": [
+      "Ông",
+      "Bà"
+     ]
+    },
+    {
+     "name": "legal_rep_title",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "factory_name",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "email",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "phone",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "doc_display_name",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "sign_priority",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "accountant_name",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "fuel_prefix",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "is_active",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "XE": {
+   "group": "Danh mục",
+   "description": "Xe vận chuyển",
+   "pk": "plate_no",
+   "unique": [
+    [
+     "plate_key"
+    ]
+   ],
+   "partialUnique": [],
+   "fk": {
+    "owner_unit_code": [
+     "DON_VI",
+     "unit_code"
+    ]
+   },
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "plate_no",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "plate_key",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "owner_unit_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "fuel_code",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "is_active",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "TUYEN_VC": {
+   "group": "Danh mục",
+   "description": "Tuyến vận chuyển (phần định danh của TBL_DATA)",
+   "pk": "route_code",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {
+    "catalog_unit_code": [
+     "DON_VI",
+     "unit_code"
+    ]
+   },
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "route_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "route_name",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "distance_km",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "trip_distance_km",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "from_place",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "to_place",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "uom",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "TAN",
+      "M3"
+     ]
+    },
+    {
+     "name": "catalog_unit_code",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "is_active",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "PRICE_HISTORY": {
+   "group": "Danh mục",
+   "description": "Phiên bản đơn giá theo tuyến (phần giá của TBL_DATA) — không ghi đè",
+   "pk": "price_id",
+   "unique": [
+    [
+     "route_code",
+     "contract_id",
+     "effective_from"
+    ]
+   ],
+   "partialUnique": [],
+   "fk": {
+    "route_code": [
+     "TUYEN_VC",
+     "route_code"
+    ],
+    "contract_id": [
+     "HOP_DONG",
+     "contract_id"
+    ]
+   },
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "price_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "route_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "contract_id",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "version_no",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "effective_from",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "effective_to",
+     "type": "DATE",
+     "required": false
+    },
+    {
+     "name": "base_price_excl_vat",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "base_price_source",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "price_per_km",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "new_price",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "fuel_price_excl_vat",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "fuel_norm_l_per_km",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "avg_load_ton",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "avg_volume_m3",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "status",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "DRAFT",
+      "ACTIVE",
+      "CLOSED"
+     ]
+    },
+    {
+     "name": "is_used",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "source_note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "price_method",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "fixed_price",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "HOP_DONG": {
+   "group": "Danh mục",
+   "description": "Hợp đồng vận chuyển 2 bên (bên vận chuyển lập tính toán)",
+   "pk": "contract_id",
+   "unique": [
+    [
+     "contract_code"
+    ]
+   ],
+   "partialUnique": [],
+   "fk": {
+    "customer_unit_code": [
+     "DON_VI",
+     "unit_code"
+    ],
+    "carrier_unit_code": [
+     "DON_VI",
+     "unit_code"
+    ]
+   },
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "contract_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "contract_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "contract_no",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "customer_unit_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "carrier_unit_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "effective_from",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "effective_to",
+     "type": "DATE",
+     "required": false
+    },
+    {
+     "name": "report_title",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "service_desc",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "carrier_print_name",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "customer_print_name",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "sign_place",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "customer_signers_json",
+     "type": "JSON",
+     "required": false
+    },
+    {
+     "name": "carrier_signers_json",
+     "type": "JSON",
+     "required": false
+    },
+    {
+     "name": "is_active",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "HOP_DONG_XE": {
+   "group": "Danh mục",
+   "description": "Phạm vi xe của hợp đồng",
+   "pk": "id",
+   "unique": [
+    [
+     "contract_id",
+     "plate_no",
+     "effective_from"
+    ]
+   ],
+   "partialUnique": [],
+   "fk": {
+    "contract_id": [
+     "HOP_DONG",
+     "contract_id"
+    ],
+    "plate_no": [
+     "XE",
+     "plate_no"
+    ]
+   },
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "contract_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "plate_no",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "effective_from",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "effective_to",
+     "type": "DATE",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "PHIEU_CAN": {
+   "group": "Đầu vào",
+   "description": "Phiếu cân — 1 dòng = 1 chuyến; dùng chung cho mọi hợp đồng",
+   "pk": "ticket_id",
+   "unique": [
+    [
+     "ticket_key"
+    ]
+   ],
+   "partialUnique": [],
+   "fk": {
+    "plate_no": [
+     "XE",
+     "plate_no"
+    ],
+    "route_code": [
+     "TUYEN_VC",
+     "route_code"
+    ],
+    "owner_unit_code": [
+     "DON_VI",
+     "unit_code"
+    ],
+    "import_batch_id": [
+     "IMPORT_BATCH",
+     "batch_id"
+    ]
+   },
+   "partition": [
+    "year",
+    "weigh1_date"
+   ],
+   "audit": true,
+   "columns": [
+    {
+     "name": "ticket_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "ticket_key",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "ticket_no",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "row_no",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "weigh1_date",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "weigh1_time",
+     "type": "TIME",
+     "required": false
+    },
+    {
+     "name": "weigh2_date",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "weigh2_time",
+     "type": "TIME",
+     "required": false
+    },
+    {
+     "name": "plate_no",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "weight1_kg",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "weight2_kg",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "net_kg",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "origin",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "customer",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "ldd",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "weigh_type",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "route_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "transport_unit_name",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "owner_unit_code",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "validation_flags",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "flags_ack",
+     "type": "BOOL",
+     "required": false
+    },
+    {
+     "name": "flags_ack_note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "import_batch_id",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "raw_row_json",
+     "type": "JSON",
+     "required": false
+    },
+    {
+     "name": "is_deleted",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "GIAO_NHAN_DAU": {
+   "group": "Đầu vào",
+   "description": "Bảng kê giao nhận dầu — mỗi dòng thuộc bảng kê của 1 hợp đồng",
+   "pk": "receipt_id",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {
+    "contract_id": [
+     "HOP_DONG",
+     "contract_id"
+    ],
+    "plate_no": [
+     "XE",
+     "plate_no"
+    ],
+    "route_code": [
+     "TUYEN_VC",
+     "route_code"
+    ],
+    "owner_unit_code": [
+     "DON_VI",
+     "unit_code"
+    ],
+    "giver_unit_code": [
+     "DON_VI",
+     "unit_code"
+    ],
+    "import_batch_id": [
+     "IMPORT_BATCH",
+     "batch_id"
+    ]
+   },
+   "partition": [
+    "year",
+    "receive_date"
+   ],
+   "audit": true,
+   "columns": [
+    {
+     "name": "receipt_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "contract_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "receive_date",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "route_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "fuel_vehicle_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "plate_no",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "owner_unit_code",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "uom",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "qty_liter",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "fuel_price_excl_vat",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "purchase_date",
+     "type": "DATE",
+     "required": false
+    },
+    {
+     "name": "giver_unit_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "fuel_depot",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "validation_flags",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "flags_ack",
+     "type": "BOOL",
+     "required": false
+    },
+    {
+     "name": "flags_ack_note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "import_batch_id",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "raw_row_json",
+     "type": "JSON",
+     "required": false
+    },
+    {
+     "name": "is_deleted",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "XE_KM": {
+   "group": "Đầu vào",
+   "description": "Chốt đồng hồ km của xe (vd đầu năm, cuối năm) — km đồng hồ giữa 2 lần chốt so với km theo tuyến (nhật trình xe)",
+   "pk": "km_id",
+   "unique": [
+    [
+     "plate_no",
+     "km_date"
+    ]
+   ],
+   "partialUnique": [],
+   "fk": {
+    "plate_no": [
+     "XE",
+     "plate_no"
+    ]
+   },
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "km_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "plate_no",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "km_date",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "odometer",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "read_at",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "odo_start",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "odo_end",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "km",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "IMPORT_BATCH": {
+   "group": "Đầu vào",
+   "description": "Lô import (preview → xác nhận)",
+   "pk": "batch_id",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {
+    "contract_id": [
+     "HOP_DONG",
+     "contract_id"
+    ]
+   },
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "batch_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "import_type",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "PHIEU_CAN",
+      "GIAO_NHAN_DAU",
+      "PRICE"
+     ]
+    },
+    {
+     "name": "contract_id",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "file_name",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "file_sha256",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "sheet_name",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "header_json",
+     "type": "JSON",
+     "required": false
+    },
+    {
+     "name": "mapping_json",
+     "type": "JSON",
+     "required": false
+    },
+    {
+     "name": "total_rows",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "ok_rows",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "warning_rows",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "error_rows",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "duplicate_rows",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "status",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "PREVIEW",
+      "CONFIRMED",
+      "CANCELLED"
+     ]
+    },
+    {
+     "name": "confirmed_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "confirmed_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "KY_TINH": {
+   "group": "Kết quả",
+   "description": "Kỳ tính của 1 hợp đồng",
+   "pk": "period_id",
+   "unique": [
+    [
+     "period_code"
+    ]
+   ],
+   "partialUnique": [],
+   "fk": {
+    "contract_id": [
+     "HOP_DONG",
+     "contract_id"
+    ]
+   },
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "period_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "period_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "contract_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "date_from",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "date_to",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "route_filter",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "status",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "NHAP",
+      "DA_XAC_NHAN",
+      "DA_KHOA",
+      "HUY"
+     ]
+    },
+    {
+     "name": "calc_version",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "current_run_id",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "config_snapshot_json",
+     "type": "JSON",
+     "required": false
+    },
+    {
+     "name": "needs_recalc",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "report_date",
+     "type": "DATE",
+     "required": false
+    },
+    {
+     "name": "calculated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "calculated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "confirmed_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "confirmed_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "locked_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "locked_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "origin",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "LOCAL",
+      "IMPORTED"
+     ]
+    },
+    {
+     "name": "origin_install_id",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "package_sha256",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "TRANSPORT_CALCULATION": {
+   "group": "Kết quả",
+   "description": "Kết quả tính 1 tuyến trong 1 kỳ (thay QR_DGVC4) — lưu cả số trung gian + snapshot",
+   "pk": "calc_id",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {
+    "period_id": [
+     "KY_TINH",
+     "period_id"
+    ],
+    "contract_id": [
+     "HOP_DONG",
+     "contract_id"
+    ],
+    "route_code": [
+     "TUYEN_VC",
+     "route_code"
+    ],
+    "price_id": [
+     "PRICE_HISTORY",
+     "price_id"
+    ]
+   },
+   "partition": null,
+   "audit": false,
+   "columns": [
+    {
+     "name": "calc_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "period_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "run_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "calc_version",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "is_current",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "contract_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "route_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "route_name",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "uom",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "price_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "trip_distance_km",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "new_price",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "avg_load_ton",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "avg_volume_m3",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "fuel_price_catalog",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "fuel_norm_l_per_km",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "start_date",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "end_date",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "trip_count",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "total_kg",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "total_ton",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "fuel_giver_unit",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "fuel_uom",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "fuel_line_count",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "actual_fuel_liter",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "fuel_start_date",
+     "type": "DATE",
+     "required": false
+    },
+    {
+     "name": "fuel_end_date",
+     "type": "DATE",
+     "required": false
+    },
+    {
+     "name": "fuel_price",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "fuel_import_date",
+     "type": "DATE",
+     "required": false
+    },
+    {
+     "name": "trip_price",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "fuel_per_trip",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "fuel_cost_per_trip",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "fuel_cost_ratio",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "price_no_diesel",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "contract_price",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "standard_fuel_liter",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "fuel_diff_liter",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "fuel_adjust_price",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "transport_price_raw",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "transport_price",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "price_method",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "result_status",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "OK",
+      "WARNING",
+      "ERROR"
+     ]
+    },
+    {
+     "name": "warnings_json",
+     "type": "JSON",
+     "required": false
+    },
+    {
+     "name": "trace_json",
+     "type": "JSON",
+     "required": true
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    }
+   ]
+  },
+  "TRANSPORT_DETAIL": {
+   "group": "Kết quả",
+   "description": "Phiếu cân cấu thành 1 kết quả; cũng là bảng chống tính trùng theo hợp đồng",
+   "pk": "id",
+   "unique": [],
+   "partialUnique": [
+    "contract_id+ticket_id WHERE is_current AND usage_state IN (CONFIRMED,LOCKED)"
+   ],
+   "fk": {
+    "calc_id": [
+     "TRANSPORT_CALCULATION",
+     "calc_id"
+    ],
+    "period_id": [
+     "KY_TINH",
+     "period_id"
+    ],
+    "ticket_id": [
+     "PHIEU_CAN",
+     "ticket_id"
+    ]
+   },
+   "partition": [
+    "year",
+    "weigh1_date"
+   ],
+   "audit": false,
+   "columns": [
+    {
+     "name": "id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "calc_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "period_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "contract_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "ticket_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "ticket_key",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "plate_no",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "weigh1_date",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "net_kg",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "is_current",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "usage_state",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "DRAFT",
+      "CONFIRMED",
+      "LOCKED",
+      "RELEASED"
+     ]
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    }
+   ]
+  },
+  "FUEL_DETAIL": {
+   "group": "Kết quả",
+   "description": "Dòng dầu cấu thành 1 kết quả",
+   "pk": "id",
+   "unique": [],
+   "partialUnique": [
+    "contract_id+receipt_id WHERE is_current AND usage_state IN (CONFIRMED,LOCKED)"
+   ],
+   "fk": {
+    "calc_id": [
+     "TRANSPORT_CALCULATION",
+     "calc_id"
+    ],
+    "period_id": [
+     "KY_TINH",
+     "period_id"
+    ],
+    "receipt_id": [
+     "GIAO_NHAN_DAU",
+     "receipt_id"
+    ]
+   },
+   "partition": [
+    "year",
+    "created_at"
+   ],
+   "audit": false,
+   "columns": [
+    {
+     "name": "id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "calc_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "period_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "contract_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "receipt_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "qty_liter",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "fuel_price_excl_vat",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "is_current",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "usage_state",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "DRAFT",
+      "CONFIRMED",
+      "LOCKED",
+      "RELEASED"
+     ]
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    }
+   ]
+  },
+  "BKVC_LINE": {
+   "group": "Kết quả",
+   "description": "Dòng bảng xác nhận khối lượng (1 dòng / xe / tuyến)",
+   "pk": "id",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {
+    "period_id": [
+     "KY_TINH",
+     "period_id"
+    ],
+    "calc_id": [
+     "TRANSPORT_CALCULATION",
+     "calc_id"
+    ]
+   },
+   "partition": null,
+   "audit": false,
+   "columns": [
+    {
+     "name": "id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "period_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "calc_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "contract_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "route_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "seq",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "plate_no",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "owner_unit_code",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "trip_count",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "kg",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "ton",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "unit_price",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "amount",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "vat_rate",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "vat",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "amount_incl_vat",
+     "type": "NUM",
+     "required": true
+    },
+    {
+     "name": "note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "is_current",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    }
+   ]
+  },
+  "CALC_RUN": {
+   "group": "Kết quả",
+   "description": "Mỗi lần tính / xác nhận / khóa — nhật ký",
+   "pk": "run_id",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {
+    "period_id": [
+     "KY_TINH",
+     "period_id"
+    ]
+   },
+   "partition": null,
+   "audit": false,
+   "columns": [
+    {
+     "name": "run_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "period_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "action",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "CALC",
+      "RECALC",
+      "CONFIRM",
+      "LOCK",
+      "UNLOCK",
+      "REOPEN",
+      "CANCEL"
+     ]
+    },
+    {
+     "name": "status",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "RUNNING",
+      "DONE",
+      "FAILED",
+      "ROLLED_BACK"
+     ]
+    },
+    {
+     "name": "started_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "finished_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "username",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "journal_id",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "summary_json",
+     "type": "JSON",
+     "required": false
+    },
+    {
+     "name": "error_message",
+     "type": "TEXT",
+     "required": false
+    }
+   ]
+  },
+  "USERS": {
+   "group": "Hệ thống",
+   "description": "Tài khoản nội bộ của bản cài",
+   "pk": "username",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {
+    "unit_code": [
+     "DON_VI",
+     "unit_code"
+    ]
+   },
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "username",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "full_name",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "unit_code",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "role",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "ADMIN",
+      "KE_TOAN",
+      "XEM"
+     ]
+    },
+    {
+     "name": "can_unlock",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "password_hash",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "password_salt",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "password_algo",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "must_change_password",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "failed_attempts",
+     "type": "INT",
+     "required": true
+    },
+    {
+     "name": "locked_until",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "is_active",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "last_login_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "AUDIT_LOG": {
+   "group": "Hệ thống",
+   "description": "Lịch sử thao tác — chỉ ghi thêm, không sửa/xóa",
+   "pk": "log_id",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {},
+   "partition": [
+    "year",
+    "ts"
+   ],
+   "audit": false,
+   "columns": [
+    {
+     "name": "log_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "ts",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "username",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "action",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "entity",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "entity_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "before_json",
+     "type": "JSON",
+     "required": false
+    },
+    {
+     "name": "after_json",
+     "type": "JSON",
+     "required": false
+    },
+    {
+     "name": "reason",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "run_id",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "device_info",
+     "type": "TEXT",
+     "required": false
+    }
+   ]
+  },
+  "CONFIG": {
+   "group": "Hệ thống",
+   "description": "Tham số nghiệp vụ dùng chung (làm tròn, VAT, người ký…) — phát hành từ máy gốc qua gói danh mục",
+   "pk": "config_key",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {},
+   "partition": null,
+   "audit": false,
+   "columns": [
+    {
+     "name": "config_key",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "config_value",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "value_type",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "TEXT",
+      "NUM",
+      "BOOL",
+      "JSON"
+     ]
+    },
+    {
+     "name": "description",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    }
+   ]
+  },
+  "EXCHANGE_LOG": {
+   "group": "Hệ thống",
+   "description": "Gói dữ liệu đã xuất / nhập giữa các bản cài",
+   "pk": "exchange_id",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {},
+   "partition": null,
+   "audit": false,
+   "columns": [
+    {
+     "name": "exchange_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "direction",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "EXPORT",
+      "IMPORT"
+     ]
+    },
+    {
+     "name": "package_type",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "DANH_MUC",
+      "PHIEU_CAN",
+      "KY_TINH"
+     ]
+    },
+    {
+     "name": "file_name",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "package_sha256",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "source_install_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "source_unit_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "target_unit_code",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "counts_json",
+     "type": "JSON",
+     "required": true
+    },
+    {
+     "name": "status",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "PREVIEW",
+      "DONE",
+      "REJECTED"
+     ]
+    },
+    {
+     "name": "message",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    }
+   ]
+  },
+  "SYNC_REMINDER": {
+   "group": "Hệ thống",
+   "description": "Nhắc sửa danh mục ở các nhà máy còn lại (mỗi lần 1 bản cài sửa danh mục chung)",
+   "pk": "reminder_id",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {},
+   "partition": null,
+   "audit": false,
+   "columns": [
+    {
+     "name": "reminder_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "entity",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "entity_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "action",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "summary",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "source_unit_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "targets_json",
+     "type": "JSON",
+     "required": true
+    },
+    {
+     "name": "done_json",
+     "type": "JSON",
+     "required": true
+    },
+    {
+     "name": "status",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "OPEN",
+      "DONE"
+     ]
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    }
+   ]
+  }
+ }
+}

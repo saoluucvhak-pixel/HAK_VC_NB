@@ -1,0 +1,84 @@
+{
+  "name": "dgvc",
+  "productName": "Đơn giá vận chuyển dăm",
+  "version": "1.2.5",
+  "private": true,
+  "description": "Phần mềm desktop tính đơn giá vận chuyển dăm — thay thế Excel + Power Query (HAK Group)",
+  "main": "main/electron/main.js",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "verify:seed": "node tools/verify-seed.js",
+    "start": "electron .",
+    "dev": "node tools/dev-server.js",
+    "test:electron": "xvfb-run -a node tests/electron.smoke.js",
+    "compare": "node tools/compare-excel.js",
+    "build:catalog": "node tools/build-catalog.js",
+    "dist": "electron-builder --win dir --x64 && makensis -V2 installer/dgvc.nsi",
+    "dist:win": "electron-builder --win nsis --x64"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.18",
+    "exceljs": "^4.4.0"
+  },
+  "devDependencies": {
+    "electron": "^38.8.6",
+    "electron-builder": "^26.15.3",
+    "playwright-core": "^1.63.0"
+  },
+  "author": "HAK Group",
+  "build": {
+    "appId": "vn.hakgroup.dgvc",
+    "productName": "DGVC - Don gia van chuyen dam",
+    "executableName": "DGVC",
+    "copyright": "HAK Group",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main/**",
+      "renderer/**",
+      "shared/**",
+      "resources/**",
+      "build/icon.png",
+      "build/icon.ico",
+      "package.json",
+      "!**/*.test.js"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Đơn giá vận chuyển dăm",
+      "uninstallDisplayName": "DGVC - Đơn giá vận chuyển dăm",
+      "artifactName": "DGVC-Setup-${version}.${ext}",
+      "deleteAppDataOnUninstall": false,
+      "installerLanguages": [
+        "vi_VN"
+      ],
+      "language": "1066"
+    },
+    "electronLanguages": [
+      "vi",
+      "en-US"
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+{
+ "table": "CALC_RUN",
+ "partition": null,
+ "schemaVersion": 1,
+ "columns": [
+  "run_id",
+  "period_id",
+  "action",
+  "status",
+  "started_at",
+  "finished_at",
+  "username",
+  "journal_id",
+  "summary_json",
+  "error_message"
+ ],
+ "rows": []
+}

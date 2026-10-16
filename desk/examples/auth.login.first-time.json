@@ -1,0 +1,26 @@
+{
+  "request": {
+    "action": "auth.login",
+    "payload": {
+      "username": "phuthuy.apple@gmail.com",
+      "password": "••••••••"
+    }
+  },
+  "response": {
+    "ok": false,
+    "data": null,
+    "error": {
+      "code": "PASSWORD_NOT_SET",
+      "message": "Tài khoản chưa có mật khẩu. Vui lòng đặt mật khẩu lần đầu.",
+      "details": {
+        "username": "phuthuy.apple@gmail.com"
+      }
+    },
+    "warnings": [],
+    "meta": {
+      "requestId": "req-lg01",
+      "durationMs": 40,
+      "dataVersion": 1
+    }
+  }
+}
