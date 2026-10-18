@@ -14,7 +14,7 @@ const { FILE } = require('./install');
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-electron-'));
   const shots = process.env.DGVC_SHOTS || '';
   const appDir = process.env.DGVC_APP_DIR || path.join(__dirname, '..'); // có thể trỏ vào app.asar đã đóng gói
-  const app = await electron.launch({ executablePath: require('electron'), args: [appDir, '--no-sandbox'], env: { ...process.env, DGVC_USER_DATA: path.join(home, 'userData'), DGVC_DOCUMENTS: path.join(home, 'Documents') } });
+  const app = await electron.launch({ executablePath: require('electron'), args: [appDir, '--no-sandbox'], env: { ...process.env, HAK_MODULE: 'dgvc', DGVC_USER_DATA: path.join(home, 'userData'), DGVC_DOCUMENTS: path.join(home, 'Documents') } });
   // giả lập hộp thoại Windows: trả sẵn đường dẫn
   const answer = async (p) => app.evaluate(({ dialog, shell }, f) => { shell.openPath = async () => ''; // không mở trình xem file trên máy kiểm thử
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [f] }); dialog.showSaveDialog = async () => ({ canceled: false, filePath: f }); }, p);

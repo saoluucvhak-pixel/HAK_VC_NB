@@ -1,10 +1,10 @@
 {
-  "name": "dgvc",
-  "productName": "Đơn giá vận chuyển dăm",
+  "name": "hak-vc",
+  "productName": "HAK VC",
   "version": "1.2.5",
   "private": true,
-  "description": "Phần mềm desktop tính đơn giá vận chuyển dăm — thay thế Excel + Power Query (HAK Group)",
-  "main": "main/electron/main.js",
+  "description": "HAK VC — DGVC (đơn giá vận chuyển dăm) + VC Cost (quản lý · đối chiếu chi phí vận chuyển) trong một ứng dụng",
+  "main": "main/electron/suite.js",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "verify:seed": "node tools/verify-seed.js",
@@ -14,14 +14,20 @@
     "compare": "node tools/compare-excel.js",
     "build:catalog": "node tools/build-catalog.js",
     "dist": "electron-builder --win dir --x64 && makensis -V2 installer/dgvc.nsi",
-    "dist:win": "electron-builder --win nsis --x64"
+    "dist:win": "electron-builder --win nsis --x64",
+    "test:vccost": "node --test modules/vccost/tests/*.test.js",
+    "test:all": "npm test && npm run test:vccost",
+    "validate:vccost": "node modules/vccost/scripts/validate-sample.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.5"
   },
   "dependencies": {
     "adm-zip": "^0.5.18",
-    "exceljs": "^4.4.0"
+    "exceljs": "^4.4.0",
+    "better-sqlite3": "^12.2.0",
+    "decimal.js": "^10.6.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "electron": "^38.8.6",
@@ -30,8 +36,8 @@
   },
   "author": "HAK Group",
   "build": {
-    "appId": "vn.hakgroup.dgvc",
-    "productName": "DGVC - Don gia van chuyen dam",
+    "appId": "vn.hakgroup.hakvc",
+    "productName": "HAK VC",
     "executableName": "DGVC",
     "copyright": "HAK Group",
     "directories": {
@@ -40,6 +46,9 @@
     },
     "files": [
       "main/**",
+      "modules/**",
+      "!modules/**/tests/**",
+      "!modules/**/docs/**",
       "renderer/**",
       "shared/**",
       "resources/**",
@@ -67,9 +76,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Đơn giá vận chuyển dăm",
-      "uninstallDisplayName": "DGVC - Đơn giá vận chuyển dăm",
-      "artifactName": "DGVC-Setup-${version}.${ext}",
+      "shortcutName": "HAK VC",
+      "uninstallDisplayName": "HAK VC (DGVC + VC Cost)",
+      "artifactName": "HAK-VC-Setup-${version}.${ext}",
       "deleteAppDataOnUninstall": false,
       "installerLanguages": [
         "vi_VN"
@@ -79,6 +88,9 @@
     "electronLanguages": [
       "vi",
       "en-US"
+    ],
+    "asarUnpack": [
+      "**/*.node"
     ]
   }
 }

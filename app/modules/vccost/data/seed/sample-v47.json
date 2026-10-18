@@ -1,0 +1,301 @@
+{
+  "_note": "Dữ liệu cấu hình rút ra từ file Excel mẫu 'Tổng hợp chi phí VC PRINCE OF NATURE V.47' + trả lời của người dùng ngày 06/10/2026. Đây là DỮ LIỆU (seed/import), không phải source code. Dòng 'suy_nguoc' = tham số suy ngược, người dùng có thể sửa.",
+  "dia_diem": [
+    {
+      "ma": "DH",
+      "ten": "Đại Hiệp",
+      "loai": "NHA_MAY",
+      "aliases": [
+        "Đại Hiệp",
+        "NM Đại Hiệp",
+        "DH",
+        "ĐH"
+      ]
+    },
+    {
+      "ma": "QS",
+      "ten": "Quế Sơn",
+      "loai": "NHA_MAY",
+      "aliases": [
+        "Quế Sơn",
+        "QS"
+      ]
+    },
+    {
+      "ma": "DN",
+      "ten": "Đà Nẵng (NM Hoàng Anh Khôi)",
+      "loai": "NHA_MAY",
+      "aliases": [
+        "Đà Nẵng",
+        "NM Hoàng Anh Khôi",
+        "HAK"
+      ]
+    },
+    {
+      "ma": "QC",
+      "ten": "Quế Cường (NM HAK Quảng Nam)",
+      "loai": "NHA_MAY",
+      "aliases": [
+        "Quế Cường",
+        "NM Quế Cường",
+        "NM HAK Quảng Nam"
+      ]
+    },
+    {
+      "ma": "TIENSA",
+      "ten": "Cảng Tiên Sa",
+      "loai": "CANG",
+      "aliases": [
+        "Cảng Tiên Sa",
+        "Tiên Sa"
+      ]
+    }
+  ],
+  "tuyen": [
+    {
+      "ma_tuyen": "DH-TIENSA",
+      "noi_xuat": "DH",
+      "noi_den": "TIENSA",
+      "khoang_cach_km": 78,
+      "mo_ta": "Excel G33: 39 km x 2 (ghi chú phụ K33=36,5 km chưa dùng)"
+    },
+    {
+      "ma_tuyen": "DN-TIENSA",
+      "noi_xuat": "DN",
+      "noi_den": "TIENSA",
+      "khoang_cach_km": 54,
+      "mo_ta": "Excel G10: 27 km x 2 (ghi chú phụ K10=25 km chưa dùng)"
+    },
+    {
+      "ma_tuyen": "QC-TIENSA",
+      "noi_xuat": "QC",
+      "noi_den": "TIENSA",
+      "khoang_cach_km": 110,
+      "mo_ta": "Excel G56: 55 km x 2 (ghi chú phụ K56=53,3 km chưa dùng)"
+    },
+    {
+      "ma_tuyen": "QS-TIENSA",
+      "noi_xuat": "QS",
+      "noi_den": "TIENSA",
+      "khoang_cach_km": 146,
+      "mo_ta": "Suy ngược: QS cách NM Quế Cường 18 km, xa cảng hơn → (55 + 18) km x 2 = 146 km"
+    }
+  ],
+  "don_vi_van_chuyen": [
+    {
+      "ma": "HHH",
+      "ten": "HHH",
+      "nhom_bao_cao": "HHH",
+      "ghi_chu": "Xuất hóa đơn riêng (trả lời người dùng 06/10/2026)"
+    },
+    {
+      "ma": "HAK",
+      "ten": "HAK",
+      "nhom_bao_cao": "HAK_GROUP",
+      "ghi_chu": "Xuất hóa đơn riêng (trả lời người dùng 06/10/2026)"
+    },
+    {
+      "ma": "QC",
+      "ten": "QC",
+      "nhom_bao_cao": "HAK_GROUP",
+      "ghi_chu": "Xuất hóa đơn riêng (trả lời người dùng 06/10/2026)"
+    },
+    {
+      "ma": "ĐH",
+      "ten": "ĐH",
+      "nhom_bao_cao": "HAK_GROUP",
+      "ghi_chu": "Xuất hóa đơn riêng (trả lời người dùng 06/10/2026)"
+    }
+  ],
+  "gia_dau": {
+    "loai_dau": "DO 0,05S-II",
+    "ngay_thay_doi_gia": "2026-09-17",
+    "ky_tham_chieu": "Ngày chạy tàu Condor Express",
+    "chi_tiet": [
+      {
+        "ngay": "2026-09-18",
+        "gia": 31640
+      },
+      {
+        "ngay": "2026-09-19",
+        "gia": 31640
+      },
+      {
+        "ngay": "2026-09-20",
+        "gia": 31640
+      },
+      {
+        "ngay": "2026-09-21",
+        "gia": 31640
+      },
+      {
+        "ngay": "2026-09-22",
+        "gia": 31640
+      },
+      {
+        "ngay": "2026-09-23",
+        "gia": 31640
+      }
+    ]
+  },
+  "bang_gia": [
+    {
+      "ma_bang_gia": "DN-TIENSA-2025-04",
+      "tuyen": "DN-TIENSA",
+      "tu_ngay": "2025-04-10",
+      "den_ngay": "2026-09-17",
+      "don_vi_tinh": "DONG_TAN",
+      "vat_percent": 8,
+      "phuong_thuc": "CO_DINH",
+      "don_gia_goc": 71000,
+      "gia_dau_co_so": 17240
+    },
+    {
+      "ma_bang_gia": "DN-TIENSA-2026-09-18",
+      "tuyen": "DN-TIENSA",
+      "tu_ngay": "2026-09-18",
+      "den_ngay": null,
+      "don_vi_tinh": "DONG_TAN",
+      "vat_percent": 8,
+      "phuong_thuc": "DIEU_CHINH_DAU",
+      "don_gia_goc": 71000,
+      "gia_dau_co_so": 17240,
+      "dinh_muc_dau": 35,
+      "khoi_luong_binh_quan": 19,
+      "khoang_cach_km": 54
+    },
+    {
+      "ma_bang_gia": "DH-TIENSA-2025-04",
+      "tuyen": "DH-TIENSA",
+      "tu_ngay": "2025-04-10",
+      "den_ngay": "2026-09-17",
+      "don_vi_tinh": "DONG_TAN",
+      "vat_percent": 8,
+      "phuong_thuc": "CO_DINH",
+      "don_gia_goc": 96000,
+      "gia_dau_co_so": 17240
+    },
+    {
+      "ma_bang_gia": "DH-TIENSA-2026-09-18",
+      "tuyen": "DH-TIENSA",
+      "tu_ngay": "2026-09-18",
+      "den_ngay": null,
+      "don_vi_tinh": "DONG_TAN",
+      "vat_percent": 8,
+      "phuong_thuc": "DIEU_CHINH_DAU",
+      "don_gia_goc": 96000,
+      "gia_dau_co_so": 17240,
+      "dinh_muc_dau": 35,
+      "khoi_luong_binh_quan": 19,
+      "khoang_cach_km": 78
+    },
+    {
+      "ma_bang_gia": "QC-TIENSA-2025-11",
+      "tuyen": "QC-TIENSA",
+      "tu_ngay": "2025-11-07",
+      "den_ngay": "2026-09-17",
+      "don_vi_tinh": "DONG_TAN",
+      "vat_percent": 8,
+      "phuong_thuc": "CO_DINH",
+      "don_gia_goc": 130000,
+      "gia_dau_co_so": 19200
+    },
+    {
+      "ma_bang_gia": "QC-TIENSA-2026-09-18",
+      "tuyen": "QC-TIENSA",
+      "tu_ngay": "2026-09-18",
+      "den_ngay": null,
+      "don_vi_tinh": "DONG_TAN",
+      "vat_percent": 8,
+      "phuong_thuc": "DIEU_CHINH_DAU",
+      "don_gia_goc": 130000,
+      "gia_dau_co_so": 19200,
+      "dinh_muc_dau": 35,
+      "khoi_luong_binh_quan": 19,
+      "khoang_cach_km": 110
+    },
+    {
+      "ma_bang_gia": "QS-TIENSA-2025-11",
+      "tuyen": "QS-TIENSA",
+      "tu_ngay": "2025-11-07",
+      "den_ngay": "2026-09-17",
+      "don_vi_tinh": "DONG_TAN",
+      "vat_percent": 8,
+      "phuong_thuc": "CO_DINH",
+      "don_gia_goc": 173000,
+      "gia_dau_co_so": 19200,
+      "suy_nguoc": true,
+      "ghi_chu": "Suy ngược từ 206.500: cước cơ sở 173.000 (≈1.185 đ/km khứ hồi, tương đương NM Quế Cường 1.182), giá dầu cơ sở 19.200 từ 07/11/2025 như Quế Cường"
+    },
+    {
+      "ma_bang_gia": "QS-TIENSA-2026-09-18",
+      "tuyen": "QS-TIENSA",
+      "tu_ngay": "2026-09-18",
+      "den_ngay": null,
+      "don_vi_tinh": "DONG_TAN",
+      "vat_percent": 8,
+      "phuong_thuc": "DIEU_CHINH_DAU",
+      "don_gia_goc": 173000,
+      "gia_dau_co_so": 19200,
+      "dinh_muc_dau": 35,
+      "khoi_luong_binh_quan": 19,
+      "khoang_cach_km": 146,
+      "suy_nguoc": true,
+      "ghi_chu": "173.000 + ROUND(ROUND(146 x 0,35 x (31.640 - 19.200) / 19, 0), -2) = 173.000 + 33.500 = 206.500 — khớp Excel"
+    }
+  ],
+  "dot_van_chuyen": {
+    "ma_dot": "PON-V47",
+    "ten_tau": "PRINCE OF NATURE",
+    "voyage": "V.47",
+    "khoi_luong_giam_dinh": 38453.23,
+    "tu_ngay": "2026-09-28",
+    "den_ngay": "2026-10-04",
+    "noi_giao": "TIENSA",
+    "ghi_chu": "Excel ghi 'Đợt ngày 29-09 đến 03-10-2026' (File tổng) và '29-09 đến 04-10-2026' (các sheet tổng hợp); dữ liệu thực tế 28/09 13:16 → 04/10 10:42"
+  },
+  "cai_dat_lam_tron_excel_compat": {
+    "roundingLevel": "GROUP",
+    "rounding": {
+      "unitPrice": null,
+      "amount": null,
+      "vat": null,
+      "total": null
+    }
+  },
+  "nghiep_vu": {
+    "xe_tra_ve": "VẪN TÍNH CƯỚC (trả về vẫn vận chuyển, vẫn tốn dầu) — cờ xe_tra_ve chỉ để theo dõi KL xuống tàu",
+    "hoa_don": "Xuất riêng từng đơn vị vận chuyển (HHH, HAK, QC, ĐH)",
+    "lam_tron": "Theo BẢNG KÊ: 1 bảng kê = 1 đơn vị VC × 1 đợt; mỗi dòng giá: thành tiền = ROUND(tấn × đơn giá, 0); VAT = ROUND(Σ thành tiền × VAT%, 0); tổng = Σ thành tiền + VAT"
+  },
+  "cai_dat_lam_tron_bang_ke": {
+    "roundingLevel": "STATEMENT",
+    "statement": {
+      "lineAmount": {
+        "digits": 0,
+        "mode": "HALF_UP"
+      },
+      "vat": {
+        "digits": 0,
+        "mode": "HALF_UP"
+      }
+    }
+  },
+  "xe_tra_ve": {
+    "dot": "PON-V47",
+    "noi_xuat": "QS",
+    "so_phieu": [
+      "1899",
+      "1900",
+      "1901",
+      "1902",
+      "1903",
+      "1904",
+      "1905",
+      "1906",
+      "1907",
+      "1908"
+    ],
+    "ghi_chu": "Excel File tổng!E2046:F2046 (10 xe, 163,79 tấn)"
+  }
+}

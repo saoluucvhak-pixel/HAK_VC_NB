@@ -1,0 +1,180 @@
+@font-face{font-family:'IBM Plex Mono';font-weight:400;src:url(fonts/ibm-plex-mono-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'IBM Plex Mono';font-weight:500;src:url(fonts/ibm-plex-mono-latin-500-normal.woff2) format('woff2')}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(fonts/be-vietnam-pro-vietnamese-400-normal.woff2) format('woff2');
+  unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(fonts/be-vietnam-pro-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(fonts/be-vietnam-pro-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(fonts/be-vietnam-pro-vietnamese-500-normal.woff2) format('woff2');
+  unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(fonts/be-vietnam-pro-latin-ext-500-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(fonts/be-vietnam-pro-latin-500-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(fonts/be-vietnam-pro-vietnamese-600-normal.woff2) format('woff2');
+  unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(fonts/be-vietnam-pro-latin-ext-600-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(fonts/be-vietnam-pro-latin-600-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(fonts/be-vietnam-pro-vietnamese-700-normal.woff2) format('woff2');
+  unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(fonts/be-vietnam-pro-latin-ext-700-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(fonts/be-vietnam-pro-latin-700-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+:root{
+  --brand:#0e7c86;--brand-2:#14a3ad;--brand-dark:#0b6870;--brand-soft:rgba(14,124,134,.12);
+  --sidebar-bg:#0f2740;--sidebar-grad:linear-gradient(180deg,#0f2740 0%,#0a1c30 100%);--sidebar-active:rgba(20,163,173,.3);
+  --accent:var(--brand-2);--green:var(--brand);--green-d:var(--brand-dark);
+  --bg:#f3f6fa;--card:#fff;--text:#16202c;--text-mute:#6b7a8c;--line:#e3e9f0;
+  --red:#e5484d;--amber:#eda100;--purple:#6b4fa0;--blue:#2a78d6;--radius:14px;
+  --shadow:0 1px 2px rgba(16,35,58,.05),0 6px 18px rgba(16,35,58,.06);
+  --sans:'Be Vietnam Pro',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;--mono:'IBM Plex Mono',Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.5 var(--sans)}
+#app{display:flex;height:100vh}
+#sidebar{width:264px;flex:none;background:var(--sidebar-grad);color:#b8c7d9;overflow-y:auto;padding:18px 12px 24px;box-shadow:4px 0 24px rgba(0,0,0,.12)}
+#main{flex:1;overflow:auto;padding:22px 28px 40px}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 10px 16px;color:#fff}
+.brand b{font-size:17px;letter-spacing:.2px}.brand small{display:block;color:#b8c7d9;opacity:.7;font-size:11px;font-weight:400}
+.brand i{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#14a3ad,#0a5f68);box-shadow:0 4px 12px rgba(20,163,173,.4);display:grid;place-items:center;font-style:normal;font-size:18px}
+.nav-group{margin:14px 0 4px;padding:0 10px;font-size:10.5px;letter-spacing:1.2px;color:#7f93a8;font-weight:700}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;color:#b8c7d9;user-select:none;transition:all .15s}
+.nav-item:hover{background:rgba(255,255,255,.07);color:#fff}.nav-item.active{background:linear-gradient(90deg,rgba(20,163,173,.35),rgba(20,163,173,.12));box-shadow:inset 3px 0 0 var(--brand-2);color:#fff;font-weight:600}
+.nav-item .ic{width:20px;text-align:center}.nav-item .badge{margin-left:auto;background:rgba(255,255,255,.16);color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:0 7px}
+.nav-item .badge.red{background:var(--red);color:#fff}
+.foot{margin:18px 10px 0;color:#7f93a8;font-size:11px}
+
+h1{font-size:1.25rem;margin:0 0 4px;font-weight:700}.sub{color:var(--text-mute);margin:0 0 16px}
+.crumb{color:var(--text-mute);font-size:12px;margin-bottom:6px}.crumb a{color:var(--green);cursor:pointer}
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);padding:18px;margin-bottom:16px}
+.card h3{margin:0 0 12px;font-size:.78rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-mute);font-weight:700}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.row.end{justify-content:flex-end}.grow{flex:1}.gap-s{gap:6px}
+.grid{display:grid;gap:14px}.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}.g6{grid-template-columns:repeat(6,1fr)}
+.muted{color:var(--text-mute)}.mono{font-family:var(--mono);font-size:12.5px}.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tab{padding:8px 14px;cursor:pointer;color:var(--text-mute);border-bottom:2px solid transparent;font-weight:600}.tab.active{color:var(--green);border-color:var(--green)}
+
+.btn{border:1px solid var(--green);background:var(--green);color:#fff;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);cursor:pointer}
+.btn:hover{background:var(--green-d)}.btn{min-height:36px}.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--green)}.btn.ghost:hover{background:var(--brand-soft)}
+.btn.danger{background:var(--red);border-color:var(--red)}.btn.sm{padding:3px 9px;font-size:12px}
+.btn.amber{background:var(--amber);border-color:var(--amber)}
+input,select,textarea{font:13px var(--sans);border:1px solid #ced8e3;border-radius:8px;padding:6px 9px;background:#fff;color:var(--text);min-width:0}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 .2rem var(--brand-soft)}
+textarea{width:100%;min-height:60px}label.field{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--text-mute);font-weight:600}
+label.field input,label.field select{font-weight:400;color:var(--text)}.hint{font-size:11px;font-weight:400;color:var(--text-mute)}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+
+.kpi{background:var(--card);border-radius:var(--radius);padding:12px 14px;border:1px solid var(--line);cursor:default}
+.kpi small{color:var(--text-mute);font-weight:600;display:block;font-size:11.5px}.kpi b{font-size:1.4rem;font-weight:800;color:var(--brand);font-variant-numeric:tabular-nums}
+.kpi.warn b{color:var(--red)}.kpi.click{cursor:pointer}.kpi.click:hover{outline:2px solid var(--brand-soft)}.kpi .u{font-size:11px;color:var(--text-mute);font-family:var(--sans)}
+
+table.t{border-collapse:collapse;width:100%;font-size:13px}
+table.t thead th{background:#fff;color:var(--text-mute);box-shadow:0 1px 0 var(--line);text-transform:uppercase;font-size:.74rem;font-weight:700;letter-spacing:.04em;padding:9px 10px;text-align:left;white-space:nowrap;position:sticky;top:0;z-index:1}
+table.t thead th.sortable{cursor:pointer}table.t thead th.r{text-align:right}
+table.t td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:top}table.t tbody tr:nth-child(even) td{background:#f8fafc}
+table.t tbody tr:hover td{background:rgba(14,124,134,.06)}table.t tr.sel td{background:var(--brand-soft)}
+table.t tfoot td{font-weight:700;background:#eef4f7;border-top:2px solid #cfdbe6}
+.tbl-wrap{overflow:auto;max-height:calc(100vh - 330px);border-radius:10px;border:1px solid var(--line)}.tbl-wrap.tall{max-height:calc(100vh - 220px)}
+tr.flag td{background:#FFF6E8}tr.err td{background:#FDEDEA}tr.dup td{color:#8d8a7e}
+
+.tag{display:inline-block;border-radius:999px;padding:2px 10px;font-size:.76rem;font-weight:700;white-space:nowrap}
+.tag.green{background:rgba(27,175,122,.14);color:#0f7a54}.tag.amber{background:rgba(237,161,0,.16);color:#8a5a00}.tag.red{background:rgba(229,72,77,.13);color:#b4262b}
+.tag.gray{background:#e9eef4;color:var(--text-mute)}.tag.purple{background:#E9E2F5;color:#4D3580}.tag.blue{background:var(--brand-soft);color:var(--brand)}
+
+.overlay{position:fixed;inset:0;background:rgba(8,18,30,.6);display:grid;place-items:center;z-index:50}
+.modal{background:#fff;border:1px solid var(--line);border-radius:16px;width:min(640px,94vw);max-height:90vh;overflow:auto;padding:20px 22px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal.wide{width:min(980px,95vw)}.modal h2{margin:0 0 12px;font-size:18px}.modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form-grid .full{grid-column:1/-1}
+#toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:99}
+.toast{background:#0f2740;border-left:4px solid var(--brand-2);color:#fff;padding:11px 15px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:420px}.toast.err{background:var(--red)}
+.steps{display:flex;gap:8px;margin-bottom:14px}.step{flex:1;padding:8px 12px;border-radius:8px;background:#e9eef4;color:var(--text-mute);font-weight:700;font-size:12.5px}
+.step.on{background:var(--green);color:#fff}.step.done{background:var(--brand-soft);color:var(--green-d)}
+.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;padding-top:8px;color:var(--text-mute)}
+.empty{text-align:center;color:var(--text-mute);padding:36px 10px}
+.stmt{font-size:13px}.stmt .big{font-size:18px;font-family:var(--mono)}
+.bars{display:flex;flex-direction:column;gap:5px}.bar{display:grid;grid-template-columns:130px 1fr 90px;gap:8px;align-items:center;font-size:12px}
+.bar .track{background:#e9eef4;border-radius:5px;height:14px;overflow:hidden}.bar .fill{height:100%;background:var(--green);border-radius:5px}
+.cols{display:flex;align-items:flex-end;gap:3px;height:140px;padding-top:6px}.cols .c{flex:1;background:var(--green);border-radius:3px 3px 0 0;min-width:6px;position:relative}
+.cols .c:hover{background:var(--accent)}.collabels{display:flex;gap:3px;font-size:10px;color:var(--text-mute)}.collabels span{flex:1;text-align:center;overflow:hidden}
+.diff-old{background:#F9DDD9;padding:0 4px;border-radius:4px}.diff-new{background:#E1EFE7;padding:0 4px;border-radius:4px}
+pre.json{background:#f8fafc;padding:10px;border-radius:8px;overflow:auto;font:12px var(--mono);max-height:240px}
+
+/* Canh lề: số → phải, chữ → trái, ngày → giữa (định dạng VN) */
+table.t th{text-align:left}table.t th.r{text-align:right}table.t th.c,table.t td.ctr{text-align:center}
+table.t td.num{text-align:right;font-variant-numeric:tabular-nums}
+table.t td.mono:not(.num):not(.ctr){text-align:left}
+input[inputmode="decimal"]{text-align:right}
