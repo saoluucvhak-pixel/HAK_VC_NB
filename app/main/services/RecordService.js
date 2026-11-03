@@ -71,6 +71,24 @@ class RecordService {
   }
   softDeleteTicket({ ticketId, reason, user }) { return this._softDelete('PHIEU_CAN', 'ticket_id', 'TRANSPORT_DETAIL', ticketId, reason, user, 'phiếu cân'); }
   ackTicketFlags({ ticketIds, note, user }) { return this._ack('PHIEU_CAN', ticketIds, note, user); }
+  /** Xóa nhiều dòng dầu 1 lần (file dầu tải lên sai) — dòng ở kỳ đã xác nhận / khóa được giữ lại, báo rõ. */
+  async softDeleteFuelMany({ receiptIds = [], reason, user }) {
+    if (!reason) throw new AppError('VALIDATION_FAILED', 'Xóa phải nhập lý do');
+    const ok = []; const skipped = []; const drafts = new Set();
+    for (const id of [...new Set(receiptIds)]) {
+      const r = this.store.get('GIAO_NHAN_DAU', id); if (!r || r.is_deleted) continue;
+      const ps = this._periodsOf('FUEL_DETAIL', 'receipt_id', id);
+      const hard = ps.find((p) => p.status !== 'NHAP');
+      if (hard) { skipped.push({ receiptId: id, periodCode: hard.period_code }); continue; }
+      ps.forEach((p) => drafts.add(p.period_id)); ok.push(id);
+    }
+    if (!ok.length) return { deleted: 0, skipped, affectedPeriods: [] };
+    await this.store.transaction((tx) => {
+      for (const id of ok) { tx.update('GIAO_NHAN_DAU', id, { is_deleted: true }); tx.audit('DELETE', 'GIAO_NHAN_DAU', id, { is_deleted: false }, { is_deleted: true }, { reason }); }
+      for (const p of drafts) tx.update('KY_TINH', p, { needs_recalc: true });
+    }, { user: user.username });
+    return { deleted: ok.length, skipped, affectedPeriods: [...drafts] };
+  }
   softDeleteFuel({ receiptId, reason, user }) { return this._softDelete('GIAO_NHAN_DAU', 'receipt_id', 'FUEL_DETAIL', receiptId, reason, user, 'dòng dầu'); }
   ackFuelFlags({ receiptIds, note, user }) { return this._ack('GIAO_NHAN_DAU', receiptIds, note, user); }
 

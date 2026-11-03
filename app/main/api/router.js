@@ -88,6 +88,7 @@ const ROUTES = {
   'fuel.list': [null, (ctx, p) => ctx.svc.query.fuel(p)],
   'fuel.saveRows': [null, (ctx, p, s) => ctx.svc.records.saveFuelRows({ ...p, clientRequestId: rid(p), user: s.user })],
   'fuel.update': [null, (ctx, p, s) => ctx.svc.records.updateFuel({ ...p, user: s.user })],
+  'fuel.softDeleteMany': [null, (ctx, p, s) => ctx.svc.records.softDeleteFuelMany({ ...p, user: s.user })],
   'fuel.softDelete': [null, (ctx, p, s) => ctx.svc.records.softDeleteFuel({ ...p, user: s.user })],
   'fuel.ackFlags': [null, (ctx, p, s) => ctx.svc.records.ackFuelFlags({ ...p, user: s.user })],
   'import.preview': [null, (ctx, p, s) => ctx.svc.import.preview({ ...p, user: s.user.username })],
