@@ -67,6 +67,14 @@ Cách làm: **Đơn giá** → chọn tuyến → **Tạo phiên bản giá mớ
 
 ![Tạo phiên bản đơn giá cố định](man_hinh_giao_dien_moi/28-tao-don-gia-co-dinh.png)
 
+### Dầu nhận ở nhiều kho / xóa dầu tải lên sai (từ bản 1.2.6, sửa ở 1.2.7)
+- **1 hợp đồng chỉ có 1 bên giao dầu** (cột *Đơn vị*). Dòng dầu ghi Đơn vị khác → kỳ tính **báo lỗi và chỉ rõ từng dòng lệch** (ngày, xe, số lít) để sửa. Import file có dòng Đơn vị khác cũng cảnh báo ngay.
+- **Kho nhận dầu** (kho, cây xăng xe đổ dầu) khác nhau thì **vẫn tính bình thường** — cộng chung số lít, đơn giá dầu = trung bình các dòng. Nơi nhận khác nhau ghi vào cột *Kho nhận dầu*, không ghi vào *Đơn vị*.
+- **Nhập tay**: ô *Bên giao dầu* tự lấy theo các dòng dầu đã có của hợp đồng và khóa lại (không chọn nhầm được). Dòng lỡ ghi sai Đơn vị: bấm vào dòng → sửa *Đơn vị (bên giao dầu)*.
+- **Tải file dầu sai**: Giao nhận dầu → chọn hợp đồng, lọc *Từ ngày – Đến ngày* đúng khoảng của file → **Xóa … dòng đang lọc…** (nhập lý do) → **Import từ Excel** file đúng. Dòng dầu ở kỳ đã xác nhận / khóa được giữ lại; kỳ nháp có dòng bị xóa phải tính lại.
+
+![Xóa dòng dầu đang lọc](man_hinh_giao_dien_moi/37-xoa-dau-dang-loc.png)
+
 ### Sửa / cập nhật / xóa phiếu cân (từ bản 1.1.8)
 - **Sửa 1 phiếu**: bấm vào phiếu → sửa → *Lưu thay đổi* (ghi lý do). Phiếu ở kỳ đã chốt chỉ sửa được cột mô tả.
 - **Cập nhật theo file mới**: trạm cân gửi lại file đã sửa → *Import từ Excel* như bình thường. Phiếu đã có mà **khác số liệu cân** hiện **Cập nhật**, ghi rõ cột nào đổi (vd *KL hàng 16.720 → 16.750*). Tick *Chấp nhận…* rồi xác nhận. Cột không có trong file (LDĐ, nguồn gốc…) giữ nguyên. Kỳ nháp có phiếu đó được đánh dấu phải tính lại. Phiếu ở **kỳ đã xác nhận / khóa**: báo lỗi — trả kỳ về nháp rồi import lại.

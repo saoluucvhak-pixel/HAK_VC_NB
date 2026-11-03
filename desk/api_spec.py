@@ -150,6 +150,8 @@ ep('fuel.list', 'Giao nhận dầu', 'Bảng kê dầu theo hợp đồng', ALL,
 ep('fuel.saveRows', 'Giao nhận dầu', 'Nhập tay nhiều dòng dầu cho 1 hợp đồng (validate như import)', EDIT,
    [('contractId', 'string', True, ''), ('rows', 'array<object>', True, '')], '{saved, rowResults}',
    ['VALIDATION_FAILED', 'BUSINESS_RULE:E_NOT_CARRIER'], ['GIAO_NHAN_DAU', 'XE'], ['GIAO_NHAN_DAU'], 'CREATE', True, 'như contracts.save')
+ep('fuel.softDeleteMany', 'Giao nhận dầu', 'Xóa mềm nhiều dòng dầu (vd file tải lên sai) — bỏ qua dòng ở kỳ đã xác nhận / khóa; kỳ nháp đánh dấu tính lại', EDIT,
+   [('receiptIds', 'array<string>', True, ''), ('reason', 'string', True, '')], '{deleted, skipped[{receiptId, periodCode}], affectedPeriods}', ['VALIDATION_FAILED'], ['GIAO_NHAN_DAU', 'FUEL_DETAIL'], ['GIAO_NHAN_DAU', 'KY_TINH'], 'DELETE', True)
 ep('fuel.update', 'Giao nhận dầu', 'Sửa 1 dòng dầu (luật như tickets.update)', EDIT, [('receiptId', 'string', True, ''), ('changes', 'object', True, ''), ROWV],
    '{record, affectedPeriods}', ['CONFLICT_VERSION', 'BUSINESS_RULE:E_FUEL_LOCKED'], ['GIAO_NHAN_DAU', 'FUEL_DETAIL'], ['GIAO_NHAN_DAU', 'KY_TINH'], 'UPDATE', True)
 ep('fuel.softDelete', 'Giao nhận dầu', 'Xóa mềm dòng dầu', EDIT, [('receiptId', 'string', True, ''), ('reason', 'string', True, ''), ROWV], '{record}',
@@ -341,7 +343,9 @@ ISSUES = [  # (code, level, message, dùng ở đâu) — 10 lỗi bắt buộc 
     ('E_VEHICLE_NOT_FOUND', 'ERROR', 'Mã xe (phiếu/dầu) không quy đổi được về xe trong danh mục', 'import, fuel'),
     ('E_TICKET_USED_IN_PERIOD', 'ERROR', 'Phiếu cân này đã được sử dụng trong kỳ tính [Mã kỳ]. Không thể đưa vào kỳ mới.', 'periods'),
     ('E_FUEL_USED_IN_PERIOD', 'ERROR', 'Dòng dầu này đã được sử dụng trong kỳ tính [Mã kỳ]. Không thể đưa vào kỳ mới.', 'periods'),
-    ('E_MULTI_FUEL_GROUP', 'ERROR', 'Tuyến có dầu từ nhiều Đơn vị giao / ĐVT (Excel sẽ nhân dòng)', 'periods'),
+    ('E_MULTI_FUEL_GROUP', 'ERROR', 'Tuyến có dầu từ nhiều Đơn vị giao / ĐVT — 1 hợp đồng chỉ 1 bên giao (kho nhận dầu khác nhau không chặn)', 'periods'),
+    ('W_FUEL_OTHER_GIVER', 'WARNING', 'Import dầu: Đơn vị khác bên giao dầu của hợp đồng', 'import'),
+    ('I_FUEL_MULTI_DEPOT', 'INFO', 'Dầu của tuyến nhận ở nhiều kho (cùng 1 bên giao) — cộng chung', 'periods'),
     ('E_PRICE_VERSION_SPLIT', 'ERROR', 'Kỳ cắt ngang 2 phiên bản giá — tách kỳ', 'periods'),
     ('E_PRICE_DATE_OVERLAP', 'ERROR', 'Ngày hiệu lực giá trùng / trước phiên bản đang ACTIVE', 'prices'),
     ('E_PRICE_USED', 'ERROR', 'Phiên bản giá đã dùng trong kỳ — không sửa, hãy tạo phiên bản mới', 'prices'),

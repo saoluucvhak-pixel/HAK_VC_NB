@@ -337,6 +337,13 @@ class ImportService {
     rec.giver_unit_code = ctx.unitByName.get(g.toUpperCase()) || '';
     if (!g) iss.push(issue('E_FIELD_MISSING', { rowNo, field: 'đơn vị giao dầu' }));
     else if (!rec.giver_unit_code) iss.push(issue('E_UNIT_NOT_FOUND', { rowNo, value: g }));
+    else {
+      // 1 hợp đồng chỉ 1 bên giao dầu (chốt 03/11/2026): khác bên giao của các dòng dầu đã có → báo ngay (kỳ tính sẽ chặn)
+      if (!ctx.giverOf) ctx.giverOf = new Map();
+      if (!ctx.giverOf.has(contractId)) { const c = new Map(); for (const x of ctx.receipts) if (x.contract_id === contractId && x.giver_unit_code) c.set(x.giver_unit_code, (c.get(x.giver_unit_code) || 0) + 1); ctx.giverOf.set(contractId, [...c.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || ''); }
+      const main = ctx.giverOf.get(contractId);
+      if (main && main !== rec.giver_unit_code) iss.push(issue('W_FUEL_OTHER_GIVER', { rowNo, value: rec.giver_unit_code, main }));
+    }
     if (veh) {
       if (!ctx.contractPlates.has(contractId)) ctx.contractPlates.set(contractId, new Set(this.store.all('HOP_DONG_XE').filter((x) => x.contract_id === contractId).map((x) => x.plate_no)));
       if (!ctx.contractPlates.get(contractId).has(veh.plate_no)) iss.push(issue('W_VEHICLE_OUT_OF_CONTRACT', { receiptId: `dòng ${rowNo}`, plateNo: veh.plate_no }));

@@ -2183,6 +2183,44 @@
    "lock": true
   },
   {
+   "action": "fuel.softDeleteMany",
+   "group": "Giao nhận dầu",
+   "desc": "Xóa mềm nhiều dòng dầu (vd file tải lên sai) — bỏ qua dòng ở kỳ đã xác nhận / khóa; kỳ nháp đánh dấu tính lại",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "receiptIds",
+     "array<string>",
+     true,
+     ""
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{deleted, skipped[{receiptId, periodCode}], affectedPeriods}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "GIAO_NHAN_DAU",
+    "FUEL_DETAIL"
+   ],
+   "writes": [
+    "GIAO_NHAN_DAU",
+    "KY_TINH"
+   ],
+   "audit": "DELETE",
+   "lock": true
+  },
+  {
    "action": "fuel.update",
    "group": "Giao nhận dầu",
    "desc": "Sửa 1 dòng dầu (luật như tickets.update)",
@@ -4707,7 +4745,19 @@
   {
    "code": "E_MULTI_FUEL_GROUP",
    "level": "ERROR",
-   "message": "Tuyến có dầu từ nhiều Đơn vị giao / ĐVT (Excel sẽ nhân dòng)",
+   "message": "Tuyến có dầu từ nhiều Đơn vị giao / ĐVT — 1 hợp đồng chỉ 1 bên giao (kho nhận dầu khác nhau không chặn)",
+   "usedIn": "periods"
+  },
+  {
+   "code": "W_FUEL_OTHER_GIVER",
+   "level": "WARNING",
+   "message": "Import dầu: Đơn vị khác bên giao dầu của hợp đồng",
+   "usedIn": "import"
+  },
+  {
+   "code": "I_FUEL_MULTI_DEPOT",
+   "level": "INFO",
+   "message": "Dầu của tuyến nhận ở nhiều kho (cùng 1 bên giao) — cộng chung",
    "usedIn": "periods"
   },
   {

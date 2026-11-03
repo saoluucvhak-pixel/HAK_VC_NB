@@ -146,6 +146,10 @@
         acts.innerHTML = '';
         if (D.writer() && isCarrier()) acts.append(h('button', { class: 'btn', onclick: () => manualFuel(v.contractId, load) }, 'Nhập tay'), h('button', { class: 'btn', onclick: () => D.importTemplate({ importType: 'GIAO_NHAN_DAU', contractId: v.contractId }) }, 'Tải file mẫu'), h('button', { class: 'btn primary', onclick: () => D.importWizard({ importType: 'GIAO_NHAN_DAU', contractId: v.contractId, onDone: load }) }, 'Import từ Excel'));
         out.innerHTML = '';
+        // bản 1.2.6: file dầu tải lên sai → lọc theo ngày rồi xóa 1 lần, tải lại file đúng
+        out.append(h('div', { class: 'row', style: { padding: '10px 14px', borderBottom: '1px solid var(--line)' } },
+          h('span', { class: 'small muted grow' }, 'Bấm vào 1 dòng để sửa / xóa. Tải file dầu sai: lọc đúng khoảng ngày của file → "Xóa … dòng đang lọc" → Import lại file đúng.'),
+          D.writer() && isCarrier() && d.items.length ? h('button', { class: 'btn small danger', onclick: () => bulkDeleteFuel(d.items, load) }, `Xóa ${D.vn(d.items.length)} dòng đang lọc…`) : null));
         out.append(D.table({ rows: d.items, onRow: D.writer() && isCarrier() ? (r) => fuelEdit(r, load) : null, footer: { receive_date: `${d.total} dòng`, qty_liter: d.totals.liters, fuel_price_excl_vat: `TB ${D.vn(d.totals.avgPrice, 2)}` },
           columns: [...D.FUEL_COLS, { key: 'p', label: 'Kỳ', render: (r) => (r.period ? h('span', {}, D.tag(r.period.status), ' ', h('span', { class: 'mono small' }, r.period.periodCode)) : h('span', { class: 'tag mute' }, 'Chưa tính')) },
             { key: 'validation_flags', label: 'Kiểm tra', render: (r) => (r.validation_flags && !r.flags_ack ? h('span', { class: 'tag warn' }, r.validation_flags) : '') }], empty: 'Chưa có dòng dầu cho hợp đồng này' }));
@@ -157,19 +161,34 @@
       return page;
     },
   };
-  function manualFuel(contractId, reload) {
+  async function bulkDeleteFuel(items, reload) {
+    const locked = items.filter((r) => r.period && r.period.status !== 'NHAP').length;
+    const liters = items.reduce((a, r) => a + r.qty_liter, 0);
+    const r = await D.confirm({ title: 'Xóa dòng dầu đang lọc', danger: true, reason: true, okLabel: 'Xóa',
+      message: `Xóa ${D.vn(items.length)} dòng dầu (${D.vnAuto(Math.round(liters * 100) / 100)} lít) đang hiện trong danh sách.${locked ? ` ${D.vn(locked)} dòng ở kỳ đã xác nhận / khóa sẽ được GIỮ LẠI.` : ''} Kỳ nháp có các dòng này sẽ phải tính lại. Sau đó Import lại file đúng.` });
+    if (!r) return;
+    const x = await D.api('fuel.softDeleteMany', { receiptIds: items.map((i) => i.receipt_id), reason: r });
+    D.toast(`Đã xóa ${x.deleted} dòng dầu${x.skipped.length ? ` · giữ ${x.skipped.length} dòng ở kỳ đã chốt` : ''}${x.affectedPeriods.length ? ` · ${x.affectedPeriods.length} kỳ nháp phải tính lại` : ''}`, 'ok', 9000);
+    reload();
+  }
+  async function manualFuel(contractId, reload) {
+    // bên giao mặc định = đơn vị đã dùng ở các dòng dầu gần nhất của hợp đồng (không thì bên thuê) — tránh chọn nhầm bên giao khác
+    const c = D.state.boot.contracts.find((x) => x.contract_id === contractId) || {};
+    const last = (await D.api('fuel.list', { contractId }, { quiet: true }).catch(() => ({ items: [] }))).items.slice(-1)[0];
+    const giver = (last && last.giver_unit_code) || c.customer_unit_code || '';
     const f = D.form([{ key: 'receive_date', label: 'Ngày nhận dầu', type: 'date', required: true }, { key: 'route_code', label: 'Mã tuyến', type: 'select', options: D.routeOptions(false) },
       { key: 'fuel_vehicle_code', label: 'Biển số / mã xe', required: true }, { key: 'qty_liter', label: 'Số lít (bù trừ: ghi số âm, vd -100)', type: 'number', required: true }, { key: 'fuel_price_excl_vat', label: 'Đơn giá dầu (chưa VAT) — dòng bù trừ được để trống', type: 'number' },
-      { key: 'purchase_date', label: 'Ngày mua dầu', type: 'date' }, { key: 'giver_unit_code', label: 'Bên giao dầu', type: 'select', options: D.unitOptions() }, { key: 'fuel_depot', label: 'Kho nhận dầu', hint: 'kho / cây xăng xe nhận dầu' }], { receive_date: D.today() });
+      { key: 'purchase_date', label: 'Ngày mua dầu', type: 'date' }, { key: 'giver_unit_code', label: 'Bên giao dầu', type: 'select', options: D.unitOptions(), readonly: !!(last && last.giver_unit_code), hint: last && last.giver_unit_code ? '1 hợp đồng chỉ 1 bên giao — theo các dòng dầu đã có' : '' },
+      { key: 'fuel_depot', label: 'Kho nhận dầu', hint: 'kho / cây xăng xe nhận dầu — nhiều kho vẫn tính chung' }], { receive_date: D.today(), giver_unit_code: giver });
     D.modal({ title: 'Nhập tay dòng dầu', body: f, actions: [{ label: 'Hủy', run: () => true }, { label: 'Lưu', primary: true, run: async () => {
       const r = await D.api('fuel.saveRows', { contractId, rows: [f.values()], acceptWarnings: true, clientRequestId: D.rid() }); D.toast(`Đã thêm ${r.inserted} dòng`, 'ok'); reload(); return true; } }] });
   }
   function fuelEdit(r, reload) {
     const fields = [{ key: 'receive_date', label: 'Ngày nhận', type: 'date' }, { key: 'fuel_vehicle_code', label: 'Mã xe' }, { key: 'qty_liter', label: 'Số lít', type: 'number' },
-      { key: 'fuel_price_excl_vat', label: 'Đơn giá (chưa VAT)', type: 'number' }, { key: 'purchase_date', label: 'Ngày mua', type: 'date' }, { key: 'fuel_depot', label: 'Kho nhận dầu' }, { key: 'reason', label: 'Lý do', full: true }];
+      { key: 'fuel_price_excl_vat', label: 'Đơn giá (chưa VAT)', type: 'number' }, { key: 'purchase_date', label: 'Ngày mua', type: 'date' }, { key: 'giver_unit_code', label: 'Đơn vị (bên giao dầu)', type: 'select', options: D.unitOptions() }, { key: 'fuel_depot', label: 'Kho nhận dầu' }, { key: 'reason', label: 'Lý do', full: true }];
     const f = D.form(fields, r);
     D.modal({ title: `Dòng dầu ${r.receipt_id}`, body: f, actions: [{ label: 'Xóa', danger: true, run: async () => { const x = await D.confirm({ title: 'Xóa dòng dầu', message: 'Xóa mềm.', reason: true, danger: true }); if (!x) return false; await D.api('fuel.softDelete', { receiptId: r.receipt_id, reason: x }); reload(); return true; } },
-      { label: 'Lưu', primary: true, run: async () => { const v = f.values(); const changes = {}; for (const k of ['receive_date', 'fuel_vehicle_code', 'qty_liter', 'fuel_price_excl_vat', 'purchase_date', 'fuel_depot']) if (String(v[k] ?? '') !== String(r[k] ?? '')) changes[k] = v[k];
+      { label: 'Lưu', primary: true, run: async () => { const v = f.values(); const changes = {}; for (const k of ['receive_date', 'fuel_vehicle_code', 'qty_liter', 'fuel_price_excl_vat', 'purchase_date', 'giver_unit_code', 'fuel_depot']) if (String(v[k] ?? '') !== String(r[k] ?? '')) changes[k] = v[k];
         await D.api('fuel.update', { receiptId: r.receipt_id, changes, rowVersion: r.row_version, reason: v.reason }); reload(); return true; } }] });
   }
 

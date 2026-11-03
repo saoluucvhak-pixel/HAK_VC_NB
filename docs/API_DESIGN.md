@@ -1602,3 +1602,11 @@ Mã kiểm tra mới: `W_TICKET_LATE` (import phiếu cân có ngày thuộc k�
 - Mã lỗi mới `E_YEAR_ARCHIVED` (import và tầng lưu trữ, `BUSINESS_RULE`).
 - `tickets.get` trả thêm `raw` (dữ liệu gốc trong file, đã ghép tên cột).
 
+## Bổ sung bản 1.2.6
+- `fuel.softDeleteMany {receiptIds, reason}` → `{deleted, skipped[{receiptId, periodCode}], affectedPeriods}`.
+- Mã kiểm tra: `E_MULTI_FUEL_GROUP` chỉ còn cho khác ĐVT; mới `I_FUEL_MULTI_DEPOT` (dầu nhận ở nhiều kho / đơn vị, cộng chung).
+
+## Sửa ở bản 1.2.7
+- Trả lại chặn nhiều Đơn vị giao (`E_MULTI_FUEL_GROUP`, params `groups, main, odd` — liệt kê dòng lệch). `I_FUEL_MULTI_DEPOT` chỉ khi nhiều **kho nhận dầu** (params `depots`). Mới `W_FUEL_OTHER_GIVER` (import).
+- `fuel.update` sửa được `giver_unit_code` (Đơn vị) — vẫn chặn khi dòng ở kỳ đã chốt.
+

@@ -256,3 +256,7 @@ Kỳ:     NHAP ──► DA_XAC_NHAN ──► DA_KHOA   (mở khóa: DA_KHOA �
 - **BL-97** Năm đã lưu trữ: chặn thêm phiếu cân / dòng dầu / kỳ có ngày ≤ năm đó (`E_YEAR_ARCHIVED`), muốn nhập phải *Mở lại năm* (năm mới nhất trước, có lý do). Xem / in lại: tự mở chế độ chỉ xem khi khoảng ngày (hoặc kỳ) chạm năm lưu trữ.
 - **BL-98** Sao lưu hằng ngày chỉ gồm kho đang dùng (năm đang làm + danh mục); mỗi lần lưu trữ ghi 1 file zip riêng, không tự xóa. Hợp đồng / xe có dữ liệu trong năm lưu trữ không xóa / đổi biển số được.
 
+## Dầu nhiều kho, xóa dầu hàng loạt (bản 1.2.6, chốt 03/11/2026)
+- **BL-99** 1 hợp đồng chỉ 1 bên giao dầu: dầu của tuyến gom theo (Đơn vị, ĐVT) — khác Đơn vị / ĐVT → `E_MULTI_FUEL_GROUP` (chặn), thông báo liệt kê dòng lệch so với bên giao số đông; import dòng khác Đơn vị → `W_FUEL_OTHER_GIVER`. **Kho nhận dầu** không tham gia gom nhóm: nhiều kho vẫn tính chung (`I_FUEL_MULTI_DEPOT`). (Bản 1.2.6 từng bỏ chặn Đơn vị — đã trả lại ở 1.2.7 theo chốt 03/11/2026.)
+- **BL-100** Xóa mềm nhiều dòng dầu (`fuel.softDeleteMany`, bắt buộc lý do): dòng ở kỳ đã xác nhận / khóa được giữ lại; kỳ nháp có dòng bị xóa → `needs_recalc`. Dòng đã xóa không chặn import lại.
+

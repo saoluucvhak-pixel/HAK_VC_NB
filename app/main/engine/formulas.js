@@ -128,7 +128,10 @@ function calculateFuelPrice(receipts, cfg) {
   return s / use.length;
 }
 
-/** §3.1 Gom dầu theo (Đơn vị giao, ĐVT) như Table.Group của PQ — trả nhiều nhóm để phát hiện nhân dòng. */
+/**
+ * §3.1 Gom dầu theo (Đơn vị giao, ĐVT) như Table.Group của PQ — 1 hợp đồng chỉ có 1 bên giao dầu: khác Đơn vị → nhiều nhóm → chặn
+ * (chốt lại 03/11/2026). KHO NHẬN DẦU (fuel_depot) chỉ là nơi nhận, không tham gia gom nhóm — nhiều kho vẫn tính chung.
+ */
 function aggregateFuel(receipts, cfg) {
   const groups = new Map();
   for (const r of receipts) {
@@ -138,13 +141,14 @@ function aggregateFuel(receipts, cfg) {
   }
   return [...groups.entries()].map(([k, rs]) => {
     const [giverUnitCode, uom] = k.split('|');
+    const depots = [...new Set(rs.map((r) => String(r.fuel_depot || '').trim()).filter(Boolean))].sort();
     let s = null; let e = null; let imp = null;
     for (const r of rs) {
       if (s === null || r.receive_date < s) s = r.receive_date;
       if (e === null || r.receive_date > e) e = r.receive_date;
       if (r.purchase_date && (imp === null || r.purchase_date > imp)) imp = r.purchase_date;
     }
-    return { giverUnitCode, uom, lineCount: rs.length, actualFuelLiter: calculateActualFuel(rs), fuelPrice: calculateFuelPrice(rs, cfg),
+    return { giverUnitCode, depots, receiptIds: rs.map((r) => r.receipt_id), uom, lineCount: rs.length, actualFuelLiter: calculateActualFuel(rs), fuelPrice: calculateFuelPrice(rs, cfg),
              fuelStartDate: s, fuelEndDate: e, fuelImportDate: imp };
   });
 }

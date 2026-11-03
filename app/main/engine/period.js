@@ -220,9 +220,16 @@ function calculatePeriod(input) {
         liter: Math.round(fs.reduce((a, r) => a + r.qty_liter, 0) * 100) / 100, literText: vnDec(fs.reduce((a, r) => a + r.qty_liter, 0)),
         dates: [...new Set(fs.map((r) => r.receive_date))].sort().slice(0, 5).map(dmyOf).join(', ') + (new Set(fs.map((r) => r.receive_date)).size > 5 ? '…' : ''), receiptIds: fs.map((r) => r.receipt_id) }, routeCode));
       fuel = { giverUnitCode: null, uom: null, lineCount: 0, actualFuelLiter: 0, fuelPrice: null, fuelStartDate: null, fuelEndDate: null, fuelImportDate: null };
-    } else if (groups.length > 1) rIssues.push(issue('E_MULTI_FUEL_GROUP', { routeCode, groups: groups.map((g) => `${g.giverUnitCode}/${g.uom}`).join(', ') }));
+    } else if (groups.length > 1) {
+      // chỉ ra dòng nào ghi Đơn vị / ĐVT khác số đông để sửa (thường do chọn nhầm "Bên giao dầu" khi nhập tay)
+      const main = groups.slice().sort((a, b) => b.lineCount - a.lineCount)[0];
+      const odd = groups.filter((g) => g !== main).flatMap((g) => fs.filter((r) => g.receiptIds.includes(r.receipt_id)));
+      rIssues.push(issue('E_MULTI_FUEL_GROUP', { routeCode, groups: groups.map((g) => `${g.giverUnitCode}/${g.uom}: ${g.lineCount} dòng`).join(', '), main: main.giverUnitCode,
+        odd: odd.slice(0, 6).map((r) => `${dmyOf(r.receive_date)} ${r.plate_no || r.fuel_vehicle_code} ${r.qty_liter} lít (${r.giver_unit_code})`).join('; ') + (odd.length > 6 ? '…' : '') }, routeCode));
+    }
     else if (groups.length === 1) {
       fuel = groups[0];
+      if (fuel.depots && fuel.depots.length > 1) rIssues.push(issue('I_FUEL_MULTI_DEPOT', { routeCode, depots: fuel.depots.join(', '), lines: fuel.lineCount }, routeCode));
       if (fuel.fuelPrice === null) { rIssues.push(issue('E_FUEL_OFFSET_NO_PRICE', { routeCode }, routeCode)); fuel = null; }
       else if (fuel.actualFuelLiter <= 0) rIssues.push(issue('W_FUEL_TOTAL_NONPOSITIVE', { routeCode, liter: Math.round(fuel.actualFuelLiter * 100) / 100 }, routeCode));
     }

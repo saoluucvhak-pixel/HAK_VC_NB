@@ -82,9 +82,18 @@ test('Không có dầu → E_NO_FUEL chặn; xác nhận override + đơn giá d
   assert.ok(codes(d).includes('W_OVERRIDE_NO_FUEL'));
 });
 
-test('Dầu từ 2 bên giao trong 1 tuyến → E_MULTI_FUEL_GROUP (Excel sẽ nhân dòng)', () => {
+test('Dầu từ 2 Đơn vị giao trong 1 tuyến → E_MULTI_FUEL_GROUP, chỉ rõ dòng lệch (1 hợp đồng chỉ 1 bên giao)', () => {
   const out = ctx((c) => { c.rows.GIAO_NHAN_DAU[0].giver_unit_code = 'HAK'; });
-  assert.ok(codes(out).includes('E_MULTI_FUEL_GROUP'));
+  const e = out.issues.find((i) => i.code === 'E_MULTI_FUEL_GROUP');
+  assert.ok(e); assert.match(e.message, /Sửa "Đơn vị" các dòng: .*\(HAK\)/);
+});
+
+test('Dầu cùng 1 Đơn vị nhưng nhận ở nhiều KHO → không chặn, kết quả không đổi (chốt 03/11/2026)', () => {
+  const base = ctx();
+  const out = ctx((c) => { c.rows.GIAO_NHAN_DAU.forEach((r, i) => { r.fuel_depot = i % 2 ? 'Kho Quế Sơn' : 'Cây xăng Đại Lộc'; }); });
+  assert.ok(!codes(out).includes('E_MULTI_FUEL_GROUP'));
+  assert.ok(codes(out).includes('I_FUEL_MULTI_DEPOT'));
+  assert.equal(out.results[0].transportPrice, base.results[0].transportPrice);
 });
 
 test('Đơn giá VC âm → 0 và cảnh báo W_FLOORED_ZERO', () => {
