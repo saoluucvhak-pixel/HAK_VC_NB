@@ -60,10 +60,10 @@
     for (const c of kids.flat(Infinity)) if (c !== null && c !== undefined && c !== false) el.append(c instanceof Node ? c : document.createTextNode(String(c)));
     return el;
   });
-  D.vn = (x, d = 0) => {
+  const vnFmt = {};
+  D.vn = (x, d = 0) => { // theo HAK_ACCOUNTING_REPORT_STANDARD: Intl vi-VN, dấu trừ '-', số lẻ cố định d
     if (x === '' || x === null || x === undefined || Number.isNaN(Number(x))) return '';
-    const n = Number(x); const neg = n < 0; const [i, f] = Math.abs(n).toFixed(d).split('.');
-    return (neg ? '−' : '') + i.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (f ? `,${f}` : '');
+    return (vnFmt[d] = vnFmt[d] || new Intl.NumberFormat('vi-VN', { useGrouping: true, minimumFractionDigits: d, maximumFractionDigits: d })).format(Number(x));
   };
   D.vnAuto = (x) => (Number.isInteger(Number(x)) ? D.vn(x) : D.vn(x, 2));
   D.dmy = (s) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : '');
