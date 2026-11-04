@@ -76,6 +76,14 @@
     ACTIVE: ['Đang dùng', 'ok'], CLOSED: ['Đã đóng', 'mute'], OPEN: ['Chờ sửa', 'warn'], DONE: ['Đã xong', 'ok'], CONFIRMED: ['Đã xác nhận', 'ok'], LOCKED: ['Đã khóa', 'ok'],
     CARRIER: ['Bên vận chuyển', 'ok'], info: ['', 'info'], warn: ['', 'warn'], ok: ['', 'ok'], err: ['', 'err'], CUSTOMER: ['Bên thuê', 'info'], OTHER: ['Khác', 'mute'], IMPORTED: ['Nhận từ gói', 'info'], LOCAL: ['Tại bản cài', 'mute'] };
   D.tag = (code, text) => { const s = STATUS[code] || [code, 'mute']; return h('span', { class: `tag ${s[1]}` }, text || s[0]); };
+  // ───────── giao diện sáng / tối: 'auto' theo hệ điều hành, hoặc chọn tay (lưu trên máy này) ─────────
+  const THEMES = [['auto', 'Tự động'], ['light', 'Sáng'], ['dark', 'Tối']];
+  const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  D.themePref = () => { try { const v = localStorage.getItem('dgvc.theme'); return THEMES.some(([k]) => k === v) ? v : 'auto'; } catch { return 'auto'; } };
+  D.applyTheme = () => { const p = D.themePref(); document.documentElement.dataset.theme = p === 'auto' ? (mq && mq.matches ? 'dark' : 'light') : p; };
+  D.cycleTheme = () => { const i = THEMES.findIndex(([k]) => k === D.themePref()); try { localStorage.setItem('dgvc.theme', THEMES[(i + 1) % THEMES.length][0]); } catch { /* không lưu được: vẫn đổi trong phiên */ } D.applyTheme(); };
+  if (mq && mq.addEventListener) mq.addEventListener('change', D.applyTheme);
+  D.applyTheme();
   D.today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   D.can = (...roles) => state.boot && roles.includes(state.boot.user.role);
   D.writer = () => D.can('ADMIN', 'KE_TOAN');
@@ -214,6 +222,7 @@
       h('nav', { 'aria-label': 'Menu chính' }, h('ul', { class: 'nav' }, NAV.filter(([v]) => v !== 'audit' || true).map(([v, n, t]) => h('li', {}, h('button', { 'aria-current': state.view === v ? 'page' : null, onclick: () => D.go(v) },
         h('span', { class: 'n' }, n), t, v === 'sync' && sync.total ? h('span', { class: 'badge', 'aria-label': `${sync.total} nhắc` }, sync.total) : null, v === 'reconcile' && rc.problems ? h('span', { class: 'badge', 'aria-label': `${rc.problems} vấn đề cần xử lý` }, rc.problems) : null))))),
       h('div', { class: 'me' }, h('div', {}, b.user.fullName || b.user.username), h('div', {}, `${b.user.role} · dữ liệu: `, h('span', { class: 'mono' }, b.install.dataFolder)),
+        h('button', { class: 'theme-btn', 'aria-label': 'Đổi giao diện sáng/tối', onclick: (e) => { D.cycleTheme(); e.currentTarget.textContent = `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`; } }, `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`),
         h('button', { onclick: async () => { await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); state.token = ''; state.boot = null; D.go('login'); } }, 'Đăng xuất')));
     root.innerHTML = ''; root.append(h('div', { class: 'app' }, side, main));
     const v = D.views[state.view];
