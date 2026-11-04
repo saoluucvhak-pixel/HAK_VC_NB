@@ -4,7 +4,7 @@
   --sb-w: 268px;
   --brand: #0e7c86; --brand-2: #14a3ad; --brand-dark: #0b6870; --brand-deep: #095961; --brand-soft: rgba(14, 124, 134, .12);
   --sb-bg: linear-gradient(180deg, #0f2740 0%, #0a1c30 100%); --sb-text: #b8c7d9;
-  --bg: #f3f6fa; --card: #ffffff; --line: #e3e9f0; --text: #16202c; --text-mute: #6b7a8c;
+  --bg: #f3f6fa; --card: #ffffff; --line: #e3e9f0; --text: #16202c; --text-mute: #5b6a7c;
   --row-alt: #f8fafc; --row-total: #eef4f7; --row-hover: rgba(14, 124, 134, .06);
   --red: #e5484d; --red-dark: #b4262b; --blue: #2a78d6; --ok: #1baf7a; --warn: #eda100;
   --radius: 14px; --shadow: 0 1px 2px rgba(16, 35, 58, .05), 0 6px 18px rgba(16, 35, 58, .06);
