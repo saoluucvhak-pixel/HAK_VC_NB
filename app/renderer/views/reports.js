@@ -190,7 +190,7 @@
     };
     cur.items.forEach(addLine);
     if (!cur.items.length) { const y = (p.dateFrom || D.today()).slice(0, 4); addLine({ date: `${y}-01-01`, readAt: 'DAU_NGAY' }); addLine({ date: `${y}-12-31`, readAt: 'CUOI_NGAY' }); }
-    const warn = h('div', { class: 'small', style: { color: 'var(--red-dark)', marginTop: '8px' } }, cur.warnings.map((w) => h('div', {}, '⚠ ', w.message)));
+    const warn = h('div', { class: 'small', style: { color: 'var(--red-text)', marginTop: '8px' } }, cur.warnings.map((w) => h('div', {}, '⚠ ', w.message)));
     D.modal({ title: `Chốt đồng hồ km — xe ${p.plateNo}`, wide: true,
       body: h('div', {}, h('p', { class: 'small muted', style: { marginTop: 0 } }, 'Không cần nhập hằng ngày: chỉ cần chốt số đồng hồ km ở vài thời điểm (vd sáng 01/01 và tối 31/12, hoặc cuối mỗi tháng). Giữa 2 lần chốt liền nhau, phần mềm lấy km đồng hồ = số sau − số trước, so với km theo tuyến (Σ cự ly đi + về của các chuyến trong khoảng đó) → chênh lệch.'),
         h('div', { class: 'tbl-wrap', style: { maxHeight: '50vh' } }, h('table', { class: 't' }, h('thead', {}, h('tr', {}, ['Ngày chốt', 'Số đồng hồ km', 'Lúc chốt', 'Ghi chú', ''].map((x) => h('th', {}, x)))), box)),
@@ -247,7 +247,7 @@
         const x = d.extraTables[0];
         out.append(h('div', { class: 'card flush' }, h('div', { class: 'card-h' }, h('h2', {}, x.title)),
           D.table({ rows: O.segments, columns: x.columns.map((c) => ({ key: c.key, label: c.header, fmt: { int: 'int', dec1: 'dec1', dec2: 'dec2' }[c.fmt],
-            ...(c.key === 'diffKm' ? { render: (r) => h('b', { style: { color: Math.abs(r.diffPct || 0) > 10 ? 'var(--red-dark)' : '' } }, `${r.diffKm > 0 ? '+' : ''}${D.vnAuto(r.diffKm)}`), num: true } : {}),
+            ...(c.key === 'diffKm' ? { render: (r) => h('b', { style: { color: Math.abs(r.diffPct || 0) > 10 ? 'var(--red-text)' : '' } }, `${r.diffKm > 0 ? '+' : ''}${D.vnAuto(r.diffKm)}`), num: true } : {}),
             ...(c.key === 'warn' ? { render: (r) => (r.warn ? h('span', { class: 'tag err' }, r.warn) : '') } : {}) })), footer: x.totalsRow || undefined })));
       } else {
         out.append(h('div', { class: 'card small muted' }, O.readings.length === 1 ? 'Mới có 1 lần chốt đồng hồ trong kỳ — cần ít nhất 2 lần chốt (vd đầu năm và cuối năm) để tính km đồng hồ và chênh lệch.'
