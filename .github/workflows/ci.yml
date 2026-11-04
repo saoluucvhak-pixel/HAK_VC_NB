@@ -37,3 +37,26 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64 libgbm1
       - run: npm ci
       - run: npm run test:electron
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lấy công cụ quét HAK_CODE_QUALITY_TEST (cố định theo commit)
+        uses: actions/checkout@v4
+        with:
+          repository: saoluucvhak-pixel/HAK_CODE_QUALITY_TEST
+          ref: b78d9b2f30d63f29f59c5ade94e6d968ae4805d4
+          path: .quality-tool
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+        working-directory: .quality-tool
+      - name: Quét chất lượng mã
+        run: node .quality-tool/bin/hak-quality.js . --out reports
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hak-quality-report
+          path: reports/
