@@ -1,0 +1,4 @@
+{
+  "exclude": ["app/data_seed", ".quality-tool"],
+  "failOn": "error"
+}
