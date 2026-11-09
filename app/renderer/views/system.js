@@ -106,10 +106,11 @@
               (c.changes || []).length ? h('table', { class: 't', style: { marginTop: '6px', maxWidth: '720px' } }, h('thead', {}, h('tr', {}, h('th', {}, 'Mục'), h('th', {}, 'Bản đang có (giữ bản này)'), h('th', {}, 'Bản đến (lấy bản đến)'))),
                 h('tbody', {}, c.changes.map((x) => h('tr', {}, h('td', {}, x.field), h('td', { class: 'wrap' }, String(x.local ?? '')), h('td', { class: 'wrap' }, h('b', {}, String(x.incoming ?? ''))))))) : null);
           })) : null,
-          h('div', { class: 'btns' }, h('button', { class: 'btn primary', disabled: !pv.canImport || !D.writer(), onclick: async () => {
+          h('div', { class: 'btns sticky-act' }, h('button', { class: 'btn primary', disabled: !pv.canImport || !D.writer(), onclick: async () => {
             if (!(await D.confirm({ title: 'Nhập gói', message: 'APP tự sao lưu an toàn trước khi ghi. Tiếp tục?' }))) return;
             const r = await D.api('exchange.importPackage', { previewId: pv.previewId, decisions }); D.toast(`Đã nhập gói · sao lưu an toàn: ${r.safetyBackup || '—'}`, 'ok', 8000); await D.refreshBoot(); D.go('exchange', { tab: 'history' });
           } }, 'Nhập gói')));
+          res.style.scrollMarginTop = '90px'; res.scrollIntoView({ block: 'start', behavior: 'smooth' }); // chọn gói mới → cuộn tới kết quả, thấy ngay nút Nhập gói
         };
         body.append(h('div', { class: 'card' }, h('p', {}, 'Nhận gói .dgvc do nhà máy khác gửi: kỳ tính (bên vận chuyển gửi bên thuê), danh mục (nhà máy nào sửa danh mục cũng gửi được), phiếu cân.'), h('button', { class: 'btn primary', onclick: pick }, 'Chọn gói…')), res);
       } else if (tab === 'export') {
