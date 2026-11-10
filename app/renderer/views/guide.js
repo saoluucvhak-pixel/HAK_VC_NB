@@ -38,6 +38,7 @@
     ['Tải file dầu sai', 'Giao nhận dầu → chọn hợp đồng, lọc Từ ngày – Đến ngày đúng khoảng của file → ', 'Xóa … dòng đang lọc…', ' → import lại file đúng. Dòng dầu ở kỳ đã chốt được giữ lại; kỳ nháp phải tính lại.'],
     ['Trạm cân gửi lại file đã sửa', 'Phiếu cân → ', 'Import từ Excel', ' như bình thường: phiếu khác số liệu hiện "Cập nhật", ghi rõ cột đổi. Kỳ nháp có phiếu đó được đánh dấu tính lại.'],
     ['Phiếu nhập muộn sau khi kỳ đã chốt', 'Đối chiếu dữ liệu → thẻ "Phiếu cân chưa tính vào kỳ" → ', 'Mở kỳ để tính lại', ' → Tính giá → Xác nhận kỳ → xuất lại gói gửi bên thuê (bên thuê nhập gói mới sẽ thay bản cũ).'],
+    ['Bên vận chuyển hủy kỳ rồi lập lại (nhận gói)', 'Trao đổi dữ liệu → Nhập gói: gói có mã kỳ mới (vd …#2) cùng khoảng ngày với kỳ đã nhận sẽ hiện lựa chọn ', 'Thay kỳ cũ bằng kỳ này', ' (kỳ cũ thành Đã hủy, giữ lịch sử). Mặc định là giữ kỳ cũ. Để gửi bản sửa mà không đổi mã kỳ, bên gửi nên dùng Trả về nháp thay vì Hủy kỳ.'],
     ['Kỳ nháp tính sai', 'Tính giá vận chuyển → mở kỳ → ', 'TÍNH GIÁ', ' lại, hoặc ', 'Hủy kỳ', ' (ghi lý do) để trả phiếu và dầu về trạng thái chưa dùng.'],
   ];
   function fixTab() {

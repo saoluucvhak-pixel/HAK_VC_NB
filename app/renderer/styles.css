@@ -170,3 +170,4 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .guide-step { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px; } .guide-step .grow { flex: 1; min-width: 0; } .guide-step h2 { margin-bottom: 4px; } .guide-step p { margin: 0; }
 .guide-n { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--brand-soft); color: var(--brand-text); }
 .guide-ol { margin: 6px 0 10px; padding-left: 22px; } .guide-ol li { margin: 4px 0; }
+.sticky-act { position: sticky; bottom: 0; z-index: 3; background: var(--bg); padding: 12px 0; margin-top: 12px; border-top: 1px solid var(--line); } /* thanh nút luôn nằm ở đáy màn hình khi nội dung dài (vd Nhập gói) */

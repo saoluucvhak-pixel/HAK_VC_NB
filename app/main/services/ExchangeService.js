@@ -191,6 +191,9 @@ class ExchangeService {
     }
     // kỳ tính: bản cài nhận phải là bên thuê
     let periodsOk = true;
+    const sum = (pid, src) => { const L = src ? (src.BKVC_LINE || []).filter((l) => l.period_id === pid && l.is_current) : s.find('BKVC_LINE', (l) => l.period_id === pid && l.is_current);
+      const C = src ? (src.TRANSPORT_CALCULATION || []).filter((c) => c.period_id === pid && c.is_current) : s.find('TRANSPORT_CALCULATION', (c) => c.period_id === pid && c.is_current);
+      return { price: C.map((c) => vnNum(c.transport_price)).join(' · '), trips: L.reduce((a, l) => a + l.trip_count, 0), total: vnNum(L.reduce((a, l) => a + l.amount_incl_vat, 0)) }; };
     for (const p of T.KY_TINH || []) {
       const c = s.get('HOP_DONG', p.contract_id) || (T.HOP_DONG || []).find((x) => x.contract_id === p.contract_id);
       if (c && c.carrier_unit_code === s.unitCode) { periodsOk = false; add('KY_TINH', p.period_id, 'REJECT', p, { note: `kỳ ${p.period_code} thuộc hợp đồng ${c.contract_code} mà bản cài ${s.unitCode} là BÊN VẬN CHUYỂN — kỳ này do chính bản cài này tính, không nhận kỳ của máy khác. Chỉ cần lấy phiếu cân trong gói` }); continue; }
@@ -199,24 +202,32 @@ class ExchangeService {
       // phiếu cân của kỳ đến đã nằm trong KỲ KHÁC (đã xác nhận / khóa) của cùng hợp đồng → 2 kỳ chồng nhau, tính tiền 2 lần
       const mine = new Set((T.TRANSPORT_DETAIL || []).filter((d) => d.period_id === p.period_id && d.is_current).map((d) => d.ticket_id));
       const clash = s.find('TRANSPORT_DETAIL', (d) => d.contract_id === p.contract_id && d.is_current && ['CONFIRMED', 'LOCKED'].includes(d.usage_state) && d.period_id !== p.period_id && mine.has(d.ticket_id));
-      if (clash.length) {
-        const other = [...new Set(clash.map((d) => d.period_id))].map((id) => s.get('KY_TINH', id)).filter(Boolean);
-        periodsOk = false; add('KY_TINH', p.period_id, 'REJECT', p, { note: `kỳ ${p.period_code} có ${clash.length} phiếu cân đã nằm trong kỳ ${other.map((o) => o.period_code).join(', ')} đã nhận trước — hai kỳ chồng ngày nhau, nhận thêm sẽ tính tiền 2 lần. Đề nghị bên vận chuyển kiểm tra lại` });
-        continue;
-      }
       const myFuel = new Set((T.FUEL_DETAIL || []).filter((d) => d.period_id === p.period_id && d.is_current).map((d) => d.receipt_id));
       const fclash = s.find('FUEL_DETAIL', (d) => d.contract_id === p.contract_id && d.is_current && ['CONFIRMED', 'LOCKED'].includes(d.usage_state) && d.period_id !== p.period_id && myFuel.has(d.receipt_id));
+      const periodsOf = (rows) => [...new Set(rows.map((d) => d.period_id))].map((id) => s.get('KY_TINH', id)).filter(Boolean);
+      const others = [...new Map([...periodsOf(clash), ...periodsOf(fclash)].map((o) => [o.period_id, o])).values()];
+      // kỳ cũ chính là bản trước của kỳ này: cùng máy gửi, cùng hợp đồng, cùng khoảng ngày và tuyến (vd bên gửi hủy kỳ rồi lập lại) → cho chọn thay thế, không tự thay
+      const isOlderVersion = (o) => o.origin === 'IMPORTED' && o.origin_install_id === h.sourceInstallId && o.contract_id === p.contract_id && o.date_from === p.date_from && o.date_to === p.date_to
+        && (o.route_filter || '') === (p.route_filter || '') && o.status !== 'HUY';
+      if (others.length === 1 && isOlderVersion(others[0])) {
+        const old = others[0]; const a = sum(old.period_id); const b = sum(p.period_id, T);
+        add('KY_TINH', p.period_id, 'CONFLICT', p, { default: 'KEEP', kind: 'SUPERSEDE', supersedes: [old.period_id], supersedeCodes: [old.period_code],
+          note: `Kỳ ${p.period_code} cùng bản cài gửi (${h.sourceInstallId}), cùng hợp đồng, cùng khoảng ngày với kỳ ${old.period_code} đã nhận — có thể bên vận chuyển đã hủy kỳ cũ rồi lập lại. Chọn "Thay kỳ cũ bằng kỳ này" thì kỳ ${old.period_code} chuyển thành Đã hủy (giữ lịch sử) và kỳ mới thay vào; chọn "Giữ kỳ cũ" thì không nhận kỳ này`,
+          changes: [{ field: 'Mã kỳ', local: old.period_code, incoming: p.period_code }, { field: 'Lần tính', local: old.calc_version, incoming: p.calc_version }, { field: 'Đơn giá', local: a.price, incoming: b.price },
+            { field: 'Số chuyến', local: a.trips, incoming: b.trips }, { field: 'Tổng thanh toán', local: a.total, incoming: b.total }] });
+        continue;
+      }
+      if (clash.length) {
+        periodsOk = false; add('KY_TINH', p.period_id, 'REJECT', p, { note: `kỳ ${p.period_code} có ${clash.length} phiếu cân đã nằm trong kỳ ${periodsOf(clash).map((o) => o.period_code).join(', ')} đã nhận trước — hai kỳ chồng ngày nhau, nhận thêm sẽ tính tiền 2 lần. Đề nghị bên vận chuyển kiểm tra lại` });
+        continue;
+      }
       if (fclash.length) {
-        const other = [...new Set(fclash.map((d) => d.period_id))].map((id) => s.get('KY_TINH', id)).filter(Boolean);
-        periodsOk = false; add('KY_TINH', p.period_id, 'REJECT', p, { note: `kỳ ${p.period_code} có ${fclash.length} dòng dầu đã tính ở kỳ ${other.map((o) => o.period_code).join(', ')} đã nhận trước — nhận thêm sẽ trừ dầu 2 lần. Đề nghị bên vận chuyển tính trên 1 máy (hoặc nhập dữ liệu kỳ trước) rồi gửi lại` });
+        periodsOk = false; add('KY_TINH', p.period_id, 'REJECT', p, { note: `kỳ ${p.period_code} có ${fclash.length} dòng dầu đã tính ở kỳ ${periodsOf(fclash).map((o) => o.period_code).join(', ')} đã nhận trước — nhận thêm sẽ trừ dầu 2 lần. Đề nghị bên vận chuyển tính trên 1 máy (hoặc nhập dữ liệu kỳ trước) rồi gửi lại` });
         continue;
       }
       if (!local) add('KY_TINH', p.period_id, 'NEW', p);
       else if (local.origin === 'LOCAL') { periodsOk = false; add('KY_TINH', p.period_id, 'REJECT', p, { note: 'trùng mã kỳ của bản cài này' }); }
       else if (local.origin_install_id !== h.sourceInstallId) {
-        const sum = (pid, src) => { const L = src ? (src.BKVC_LINE || []).filter((l) => l.period_id === pid && l.is_current) : s.find('BKVC_LINE', (l) => l.period_id === pid && l.is_current);
-          const C = src ? (src.TRANSPORT_CALCULATION || []).filter((c) => c.period_id === pid && c.is_current) : s.find('TRANSPORT_CALCULATION', (c) => c.period_id === pid && c.is_current);
-          return { price: C.map((c) => vnNum(c.transport_price)).join(' · '), trips: L.reduce((a, l) => a + l.trip_count, 0), total: vnNum(L.reduce((a, l) => a + l.amount_incl_vat, 0)) }; };
         const a = sum(local.period_id); const b = sum(p.period_id, T);
         add('KY_TINH', p.period_id, 'CONFLICT', p, { default: 'KEEP', note: `Đã có kỳ ${p.period_code} nhận từ MÁY KHÁC (${local.origin_install_id}) — gói này từ máy ${h.sourceInstallId}. Cùng hợp đồng, cùng khoảng ngày: chỉ giữ 1 bản`,
           changes: [{ field: 'Lần tính', local: local.calc_version, incoming: p.calc_version }, { field: 'Đơn giá', local: a.price, incoming: b.price }, { field: 'Số chuyến', local: a.trips, incoming: b.trips }, { field: 'Tổng thanh toán', local: a.total, incoming: b.total }] });
@@ -243,7 +254,7 @@ class ExchangeService {
     for (const x of plan) { summary[x.table] ||= { NEW: 0, SAME: 0, UPDATE: 0, CONFLICT: 0, SKIP: 0, REPLACE: 0, REJECT: 0 }; summary[x.table][x.action]++; }
     const previewId = `PV-${crypto.randomBytes(6).toString('hex')}`;
     const result = { previewId, header: h, fileName: path.basename(filePath), sizeBytes: fs.statSync(filePath).size, integrity: 'OK', contentSha256: pkg.contentSha256,
-      role: roleText(h, s), summary, conflicts: plan.filter((x) => x.action === 'CONFLICT').map(({ table, id, changes, note, default: d }) => ({ table, id, changes, note, default: d })),
+      role: roleText(h, s), summary, conflicts: plan.filter((x) => x.action === 'CONFLICT').map(({ table, id, changes, note, default: d, kind, supersedeCodes }) => ({ table, id, changes, note, default: d, kind, supersedeCodes })),
       rejected: plan.filter((x) => x.action === 'REJECT').map(({ table, id, note }) => ({ table, id, note })), totals: pkgTotals(T),
       canImport: !plan.some((x) => x.action === 'REJECT'), ticketsOnly, ticketsInPackage: (pkg.tables.PHIEU_CAN || []).length,
       remapped: (T.KY_TINH || []).filter((p) => /@/.test(p.period_id)).map((p) => p.period_code) };
@@ -266,17 +277,23 @@ class ExchangeService {
       // kỳ thay bản cũ: các dòng kết quả hiện hành cũ → không còn hiện hành
       const choiceOf = (t, x) => decisions[`${t}:${x.id}`] || x.default || 'KEEP';
       const skipPeriods = new Set(byTable('KY_TINH').filter((y) => y.action === 'CONFLICT' && choiceOf('KY_TINH', y) !== 'TAKE').map((y) => y.id));
+      const release = (pid) => { for (const t of ['TRANSPORT_CALCULATION', 'TRANSPORT_DETAIL', 'FUEL_DETAIL', 'BKVC_LINE']) {
+        const pk = SCHEMA.tables[t].pk;
+        for (const r of tx.all(t).filter((y) => y.period_id === pid && y.is_current)) tx.update(t, r[pk], { is_current: false, ...(r.usage_state ? { usage_state: 'RELEASED' } : {}) });
+      } };
       for (const x of byTable('KY_TINH').filter((y) => y.action === 'REPLACE' || (y.action === 'CONFLICT' && choiceOf('KY_TINH', y) === 'TAKE'))) {
-        for (const t of ['TRANSPORT_CALCULATION', 'TRANSPORT_DETAIL', 'FUEL_DETAIL', 'BKVC_LINE']) {
-          const pk = SCHEMA.tables[t].pk;
-          for (const r of tx.all(t).filter((y) => y.period_id === x.id && y.is_current)) tx.update(t, r[pk], { is_current: false, ...(r.usage_state ? { usage_state: 'RELEASED' } : {}) });
+        release(x.id);
+        for (const oid of x.supersedes || []) { // thay kỳ cũ: kỳ cũ → Đã hủy, phiếu/dầu của kỳ cũ được giải phóng cho kỳ mới
+          release(oid); const before = tx.get('KY_TINH', oid);
+          tx.update('KY_TINH', oid, { status: 'HUY', note: `Thay bằng kỳ ${x.row.period_code} (gói ${path.basename(st.filePath)})` });
+          tx.audit('SUPERSEDE_PERIOD', 'KY_TINH', oid, { status: before.status }, { status: 'HUY', by: x.row.period_code }, { reason: 'nhận gói kỳ thay thế' });
         }
       }
       for (const t of order) {
         for (const x of byTable(t)) {
           if (x.onlyIf && x.onlyIf.every((pid) => skipPeriods.has(pid))) { inc(t, 'KEEP'); continue; }
           const choice = x.action === 'CONFLICT' ? (decisions[`${t}:${x.id}`] || x.default || 'KEEP') : null;
-          const act = x.action === 'CONFLICT' ? (choice === 'TAKE' ? 'UPDATE' : 'KEEP') : x.action;
+          const act = x.action === 'CONFLICT' ? (choice === 'TAKE' ? (x.supersedes ? 'NEW' : 'UPDATE') : 'KEEP') : x.action;
           const row = sanitize(t, x.row, h, st.pkg.contentSha256);
           if (act === 'NEW') { tx.insert(t, row); inc(t, 'NEW'); }
           else if (act === 'UPDATE' || act === 'REPLACE') {
@@ -299,7 +316,7 @@ class ExchangeService {
 
   /** Chữ ký các bản ghi cục bộ mà gói sẽ chạm tới — đổi = phải xem trước lại (sao lưu, nhật ký không tính). */
   _sig(plan) {
-    return sha(plan.map((x) => { const r = this.store.get(x.table, x.id); return `${x.table}:${x.id}:${r ? canon(content(r)) : '-'}`; }).join('|'));
+    return sha(plan.map((x) => { const r = this.store.get(x.table, x.id); const old = (x.supersedes || []).map((id) => { const o = this.store.get('KY_TINH', id); return `${id}=${o ? canon(content(o)) : '-'}`; }).join(';'); return `${x.table}:${x.id}:${r ? canon(content(r)) : '-'}${old ? `|${old}` : ''}`; }).join('|'));
   }
 
   list() { return { items: this.store.all('EXCHANGE_LOG').slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1)) }; }

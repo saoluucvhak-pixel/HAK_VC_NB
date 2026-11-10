@@ -91,25 +91,27 @@
             h('li', {}, h('b', {}, 'Cập nhật'), ': bên gửi sửa sau (danh mục, dòng dầu của kỳ gửi lại) — cập nhật theo.'),
             h('li', {}, h('b', {}, 'Xung đột'), ': hai bên khác nhau (cùng sửa 1 mục, hoặc CÙNG kỳ nhưng gửi từ máy khác) — anh/chị chọn Giữ bản này / Lấy bản đến, mặc định giữ.'),
             h('li', {}, h('b', {}, 'Thay bản cũ'), ': CHÍNH máy đã gửi kỳ này gửi lại sau khi tính lại — kỳ cũ được thay, không thành 2 kỳ. Kỳ của máy khác không bao giờ bị thay tự động.'),
-            h('li', {}, h('b', {}, 'Bỏ qua'), ': không liên quan đơn vị này.'), h('li', {}, h('b', {}, 'Từ chối'), ': không nhận được — xem lý do bên dưới; không ghi gì.'))),
+            h('li', {}, h('b', {}, 'Thay kỳ cũ'), ': cùng máy gửi, cùng hợp đồng, cùng khoảng ngày nhưng kỳ mới (vd mã …#2 do bên gửi hủy kỳ rồi lập lại) — chọn "Thay kỳ cũ bằng kỳ này" thì kỳ cũ thành Đã hủy; mặc định giữ kỳ cũ.'), h('li', {}, h('b', {}, 'Bỏ qua'), ': không liên quan đơn vị này.'), h('li', {}, h('b', {}, 'Từ chối'), ': không nhận được — xem lý do bên dưới; không ghi gì.'))),
           pv.remapped && pv.remapped.length ? h('div', { class: 'card small' }, `Kỳ ${pv.remapped.join(', ')} trùng MÃ với kỳ đang có nhưng là kỳ khác (máy khác cùng đơn vị) — lưu thành kỳ riêng, không đè kỳ đang có.`) : null,
           pv.rejected.length ? h('div', { class: 'card' }, h('h2', {}, 'Không nhận được'), h('ul', {}, pv.rejected.map((x) => h('li', {}, x.note))),
             pv.ticketsInPackage && !pv.ticketsOnly ? h('div', { class: 'btns' }, h('button', { class: 'btn primary', onclick: () => show(fp, true) }, `Chỉ nhập ${D.vn(pv.ticketsInPackage)} phiếu cân trong gói`),
               h('span', { class: 'small muted' }, 'Phiếu đã có tự bỏ qua; phiếu thuộc kỳ đã chốt sẽ hiện ở Đối chiếu dữ liệu.')) : null) : null,
           pv.ticketsOnly ? h('div', { class: 'card small' }, h('b', {}, 'Chỉ nhập phiếu cân'), ' trong gói — bỏ qua kỳ tính, dầu, danh mục.') : null,
           pv.conflicts.length ? h('div', { class: 'card' }, h('h2', {}, `Xung đột (${pv.conflicts.length}) — chọn giữ bản này hay lấy bản đến`), pv.conflicts.map((c) => {
-            const sel = h('select', { onchange: (e) => { decisions[`${c.table}:${c.id}`] = e.target.value; } }, h('option', { value: 'KEEP' }, 'Giữ bản này'), h('option', { value: 'TAKE' }, 'Lấy bản đến'));
-            const label = c.table === 'KY_TINH' ? 'Kỳ tính' : c.table;
+            const sup = c.kind === 'SUPERSEDE';
+            const sel = h('select', { onchange: (e) => { decisions[`${c.table}:${c.id}`] = e.target.value; } }, h('option', { value: 'KEEP' }, sup ? 'Giữ kỳ cũ (không nhận kỳ này)' : 'Giữ bản này'), h('option', { value: 'TAKE' }, sup ? 'Thay kỳ cũ bằng kỳ này' : 'Lấy bản đến'));
+            const label = sup ? `Kỳ tính mới thay kỳ ${(c.supersedeCodes || []).join(', ')} —` : c.table === 'KY_TINH' ? 'Kỳ tính' : c.table;
             return h('div', { style: { borderBottom: '1px dashed var(--line)', padding: '10px 0' } },
               h('div', { class: 'row' }, h('b', { class: 'grow' }, `${label} `, h('span', { class: 'mono' }, c.id)), h('span', { class: 'small muted' }, 'Chọn:'), sel),
               c.note ? h('div', { class: 'small muted', style: { margin: '4px 0' } }, c.note) : null,
               (c.changes || []).length ? h('table', { class: 't', style: { marginTop: '6px', maxWidth: '720px' } }, h('thead', {}, h('tr', {}, h('th', {}, 'Mục'), h('th', {}, 'Bản đang có (giữ bản này)'), h('th', {}, 'Bản đến (lấy bản đến)'))),
                 h('tbody', {}, c.changes.map((x) => h('tr', {}, h('td', {}, x.field), h('td', { class: 'wrap' }, String(x.local ?? '')), h('td', { class: 'wrap' }, h('b', {}, String(x.incoming ?? ''))))))) : null);
           })) : null,
-          h('div', { class: 'btns' }, h('button', { class: 'btn primary', disabled: !pv.canImport || !D.writer(), onclick: async () => {
+          h('div', { class: 'btns sticky-act' }, h('button', { class: 'btn primary', disabled: !pv.canImport || !D.writer(), onclick: async () => {
             if (!(await D.confirm({ title: 'Nhập gói', message: 'APP tự sao lưu an toàn trước khi ghi. Tiếp tục?' }))) return;
             const r = await D.api('exchange.importPackage', { previewId: pv.previewId, decisions }); D.toast(`Đã nhập gói · sao lưu an toàn: ${r.safetyBackup || '—'}`, 'ok', 8000); await D.refreshBoot(); D.go('exchange', { tab: 'history' });
           } }, 'Nhập gói')));
+          res.style.scrollMarginTop = '90px'; res.scrollIntoView({ block: 'start', behavior: 'smooth' }); // chọn gói mới → cuộn tới kết quả, thấy ngay nút Nhập gói
         };
         body.append(h('div', { class: 'card' }, h('p', {}, 'Nhận gói .dgvc do nhà máy khác gửi: kỳ tính (bên vận chuyển gửi bên thuê), danh mục (nhà máy nào sửa danh mục cũng gửi được), phiếu cân.'), h('button', { class: 'btn primary', onclick: pick }, 'Chọn gói…')), res);
       } else if (tab === 'export') {
