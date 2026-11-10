@@ -1,7 +1,7 @@
 {
   "name": "dgvc",
   "productName": "Đơn giá vận chuyển dăm",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "private": true,
   "description": "Phần mềm desktop tính đơn giá vận chuyển dăm — thay thế Excel + Power Query (HAK Group)",
   "main": "main/electron/main.js",

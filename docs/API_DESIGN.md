@@ -1610,3 +1610,7 @@ Mã kiểm tra mới: `W_TICKET_LATE` (import phiếu cân có ngày thuộc k�
 - Trả lại chặn nhiều Đơn vị giao (`E_MULTI_FUEL_GROUP`, params `groups, main, odd` — liệt kê dòng lệch). `I_FUEL_MULTI_DEPOT` chỉ khi nhiều **kho nhận dầu** (params `depots`). Mới `W_FUEL_OTHER_GIVER` (import).
 - `fuel.update` sửa được `giver_unit_code` (Đơn vị) — vẫn chặn khi dòng ở kỳ đã chốt.
 
+
+## Bổ sung bản 1.2.8
+- `exchange.previewPackage` → mục `conflicts[]` có thêm `kind` và `supersedeCodes`: `kind: "SUPERSEDE"` khi gói kỳ tính đến từ CÙNG máy gửi, cùng hợp đồng, cùng khoảng ngày/tuyến với đúng 1 kỳ đã nhận (vd bên gửi hủy kỳ rồi lập lại, mã `…#2`). Trước đây bị `REJECT` ("hai kỳ chồng ngày nhau").
+- `exchange.importPackage` với `decisions["KY_TINH:<id>"] = "TAKE"` → kỳ cũ chuyển `HUY` (ghi nhật ký `SUPERSEDE_PERIOD`), phiếu/dầu của kỳ cũ được giải phóng, kỳ mới thêm vào; mặc định `KEEP` (không nhận kỳ mới). Kỳ của máy khác hoặc chồng nhiều kỳ vẫn bị từ chối.
