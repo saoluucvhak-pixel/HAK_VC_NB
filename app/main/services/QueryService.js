@@ -16,16 +16,16 @@ class QueryService {
 
   bootstrap(session) {
     const s = this.store; const unit = s.get('DON_VI', s.unitCode);
-    return { install: { installId: s.manifest.installId, installCode: s.installCode, unitCode: s.unitCode, unitName: unit ? unit.unit_name : s.unitCode,
-      dataFolder: s.root, schemaVersion: s.manifest.schemaVersion, dataVersion: s.dataVersion, appVersion: require('../../package.json').version },
+    return { install: { installId: s.installId, installCode: s.installCode, unitCode: s.unitCode, unitName: unit ? unit.unit_name : s.unitCode,
+      dataFolder: s.root, schemaVersion: s.schemaVersion, dataVersion: s.dataVersion, appVersion: require('../../package.json').version },
     user: session && session.user, units: s.all('DON_VI'), routes: s.all('TUYEN_VC').filter((r) => r.is_active),
     contracts: s.all('HOP_DONG').map((c) => ({ ...c, role: c.carrier_unit_code === s.unitCode ? 'CARRIER' : c.customer_unit_code === s.unitCode ? 'CUSTOMER' : 'OTHER' })),
     config: Object.fromEntries(s.all('CONFIG').map((c) => [c.config_key, c.config_value])) };
   }
 
   health() {
-    const s = this.store; const files = Object.keys(s.manifest.files).length;
-    return { ok: true, dataFolder: s.root, files, dataVersion: s.dataVersion, rows: Object.fromEntries(Object.keys(s.data).map((t) => [t, s.data[t].length])) };
+    const s = this.store; const { files, rows } = s.stats();
+    return { ok: true, dataFolder: s.root, files, dataVersion: s.dataVersion, rows };
   }
 
   _usageByTicket() {

@@ -42,10 +42,10 @@ class ArchiveService {
     const items = [...ys].sort((a, b) => b - a).map((y) => {
       const a = arch[y]; const l = live.get(y) || { tickets: 0, fuel: 0, periods: 0, drafts: 0 };
       return { year: y, archived: !!a, live: l, archive: a ? { ...a, periodIds: undefined, plates: undefined, contracts: undefined, folderOk: fs.existsSync(path.join(this._dir(y), 'archive-manifest.json')) } : null,
-        mounted: s.mounted.has(String(y)), current: y >= now, canArchive: !a && y > s.archivedThrough && (l.tickets + l.fuel + l.periods > 0),
+        mounted: s.isYearMounted(y), current: y >= now, canArchive: !a && y > s.archivedThrough && (l.tickets + l.fuel + l.periods > 0),
         canReopen: !!a && y === s.archivedThrough };
     });
-    return { items, archivedThrough: s.archivedThrough, mounted: [...s.mounted.keys()] };
+    return { items, archivedThrough: s.archivedThrough, mounted: s.mountedYears() };
   }
 
   /** Kế hoạch lưu trữ đến hết năm Y: chọn dòng nào đi, dòng nào giữ lại (điểm cố định — kỳ vắt năm kéo theo phiếu/dầu của nó). */
@@ -85,7 +85,7 @@ class ArchiveService {
     if (!(Y > 2000)) throw new AppError('VALIDATION_FAILED', 'Chọn năm');
     if (s.archives[Y]) throw new AppError('VALIDATION_FAILED', `Năm ${Y} đã lưu trữ`);
     if (Y <= s.archivedThrough) throw new AppError('VALIDATION_FAILED', `Đã lưu trữ đến hết năm ${s.archivedThrough}`);
-    if (s.mounted.size) throw new AppError('VALIDATION_FAILED', 'Đang xem năm lưu trữ — bấm "Thôi xem" trước');
+    if (s.hasMounted) throw new AppError('VALIDATION_FAILED', 'Đang xem năm lưu trữ — bấm "Thôi xem" trước');
     const p = this._plan(Y); const ids = p.ids;
     const confirmed = new Set([...s.all('TRANSPORT_DETAIL').filter((d) => d.is_current && USED.has(d.usage_state)).map((d) => d.ticket_id)]);
     const fuelUsed = new Set([...s.all('FUEL_DETAIL').filter((d) => d.is_current && USED.has(d.usage_state)).map((d) => d.receipt_id)]);
@@ -132,7 +132,7 @@ class ArchiveService {
       }
     }
     const counts = pv.counts;
-    const am = { app: 'DGVC', kind: 'ARCHIVE', year: Y, minYear, unitCode: s.unitCode, installId: s.manifest.installId, schemaVersion: SCHEMA.schemaVersion,
+    const am = { app: 'DGVC', kind: 'ARCHIVE', year: Y, minYear, unitCode: s.unitCode, installId: s.installId, schemaVersion: SCHEMA.schemaVersion,
       createdAt: new Date().toISOString(), createdBy: user.username, reason, counts, periodIds: [...ids.KY_TINH], contracts, plates: [...plates].sort(), files };
     const amBuf = Buffer.from(JSON.stringify(am, null, 1));
     writeAtomic(path.join(tmp, 'archive-manifest.json'), amBuf);
@@ -174,26 +174,17 @@ class ArchiveService {
   /** Mở năm lưu trữ để XEM (chỉ đọc): nạp vào bộ nhớ, đánh dấu từng dòng; mọi lệnh sửa các dòng này bị chặn. */
   async mount({ year }) {
     const s = this.store; const y = String(Number(year));
-    if (s.mounted.has(y)) return { year: Number(y), mounted: true, already: true };
+    if (s.isYearMounted(y)) return { year: Number(y), mounted: true, already: true };
     await s.queue;
-    const { rows } = this._readArchive(y); const mark = {};
-    for (const [t, list] of Object.entries(rows)) {
-      const pk = SCHEMA.tables[t].pk; mark[t] = new Set();
-      for (const r of list) { if (s.pk[t].has(r[pk])) continue; s.data[t].push(r); mark[t].add(r[pk]); }
-    }
-    s.mounted.set(y, mark); s._reindex(Object.keys(mark));
-    return { year: Number(y), mounted: true, rows: Object.values(mark).reduce((a, x) => a + x.size, 0) };
+    const { rows } = this._readArchive(y);
+    return { year: Number(y), mounted: true, rows: s.mountRows(y, rows) };
   }
 
   async unmount({ year } = {}) {
     const s = this.store; await s.queue;
-    const ys = year ? [String(Number(year))] : [...s.mounted.keys()];
-    for (const y of ys) {
-      const mark = s.mounted.get(y); if (!mark) continue;
-      for (const [t, set] of Object.entries(mark)) { const pk = SCHEMA.tables[t].pk; s.data[t] = s.data[t].filter((r) => !set.has(r[pk])); }
-      s.mounted.delete(y); s._reindex(Object.keys(mark));
-    }
-    return { mounted: [...s.mounted.keys()] };
+    const ys = year ? [String(Number(year))] : s.mountedYears();
+    for (const y of ys) s.unmountYear(y);
+    return { mounted: s.mountedYears() };
   }
 
   /** Báo cáo / tra cứu: khoảng ngày (hoặc kỳ) chạm năm lưu trữ → tự mở năm đó để xem. Trả danh sách năm vừa mở. */
@@ -206,7 +197,7 @@ class ArchiveService {
     const pid = p.periodId;
     if (pid && !s.get('KY_TINH', pid)) for (const y of ys) if ((arch[y].periodIds || []).includes(pid)) want.add(y);
     const done = [];
-    for (const y of want) if (!s.mounted.has(y)) { try { await this.mount({ year: y }); done.push(Number(y)); } catch { /* thiếu thư mục: báo ở màn hình lưu trữ */ } }
+    for (const y of want) if (!s.isYearMounted(y)) { try { await this.mount({ year: y }); done.push(Number(y)); } catch { /* thiếu thư mục: báo ở màn hình lưu trữ */ } }
     return done;
   }
 
@@ -239,7 +230,7 @@ class ArchiveService {
     const mb = zip.readFile('archive-manifest.json'); if (!mb) throw new AppError('VALIDATION_FAILED', 'Không phải file lưu trữ năm DGVC');
     const am = JSON.parse(mb); const entry = s.archives[am.year];
     if (!entry) throw new AppError('VALIDATION_FAILED', `Kho dữ liệu này không có năm lưu trữ ${am.year}`);
-    if (am.installId !== s.manifest.installId) throw new AppError('VALIDATION_FAILED', `File lưu trữ của bản cài khác (${am.unitCode} · ${am.installId})`);
+    if (am.installId !== s.installId) throw new AppError('VALIDATION_FAILED', `File lưu trữ của bản cài khác (${am.unitCode} · ${am.installId})`);
     if (entry.manifestSha256 !== sha256(mb)) throw new AppError('INTEGRITY_ERROR', `File lưu trữ năm ${am.year} không đúng bản đã lưu trữ`);
     const dir = this._dir(am.year); const tmp = `${dir}.tmp`;
     fs.rmSync(tmp, { recursive: true, force: true }); zip.extractAllTo(tmp, true);

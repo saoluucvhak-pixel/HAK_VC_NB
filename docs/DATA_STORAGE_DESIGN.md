@@ -747,3 +747,10 @@ Cả 3 thư mục có đủ danh mục (5 đơn vị, 17 xe, 12 tuyến, 12 phi�
 - **Mở lại năm** (năm lưu trữ mới nhất, phải có lý do): sao lưu an toàn → đưa nguyên dòng trở lại (không đổi ngày tạo / phiên bản) → thư mục lưu trữ đổi tên `.mo-lai-…` (không xóa).
 - **Máy mới / khôi phục**: thiếu thư mục `archive/<Y>` → màn hình báo, bấm *Nạp file lưu trữ…* chọn file zip (kiểm đúng bản cài, đúng SHA-256).
 
+
+## Giai đoạn 0 của kế hoạch lưu trữ SQLite (không đổi hành vi)
+- **Hợp đồng `Storage`** (`app/main/repo/Storage.js`): danh sách thành viên mọi loại kho phải có (đọc / giao dịch / định danh / lớp phủ năm lưu trữ / `snapshot` / `fingerprint` / `stats`). Dịch vụ, router, công cụ chỉ dùng các thành viên này — có test quét chặn việc chạm `.data`, `.pk`, `.manifest`, `.mounted`.
+- **Lớp phủ năm lưu trữ** có API chính thức: `mountedYears()`, `isYearMounted()`, `hasMounted`, `mountRows()`, `unmountYear()` (ArchiveService không còn tự sửa bộ nhớ của kho).
+- **Bản chụp và dấu vân tay**: `snapshot()` trả dữ liệu sống theo bảng (sắp theo khóa chính) kèm `exportedAt`, `dataVersion`, `schemaVersion`, bộ đếm sinh mã; `fingerprint()` = SHA-256 chuẩn hóa từng bảng + tổng (không gồm `exportedAt`/`dataVersion`, giữ `''` ≠ `null`). Dùng để so kho JSON ↔ SQLite ở giai đoạn sau.
+- **Nhà máy tạo kho** `app/main/repo/createStore.js`: đăng ký loại kho; test/công cụ chọn bằng `DGVC_STORAGE` (mặc định `json`); ứng dụng thật cố định `json`.
+- **Bộ test hợp đồng** `tests/storage.contract.test.js` chạy cho mọi loại kho đã đăng ký.

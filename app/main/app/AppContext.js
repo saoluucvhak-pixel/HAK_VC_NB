@@ -10,7 +10,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { JsonStore } = require('../repo/JsonStore');
+const { createStorage, newStore } = require('../repo/createStore');
+const APP_STORAGE = 'json'; // ứng dụng thật dùng kho JSON cho tới khi có quyết định chuyển (không đọc biến môi trường)
 const { AppError } = require('../../shared/errors');
 const { AuthService } = require('../services/AuthService');
 const { ImportService } = require('../import/ImportService');
@@ -93,8 +94,8 @@ class AppContext {
     const unit = cat.DON_VI.find((u) => u.unit_code === unitCode && u.is_active);
     if (!unit) throw new AppError('VALIDATION_FAILED', `Chọn đơn vị của bản cài (${this.installableUnits().map((u) => u.unitCode).join(' / ')})`);
     if (fs.existsSync(dataFolder) && fs.readdirSync(dataFolder).length) throw new AppError('VALIDATION_FAILED', `Thư mục ${dataFolder} không trống — chọn thư mục trống`);
-    JsonStore.create(dataFolder, { installCode: unitCode, unitCode, installId: `INS-${crypto.randomBytes(5).toString('hex').toUpperCase()}`, appVersion: APP_VERSION });
-    const store = new JsonStore(dataFolder).open();
+    createStorage(dataFolder, { installCode: unitCode, unitCode, installId: `INS-${crypto.randomBytes(5).toString('hex').toUpperCase()}`, appVersion: APP_VERSION }, APP_STORAGE);
+    const store = newStore(dataFolder, {}, APP_STORAGE).open();
     const mine = new Set(cat.HOP_DONG.filter((c) => c.carrier_unit_code === unitCode || c.customer_unit_code === unitCode).map((c) => c.contract_id));
     await store.transaction((tx) => {
       for (const t of CATALOG_TABLES) {
@@ -126,7 +127,7 @@ class AppContext {
   open({ takeoverStaleLock = false } = {}) {
     const { dataFolder } = this.readConfig();
     if (!dataFolder) throw new AppError('NOT_INITIALIZED', 'Bản cài chưa khởi tạo');
-    this._attach(new JsonStore(dataFolder).open({ takeoverStaleLock }));
+    this._attach(newStore(dataFolder, {}, APP_STORAGE).open({ takeoverStaleLock }));
     const store = this.store;
     this.migrated = (async () => {
       // bản 1.2.5: dữ liệu định dạng cũ → sao lưu an toàn rồi chuyển sang định dạng gọn, chia tháng (số liệu giữ nguyên)
@@ -152,7 +153,7 @@ class AppContext {
     const sessions = this.svc ? this.svc.auth.sessions : null;
     this.store = store;
     const importService = new ImportService(store);
-    const backup = new BackupService(store, { reopen: (root) => new JsonStore(root).open() });
+    const backup = new BackupService(store, { reopen: (root) => newStore(root, {}, APP_STORAGE).open() });
     this.svc = {
       auth: new AuthService(store), import: importService, templates: new ImportTemplates(store), periods: new PeriodService(store), tickets: new TicketService(store),
       catalog: new CatalogService(store), master: new MasterDataService(store), records: new RecordService(store, { importService }),

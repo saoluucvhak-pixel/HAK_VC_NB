@@ -36,7 +36,7 @@ class ExchangeService {
   // ─────────────────────────── XUẤT ───────────────────────────
   async exportPackage({ packageType, targetUnitCode = '', periodIds = [], dateFrom = '', dateTo = '', plates = [], targetPath, user }) {
     const s = this.store; const tables = {}; const header = { format: 'DGVC-PKG', formatVersion: 1, packageType, schemaVersion: SCHEMA.schemaVersion,
-      sourceInstallId: s.manifest.installId, sourceUnitCode: s.unitCode, targetUnitCode: targetUnitCode || '', createdAt: '', createdBy: user.username, appVersion: APP_VERSION };
+      sourceInstallId: s.installId, sourceUnitCode: s.unitCode, targetUnitCode: targetUnitCode || '', createdAt: '', createdBy: user.username, appVersion: APP_VERSION };
     if (targetUnitCode && !s.get('DON_VI', targetUnitCode)) throw new AppError('VALIDATION_FAILED', `Không có đơn vị nhận ${targetUnitCode}`);
     if (targetUnitCode === s.unitCode) throw new AppError('VALIDATION_FAILED', 'Đơn vị nhận phải khác bản cài này');
     let reminderIds = [];
@@ -89,7 +89,7 @@ class ExchangeService {
       fs.writeFileSync(file, buf);
       const id = tx.nextId('EX', 5);
       tx.insert('EXCHANGE_LOG', { exchange_id: id, direction: 'EXPORT', package_type: packageType, file_name: path.basename(file), package_sha256: contentSha256,
-        source_install_id: s.manifest.installId, source_unit_code: s.unitCode, target_unit_code: header.targetUnitCode, counts_json: JSON.stringify(counts), status: 'DONE', message: '', created_at: tx.now, created_by: user.username });
+        source_install_id: s.installId, source_unit_code: s.unitCode, target_unit_code: header.targetUnitCode, counts_json: JSON.stringify(counts), status: 'DONE', message: '', created_at: tx.now, created_by: user.username });
       tx.audit('EXPORT_PACKAGE', 'EXCHANGE_LOG', id, null, { packageType, file: path.basename(file), counts, targetUnitCode: header.targetUnitCode });
       const marked = reminderIds.length ? markTx(tx, reminderIds, targetUnitCode, 'PACKAGE', path.basename(file)).updated : 0;
       return { exchangeId: id, file, sizeBytes: buf.length, contentSha256, counts, header, remindersMarked: marked };
@@ -157,7 +157,7 @@ class ExchangeService {
 
   previewPackage({ filePath, ticketsOnly = false, user }) {
     const pkg = this.read(filePath); const s = this.store; const h = pkg.header;
-    if (h.sourceInstallId === s.manifest.installId) throw new AppError('VALIDATION_FAILED', 'Gói do chính bản cài này xuất — không nhập lại');
+    if (h.sourceInstallId === s.installId) throw new AppError('VALIDATION_FAILED', 'Gói do chính bản cài này xuất — không nhập lại');
     if (ticketsOnly && !(pkg.tables.PHIEU_CAN || []).length) throw new AppError('VALIDATION_FAILED', 'Gói không có phiếu cân');
     const plan = []; const add = (table, id, action, row, extra = {}) => plan.push({ table, id, action, row, ...extra });
     const T = ticketsOnly ? { PHIEU_CAN: pkg.tables.PHIEU_CAN } : this._remap(pkg.tables, h);

@@ -172,7 +172,7 @@ class Router {
   async handle(action, payload = {}, token = '') {
     const t0 = Date.now(); const requestId = crypto.randomBytes(6).toString('hex');
     const meta = () => ({ requestId, durationMs: Date.now() - t0, dataVersion: this.ctx.store ? this.ctx.store.dataVersion : null,
-      archiveMounted: this.ctx.store && this.ctx.store.mounted ? [...this.ctx.store.mounted.keys()] : [] });
+      archiveMounted: this.ctx.store ? this.ctx.store.mountedYears() : [] });
     try {
       const route = ROUTES[action]; if (!route) throw new AppError('NOT_FOUND', `Không có chức năng ${action}`);
       const roles = this.rolesOf(action);
