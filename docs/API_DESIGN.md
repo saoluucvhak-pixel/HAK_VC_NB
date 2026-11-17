@@ -86,6 +86,7 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 |---|---|---|---|---|
 | `setup.status` | Lần mở đầu: đã có thư mục dữ liệu chưa, bản cài của đơn vị nào, còn user chưa đặt mật khẩu không | — |  |  |
 | `setup.init` | Tạo thư mục dữ liệu mới (chọn đơn vị của bản cài, ADMIN đầu tiên) hoặc mở thư mục có sẵn / nhận gói DANH_MUC ban đầu | — | 🔒 USERS, CONFIG, DON_VI, XE, TUYEN_VC, PRICE_HISTORY | SETUP |
+| `setup.units` | Danh sách đơn vị chọn được khi cài (lần mở đầu) | (chưa đăng nhập) |  |  |
 
 ### 4.2. Đăng nhập
 
@@ -140,6 +141,8 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | `contracts.list` | Danh sách hợp đồng (KE_TOAN chỉ thấy HĐ đơn vị mình là bên VC hoặc bên thuê) | A/K/X |  |  |
 | `contracts.save` | Tạo / sửa hợp đồng: số HĐ, ngày hiệu lực, bên thuê, bên VC (người dùng tự điền) | A/K | 🔒 HOP_DONG | CREATE/UPDATE |
 | `contracts.setVehicles` | Ghi phạm vi xe (danh sách + hiệu lực) | A/K | 🔒 HOP_DONG_XE | CONTRACT_VEHICLES |
+| `contracts.vehicles` | Phạm vi xe của một hợp đồng (HOP_DONG_XE) | A/K/X |  |  |
+| `contracts.setActive` | Ngừng / dùng lại hợp đồng (không xóa) — `rowVersion` bắt buộc | A/K | 🔒 HOP_DONG | UPDATE |
 | `contracts.suggestVehicles` | Gợi ý phạm vi xe = xe bên VC + xe của các HĐ mà bên VC là bên thuê | A/K |  |  |
 | `contracts.resolveSigners` | Người ký 2 bên theo sign_priority (hoặc giá trị ghi đè) | A/K/X |  |  |
 
@@ -208,6 +211,10 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | `reports.invoice` | Diễn giải cước để VIẾT HÓA ĐƠN: 1 dòng / xe (diễn giải, ĐVT Tấn, số lượng, đơn giá, thành tiền, VAT, tổng — cùng số BKVC). Mẫu câu: HOP_DONG.service_desc → CONFIG INVOICE_DESC_TEMPLATE; chỗ trống {BKS} {TUYEN} {MA_TUYEN} {TU_NGAY} {DEN_NGAY} | A/K/X |  |  |
 | `reports.misa` | Dữ liệu hóa đơn theo mẫu MISA meInvoice "Hóa đơn GTGT 1 thuế suất" (1 kỳ = 1 hóa đơn, mỗi xe 1 dòng). Chỉ bên vận chuyển | A/K/X |  |  |
 | `reports.export` | Xuất file (report = BKVC / BKCT / PRICING / INVOICE / **MISA** — MISA chỉ XLSX) ra đường dẫn đã chọn (XLSX: exceljs; PDF: in HTML báo cáo bằng printToPDF; CSV: UTF-8 BOM) | A/K/X |  | EXPORT |
+| `reports.html` | HTML báo cáo để xem trước trong giao diện | A/K/X |  |  |
+| `reports.invoice` | Dữ liệu dòng hóa đơn của một kỳ (MISA) | A/K/X |  |  |
+| `sync.list` | Nhắc đồng bộ danh mục giữa các nhà máy: danh sách + số mục chưa xử lý theo nhà máy | A/K/X |  |  |
+| `sync.markDone` | Đánh dấu nhà máy đã sửa danh mục theo nhắc | A/K | 🔒 SYNC_REMINDER | SYNC_DONE |
 | `reports.print` | In trực tiếp BKVC / BKCT (hộp thoại in của Windows) | A/K/X |  | PRINT |
 | `dashboard.summary` | Dashboard | A/K/X |  |  |
 
@@ -1567,7 +1574,7 @@ Mã kiểm tra mới: `W_TICKET_LATE` (import phiếu cân có ngày thuộc k�
 
 ## Bổ sung bản 1.1.8 — Cập nhật / xóa / khôi phục phiếu cân
 - `import.preview` (PHIEU_CAN): dòng trạng thái mới **UPDATE** — phiếu đã có, khác số liệu cân (`W_TICKET_UPDATE`, chỉ so cột có trong file), hoặc phiếu đã xóa (`W_TICKET_RESTORE`). Phiếu ở kỳ đã xác nhận/khóa → ERROR. `summary.update`; `import.confirm` trả `updated, restored, recalcPeriods` (cần `acceptWarnings`).
-- `tickets.softDeleteMany {ticketIds, reason}` → `{deleted, skipped, affectedPeriods}`; `tickets.restore {ticketId}`; `tickets.list usage=DELETED`.
+- `tickets.softDeleteMany {ticketIds, reason}` → `{deleted, skipped, notFound, alreadyDeleted, affectedPeriods}` (mã không tồn tại / đã xóa trước đó được liệt kê riêng); `tickets.restore {ticketId}`; `tickets.list usage=DELETED`.
 
 
 ## Bổ sung bản 1.2.0 — Nhật trình xe
@@ -1606,7 +1613,7 @@ Mã kiểm tra mới: `W_TICKET_LATE` (import phiếu cân có ngày thuộc k�
 - `tickets.get` trả thêm `raw` (dữ liệu gốc trong file, đã ghép tên cột).
 
 ## Bổ sung bản 1.2.6
-- `fuel.softDeleteMany {receiptIds, reason}` → `{deleted, skipped[{receiptId, periodCode}], affectedPeriods}`.
+- `fuel.softDeleteMany {receiptIds, reason}` → `{deleted, skipped[{receiptId, periodCode}], notFound, alreadyDeleted, affectedPeriods}`.
 - Mã kiểm tra: `E_MULTI_FUEL_GROUP` chỉ còn cho khác ĐVT; mới `I_FUEL_MULTI_DEPOT` (dầu nhận ở nhiều kho / đơn vị, cộng chung).
 
 ## Sửa ở bản 1.2.7
@@ -1631,3 +1638,9 @@ Mã kiểm tra mới: `W_TICKET_LATE` (import phiếu cân có ngày thuộc k�
 - **Import "Cập nhật / Khôi phục"** ghi nhận `row_version` của phiếu đích lúc xem trước; nếu phiếu bị sửa tay trước khi xác nhận → `E_PREVIEW_STALE`, không ghi đè.
 - **Lô xem trước bỏ dở** (`IMPORT_BATCH` = PREVIEW còn sót sau khi tắt phần mềm) được chuyển `CANCELLED` khi mở kho; xác nhận lô không còn phiên xem trước báo rõ (đã xác nhận / đã hủy / phiên đã hết).
 - Chưa làm: lưu `clientRequestId` bền (cần đổi lược đồ → ảnh hưởng tương thích `.dgvc`); hiện vẫn chống trùng trong bộ nhớ.
+
+## Bổ sung bản 1.2.12 — Đồng bộ đặc tả, xóa hàng loạt, CI
+- Đặc tả bổ sung 7 route đã có trong mã: `contracts.setActive`, `contracts.vehicles`, `setup.units`, `sync.list`, `sync.markDone`, `reports.html`, `reports.invoice` (nay cho cả KE_TOAN / XEM đọc, như `reports.export`). Test `tests/spec.routes.test.js` so `ROUTES` ↔ `api_spec.json` hai chiều.
+- `tickets.softDeleteMany` / `fuel.softDeleteMany` trả thêm `notFound` (mã không tồn tại) và `alreadyDeleted` (đã xóa từ trước).
+- Bỏ `docs/schema_sqlite.sql` (lệch schema chạy; nguồn đúng là `app/shared/schema.json`). CALCULATION_RULES: Q10 làm tròn ToEven đã chốt.
+- CI job `test` cài Chromium + poppler và yêu cầu `# skipped 0`.

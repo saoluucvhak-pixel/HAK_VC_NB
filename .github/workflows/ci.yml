@@ -19,7 +19,16 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
-      - run: npm test
+      - name: Cài Chromium cho các test giao diện / PDF (không bỏ qua test nào)
+        run: |
+          sudo apt-get update && sudo apt-get install -y poppler-utils
+          npx playwright-core install --with-deps chromium
+          echo "CHROMIUM_PATH=$(node -e "console.log(require('playwright-core').chromium.executablePath())")" >> "$GITHUB_ENV"
+      - name: Chạy toàn bộ test (không được bỏ qua test nào)
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/test.log | tail -12
+          grep -E '^# skipped 0$' /tmp/test.log
 
   electron:
     runs-on: ubuntu-latest

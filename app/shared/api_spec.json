@@ -1527,6 +1527,237 @@
    "lock": true
   },
   {
+   "action": "contracts.setActive",
+   "group": "Hợp đồng",
+   "desc": "Ngừng / dùng lại hợp đồng (không xóa)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "active",
+     "boolean",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
+    ],
+    [
+     "reason",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "NOT_FOUND",
+    "CONFLICT_VERSION",
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "HOP_DONG"
+   ],
+   "writes": [
+    "HOP_DONG"
+   ],
+   "audit": "UPDATE",
+   "lock": true
+  },
+  {
+   "action": "contracts.vehicles",
+   "group": "Hợp đồng",
+   "desc": "Phạm vi xe của một hợp đồng (HOP_DONG_XE)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{items:[HOP_DONG_XE]}",
+   "errors": [],
+   "reads": [
+    "HOP_DONG_XE"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "setup.units",
+   "group": "Khởi tạo",
+   "desc": "Danh sách đơn vị chọn được khi cài (lần mở đầu)",
+   "roles": [
+    "(chưa đăng nhập)"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{items:[{unitCode, name}]}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "sync.list",
+   "group": "Đồng bộ",
+   "desc": "Nhắc đồng bộ danh mục giữa các nhà máy: danh sách + số mục chưa xử lý theo nhà máy",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "status",
+     "enum(OPEN|DONE)",
+     false,
+     "mặc định OPEN; rỗng = tất cả"
+    ]
+   ],
+   "output": "{items, total, pendingByUnit}",
+   "errors": [],
+   "reads": [
+    "SYNC_REMINDER"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "sync.markDone",
+   "group": "Đồng bộ",
+   "desc": "Đánh dấu nhà máy đã sửa danh mục theo nhắc",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "unitCode",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "reminderIds",
+     "array<string>",
+     false,
+     "rỗng = mọi nhắc đang mở"
+    ],
+    [
+     "how",
+     "string",
+     false,
+     "MANUAL|PACKAGE"
+    ],
+    [
+     "note",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{updated}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "SYNC_REMINDER"
+   ],
+   "writes": [
+    "SYNC_REMINDER"
+   ],
+   "audit": "SYNC_DONE",
+   "lock": true
+  },
+  {
+   "action": "reports.html",
+   "group": "Báo cáo",
+   "desc": "HTML báo cáo để xem trước trong giao diện",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "report",
+     "string",
+     true,
+     "BKVC|BKCT|PRICING|INVOICE|PRICING_SHEET|CONTRACT_BASIS|FUEL_HANDOVER…"
+    ],
+    [
+     "params",
+     "object",
+     true,
+     "như reports.export"
+    ]
+   ],
+   "output": "{html}",
+   "errors": [
+    "NOT_FOUND",
+    "VALIDATION_FAILED"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reports.invoice",
+   "group": "Báo cáo",
+   "desc": "Dữ liệu dòng hóa đơn của một kỳ (MISA)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "periodId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{lines, totals, …}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "BKVC_LINE"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
    "action": "contracts.setVehicles",
    "group": "Hợp đồng",
    "desc": "Ghi phạm vi xe (danh sách + hiệu lực)",
@@ -1983,7 +2214,7 @@
      ""
     ]
    ],
-   "output": "{deleted, skipped:[{ticketId, ticketNo, periodCode}], affectedPeriods}",
+   "output": "{deleted, skipped:[{ticketId, ticketNo, periodCode}], notFound:[ticketId], alreadyDeleted:[ticketId], affectedPeriods}",
    "errors": [
     "VALIDATION_FAILED"
    ],
@@ -2205,7 +2436,7 @@
      ""
     ]
    ],
-   "output": "{deleted, skipped[{receiptId, periodCode}], affectedPeriods}",
+   "output": "{deleted, skipped:[{receiptId, periodCode}], notFound:[receiptId], alreadyDeleted:[receiptId], affectedPeriods}",
    "errors": [
     "VALIDATION_FAILED"
    ],

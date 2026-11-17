@@ -124,7 +124,7 @@
       message: `Xóa ${D.vn(items.length)} phiếu (${D.vn(kg)} kg) đang hiện trong danh sách.${locked ? ` ${D.vn(locked)} phiếu ở kỳ đã xác nhận / khóa sẽ được GIỮ LẠI.` : ''} Xóa mềm — khôi phục được (lọc "Đã xóa", hoặc import lại file).` });
     if (!r) return;
     const x = await D.api('tickets.softDeleteMany', { ticketIds: items.map((t) => t.ticket_id), reason: r });
-    D.toast(`Đã xóa ${x.deleted} phiếu${x.skipped.length ? ` · giữ ${x.skipped.length} phiếu ở kỳ đã chốt` : ''}${x.affectedPeriods.length ? ` · ${x.affectedPeriods.length} kỳ nháp phải tính lại` : ''}`, 'ok', 9000);
+    D.toast(`Đã xóa ${x.deleted} phiếu${x.skipped.length ? ` · giữ ${x.skipped.length} phiếu ở kỳ đã chốt` : ''}${x.notFound && x.notFound.length ? ` · ${x.notFound.length} mã không tồn tại` : ''}${x.alreadyDeleted && x.alreadyDeleted.length ? ` · ${x.alreadyDeleted.length} phiếu đã xóa từ trước` : ''}${x.affectedPeriods.length ? ` · ${x.affectedPeriods.length} kỳ nháp phải tính lại` : ''}`, 'ok', 9000);
     reload();
   }
 
@@ -175,7 +175,7 @@
       message: `Xóa ${D.vn(items.length)} dòng dầu (${D.vnAuto(Math.round(liters * 100) / 100)} lít) đang hiện trong danh sách.${locked ? ` ${D.vn(locked)} dòng ở kỳ đã xác nhận / khóa sẽ được GIỮ LẠI.` : ''} Kỳ nháp có các dòng này sẽ phải tính lại. Sau đó Import lại file đúng.` });
     if (!r) return;
     const x = await D.api('fuel.softDeleteMany', { receiptIds: items.map((i) => i.receipt_id), reason: r });
-    D.toast(`Đã xóa ${x.deleted} dòng dầu${x.skipped.length ? ` · giữ ${x.skipped.length} dòng ở kỳ đã chốt` : ''}${x.affectedPeriods.length ? ` · ${x.affectedPeriods.length} kỳ nháp phải tính lại` : ''}`, 'ok', 9000);
+    D.toast(`Đã xóa ${x.deleted} dòng dầu${x.skipped.length ? ` · giữ ${x.skipped.length} dòng ở kỳ đã chốt` : ''}${x.notFound && x.notFound.length ? ` · ${x.notFound.length} mã không tồn tại` : ''}${x.alreadyDeleted && x.alreadyDeleted.length ? ` · ${x.alreadyDeleted.length} dòng đã xóa từ trước` : ''}${x.affectedPeriods.length ? ` · ${x.affectedPeriods.length} kỳ nháp phải tính lại` : ''}`, 'ok', 9000);
     reload();
   }
   async function manualFuel(contractId, reload) {
