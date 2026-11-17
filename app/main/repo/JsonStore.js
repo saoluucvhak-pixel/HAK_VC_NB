@@ -151,6 +151,10 @@ class JsonStore {
   get unitCode() { return this.manifest.unitCode; }
   get installCode() { return this.manifest.installCode; }
   get dataVersion() { return this.manifest.dataVersion; }
+  get installId() { return this.manifest.installId; }
+  get schemaVersion() { return this.manifest.schemaVersion; }
+  /** Thống kê cho kiểm tra sức khỏe: số tệp dữ liệu (tùy loại kho) và số dòng từng bảng. */
+  stats() { return { files: Object.keys(this.manifest.files).length, rows: Object.fromEntries(Object.keys(this.data).map((t) => [t, this.data[t].length])) }; }
   /** Có file định dạng cũ → nên chạy compact() (app tự làm khi mở). */
   get needsCompaction() { return this.oldFormatFiles > 0; }
   /** Các năm đã lưu trữ (bản 1.2.5): { '2025': {...} } — dữ liệu năm đó nằm ở archive/<năm>/, không nạp khi mở. */
@@ -159,6 +163,34 @@ class JsonStore {
   get archivedThrough() { const ys = Object.keys(this.archives).map(Number); return ys.length ? Math.max(...ys) : 0; }
   isMountedRow(t, id) { for (const m of this.mounted.values()) if (m[t] && m[t].has(id)) return true; return false; }
   _mountedYearOf(t, id) { for (const [y, m] of this.mounted) if (m[t] && m[t].has(id)) return y; return null; }
+  // ── lớp phủ năm lưu trữ (chỉ đọc) — API chính thức của hợp đồng Storage (xem Storage.js) ──
+  mountedYears() { return [...this.mounted.keys()]; }
+  isYearMounted(year) { return this.mounted.has(String(Number(year))); }
+  get hasMounted() { return this.mounted.size > 0; }
+  /** Nạp dòng của 1 năm lưu trữ để XEM: { bảng: [dòng] }. Dòng trùng khóa với dữ liệu đang dùng bị bỏ qua. Trả số dòng đã nạp. */
+  mountRows(year, rowsByTable) {
+    const y = String(Number(year)); if (this.mounted.has(y)) return 0;
+    const mark = {};
+    for (const [t, list] of Object.entries(rowsByTable)) {
+      const pk = SCHEMA.tables[t].pk; mark[t] = new Set();
+      for (const r of list) { if (this.pk[t].has(r[pk])) continue; this.data[t].push(r); mark[t].add(r[pk]); }
+    }
+    this.mounted.set(y, mark); this._reindex(Object.keys(mark));
+    return Object.values(mark).reduce((a, x) => a + x.size, 0);
+  }
+  /** Bỏ lớp phủ của 1 năm (xóa các dòng đã nạp khỏi bộ nhớ). */
+  unmountYear(year) {
+    const y = String(Number(year)); const mark = this.mounted.get(y); if (!mark) return false;
+    for (const [t, set] of Object.entries(mark)) { const pk = SCHEMA.tables[t].pk; this.data[t] = this.data[t].filter((r) => !set.has(r[pk])); }
+    this.mounted.delete(y); this._reindex(Object.keys(mark));
+    return true;
+  }
+
+  // ── bản chụp logic + dấu vân tay (cùng định nghĩa cho mọi loại kho: dùng để so JSON ↔ SQLite) ──
+  /** Bản chụp dữ liệu SỐNG (không gồm dòng lớp phủ năm lưu trữ): bảng → dòng sắp theo khóa chính; kèm thời điểm xuất và phiên bản dữ liệu. */
+  snapshot() { return buildSnapshot(this); }
+  /** Dấu vân tay `canon`: SHA-256 chuẩn hóa từng bảng + tổng (không gồm exportedAt / dataVersion). */
+  fingerprint() { return fingerprintOf(this.snapshot()); }
   all(table) { return this.data[table]; }
   get(table, id) { return this.pk[table].get(id) || null; }
   find(table, pred) { return this.data[table].filter(pred); }
@@ -412,4 +444,32 @@ class Tx {
   }
 }
 
-module.exports = { JsonStore, SCHEMA, nowIso, encodeTable, decodeRows, partitionKey, relOf, ARCHIVE_DATE_COL };
+/** JSON chuẩn hóa: khóa object theo thứ tự chữ, giữ nguyên '' / null / số / mảng (không làm tròn, không bỏ ô rỗng). */
+function canonical(v) {
+  if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`;
+  if (v && typeof v === 'object') return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`;
+  return JSON.stringify(v === undefined ? null : v);
+}
+const cmpStr = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+function buildSnapshot(store) {
+  const tables = {};
+  for (const [name, def] of Object.entries(SCHEMA.tables)) {
+    tables[name] = store.all(name).filter((r) => !store.isMountedRow(name, r[def.pk])).slice().sort((a, b) => cmpStr(String(a[def.pk]), String(b[def.pk])));
+  }
+  const m = store.manifest;
+  return { format: 'dgvc-snapshot/1', exportedAt: store.clock(), dataVersion: m.dataVersion, schemaVersion: m.schemaVersion,
+    installId: m.installId, installCode: m.installCode, unitCode: m.unitCode, sequences: { ...(m.sequences || {}) }, tables };
+}
+function fingerprintOf(snap) {
+  const h = (s) => crypto.createHash('sha256').update(s).digest('hex');
+  const perTable = {}; const total = crypto.createHash('sha256');
+  for (const name of Object.keys(snap.tables).sort()) {
+    const text = snap.tables[name].map(canonical).join('\n');
+    perTable[name] = { rows: snap.tables[name].length, sha256: h(text) };
+    total.update(`${name}:${perTable[name].sha256}\n`);
+  }
+  const seq = h(canonical(snap.sequences)); total.update(`_sequences:${seq}\n`);
+  return { sha256: total.digest('hex'), sequences: seq, perTable };
+}
+
+module.exports = { JsonStore, buildSnapshot, fingerprintOf, canonical, SCHEMA, nowIso, encodeTable, decodeRows, partitionKey, relOf, ARCHIVE_DATE_COL };

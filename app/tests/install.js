@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { JsonStore } = require('../main/repo/JsonStore');
+const { createStorage, newStore, storageKinds } = require('../main/repo/createStore');
 const { ImportService } = require('../main/import/ImportService');
 const { PeriodService } = require('../main/services/PeriodService');
 const { loadDataFolder } = require('./helpers');
@@ -19,8 +19,8 @@ let n = 0; const rid = (p = 'req') => `${p}-${process.pid}-${++n}`;
 async function install(inst, { withData = true, installId = `INS-T12-${inst}` } = {}) {
   const seed = loadDataFolder(inst);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `dgvc12-${inst}-`));
-  JsonStore.create(dir, { installCode: inst, unitCode: seed.manifest.unitCode, installId });
-  const store = new JsonStore(dir).open();
+  createStorage(dir, { installCode: inst, unitCode: seed.manifest.unitCode, installId }); // loại kho: biến môi trường DGVC_STORAGE (mặc định json)
+  const store = newStore(dir).open();
   await store.transaction((tx) => { for (const t of CATALOG) for (const r of seed.rows[t]) tx.insert(t, r); }, { user: 'setup' });
   if (withData) {
     const imp = new ImportService(store);
@@ -32,4 +32,4 @@ async function install(inst, { withData = true, installId = `INS-T12-${inst}` } 
   return { dir, store, seed: seed.rows, periods: new PeriodService(store), contractId: CONTRACT[inst] };
 }
 
-module.exports = { install, FILE, CONTRACT, ADMIN, KETOAN, rid };
+module.exports = { storageKinds, install, FILE, CONTRACT, ADMIN, KETOAN, rid };

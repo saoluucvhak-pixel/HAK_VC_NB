@@ -23,7 +23,7 @@ const stamp = (d = new Date()) => {
 const localDate = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 class BackupService {
-  /** @param reopen  hàm (root) => JsonStore mới đã mở — dùng sau khôi phục */
+  /** @param reopen  hàm (root) => kho mới đã mở — dùng sau khôi phục */
   constructor(store, { reopen, now = () => new Date() } = {}) { this.store = store; this.reopen = reopen; this.now = now; }
 
   _cfg(k, d) { const r = this.store.all('CONFIG').find((c) => c.config_key === k); return r && r.config_value !== '' && r.config_value != null ? r.config_value : d; }
@@ -113,7 +113,7 @@ class BackupService {
   async restore({ file, reason = '', user }) {
     if (!reason) throw new AppError('VALIDATION_FAILED', 'Khôi phục phải nhập lý do');
     const { manifest, zip } = this.verify(file);
-    if (manifest.installId !== this.store.manifest.installId) {
+    if (manifest.installId !== this.store.installId) {
       throw new AppError('VALIDATION_FAILED', `Bản sao lưu của bản cài khác (${manifest.unitCode} · ${manifest.installId}) — không khôi phục vào bản cài ${this.store.unitCode}`);
     }
     const safety = await this.backup({ kind: 'safety', note: 'truoc-khoi-phuc', user });

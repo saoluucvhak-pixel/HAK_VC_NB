@@ -102,7 +102,7 @@ class PeriodService {
       if (!period) {
         const code = this._periodCode(contract, dateFrom, dateTo, routeCode, tx.all('KY_TINH'));
         period = tx.insert('KY_TINH', { period_id: tx.nextId('KY', 6), period_code: code, contract_id: contractId, date_from: dateFrom, date_to: dateTo,
-          route_filter: routeCode, status: 'NHAP', calc_version: 0, needs_recalc: false, origin: 'LOCAL', origin_install_id: this.store.manifest.installId });
+          route_filter: routeCode, status: 'NHAP', calc_version: 0, needs_recalc: false, origin: 'LOCAL', origin_install_id: this.store.installId });
       }
       const pid = period.period_id; const version = period.calc_version + 1;
       const runId = tx.nextId('CR', 6);
