@@ -10,7 +10,7 @@
     "verify:seed": "node tools/verify-seed.js",
     "start": "electron .",
     "dev": "node tools/dev-server.js",
-    "test:electron": "xvfb-run -a node tests/electron.smoke.js",
+    "test:electron": "xvfb-run -a node tests/electron.smoke.js && xvfb-run -a electron tests/electron.sqlite.main.js --no-sandbox",
     "compare": "node tools/compare-excel.js",
     "build:catalog": "node tools/build-catalog.js",
     "dist": "electron-builder --win dir --x64 && makensis -V2 installer/dgvc.nsi",

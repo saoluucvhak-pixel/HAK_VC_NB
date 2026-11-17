@@ -16,11 +16,11 @@ const ADMIN = { username: 'phuthuy.apple@gmail.com', role: 'ADMIN' };
 const KETOAN = { username: 'ketoan', role: 'KE_TOAN' };
 let n = 0; const rid = (p = 'req') => `${p}-${process.pid}-${++n}`;
 
-async function install(inst, { withData = true, installId = `INS-T12-${inst}` } = {}) {
+async function install(inst, { withData = true, installId = `INS-T12-${inst}`, clock, kind } = {}) {
   const seed = loadDataFolder(inst);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `dgvc12-${inst}-`));
-  createStorage(dir, { installCode: inst, unitCode: seed.manifest.unitCode, installId }); // loại kho: biến môi trường DGVC_STORAGE (mặc định json)
-  const store = newStore(dir).open();
+  createStorage(dir, { installCode: inst, unitCode: seed.manifest.unitCode, installId }, kind); // loại kho: tham số `kind` hoặc biến môi trường DGVC_STORAGE (mặc định json)
+  const store = newStore(dir, clock ? { clock } : {}, kind).open();
   await store.transaction((tx) => { for (const t of CATALOG) for (const r of seed.rows[t]) tx.insert(t, r); }, { user: 'setup' });
   if (withData) {
     const imp = new ImportService(store);

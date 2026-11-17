@@ -11,7 +11,7 @@ const { ImportService } = require('../main/import/ImportService');
 const { RecordService } = require('../main/services/RecordService');
 const { VehicleKmService } = require('../main/services/VehicleKmService');
 const { ReportService } = require('../main/reports/ReportService');
-const { JsonStore } = require('../main/repo/JsonStore');
+const { newStore } = require('../main/repo/createStore');
 
 const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-km-'));
 const P = '92H-00192';
@@ -91,5 +91,5 @@ test('Chốt đồng hồ km (đầu năm / cuối năm): km đồng hồ − km
   wb.worksheets[0].eachRow((row) => { if (row.getCell(1).value === 'ĐỐI CHIẾU KM ĐỒNG HỒ VỚI KM THEO TUYẾN') found = true; });
   assert.ok(found, 'Excel có bảng đối chiếu km đồng hồ');
   store.close();
-  const again = new JsonStore(dir).open(); assert.equal(again.find('XE_KM', () => true).length, 4); again.close();
+  const again = newStore(dir).open(); assert.equal(again.find('XE_KM', () => true).length, 4); again.close();
 });

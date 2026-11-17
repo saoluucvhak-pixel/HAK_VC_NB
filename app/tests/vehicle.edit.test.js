@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { install, ADMIN } = require('./install');
 const { MasterDataService } = require('../main/services/MasterDataService');
-const { JsonStore } = require('../main/repo/JsonStore');
+const { newStore } = require('../main/repo/createStore');
 
 test('Sửa xe nhập sai: thông tin, biển số (chuyển cả phạm vi hợp đồng), xóa; xe đã có phiếu cân thì không đổi biển số', async () => {
   const { store, dir, contractId } = await install('DH');
@@ -49,7 +49,7 @@ test('Sửa xe nhập sai: thông tin, biển số (chuyển cả phạm vi hợ
 
   // mở lại kho: dữ liệu toàn vẹn (SHA-256, khóa ngoại)
   store.close();
-  const again = new JsonStore(dir).open();
+  const again = newStore(dir).open();
   assert.ok(again.get('XE', '92H-99990')); assert.equal(again.get('XE', '92H-99999'), null); assert.equal(again.get('XE', '92H-88888'), null);
   again.close();
 });
