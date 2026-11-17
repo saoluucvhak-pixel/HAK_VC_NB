@@ -29,7 +29,9 @@
       h('button', { class: 'btn small', onclick: async () => { await D.api('archive.unmount', {}); D.render && D.render(); } }, 'Thôi xem'));
   };
   D.api = async function api(action, payload, { quiet = false } = {}) {
-    const res = await raw(action, payload);
+    let res;
+    try { res = await raw(action, payload); } catch (err) { throw ipcFailure(err, quiet); }
+    if (!res || typeof res !== 'object' || typeof res.ok !== 'boolean') throw ipcFailure(new Error('phản hồi không hợp lệ'), quiet);
     if (res && res.meta && Array.isArray(res.meta.archiveMounted)) D.archiveBanner(res.meta.archiveMounted);
     if (!res.ok) {
       const e = Object.assign(new Error(res.error.message), res.error);
@@ -40,12 +42,29 @@
     for (const w of res.warnings || []) D.toast(w.message, w.level === 'WARNING' ? 'err' : 'info', 7000);
     return res.data;
   };
+  // không liên lạc được với phần xử lý dữ liệu (IPC / mạng thử nghiệm hỏng): báo rõ thay vì im lặng
+  function ipcFailure(err, quiet) {
+    const e = Object.assign(new Error(`Không liên lạc được với phần xử lý dữ liệu (${(err && err.message) || err}). Thử tải lại phần mềm (Ctrl+R); nếu lỗi lặp lại, báo ADMIN kèm file nhật ký.`), { code: 'IPC_FAILED' });
+    if (!quiet) D.toast(e.message, 'err', 9000);
+    return e;
+  }
   function errorText(e) {
     const d = e.details || {};
     const extra = Array.isArray(d.errors) ? '' : d.issues ? ` — ${d.issues.slice(0, 3).map((i) => i.message).join('; ')}` : '';
     return `${e.message}${extra}`;
   }
   D.errorText = errorText;
+  // lỗi JavaScript ngoài ý muốn (trước đây im lặng, nút bấm không phản ứng): ghi về nhật ký + báo người dùng, tối đa 1 lần / 5 giây
+  let lastCrashToast = 0;
+  const clientFault = (what, err) => {
+    const text = (err && (err.stack || err.message)) || String(err);
+    try { if (window.dgvc && window.dgvc.logError) window.dgvc.logError(`${what}: ${text}`); } catch { /* không ghi được thì thôi */ }
+    console.error(what, err);
+    const now = Date.now();
+    if (now - lastCrashToast > 5000 && D.toast) { lastCrashToast = now; D.toast(`Có lỗi không mong muốn: ${(err && err.message) || err}. Thử lại hoặc tải lại phần mềm (Ctrl+R); nếu lặp lại, báo ADMIN.`, 'err', 9000); }
+  };
+  window.addEventListener('error', (e) => { if (e.error || e.message) clientFault('error', e.error || e.message); });
+  window.addEventListener('unhandledrejection', (e) => { const r = e.reason; if (r && typeof r.code === 'string') return; /* lỗi từ D.api: đã có thông báo riêng */ clientFault('unhandledrejection', r); });
   D.rid = () => `ui-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
   // ───────── DOM + định dạng ─────────

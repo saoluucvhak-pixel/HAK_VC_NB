@@ -72,6 +72,13 @@ const { FILE } = require('./install');
   const cfg = JSON.parse(fs.readFileSync(path.join(home, 'userData', 'dgvc-config.json'), 'utf8'));
   assert.equal(cfg.dataFolder, path.join(home, 'Documents', 'DGVC_DATA'));
   log(`windows: ${await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((x) => x.getTitle() + (x.isVisible() ? ' (hiện)' : ' (ẩn)')).join(', '))}`);
+  // lỗi của giao diện được ghi về nhật ký phía main (kênh logError) và lỗi JavaScript ngoài ý muốn hiện thông báo
+  await w.evaluate(() => window.dgvc.logError('kiem-thu-nhat-ky'));
+  await w.evaluate(() => { setTimeout(() => { throw new Error('boom-electron'); }); });
+  await w.locator('.toast', { hasText: 'Có lỗi không mong muốn: boom-electron' }).waitFor();
+  const logText = await (async () => { for (let i = 0; i < 20; i++) { try { const t = fs.readFileSync(path.join(home, 'userData', 'dgvc-main.log'), 'utf8'); if (t.includes('kiem-thu-nhat-ky') && t.includes('boom-electron')) return t; } catch { /* chưa có */ } await new Promise((r) => setTimeout(r, 250)); } return ''; })();
+  assert.ok(logText.includes('renderer kiem-thu-nhat-ky') && logText.includes('renderer error: Error: boom-electron'), 'nhật ký main có lỗi của giao diện');
+  log('nhật ký lỗi giao diện ok');
   log('closing'); await app.close();
   log('closed');
   console.log(`ELECTRON OK — ${pdf} (${fs.statSync(pdf).size} byte)`);

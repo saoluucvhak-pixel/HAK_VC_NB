@@ -189,8 +189,8 @@ class Router {
       return { ok: true, data: data === undefined ? null : data, error: null, warnings, meta: meta() };
     } catch (e) {
       const code = e.code && typeof e.code === 'string' && !/^E[A-Z]+$/.test(e.code) ? e.code : 'INTERNAL';
-      if (code === 'INTERNAL') this.log('error', action, e);
-      return { ok: false, data: null, error: { code, message: code === 'INTERNAL' ? `Lỗi hệ thống: ${e.message}` : e.message, details: e.details || null }, warnings: [], meta: meta() };
+      if (code === 'INTERNAL') this.log('error', action, `requestId=${requestId}`, e);
+      return { ok: false, data: null, error: { code, message: code === 'INTERNAL' ? `Lỗi hệ thống (mã ${requestId}): ${e.message}` : e.message, details: e.details || null }, warnings: [], meta: meta() };
     }
   }
 }
