@@ -489,7 +489,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ]
    ],
    "output": "{record}",
@@ -622,7 +622,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ]
    ],
    "output": "{record}",
@@ -755,7 +755,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ]
    ],
    "output": "{record}",
@@ -924,7 +924,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ],
     [
      "reason",
@@ -1116,7 +1116,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ]
    ],
    "output": "{record}",
@@ -1153,7 +1153,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ]
    ],
    "output": "{activated, closed}",
@@ -1773,7 +1773,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ]
    ],
    "output": "{record, affectedPeriods}",
@@ -1942,8 +1942,8 @@
     [
      "rowVersion",
      "integer",
-     true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     false,
+     "tùy chọn: nếu gửi thì kiểm; sai → CONFLICT_VERSION"
     ]
    ],
    "output": "{record}",
@@ -2246,7 +2246,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ]
    ],
    "output": "{record, affectedPeriods}",
@@ -2290,8 +2290,8 @@
     [
      "rowVersion",
      "integer",
-     true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     false,
+     "tùy chọn: nếu gửi thì kiểm; sai → CONFLICT_VERSION"
     ]
    ],
    "output": "{record}",
@@ -2943,7 +2943,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ]
    ],
    "output": "{period}",
@@ -2986,7 +2986,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ]
    ],
    "output": "{period}",
@@ -3026,7 +3026,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ],
     [
      "reason",
@@ -3072,7 +3072,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ],
     [
      "reason",
@@ -3119,7 +3119,7 @@
      "rowVersion",
      "integer",
      true,
-     "row_version đang có ở client — sai → CONFLICT_VERSION"
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
     ],
     [
      "reason",

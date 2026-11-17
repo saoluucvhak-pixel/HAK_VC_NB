@@ -23,12 +23,12 @@ class RecordService {
     return periods.map((p) => p.period_id);
   }
 
-  async _softDelete(table, pk, detailTable, id, reason, user, label) {
+  async _softDelete(table, pk, detailTable, id, reason, user, label, rowVersion) {
     if (!reason) throw new AppError('VALIDATION_FAILED', 'Xóa phải nhập lý do');
     const r = this.store.get(table, id); if (!r || r.is_deleted) throw new AppError('NOT_FOUND', `Không có ${label} ${id}`);
     const drafts = this._guard(this._periodsOf(detailTable, pk, id), `${label} ${id}`);
     return this.store.transaction((tx) => {
-      const { after } = tx.update(table, id, { is_deleted: true });
+      const { after } = tx.update(table, id, { is_deleted: true }, { expectedRowVersion: rowVersion }); // rowVersion tùy chọn: gửi thì kiểm
       for (const p of drafts) tx.update('KY_TINH', p, { needs_recalc: true });
       tx.audit('DELETE', table, id, { is_deleted: false }, { is_deleted: true }, { reason });
       return { record: after, affectedPeriods: drafts };
@@ -72,7 +72,7 @@ class RecordService {
       return { record: after, affectedPeriods: drafts };
     }, { user: user.username });
   }
-  softDeleteTicket({ ticketId, reason, user }) { return this._softDelete('PHIEU_CAN', 'ticket_id', 'TRANSPORT_DETAIL', ticketId, reason, user, 'phiếu cân'); }
+  softDeleteTicket({ ticketId, reason, rowVersion, user }) { return this._softDelete('PHIEU_CAN', 'ticket_id', 'TRANSPORT_DETAIL', ticketId, reason, user, 'phiếu cân', rowVersion); }
   ackTicketFlags({ ticketIds, note, user }) { return this._ack('PHIEU_CAN', ticketIds, note, user); }
   /** Xóa nhiều dòng dầu 1 lần (file dầu tải lên sai) — dòng ở kỳ đã xác nhận / khóa được giữ lại, báo rõ. */
   async softDeleteFuelMany({ receiptIds = [], reason, user }) {
@@ -92,7 +92,7 @@ class RecordService {
     }, { user: user.username });
     return { deleted: ok.length, skipped, affectedPeriods: [...drafts] };
   }
-  softDeleteFuel({ receiptId, reason, user }) { return this._softDelete('GIAO_NHAN_DAU', 'receipt_id', 'FUEL_DETAIL', receiptId, reason, user, 'dòng dầu'); }
+  softDeleteFuel({ receiptId, reason, rowVersion, user }) { return this._softDelete('GIAO_NHAN_DAU', 'receipt_id', 'FUEL_DETAIL', receiptId, reason, user, 'dòng dầu', rowVersion); }
   ackFuelFlags({ receiptIds, note, user }) { return this._ack('GIAO_NHAN_DAU', receiptIds, note, user); }
 
   async updateFuel({ receiptId, changes = {}, rowVersion, reason = '', user }) {
