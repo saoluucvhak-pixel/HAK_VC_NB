@@ -1639,7 +1639,7 @@ Mã kiểm tra mới: `W_TICKET_LATE` (import phiếu cân có ngày thuộc k�
 - **Lô xem trước bỏ dở** (`IMPORT_BATCH` = PREVIEW còn sót sau khi tắt phần mềm) được chuyển `CANCELLED` khi mở kho; xác nhận lô không còn phiên xem trước báo rõ (đã xác nhận / đã hủy / phiên đã hết).
 - Chưa làm: lưu `clientRequestId` bền (cần đổi lược đồ → ảnh hưởng tương thích `.dgvc`); hiện vẫn chống trùng trong bộ nhớ.
 
-## Bổ sung (sau 1.2.11) — Đồng bộ đặc tả, xóa hàng loạt, CI
+## Bổ sung bản 1.2.12 — Đồng bộ đặc tả, xóa hàng loạt, CI
 - Đặc tả bổ sung 7 route đã có trong mã: `contracts.setActive`, `contracts.vehicles`, `setup.units`, `sync.list`, `sync.markDone`, `reports.html`, `reports.invoice` (nay cho cả KE_TOAN / XEM đọc, như `reports.export`). Test `tests/spec.routes.test.js` so `ROUTES` ↔ `api_spec.json` hai chiều.
 - `tickets.softDeleteMany` / `fuel.softDeleteMany` trả thêm `notFound` (mã không tồn tại) và `alreadyDeleted` (đã xóa từ trước).
 - Bỏ `docs/schema_sqlite.sql` (lệch schema chạy; nguồn đúng là `app/shared/schema.json`). CALCULATION_RULES: Q10 làm tròn ToEven đã chốt.
