@@ -29,7 +29,7 @@ function expandRaw(store, row) {
 }
 
 class TicketService {
-  constructor(store) { this.store = store; this.done = new Map(); }
+  constructor(store) { this.store = store; this.done = store.requestMap('ticket'); }
 
   /** Các kỳ (chưa hủy) đang dùng phiếu: [{period, state}] */
   _usages(ticketIds) {

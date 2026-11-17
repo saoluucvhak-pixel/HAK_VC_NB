@@ -65,7 +65,24 @@ function buildDdl() {
     list.forEach((cs, i) => { if (cs.every((c) => have.has(c))) out.push(`CREATE INDEX ${q(`ix_${t}_${i}`)} ON ${q(t)} (${cs.map(q).join(', ')})`); });
   }
   out.push('CREATE TABLE "_meta" ("key" TEXT PRIMARY KEY, "value" TEXT NOT NULL)');
+  out.push(REQUEST_DDL);
   return out;
+}
+
+/** Bảng chống bấm hai lần bền vững (Q5): (nhóm, clientRequestId) → kết quả đã trả. Không thuộc schema dữ liệu nên không vào gói .dgvc. */
+const REQUEST_DDL = 'CREATE TABLE IF NOT EXISTS "_request" ("ns" TEXT NOT NULL, "id" TEXT NOT NULL, "result" TEXT NOT NULL, "at" TEXT NOT NULL, PRIMARY KEY ("ns","id"))';
+const REQUEST_KEEP_DAYS = 90;
+class PersistentRequestMap extends Map {
+  constructor(store, ns) {
+    super(); this.store = store; this.ns = ns;
+    const rows = store.db.prepare('SELECT "id","result" FROM "_request" WHERE "ns"=? ORDER BY "at" DESC LIMIT 5000').all(ns);
+    for (const r of rows) { try { super.set(r.id, JSON.parse(r.result)); } catch { /* bỏ dòng hỏng */ } }
+  }
+  set(id, result) {
+    super.set(id, result);
+    try { this.store.db.prepare('INSERT OR REPLACE INTO "_request" ("ns","id","result","at") VALUES (?,?,?,?)').run(this.ns, String(id), JSON.stringify(result === undefined ? null : result), new Date().toISOString()); } catch { /* không ghi được: vẫn chống trùng trong RAM */ }
+    return this;
+  }
 }
 
 const encode = (c, v) => {
@@ -80,6 +97,34 @@ const decode = (c, v) => {
 };
 
 class SqliteStore extends JsonStore {
+  /** @param opts.dbFile tên tệp DB trong thư mục (mặc định dgvc.sqlite; di chuyển dùng dgvc.sqlite.migrating) · opts.noLock không tạo .lock (chỉ để kiểm chứng khi thư mục đã bị khóa bởi tiến trình gọi) */
+  constructor(root, opts = {}) { super(root, opts); this.dbFile = opts.dbFile || DB_FILE; this.noLock = !!opts.noLock; }
+  get storageKind() { return 'sqlite'; }
+  _acquireLock(takeover) { if (!this.noLock) super._acquireLock(takeover); }
+  _releaseLock() { if (!this.noLock) super._releaseLock(); }
+  requestMap(ns) { if (!this._reqMaps) this._reqMaps = {}; return (this._reqMaps[ns] = this._reqMaps[ns] || (this.db ? new PersistentRequestMap(this, ns) : new Map())); }
+
+  /**
+   * Dựng tệp DB từ dữ liệu cho sẵn trong MỘT giao dịch (dùng cho di chuyển JSON → SQLite): getRows(table) → mảng dòng.
+   * manifest: manifest logic (đã gồm dataVersion, sequences, archives…). Trả đường dẫn.
+   */
+  static populate(dbPath, manifest, getRows) {
+    if (fs.existsSync(dbPath)) throw new AppError('STORAGE_ERROR', `Tệp đã tồn tại: ${dbPath}`);
+    const db = new (Db())(dbPath);
+    try {
+      db.exec('PRAGMA journal_mode=WAL'); db.exec('BEGIN');
+      for (const ddl of buildDdl()) db.exec(ddl);
+      for (const [name, def] of Object.entries(SCHEMA.tables)) {
+        const cols = def.columns; const ins = db.prepare(`INSERT INTO ${q(name)} (${cols.map((c) => q(c.name)).join(',')}) VALUES (${cols.map(() => '?').join(',')})`);
+        for (const r of getRows(name)) { const n = normalizeRow(def, r); ins.run(...cols.map((c) => encode(c, n[c.name]))); }
+      }
+      const { files, ...persist } = manifest; void files;
+      db.prepare('INSERT INTO "_meta" ("key","value") VALUES (?,?)').run('manifest', JSON.stringify({ ...persist, storage: 'sqlite' }));
+      db.exec(`PRAGMA user_version=${STORAGE_USER_VERSION}`); db.exec('COMMIT');
+    } catch (e) { try { db.exec('ROLLBACK'); } catch { /* chưa mở */ } throw new AppError('STORAGE_ERROR', `Không dựng được kho SQLite: ${e.message}`); } finally { try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch { /* bỏ qua */ } db.close(); }
+    return dbPath;
+  }
+
   /** Tạo thư mục dữ liệu mới (rỗng) với kho SQLite. */
   static create(root, { installCode, unitCode, installId, appVersion = '0.1.0' }) {
     const dbp = path.join(root, DB_FILE);
@@ -102,11 +147,12 @@ class SqliteStore extends JsonStore {
   open({ takeoverStaleLock = false } = {}) {
     this._acquireLock(takeoverStaleLock);
     try {
-      const dbp = path.join(this.root, DB_FILE);
-      if (!fs.existsSync(dbp)) throw new AppError('INTEGRITY_ERROR', `Không có ${DB_FILE} — không phải thư mục dữ liệu DGVC (SQLite)`);
+      const dbp = path.join(this.root, this.dbFile);
+      if (!fs.existsSync(dbp)) throw new AppError('INTEGRITY_ERROR', `Không có ${this.dbFile} — không phải thư mục dữ liệu DGVC (SQLite)`);
       this.recovered = null;
       const db = new (Db())(dbp); this.db = db;
       db.exec('PRAGMA journal_mode=WAL'); db.exec('PRAGMA synchronous=FULL'); db.exec('PRAGMA busy_timeout=5000');
+      db.exec(REQUEST_DDL);
       const uv = db.prepare('PRAGMA user_version').get().user_version;
       if (uv > STORAGE_USER_VERSION) throw new AppError('INTEGRITY_ERROR', `Kho SQLite cấu trúc v${uv}, APP chỉ hỗ trợ đến v${STORAGE_USER_VERSION} — hãy cập nhật APP`);
       const chk = db.prepare('PRAGMA quick_check').all();
@@ -122,7 +168,8 @@ class SqliteStore extends JsonStore {
           const o = {}; for (const c of cols) o[c.name] = decode(c, rw[c.name]); return o;
         });
       }
-      this._reindex(); this._stmts = {};
+      this._reindex(); this._stmts = {}; this._reqMaps = {};
+      db.prepare('DELETE FROM "_request" WHERE "at" < ?').run(new Date(Date.now() - REQUEST_KEEP_DAYS * 86400000).toISOString());
       this.opened = true;
       return this;
     } catch (e) { try { if (this.db) this.db.close(); } catch { /* đã đóng */ } this.db = null; this._releaseLock(); throw e; }
@@ -160,6 +207,11 @@ class SqliteStore extends JsonStore {
     tx.txnId = `sqlite-${newManifest.dataVersion}`;
   }
 
+  /** Ảnh chụp nhất quán của DB ra tệp `dest` (VACUUM INTO — không kèm -wal; KHÔNG chép thô tệp khi còn -wal). Trả { userVersion }. */
+  snapshotDbTo(dest) {
+    this.db.exec(`VACUUM INTO '${String(dest).replace(/'/g, "''")}'`);
+    return { userVersion: this.db.prepare('PRAGMA user_version').get().user_version };
+  }
   /** Kho SQLite không cần chuyển định dạng. */
   compact() { return Promise.resolve({ files: 0, removed: 0, before: 0, after: 0 }); }
   stats() { return { files: 1, rows: Object.fromEntries(Object.keys(this.data).map((t) => [t, this.data[t].length])) }; }

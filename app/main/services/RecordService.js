@@ -11,7 +11,7 @@ const { issue } = require('../engine/issues');
 const FUEL_EDITABLE = ['receive_date', 'route_code', 'fuel_vehicle_code', 'uom', 'qty_liter', 'fuel_price_excl_vat', 'purchase_date', 'giver_unit_code', 'fuel_depot'];
 
 class RecordService {
-  constructor(store, { importService }) { this.store = store; this.imp = importService; this.done = new Map(); }
+  constructor(store, { importService }) { this.store = store; this.imp = importService; this.done = store.requestMap('record'); }
 
   _periodsOf(detailTable, idField, id) {
     return this.store.find(detailTable, (d) => d[idField] === id && d.is_current && d.usage_state !== 'RELEASED')

@@ -11,7 +11,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { createStorage, newStore } = require('../repo/createStore');
-const APP_STORAGE = 'json'; // ứng dụng thật dùng kho JSON cho tới khi có quyết định chuyển (không đọc biến môi trường)
+// Loại kho của bản cài lấy từ cấu hình máy (dgvc-config.json: storage). Mặc định 'json'; chỉ trình di chuyển (migrateStorage) mới đặt 'sqlite'. Không đọc biến môi trường.
 const { AppError } = require('../../shared/errors');
 const { AuthService } = require('../services/AuthService');
 const { ImportService } = require('../import/ImportService');
@@ -51,7 +51,24 @@ class AppContext {
   }
 
   readConfig() { try { return JSON.parse(fs.readFileSync(this.configFile, 'utf8')); } catch { return {}; } }
-  writeConfig(c) { fs.mkdirSync(path.dirname(this.configFile), { recursive: true }); fs.writeFileSync(this.configFile, JSON.stringify(c, null, 1)); }
+  /** Ghi cấu hình nguyên tử (tệp tạm + đổi tên): hoặc bản cũ hoặc bản mới nguyên vẹn, không bao giờ nửa vời. */
+  writeConfig(c) {
+    fs.mkdirSync(path.dirname(this.configFile), { recursive: true });
+    const tmp = `${this.configFile}.tmp`; fs.writeFileSync(tmp, JSON.stringify(c, null, 1)); fs.renameSync(tmp, this.configFile);
+  }
+  /** Loại kho đang dùng của bản cài này. */
+  storageKind() { return this.readConfig().storage === 'sqlite' ? 'sqlite' : 'json'; }
+  /** Đọc manifest của thư mục dữ liệu theo loại kho (không mở kho, không khóa). */
+  _readManifest(folder, kind) {
+    try {
+      if (kind === 'sqlite') {
+        const { DatabaseSync } = require('node:sqlite'); const db = new DatabaseSync(path.join(folder, 'dgvc.sqlite'), { readOnly: true });
+        try { return JSON.parse(db.prepare('SELECT "value" FROM "_meta" WHERE "key"=?').get('manifest').value); } finally { db.close(); }
+      }
+      return JSON.parse(fs.readFileSync(path.join(folder, 'manifest.json'), 'utf8'));
+    } catch { return null; }
+  }
+  _hasData(folder, kind) { return !!folder && fs.existsSync(path.join(folder, kind === 'sqlite' ? 'dgvc.sqlite' : 'manifest.json')); }
   catalog() { return JSON.parse(fs.readFileSync(this.catalogFile, 'utf8')); }
 
   /** Đơn vị chọn được khi khởi tạo (mọi đơn vị trong danh mục đi kèm, kèm hợp đồng mà đơn vị là 1 bên). */
@@ -66,8 +83,9 @@ class AppContext {
   status() {
     const cfg = this.readConfig();
     const folder = cfg.dataFolder || '';
-    const exists = !!folder && fs.existsSync(path.join(folder, 'manifest.json'));
-    let manifest = null; if (exists) { try { manifest = JSON.parse(fs.readFileSync(path.join(folder, 'manifest.json'), 'utf8')); } catch { manifest = null; } }
+    const kind = cfg.storage === 'sqlite' ? 'sqlite' : 'json';
+    const exists = this._hasData(folder, kind);
+    const manifest = exists ? this._readManifest(folder, kind) : null;
     return { initialized: exists && !!manifest, dataFolder: folder, defaultDataFolder: this.defaultFolder, installId: manifest && manifest.installId,
       installCode: manifest && manifest.installCode, unitCode: manifest && manifest.unitCode, schemaVersion: manifest && manifest.schemaVersion,
       usersNeedPassword: this.svc ? this.svc.auth.usersNeedPassword() : [], units: exists ? [] : this.installableUnits(), appVersion: APP_VERSION, opened: !!this.store };
@@ -82,10 +100,13 @@ class AppContext {
   async init({ mode = 'NEW', dataFolder, unitCode, catalogPackagePath = '', mirrorFolder = '', user = { username: 'setup' } }) {
     if (!dataFolder) throw new AppError('VALIDATION_FAILED', 'Chọn thư mục dữ liệu');
     if (this.store) throw new AppError('VALIDATION_FAILED', 'Bản cài đã khởi tạo');
-    const hasData = fs.existsSync(path.join(dataFolder, 'manifest.json'));
+    const hasJson = fs.existsSync(path.join(dataFolder, 'manifest.json')); const hasSqlite = fs.existsSync(path.join(dataFolder, 'dgvc.sqlite'));
+    const hasData = hasJson || hasSqlite;
     if (mode === 'ATTACH') {
       if (!hasData) throw new AppError('NOT_FOUND', `Thư mục ${dataFolder} không có dữ liệu DGVC`);
-      this.writeConfig({ ...this.readConfig(), dataFolder });
+      // thư mục đã chuyển sang SQLite (có dgvc.sqlite + STORAGE_MIGRATED.json) → dùng SQLite; còn lại giữ JSON (an toàn: JSON là nguồn chính cho tới khi có dấu chuyển)
+      const storage = hasSqlite && (!hasJson || fs.existsSync(path.join(dataFolder, 'STORAGE_MIGRATED.json'))) ? 'sqlite' : 'json';
+      this.writeConfig({ ...this.readConfig(), dataFolder, storage });
       this.open();
       return { mode, ...this.status() };
     }
@@ -94,8 +115,8 @@ class AppContext {
     const unit = cat.DON_VI.find((u) => u.unit_code === unitCode && u.is_active);
     if (!unit) throw new AppError('VALIDATION_FAILED', `Chọn đơn vị của bản cài (${this.installableUnits().map((u) => u.unitCode).join(' / ')})`);
     if (fs.existsSync(dataFolder) && fs.readdirSync(dataFolder).length) throw new AppError('VALIDATION_FAILED', `Thư mục ${dataFolder} không trống — chọn thư mục trống`);
-    createStorage(dataFolder, { installCode: unitCode, unitCode, installId: `INS-${crypto.randomBytes(5).toString('hex').toUpperCase()}`, appVersion: APP_VERSION }, APP_STORAGE);
-    const store = newStore(dataFolder, {}, APP_STORAGE).open();
+    createStorage(dataFolder, { installCode: unitCode, unitCode, installId: `INS-${crypto.randomBytes(5).toString('hex').toUpperCase()}`, appVersion: APP_VERSION }, 'json');
+    const store = newStore(dataFolder, {}, 'json').open();
     const mine = new Set(cat.HOP_DONG.filter((c) => c.carrier_unit_code === unitCode || c.customer_unit_code === unitCode).map((c) => c.contract_id));
     await store.transaction((tx) => {
       for (const t of CATALOG_TABLES) {
@@ -113,7 +134,7 @@ class AppContext {
       tx.audit('SETUP_INIT', 'DATA', unitCode, null, { unitCode, dataFolder, contracts: [...mine], catalog: path.basename(this.catalogFile) });
     }, { user: user.username });
     store.close();
-    this.writeConfig({ ...this.readConfig(), dataFolder });
+    this.writeConfig({ ...this.readConfig(), dataFolder, storage: 'json' });
     this.open();
     let catalogImport = null;
     if (catalogPackagePath) {
@@ -127,7 +148,7 @@ class AppContext {
   open({ takeoverStaleLock = false } = {}) {
     const { dataFolder } = this.readConfig();
     if (!dataFolder) throw new AppError('NOT_INITIALIZED', 'Bản cài chưa khởi tạo');
-    this._attach(newStore(dataFolder, {}, APP_STORAGE).open({ takeoverStaleLock }));
+    this._attach(newStore(dataFolder, {}, this.storageKind()).open({ takeoverStaleLock }));
     const store = this.store;
     this.migrated = (async () => {
       // bản 1.2.5: dữ liệu định dạng cũ → sao lưu an toàn rồi chuyển sang định dạng gọn, chia tháng (số liệu giữ nguyên)
@@ -153,7 +174,7 @@ class AppContext {
     const sessions = this.svc ? this.svc.auth.sessions : null;
     this.store = store;
     const importService = new ImportService(store);
-    const backup = new BackupService(store, { reopen: (root) => newStore(root, {}, APP_STORAGE).open() });
+    const backup = new BackupService(store, { reopen: (root) => newStore(root, {}, store.storageKind).open() });
     this.svc = {
       auth: new AuthService(store), import: importService, templates: new ImportTemplates(store), periods: new PeriodService(store), tickets: new TicketService(store),
       catalog: new CatalogService(store), master: new MasterDataService(store), records: new RecordService(store, { importService }),
@@ -179,10 +200,61 @@ class AppContext {
     await this.store.transaction((tx) => tx.audit('CHANGE_FOLDER', 'DATA', 'dataFolder', { dataFolder: old }, { dataFolder: newFolder }), { user: user.username });
     this.store.close();
     fs.mkdirSync(newFolder, { recursive: true });
-    for (const e of fs.readdirSync(old)) if (e !== '.lock') fs.cpSync(path.join(old, e), path.join(newFolder, e), { recursive: true });
+    for (const e of fs.readdirSync(old)) if (e !== '.lock' && !/\.sqlite-(wal|shm)$/.test(e)) fs.cpSync(path.join(old, e), path.join(newFolder, e), { recursive: true }); // SQLite: đã đóng + checkpoint nên chép tệp .sqlite là nhất quán
     this.writeConfig({ ...this.readConfig(), dataFolder: newFolder, previousDataFolder: old });
     this.open();
     return { dataFolder: newFolder, previousDataFolder: old, note: 'Thư mục cũ vẫn giữ nguyên — xóa tay khi đã kiểm tra xong' };
+  }
+
+  /**
+   * Chuyển bản cài sang kho SQLite (giai đoạn 2: CHƯA có nút trên giao diện — gọi từ công cụ dòng lệnh / thí điểm có kiểm soát).
+   * Đóng kho JSON → di chuyển + kiểm chứng (kho JSON nguồn nguyên vẹn) → điểm chốt = ghi cấu hình `storage:'sqlite'` (nguyên tử) → mở từ SQLite + audit.
+   * Lỗi ở bất kỳ bước nào → mở lại kho JSON như cũ, ném lỗi. dryRun: chỉ kiểm chứng, không đổi gì.
+   */
+  async migrateStorage({ user = { username: 'system' }, dryRun = false } = {}) {
+    if (this.storageKind() === 'sqlite') throw new AppError('VALIDATION_FAILED', 'Bản cài đã dùng kho SQLite');
+    const { dataFolder } = this.readConfig(); if (!dataFolder) throw new AppError('NOT_INITIALIZED', 'Bản cài chưa khởi tạo');
+    const { migrateJsonToSqlite } = require('../repo/migrate/migrate');
+    const sessions = this.svc ? this.svc.auth.sessions : null;
+    this.close();
+    let res;
+    try { res = await migrateJsonToSqlite({ root: dataFolder, dryRun, user: user.username }); }
+    catch (e) { this.open(); throw e; }
+    if (dryRun) { this.open(); return res; }
+    this.writeConfig({ ...this.readConfig(), storage: 'sqlite', sqliteMigratedAt: res.report.startedAt, jsonSourceManifestSha256: res.report.source.manifestSha256 }); // ĐIỂM CHỐT
+    this.open();
+    if (sessions) this.svc.auth.sessions = sessions;
+    await this.store.transaction((tx) => tx.audit('MIGRATE_STORAGE', 'DATA', 'storage', { storage: 'json', dataVersion: res.report.source.dataVersion }, { storage: 'sqlite', rows: res.report.verification.rows, fingerprint: res.report.verification.fingerprint }, { reason: 'chuyển kho JSON → SQLite' }), { user: user.username });
+    return res;
+  }
+
+  /**
+   * Đường lui về JSON. Chưa có giao dịch mới trên SQLite (dataVersion = mốc lúc chuyển) → chỉ đổi cấu hình về `json` (kho JSON đóng băng trùng khớp, kiểm SHA-256 manifest).
+   * Đã có giao dịch mới → kho JSON cũ KHÔNG có chúng: phải xuất ngược (exportStorageToJson) rồi dùng "Dùng dữ liệu có sẵn" trỏ vào thư mục xuất.
+   */
+  async revertStorage({ user = { username: 'system' } } = {}) {
+    if (this.storageKind() !== 'sqlite') throw new AppError('VALIDATION_FAILED', 'Bản cài đang dùng kho JSON');
+    const cfg = this.readConfig(); const root = this.store.root;
+    const marker = JSON.parse(fs.readFileSync(path.join(root, 'STORAGE_MIGRATED.json'), 'utf8'));
+    // dataVersion sau chuyển = mốc nguồn + 1 (giao dịch audit MIGRATE_STORAGE); lớn hơn nghĩa là đã có giao dịch mới
+    if (this.store.dataVersion > marker.sourceDataVersion + 1) throw new AppError('BUSINESS_RULE', 'Đã có giao dịch mới trên SQLite mà kho JSON cũ không có — hãy xuất ngược SQLite → JSON (exportStorageToJson) rồi trỏ vào thư mục xuất', { code: 'E_NEW_TRANSACTIONS' });
+    const mp = path.join(root, 'manifest.json'); const sha = crypto.createHash('sha256').update(fs.readFileSync(mp)).digest('hex');
+    if (sha !== marker.sourceManifestSha256) throw new AppError('INTEGRITY_ERROR', 'Kho JSON cũ đã bị thay đổi sau khi chuyển — không dùng làm đường lui');
+    this.close();
+    this.writeConfig({ ...cfg, storage: 'json' });
+    this.open();
+    await this.store.transaction((tx) => tx.audit('REVERT_STORAGE', 'DATA', 'storage', { storage: 'sqlite' }, { storage: 'json' }, { reason: 'quay lại kho JSON' }), { user: user.username });
+    return { storage: 'json', dataVersion: this.store.dataVersion };
+  }
+
+  /** Xuất ngược SQLite → thư mục JSON mới (bản chụp nhất quán + kiểm chứng). Không đổi cấu hình. */
+  async exportStorageToJson({ dest }) {
+    if (this.storageKind() !== 'sqlite') throw new AppError('VALIDATION_FAILED', 'Bản cài đang dùng kho JSON');
+    const { exportSqliteToJson } = require('../repo/migrate/migrate');
+    const root = this.store.root; const sessions = this.svc.auth.sessions;
+    this.close();
+    try { return await exportSqliteToJson({ root, dest }); }
+    finally { this.open(); this.svc.auth.sessions = sessions; }
   }
 
   close() { if (this.store) { this.store.close(); this.store = null; } }
