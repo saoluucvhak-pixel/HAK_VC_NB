@@ -8,13 +8,14 @@
  *           removeMany / restoreRows / get / all / nextId / audit / setManifest
  * Định danh: unitCode · installCode · installId · dataVersion · archives · archivedThrough · root (vị trí lưu)
  * Vòng đời: open() · close() · compact() · needsCompaction · queue (Promise hàng đợi ghi)
+ * Chống bấm hai lần: requestMap(ns) → Map-like {has, get, set} (JSON: RAM; SQLite: bền qua bảng _request)
  * Lớp phủ năm lưu trữ (chỉ đọc): mountedYears() · isYearMounted(y) · hasMounted · mountRows(y, {bảng: [dòng]}) · unmountYear(y) · isMountedRow(t, id)
  * Bản chụp:  snapshot() · fingerprint() · stats() (số tệp / số dòng từng bảng cho kiểm tra sức khỏe)
  *             — cùng định nghĩa `canon` cho mọi kho, dùng để so kho JSON ↔ SQLite
  */
 const STORAGE_MEMBERS = {
-  methods: ['get', 'all', 'find', 'transaction', 'open', 'close', 'compact', 'mountedYears', 'isYearMounted', 'mountRows', 'unmountYear', 'isMountedRow', 'snapshot', 'fingerprint', 'stats'],
-  getters: ['unitCode', 'installCode', 'installId', 'schemaVersion', 'dataVersion', 'archives', 'archivedThrough', 'needsCompaction', 'hasMounted'],
+  methods: ['requestMap', 'get', 'all', 'find', 'transaction', 'open', 'close', 'compact', 'mountedYears', 'isYearMounted', 'mountRows', 'unmountYear', 'isMountedRow', 'snapshot', 'fingerprint', 'stats'],
+  getters: ['unitCode', 'installCode', 'installId', 'storageKind', 'schemaVersion', 'dataVersion', 'archives', 'archivedThrough', 'needsCompaction', 'hasMounted'],
   fields: ['root', 'queue'],
 };
 const TX_METHODS = ['insert', 'update', 'remove', 'removeMany', 'restoreRows', 'get', 'all', 'nextId', 'audit', 'setManifest'];

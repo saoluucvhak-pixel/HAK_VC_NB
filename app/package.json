@@ -14,7 +14,8 @@
     "compare": "node tools/compare-excel.js",
     "build:catalog": "node tools/build-catalog.js",
     "dist": "electron-builder --win dir --x64 && makensis -V2 installer/dgvc.nsi",
-    "dist:win": "electron-builder --win nsis --x64"
+    "dist:win": "electron-builder --win nsis --x64",
+    "migrate:storage": "node tools/migrate-storage.js"
   },
   "engines": {
     "node": ">=22.12"

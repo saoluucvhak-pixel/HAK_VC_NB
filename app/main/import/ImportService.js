@@ -21,7 +21,7 @@ class ImportService {
   constructor(store) {
     this.store = store;
     this.staging = new Map();   // batchId → dữ liệu preview (trong bộ nhớ)
-    this.done = new Map();      // clientRequestId → kết quả (chống bấm 2 lần)
+    this.done = store.requestMap('import'); // clientRequestId → kết quả (chống bấm 2 lần; kho SQLite: bền qua khởi động lại)
   }
 
   // ─────────────────────────── preview ───────────────────────────

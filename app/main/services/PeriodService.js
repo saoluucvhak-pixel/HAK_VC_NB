@@ -12,7 +12,7 @@ const USAGE = { NHAP: 'DRAFT', DA_XAC_NHAN: 'CONFIRMED', DA_KHOA: 'LOCKED', HUY:
 const ymd = (d) => d.replace(/-/g, '');
 
 class PeriodService {
-  constructor(store) { this.store = store; this.done = new Map(); }
+  constructor(store) { this.store = store; this.done = store.requestMap('period'); }
 
   _contract(contractId) {
     const c = this.store.get('HOP_DONG', contractId);

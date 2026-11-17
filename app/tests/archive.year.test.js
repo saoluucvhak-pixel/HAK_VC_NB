@@ -39,7 +39,6 @@ function toOldFormat(dir) {
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(m, null, 1));
 }
 
-const BACKUP_JSON = process.env.DGVC_STORAGE && process.env.DGVC_STORAGE !== 'json' && 'cần sao lưu an toàn trước khi lưu trữ — BackupService cho SQLite làm ở giai đoạn 2';
 const JSON_ONLY = process.env.DGVC_STORAGE && process.env.DGVC_STORAGE !== 'json' && 'định dạng tệp JSON cũ — chỉ áp dụng cho kho JSON';
 test('Dữ liệu định dạng cũ → mở được, compact() chuyển sang định dạng gọn + chia tháng, số liệu giữ nguyên từng ô, nhỏ hơn', { skip: JSON_ONLY }, async () => {
   const { store, dir, periods, contractId } = await install('DH');
@@ -65,7 +64,7 @@ test('Dữ liệu định dạng cũ → mở được, compact() chuyển sang 
   s2.close();
 });
 
-test('Lưu trữ đến hết năm 2026: kỳ vắt năm giữ lại; mở app không nạp; báo cáo tự mở xem chỉ đọc; chặn nhập năm đã lưu trữ; mở lại năm → nguyên vẹn', { skip: BACKUP_JSON && BACKUP_JSON }, async () => {
+test('Lưu trữ đến hết năm 2026: kỳ vắt năm giữ lại; mở app không nạp; báo cáo tự mở xem chỉ đọc; chặn nhập năm đã lưu trữ; mở lại năm → nguyên vẹn', async () => {
   const { store, dir, periods, contractId } = await install('DH');
   const k1 = await periods.calculate({ contractId, dateFrom: '2026-09-18', dateTo: '2026-09-20', routeCode: 'VC.007', clientRequestId: rid(), user: KETOAN });
   await periods.confirm({ periodId: k1.period.period_id, user: KETOAN });
@@ -132,7 +131,7 @@ test('Lưu trữ đến hết năm 2026: kỳ vắt năm giữ lại; mở app k
   const s4 = newStore(dir).open(); assert.equal(s4.all('PHIEU_CAN').length, 77); assert.equal(s4.all('KY_TINH').length, 2); s4.close();
 });
 
-test('Máy mới thiếu thư mục lưu trữ → báo rõ; nạp lại từ file zip lưu trữ → xem được', { skip: BACKUP_JSON && BACKUP_JSON }, async () => {
+test('Máy mới thiếu thư mục lưu trữ → báo rõ; nạp lại từ file zip lưu trữ → xem được', async () => {
   const { store, dir } = await install('DH');
   const ar = new ArchiveService(store, { backup: new BackupService(store) });
   const r = await ar.archive({ year: 2026, reason: 'thử', user: ADMIN });
