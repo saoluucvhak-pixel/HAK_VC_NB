@@ -6,6 +6,7 @@
  */
 const E = require('../engine');
 const { AppError, businessError } = require('../../shared/errors');
+const { missingSources } = require('./periodCoverage');
 
 const USAGE = { NHAP: 'DRAFT', DA_XAC_NHAN: 'CONFIRMED', DA_KHOA: 'LOCKED', HUY: 'RELEASED' };
 const ymd = (d) => d.replace(/-/g, '');
@@ -157,6 +158,12 @@ class PeriodService {
     if (to === 'DA_XAC_NHAN' && from === 'NHAP') {
       if (p.needs_recalc) throw businessError('E_NEEDS_RECALC', `Dữ liệu nguồn đã sửa sau lần tính — tính lại kỳ ${p.period_code} trước khi xác nhận`);
       if (!p.calc_version) throw businessError('E_PERIOD_STATUS', 'Kỳ chưa được tính');
+      // phiếu cân / dòng dầu hợp lệ trong phạm vi kỳ nhưng nhập hoặc khôi phục SAU lần tính → kỳ chốt sẽ thiếu số liệu: bắt buộc tính lại
+      const miss = missingSources(this.store, p);
+      if (miss.tickets.length || miss.fuel.length) {
+        throw businessError('E_NEEDS_RECALC', `Kỳ ${p.period_code} còn ${miss.tickets.length} phiếu cân và ${miss.fuel.length} dòng dầu hợp lệ trong phạm vi nhưng chưa được tính (nhập hoặc khôi phục sau lần tính) — tính lại kỳ trước khi xác nhận`,
+          { tickets: miss.tickets.slice(0, 20).map((t) => t.ticket_no), fuel: miss.fuel.slice(0, 20).map((r) => r.receipt_id), ticketCount: miss.tickets.length, fuelCount: miss.fuel.length });
+      }
     }
     return this.store.transaction((tx) => {
       const patch = { status: to };

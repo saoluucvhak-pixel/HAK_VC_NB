@@ -824,6 +824,7 @@ Bước 1: main process đọc file Excel/CSV theo đường dẫn → gợi ý 
 | `sheetName` | string |  | trống = sheet đầu / tự dò sheet có header phù hợp |
 | `headerRow` | integer |  | trống = tự dò |
 | `mapping` | object |  | trống = tự gợi ý; gửi lại để preview với mapping mới |
+| `numberStyle` | enum(AUTO\|VN\|EN) |  | kiểu số của ô chữ: AUTO (mặc định; "17,470" bị báo mơ hồ) · VN 1.234,5 · EN 1,234.5 |
 
 - **Trả về:** `{batchId, fileSha256, sameFileImportedBefore, sheets, mapping, summary:{total, ok, warning, error, duplicate}, rows:[{rowNo, status, flags:[code], normalized}] (trang đầu), page}`
 - **Lỗi:** `VALIDATION_FAILED`, `BUSINESS_RULE:E_MAPPING_REQUIRED`, `BUSINESS_RULE:E_NOT_CARRIER`, `STORAGE_ERROR`
@@ -1464,6 +1465,8 @@ Bản HAKQN: dialog.openFile → exchange.previewPackage(filePath) → exchange.
 | `E_DISTANCE_INVALID` | ERROR | (*9) Cự ly ≤ 0 | routes, periods |
 | `E_FUEL_NORM_INVALID` | ERROR | (*10) Định mức dầu ≤ 0 | prices, periods |
 | `E_KG_INVALID` | ERROR | KL hàng ≤ 0 | import |
+| `E_NUMBER_AMBIGUOUS` | ERROR | Số dạng chữ như "17,470" đọc được hai cách (17,47 hoặc 17.470) — chọn kiểu số trong file | import |
+| `W_KG_IMPLAUSIBLE` | WARNING | KL hàng nhỏ bất thường (< 1.000 kg) — nghi đọc sai dấu ngăn cách số | import |
 | `E_DATE_INVALID` | ERROR | Ngày sai / Ngày cân 2 < Ngày cân 1 | import |
 | `E_PLATE_FORMAT` | ERROR | Biển số phiếu cân sai định dạng | import |
 | `E_VEHICLE_NOT_FOUND` | ERROR | Mã xe (phiếu/dầu) không quy đổi được về xe trong danh mục | import, fuel |

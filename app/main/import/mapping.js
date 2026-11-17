@@ -95,13 +95,22 @@ function toTime(v) {
   if (m && +m[1] < 24 && +m[2] < 60 && +(m[3] || 0) < 60) return { value: `${pad(+m[1])}:${m[2]}:${pad(+(m[3] || 0))}` };
   return { error: `giờ không đọc được "${v}"` };
 }
-function toNumber(v) {
+/**
+ * Đọc số từ ô (ô số thật không cần đoán; ô CHỮ có dấu . , phải biết kiểu).
+ * style: 'VN' = chấm ngăn nghìn, phẩy thập phân (1.234,5) · 'EN' = phẩy ngăn nghìn, chấm thập phân (1,234.5) · 'AUTO' = tự đoán.
+ * AUTO: dạng `d,ddd` (1–3 chữ số + phẩy + đúng 3 chữ số, vd "17,470") đọc được 2 cách khác nhau 1.000 lần
+ * (17,47 kiểu VN hoặc 17.470 kiểu Anh) → KHÔNG đoán: trả { ambiguous: [kiểuVN, kiểuAnh] } để nơi gọi báo lỗi buộc người dùng chọn kiểu số.
+ */
+function toNumber(v, style = 'AUTO') {
   if (v === null || v === undefined || v === '') return { value: '' };
   if (typeof v === 'number') return Number.isFinite(v) ? { value: v } : { error: 'số không hợp lệ' };
   let s = String(v).trim().replace(/\s/g, '');
-  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');   // 17.470 hoặc 1.234,5 (kiểu VN)
+  if (style === 'VN') s = s.replace(/\./g, '').replace(',', '.');
+  else if (style === 'EN') s = s.replace(/,/g, '');
+  else if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');   // 17.470 hoặc 1.234,5 (kiểu VN)
+  else if (/^-?\d{1,3},\d{3}$/.test(s)) return { ambiguous: [Number(s.replace(',', '.')), Number(s.replace(',', ''))] }; // "17,470": 17,47 hay 17.470?
   else if (/^-?\d+,\d+$/.test(s)) s = s.replace(',', '.');                               // 5088,35
-  else s = s.replace(/,/g, '');                                                          // 17,470 (kiểu Anh)
+  else s = s.replace(/,/g, '');                                                          // 1,234,567 (kiểu Anh, nhiều nhóm)
   const n = Number(s);
   return Number.isFinite(n) && s !== '' ? { value: n } : { error: `số không đọc được "${v}"` };
 }

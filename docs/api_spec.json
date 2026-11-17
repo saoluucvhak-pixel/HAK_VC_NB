@@ -2431,6 +2431,12 @@
      "object",
      false,
      "trống = tự gợi ý; gửi lại để preview với mapping mới"
+    ],
+    [
+     "numberStyle",
+     "enum(AUTO|VN|EN)",
+     false,
+     "kiểu số của ô chữ: AUTO (mặc định; \"17,470\" bị báo mơ hồ) · VN 1.234,5 · EN 1,234.5"
     ]
    ],
    "output": "{batchId, fileSha256, sameFileImportedBefore, sheets, mapping, summary:{total, ok, warning, error, duplicate}, rows:[{rowNo, status, flags:[code], normalized}] (trang đầu), page}",
@@ -4710,6 +4716,18 @@
    "code": "E_KG_INVALID",
    "level": "ERROR",
    "message": "KL hàng ≤ 0",
+   "usedIn": "import"
+  },
+  {
+   "code": "E_NUMBER_AMBIGUOUS",
+   "level": "ERROR",
+   "message": "Số dạng chữ như \"17,470\" đọc được hai cách (17,47 hoặc 17.470) — chọn kiểu số trong file",
+   "usedIn": "import"
+  },
+  {
+   "code": "W_KG_IMPLAUSIBLE",
+   "level": "WARNING",
+   "message": "KL hàng nhỏ bất thường (< 1.000 kg) — nghi đọc sai dấu ngăn cách số",
    "usedIn": "import"
   },
   {

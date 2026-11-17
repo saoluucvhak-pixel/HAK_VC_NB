@@ -13,11 +13,11 @@
     D.toast(`Đã tạo file mẫu: ${r.path} — nhập từ dòng ${r.firstDataRow} sheet ${r.sheet}`, 'ok', 9000);
     if (window.dgvc) D.api('system.openPath', { path: r.path }, { quiet: true }).catch(() => {});
   };
-  D.importWizard = async ({ importType, contractId, onDone }) => {
-    const filePath = await D.pickFile({ title: importType === 'PHIEU_CAN' ? 'Chọn file Excel phiếu cân' : 'Chọn file Excel bảng kê dầu', filters: [{ name: 'Excel', extensions: ['xlsx', 'xlsm', 'csv'] }] });
+  D.importWizard = async ({ importType, contractId, onDone, filePath: knownFile, numberStyle = 'AUTO' }) => {
+    const filePath = knownFile || await D.pickFile({ title: importType === 'PHIEU_CAN' ? 'Chọn file Excel phiếu cân' : 'Chọn file Excel bảng kê dầu', filters: [{ name: 'Excel', extensions: ['xlsx', 'xlsm', 'csv'] }] });
     if (!filePath) return;
     let pv; let fixed = {};
-    const run = async (extra = {}) => { pv = await D.api('import.preview', { importType, contractId, filePath, fixedValues: fixed, ...extra }, { quiet: true }); };
+    const run = async (extra = {}) => { pv = await D.api('import.preview', { importType, contractId, filePath, fixedValues: fixed, numberStyle, ...extra }, { quiet: true }); };
     try { await run(); } catch (e) {
       if (e.details && e.details.code === 'E_MAPPING_REQUIRED' && (e.details.missing || []).includes('route_code')) {
         const sel = h('select', {}, D.routeOptions(false).map(([v, t]) => h('option', { value: v }, t)));
@@ -30,7 +30,14 @@
     const rows = (await D.api('import.previewRows', { batchId: pv.batchId, pageSize: 5000 })).rows;
     const S = pv.summary;
     const accept = h('input', { type: 'checkbox', id: 'acc' });
+    let modal = null;
+    // kiểu số trong file: ô chữ "17,470" đọc được 17,47 (kiểu Việt) hoặc 17.470 (kiểu Anh) → bắt buộc người dùng chọn, đổi thì xem trước lại
+    const styleSel = h('select', { 'aria-label': 'Kiểu số trong file', onchange: (e) => { const ns = e.target.value; modal.close(); D.importWizard({ importType, contractId, onDone, filePath, numberStyle: ns }); } },
+      [['AUTO', 'Tự động'], ['VN', 'Việt Nam — 1.234,5 (chấm ngăn nghìn, phẩy thập phân)'], ['EN', 'Anh / Mỹ — 1,234.5 (phẩy ngăn nghìn, chấm thập phân)']].map(([v, t]) => h('option', { value: v, selected: v === (pv.numberStyle || 'AUTO') }, t)));
+    const ambiguous = rows.some((r) => (r.issues || []).some((i) => i.code === 'E_NUMBER_AMBIGUOUS'));
     const body = h('div', {},
+      h('label', { class: 'field', style: { maxWidth: '520px', marginBottom: '8px' } }, h('span', {}, 'Kiểu số trong file'), styleSel),
+      ambiguous ? h('p', { class: 'small', style: { color: 'var(--red-text)' } }, 'Có dòng số dạng chữ như "17,470" đọc được hai cách (khác nhau 1.000 lần). Chọn đúng "Kiểu số trong file" ở trên để xem trước lại.') : null,
       h('div', { class: 'row small' }, h('span', { class: 'mono' }, pv.fileName), `· sheet "${pv.sheet}" · dòng tiêu đề ${pv.headerRowNo}`, Object.keys(pv.fixedValues || {}).length ? D.tag('info', `Mã tuyến chung: ${pv.fixedValues.route_code}`) : null),
       pv.sameFileImportedBefore ? h('p', {}, h('span', { class: 'tag warn' }, 'Cảnh báo'), ' File này đã import trước đây (cùng SHA-256).') : null,
       h('div', { class: 'kpis', style: { marginTop: '10px' } }, [['Tổng dòng', S.total], ['Hợp lệ', S.ok], ['Cảnh báo', S.warning], ...(S.update ? [['Cập nhật / khôi phục', S.update]] : []), ['Đã có (bỏ qua)', S.duplicate], ['Lỗi', S.error]].map(([l, v]) => h('div', { class: 'kpi' }, h('div', { class: 'l' }, l), h('div', { class: 'v' }, D.vn(v))))),
@@ -44,7 +51,7 @@
         { key: 's', label: 'Bỏ', render: (r) => h('input', { type: 'checkbox', 'aria-label': `Bỏ dòng ${r.rowNo}`, checked: r.status === 'ERROR', disabled: r.status === 'ERROR', onchange: (e) => (e.target.checked ? skip.add(r.rowNo) : skip.delete(r.rowNo)) }) }], rows }),
       h('label', { class: 'check', for: 'acc', style: { marginTop: '10px' } }, accept, S.update ? 'Chấp nhận các dòng cảnh báo và cập nhật phiếu đã có theo file' : 'Chấp nhận các dòng cảnh báo'));
     for (const r of rows) if (r.status === 'ERROR') skip.add(r.rowNo);
-    D.modal({ title: importType === 'PHIEU_CAN' ? 'Import phiếu cân — xem trước' : 'Import bảng kê dầu — xem trước', wide: true, body,
+    modal = D.modal({ title: importType === 'PHIEU_CAN' ? 'Import phiếu cân — xem trước' : 'Import bảng kê dầu — xem trước', wide: true, body,
       onClose: () => D.api('import.cancel', { batchId: pv.batchId }, { quiet: true }).catch(() => {}),
       actions: [{ label: 'Hủy', run: () => true }, { label: `Xác nhận import ${S.ok + S.warning + (S.update || 0) - [...skip].filter((n) => rows.find((r) => r.rowNo === n && r.status !== 'ERROR')).length} dòng`, primary: true, run: async () => {
         const r = await D.api('import.confirm', { batchId: pv.batchId, skipRowNos: [...skip], acceptWarnings: accept.checked, clientRequestId: D.rid() });
