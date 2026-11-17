@@ -9,7 +9,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ExcelJS = require('exceljs');
 const { install, KETOAN, ADMIN, rid, FILE } = require('./install');
-const { JsonStore, SCHEMA } = require('../main/repo/JsonStore');
+const { SCHEMA } = require('../main/repo/JsonStore');
+const { newStore } = require('../main/repo/createStore');
 const { sha256 } = require('../main/repo/Journal');
 const { ArchiveService } = require('../main/services/ArchiveService');
 const { BackupService } = require('../main/services/BackupService');
@@ -23,7 +24,7 @@ const TABLES = ['PHIEU_CAN', 'GIAO_NHAN_DAU', 'KY_TINH', 'TRANSPORT_CALCULATION'
 
 /** Đưa thư mục dữ liệu về định dạng cũ (bản ≤ 1.2.4): mỗi dòng 1 object, thụt lề, mỗi năm 1 file. */
 function toOldFormat(dir) {
-  const s = new JsonStore(dir).open(); const data = Object.fromEntries(Object.keys(SCHEMA.tables).map((t) => [t, s.all(t)])); const m = s.manifest; s.close();
+  const s = newStore(dir).open(); const data = Object.fromEntries(Object.keys(SCHEMA.tables).map((t) => [t, s.all(t)])); const m = s.manifest; s.close();
   for (const rel of Object.keys(m.files)) fs.unlinkSync(path.join(dir, rel));
   m.files = {};
   for (const [t, def] of Object.entries(SCHEMA.tables)) {
@@ -38,13 +39,15 @@ function toOldFormat(dir) {
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(m, null, 1));
 }
 
-test('Dữ liệu định dạng cũ → mở được, compact() chuyển sang định dạng gọn + chia tháng, số liệu giữ nguyên từng ô, nhỏ hơn', async () => {
+const BACKUP_JSON = process.env.DGVC_STORAGE && process.env.DGVC_STORAGE !== 'json' && 'cần sao lưu an toàn trước khi lưu trữ — BackupService cho SQLite làm ở giai đoạn 2';
+const JSON_ONLY = process.env.DGVC_STORAGE && process.env.DGVC_STORAGE !== 'json' && 'định dạng tệp JSON cũ — chỉ áp dụng cho kho JSON';
+test('Dữ liệu định dạng cũ → mở được, compact() chuyển sang định dạng gọn + chia tháng, số liệu giữ nguyên từng ô, nhỏ hơn', { skip: JSON_ONLY }, async () => {
   const { store, dir, periods, contractId } = await install('DH');
   await periods.calculate({ contractId, dateFrom: '2026-09-18', dateTo: '2026-09-23', routeCode: 'VC.007', clientRequestId: rid(), user: KETOAN });
   const before = snap(store, [...TABLES, 'AUDIT_LOG', 'XE', 'CONFIG']); store.close();
   toOldFormat(dir);
   assert.ok(fs.existsSync(path.join(dir, 'tables/PHIEU_CAN/2026.json')));
-  const s = new JsonStore(dir).open();
+  const s = newStore(dir).open();
   assert.equal(s.needsCompaction, true);
   assert.deepEqual(snap(s, [...TABLES, 'AUDIT_LOG', 'XE', 'CONFIG']), before, 'đọc định dạng cũ đúng');
   const r = await s.compact();
@@ -52,7 +55,7 @@ test('Dữ liệu định dạng cũ → mở được, compact() chuyển sang 
   assert.ok(!fs.existsSync(path.join(dir, 'tables/PHIEU_CAN/2026.json')));
   assert.ok(fs.existsSync(path.join(dir, 'tables/PHIEU_CAN/2026/2026-09.json')));
   s.close();
-  const s2 = new JsonStore(dir).open();
+  const s2 = newStore(dir).open();
   assert.equal(s2.needsCompaction, false);
   assert.deepEqual(snap(s2, [...TABLES, 'AUDIT_LOG', 'XE', 'CONFIG']), before, 'sau chuyển đổi: từng ô giữ nguyên');
   // dữ liệu gốc trong file: lưu mảng giá trị, hiện lại đủ tên cột
@@ -62,7 +65,7 @@ test('Dữ liệu định dạng cũ → mở được, compact() chuyển sang 
   s2.close();
 });
 
-test('Lưu trữ đến hết năm 2026: kỳ vắt năm giữ lại; mở app không nạp; báo cáo tự mở xem chỉ đọc; chặn nhập năm đã lưu trữ; mở lại năm → nguyên vẹn', async () => {
+test('Lưu trữ đến hết năm 2026: kỳ vắt năm giữ lại; mở app không nạp; báo cáo tự mở xem chỉ đọc; chặn nhập năm đã lưu trữ; mở lại năm → nguyên vẹn', { skip: BACKUP_JSON && BACKUP_JSON }, async () => {
   const { store, dir, periods, contractId } = await install('DH');
   const k1 = await periods.calculate({ contractId, dateFrom: '2026-09-18', dateTo: '2026-09-20', routeCode: 'VC.007', clientRequestId: rid(), user: KETOAN });
   await periods.confirm({ periodId: k1.period.period_id, user: KETOAN });
@@ -89,7 +92,7 @@ test('Lưu trữ đến hết năm 2026: kỳ vắt năm giữ lại; mở app k
   store.close();
 
   // mở lại app: không nạp năm lưu trữ
-  const s = new JsonStore(dir).open();
+  const s = newStore(dir).open();
   assert.equal(s.all('PHIEU_CAN').length, live.size);
   const ar2 = new ArchiveService(s, { backup: new BackupService(s) }); const rs = new ReportService(s);
   const y = ar2.years().items.find((x) => x.year === 2026);
@@ -115,7 +118,7 @@ test('Lưu trữ đến hết năm 2026: kỳ vắt năm giữ lại; mở app k
   // xe có dữ liệu năm lưu trữ → không đổi biển số
   assert.match(new MasterDataService(s).vehicleUsage({ plateNo: archT.plate_no }).blockers.join(), /năm đã lưu trữ 2026/);
   s.close();
-  const s3 = new JsonStore(dir).open(); assert.equal(s3.get('PHIEU_CAN', keep.ticket_id).ldd, 'sửa khi đang xem'); assert.equal(s3.all('PHIEU_CAN').length, live.size);
+  const s3 = newStore(dir).open(); assert.equal(s3.get('PHIEU_CAN', keep.ticket_id).ldd, 'sửa khi đang xem'); assert.equal(s3.all('PHIEU_CAN').length, live.size);
 
   // mở lại năm → mọi thứ trở lại
   const ar3 = new ArchiveService(s3, { backup: new BackupService(s3) });
@@ -126,10 +129,10 @@ test('Lưu trữ đến hết năm 2026: kỳ vắt năm giữ lại; mở app k
   for (const t of TABLES) if (t !== 'PHIEU_CAN') assert.equal(after[t], before[t], `${t} giữ nguyên sau mở lại`);
   assert.equal(s3.all('PHIEU_CAN').length, 77);
   s3.close();
-  const s4 = new JsonStore(dir).open(); assert.equal(s4.all('PHIEU_CAN').length, 77); assert.equal(s4.all('KY_TINH').length, 2); s4.close();
+  const s4 = newStore(dir).open(); assert.equal(s4.all('PHIEU_CAN').length, 77); assert.equal(s4.all('KY_TINH').length, 2); s4.close();
 });
 
-test('Máy mới thiếu thư mục lưu trữ → báo rõ; nạp lại từ file zip lưu trữ → xem được', async () => {
+test('Máy mới thiếu thư mục lưu trữ → báo rõ; nạp lại từ file zip lưu trữ → xem được', { skip: BACKUP_JSON && BACKUP_JSON }, async () => {
   const { store, dir } = await install('DH');
   const ar = new ArchiveService(store, { backup: new BackupService(store) });
   const r = await ar.archive({ year: 2026, reason: 'thử', user: ADMIN });

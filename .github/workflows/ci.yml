@@ -30,6 +30,25 @@ jobs:
           npm test 2>&1 | tee /tmp/test.log | tail -12
           grep -E '^# skipped 0$' /tmp/test.log
 
+  test-sqlite:
+    # Giai đoạn 1 kế hoạch lưu trữ: cùng bộ test chạy trên kho SQLite (cờ DGVC_STORAGE=sqlite, chỉ dev/CI) + parity JSON ↔ SQLite + kill -9
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Bộ test trên kho SQLite
+        env:
+          DGVC_STORAGE: sqlite
+        run: npm test
+
   electron:
     runs-on: ubuntu-latest
     defaults:

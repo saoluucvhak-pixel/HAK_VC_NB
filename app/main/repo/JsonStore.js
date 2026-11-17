@@ -213,8 +213,8 @@ class JsonStore {
     return p;
   }
 
-  _commit(tx) {
-    // 1. kiểm schema + ràng buộc trên dữ liệu mới
+  /** Kiểm schema + ràng buộc trên dữ liệu mới của giao dịch (dùng chung mọi loại kho). Lỗi → VALIDATION_FAILED, không ghi gì. */
+  _validateTx(tx) {
     const errs = [];
     for (const t of tx.touched) {
       const def = SCHEMA.tables[t];
@@ -222,8 +222,27 @@ class JsonStore {
     }
     errs.push(...this._constraints(tx));
     if (errs.length) throw new AppError('VALIDATION_FAILED', `Dữ liệu không hợp lệ (${errs.length} lỗi): ${errs.slice(0, 3).map((e) => e.message).join('; ')}`, { errors: errs.slice(0, 200) });
+  }
+  /** Manifest sau giao dịch: áp manifestPatch, dataVersion + 1, bộ đếm sinh mã mới. */
+  _nextManifest(tx) {
+    const m = JSON.parse(JSON.stringify(this.manifest));
+    for (const [k, v] of Object.entries(tx.manifestPatch)) { if (v === undefined) delete m[k]; else m[k] = v; }
+    m.dataVersion = this.manifest.dataVersion + 1;
+    m.sequences = tx.sequences;
+    return m;
+  }
+  /** Sau khi ghi bền xong mới đổi bộ nhớ. */
+  _applyTx(tx, newManifest) {
+    for (const t of tx.touched) this.data[t] = tx.tables[t];
+    this.manifest = newManifest;
+    this._reindex([...tx.touched]);
+  }
+
+  _commit(tx) {
+    // 1. kiểm schema + ràng buộc trên dữ liệu mới
+    this._validateTx(tx);
     // 2. dựng file mới cho các phân vùng bị chạm
-    const newManifest = JSON.parse(JSON.stringify(this.manifest));
+    const newManifest = this._nextManifest(tx);
     const files = [];
     for (const t of tx.touched) {
       const def = SCHEMA.tables[t]; const cols = def.columns.map((c) => c.name);
@@ -239,14 +258,10 @@ class JsonStore {
         newManifest.files[rel] = { sha256: sha256(data), rows: rows.length };
       }
     }
-    for (const [k, v] of Object.entries(tx.manifestPatch)) { if (v === undefined) delete newManifest[k]; else newManifest[k] = v; }
-    newManifest.dataVersion = this.manifest.dataVersion + 1;
-    newManifest.sequences = tx.sequences;
+    // manifest.files phải theo bản đang có (newManifest được dựng từ bản cũ rồi cập nhật các tệp bị chạm ở trên)
     const txnId = this.journal.commit(files, Buffer.from(JSON.stringify(newManifest, null, 1)));
     // 3. chỉ khi ghi đĩa xong mới đổi bộ nhớ
-    for (const t of tx.touched) this.data[t] = tx.tables[t];
-    this.manifest = newManifest;
-    this._reindex([...tx.touched]);
+    this._applyTx(tx, newManifest);
     tx.txnId = txnId;
   }
 
@@ -454,7 +469,7 @@ const cmpStr = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 function buildSnapshot(store) {
   const tables = {};
   for (const [name, def] of Object.entries(SCHEMA.tables)) {
-    tables[name] = store.all(name).filter((r) => !store.isMountedRow(name, r[def.pk])).slice().sort((a, b) => cmpStr(String(a[def.pk]), String(b[def.pk])));
+    tables[name] = store.all(name).filter((r) => !store.isMountedRow(name, r[def.pk])).map((r) => normalizeRow(def, r)).sort((a, b) => cmpStr(String(a[def.pk]), String(b[def.pk]))); // cột thiếu ở dòng cũ = '' (cùng quy ước với kho SQLite)
   }
   const m = store.manifest;
   return { format: 'dgvc-snapshot/1', exportedAt: store.clock(), dataVersion: m.dataVersion, schemaVersion: m.schemaVersion,

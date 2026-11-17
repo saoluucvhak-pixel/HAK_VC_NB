@@ -5,7 +5,7 @@
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { JsonStore } = require('../main/repo/JsonStore');
+const { newStore } = require('../main/repo/createStore');
 const { install, ADMIN, KETOAN, rid } = require('./install');
 const { fixture } = require('./helpers');
 
@@ -153,7 +153,7 @@ for (const inst of ['DH', 'HAK']) {
     await periods.lock({ periodId: r.period.period_id, user: KETOAN });
     assert.equal(r.results[0].transportPrice, EXCEL[inst]['Đơn giá vận chuyển']);
     store.close();
-    const s2 = new JsonStore(dir).open();
+    const s2 = newStore(dir).open();
     const p = s2.get('KY_TINH', r.period.period_id);
     assert.equal(p.status, 'DA_KHOA');
     assert.equal(cur(s2, 'TRANSPORT_CALCULATION', p.period_id)[0].transport_price, EXCEL[inst]['Đơn giá vận chuyển']);

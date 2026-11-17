@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { install, ADMIN, KETOAN, rid } = require('./install');
 const { MasterDataService } = require('../main/services/MasterDataService');
 const { CatalogService } = require('../main/services/CatalogService');
-const { JsonStore } = require('../main/repo/JsonStore');
+const { newStore } = require('../main/repo/createStore');
 
 test('Hợp đồng đã có dòng dầu / kỳ tính: sửa được số HĐ, ghi chú; không đổi mã / hai bên, không xóa; ngừng dùng → không tính giá', async () => {
   const { store, periods, contractId } = await install('DH');
@@ -49,6 +49,6 @@ test('Hợp đồng nhập nhầm chưa dùng: sửa mã + bên thuê, rồi xó
   assert.equal(store.find('PRICE_HISTORY', (p) => p.contract_id === id).length, 0);
   assert.ok(store.find('AUDIT_LOG', (a) => a.action === 'DELETE' && a.entity === 'HOP_DONG' && a.entity_id === id).length);
   store.close();
-  const again = new JsonStore(dir).open(); assert.equal(again.get('HOP_DONG', id), null); again.close();
+  const again = newStore(dir).open(); assert.equal(again.get('HOP_DONG', id), null); again.close();
   void rid;
 });
