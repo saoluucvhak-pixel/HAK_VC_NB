@@ -110,6 +110,21 @@ ep('contracts.usage', 'Hợp đồng', 'Hợp đồng đang dùng ở đâu (k�
    [('contractId', 'string', True, '')], '{periods, fuelRows, importBatches, prices, vehicles, blockers, canEditParties, canDelete}', ['NOT_FOUND'], ['HOP_DONG', 'KY_TINH', 'GIAO_NHAN_DAU', 'IMPORT_BATCH', 'PRICE_HISTORY', 'HOP_DONG_XE'])
 ep('contracts.delete', 'Hợp đồng', 'Xóa hợp đồng nhập nhầm — chỉ khi chưa có kỳ tính / dòng dầu; xóa kèm phạm vi xe và giá riêng chưa dùng. Đã dùng thì Ngừng dùng', EDIT,
    [('contractId', 'string', True, ''), ('reason', 'string', False, '')], '{deleted, contractCode, vehicleRows, priceRows, warnings}', ['NOT_FOUND', 'VALIDATION_FAILED'], ['HOP_DONG'], ['HOP_DONG', 'HOP_DONG_XE', 'PRICE_HISTORY'], 'DELETE', True)
+ep('contracts.setActive', 'Hợp đồng', 'Ngừng / dùng lại hợp đồng (không xóa)', EDIT,
+   [('contractId', 'string', True, ''), ('active', 'boolean', True, ''), ROWV, ('reason', 'string', False, '')], '{record}',
+   ['NOT_FOUND', 'CONFLICT_VERSION', 'VALIDATION_FAILED'], ['HOP_DONG'], ['HOP_DONG'], 'UPDATE', True)
+ep('contracts.vehicles', 'Hợp đồng', 'Phạm vi xe của một hợp đồng (HOP_DONG_XE)', ALL,
+   [('contractId', 'string', True, '')], '{items:[HOP_DONG_XE]}', [], ['HOP_DONG_XE'])
+ep('setup.units', 'Khởi tạo', 'Danh sách đơn vị chọn được khi cài (lần mở đầu)', PUBLIC, [], '{items:[{unitCode, name}]}')
+ep('sync.list', 'Đồng bộ', 'Nhắc đồng bộ danh mục giữa các nhà máy: danh sách + số mục chưa xử lý theo nhà máy', ALL,
+   [('status', 'enum(OPEN|DONE)', False, 'mặc định OPEN; rỗng = tất cả')], '{items, total, pendingByUnit}', [], ['SYNC_REMINDER'])
+ep('sync.markDone', 'Đồng bộ', 'Đánh dấu nhà máy đã sửa danh mục theo nhắc', EDIT,
+   [('unitCode', 'string', True, ''), ('reminderIds', 'array<string>', False, 'rỗng = mọi nhắc đang mở'), ('how', 'string', False, 'MANUAL|PACKAGE'), ('note', 'string', False, '')],
+   '{updated}', ['VALIDATION_FAILED'], ['SYNC_REMINDER'], ['SYNC_REMINDER'], 'SYNC_DONE', True)
+ep('reports.html', 'Báo cáo', 'HTML báo cáo để xem trước trong giao diện', ALL,
+   [('report', 'string', True, 'BKVC|BKCT|PRICING|INVOICE|PRICING_SHEET|CONTRACT_BASIS|FUEL_HANDOVER…'), ('params', 'object', True, 'như reports.export')], '{html}', ['NOT_FOUND', 'VALIDATION_FAILED'])
+ep('reports.invoice', 'Báo cáo', 'Dữ liệu dòng hóa đơn của một kỳ (MISA)', ALL,
+   [('periodId', 'string', True, '')], '{lines, totals, …}', ['NOT_FOUND'], ['BKVC_LINE'])
 ep('contracts.setVehicles', 'Hợp đồng', 'Ghi phạm vi xe (danh sách + hiệu lực)', EDIT,
    [('contractId', 'string', True, ''), ('vehicles', 'array<{plateNo, effectiveFrom, effectiveTo?}>', True, '')], '{items}',
    ['VALIDATION_FAILED', 'NOT_FOUND'], ['HOP_DONG_XE', 'XE'], ['HOP_DONG_XE'], 'CONTRACT_VEHICLES', True, 'như contracts.save')
@@ -139,7 +154,7 @@ ep('tickets.bulkUpdateDescriptive', 'Phiếu cân', 'Sửa hàng loạt 1 cột 
 ep('tickets.softDelete', 'Phiếu cân', 'Xóa mềm (cấm nếu đang dùng ở kỳ chưa hủy)', EDIT, [('ticketId', 'string', True, ''), ('reason', 'string', True, ''), ROWV_OPT],
    '{record}', ['BUSINESS_RULE:E_IN_USE'], ['PHIEU_CAN', 'TRANSPORT_DETAIL'], ['PHIEU_CAN'], 'DELETE', True)
 ep('tickets.softDeleteMany', 'Phiếu cân', 'Xóa mềm nhiều phiếu (vd file import nhầm); phiếu ở kỳ đã xác nhận / khóa bỏ qua và báo lại; kỳ nháp → phải tính lại', EDIT,
-   [('ticketIds', 'array<string>', True, ''), ('reason', 'string', True, '')], '{deleted, skipped:[{ticketId, ticketNo, periodCode}], affectedPeriods}', ['VALIDATION_FAILED'], ['PHIEU_CAN', 'TRANSPORT_DETAIL'], ['PHIEU_CAN', 'KY_TINH'], 'DELETE', True)
+   [('ticketIds', 'array<string>', True, ''), ('reason', 'string', True, '')], '{deleted, skipped:[{ticketId, ticketNo, periodCode}], notFound:[ticketId], alreadyDeleted:[ticketId], affectedPeriods}', ['VALIDATION_FAILED'], ['PHIEU_CAN', 'TRANSPORT_DETAIL'], ['PHIEU_CAN', 'KY_TINH'], 'DELETE', True)
 ep('tickets.restore', 'Phiếu cân', 'Khôi phục phiếu đã xóa (cũng tự khôi phục khi import lại phiếu đó)', EDIT,
    [('ticketId', 'string', True, ''), ('reason', 'string', False, '')], '{record}', ['NOT_FOUND'], ['PHIEU_CAN'], ['PHIEU_CAN'], 'RESTORE', True)
 ep('tickets.ackFlags', 'Phiếu cân', 'Xác nhận cảnh báo (giữ nguyên dữ liệu)', EDIT, [('ticketIds', 'array<string>', True, ''), ('note', 'string', True, '')],
@@ -152,7 +167,7 @@ ep('fuel.saveRows', 'Giao nhận dầu', 'Nhập tay nhiều dòng dầu cho 1 h
    [('contractId', 'string', True, ''), ('rows', 'array<object>', True, '')], '{saved, rowResults}',
    ['VALIDATION_FAILED', 'BUSINESS_RULE:E_NOT_CARRIER'], ['GIAO_NHAN_DAU', 'XE'], ['GIAO_NHAN_DAU'], 'CREATE', True, 'như contracts.save')
 ep('fuel.softDeleteMany', 'Giao nhận dầu', 'Xóa mềm nhiều dòng dầu (vd file tải lên sai) — bỏ qua dòng ở kỳ đã xác nhận / khóa; kỳ nháp đánh dấu tính lại', EDIT,
-   [('receiptIds', 'array<string>', True, ''), ('reason', 'string', True, '')], '{deleted, skipped[{receiptId, periodCode}], affectedPeriods}', ['VALIDATION_FAILED'], ['GIAO_NHAN_DAU', 'FUEL_DETAIL'], ['GIAO_NHAN_DAU', 'KY_TINH'], 'DELETE', True)
+   [('receiptIds', 'array<string>', True, ''), ('reason', 'string', True, '')], '{deleted, skipped:[{receiptId, periodCode}], notFound:[receiptId], alreadyDeleted:[receiptId], affectedPeriods}', ['VALIDATION_FAILED'], ['GIAO_NHAN_DAU', 'FUEL_DETAIL'], ['GIAO_NHAN_DAU', 'KY_TINH'], 'DELETE', True)
 ep('fuel.update', 'Giao nhận dầu', 'Sửa 1 dòng dầu (luật như tickets.update)', EDIT, [('receiptId', 'string', True, ''), ('changes', 'object', True, ''), ROWV],
    '{record, affectedPeriods}', ['CONFLICT_VERSION', 'BUSINESS_RULE:E_FUEL_LOCKED'], ['GIAO_NHAN_DAU', 'FUEL_DETAIL'], ['GIAO_NHAN_DAU', 'KY_TINH'], 'UPDATE', True)
 ep('fuel.softDelete', 'Giao nhận dầu', 'Xóa mềm dòng dầu', EDIT, [('receiptId', 'string', True, ''), ('reason', 'string', True, ''), ROWV_OPT], '{record}',

@@ -24,7 +24,7 @@ Tầng C – Bảng xác nhận (BKVC)            : phiếu cân theo xe × Đơ
 
 - `Number.Round(x, n)` trong Power Query **mặc định dùng `RoundingMode.ToEven`** (làm tròn ngân hàng: số đúng giữa làm tròn về số chẵn). Ví dụ `Number.Round(115500, -3) = 116000` nhưng `Number.Round(116500, -3) = 116000`.
 - Hàm `ROUND` của Excel làm tròn **xa số 0** (half-up): `ROUND(116500,-3) = 117000`.
-- Để **khớp Excel hiện tại (tức Power Query)**, APP mặc định dùng `HALF_EVEN`; để cấu hình được (`ROUND_MODE`). **[CẦN XÁC NHẬN]** anh/chị muốn giữ ToEven (khớp file) hay chuyển half-up (theo thói quen kế toán). Với dữ liệu hiện có, 2 chế độ **cho cùng kết quả** ở mọi tuyến (xem §2.8) — khác biệt chỉ xảy ra khi giá trị rơi đúng điểm giữa.
+- Để **khớp Excel hiện tại (tức Power Query)**, APP mặc định dùng `HALF_EVEN`; để cấu hình được (`ROUND_MODE`). **[ĐÃ CHỐT — Q10: giữ ToEven, khớp file]** Với dữ liệu hiện có, 2 chế độ **cho cùng kết quả** ở mọi tuyến (xem §2.8) — khác biệt chỉ xảy ra khi giá trị rơi đúng điểm giữa.
 
 ### 1.2. Ép kiểu Int64 khi đọc dữ liệu
 
