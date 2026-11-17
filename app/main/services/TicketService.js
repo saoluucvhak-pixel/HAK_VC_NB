@@ -11,6 +11,7 @@
  * Mọi thay đổi ghi AUDIT_LOG từng phiếu (trước / sau / lý do).
  */
 const { AppError, businessError } = require('../../shared/errors');
+const { draftFinder } = require('./periodCoverage');
 
 const IDENTITY = ['ticket_no', 'weigh1_date', 'plate_no'];
 const CORE = ['weigh1_time', 'weigh2_date', 'weigh2_time', 'weight1_kg', 'weight2_kg', 'net_kg', 'route_code', 'owner_unit_code'];
@@ -68,7 +69,7 @@ class TicketService {
       throw businessError('E_TICKET_LOCKED', `Phiếu ${t.ticket_no} nằm trong kỳ ${hard.period_code} ${STATUS_TEXT[hard.status]} — không sửa được ${core.join(', ')}`);
     }
     this._guardDescriptive(periods, reason, user);
-    const drafts = core.length ? periods.filter((p) => p.status === 'NHAP').map((p) => p.period_id) : [];
+    const drafts = core.length ? [...new Set([...periods.filter((p) => p.status === 'NHAP').map((p) => p.period_id), ...draftFinder(this.store).forTicket({ ...t, ...changes })])] : []; // + kỳ nháp mà số liệu mới thuộc phạm vi (đổi tuyến / ngày cân 2)
     return this.store.transaction((tx) => {
       const patch = Object.fromEntries(fields.map((f) => [f, changes[f]]));
       const { before, after } = tx.update('PHIEU_CAN', ticketId, patch, { expectedRowVersion: rowVersion });

@@ -9,11 +9,13 @@ const M = require('./mapping');
 const { issue } = require('../engine/issues');
 const { selectPriceVersion } = require('../engine/period');
 const { AppError, businessError } = require('../../shared/errors');
-const { buildCoverage, CLOSED } = require('../services/periodCoverage');
+const { buildCoverage, CLOSED, draftFinder } = require('../services/periodCoverage');
 
 const CORE_TICKET = ['ticket_no', 'weigh1_date', 'weigh1_time', 'weigh2_date', 'weigh2_time', 'plate_no', 'weight1_kg', 'weight2_kg', 'net_kg', 'route_code'];
 const DESC_TICKET = ['row_no', 'origin', 'customer', 'ldd', 'weigh_type', 'transport_unit_name'];
 const PAGE = 100;
+
+const KG_IMPLAUSIBLE_BELOW = 1000; // kg — dưới mức này coi là nghi đọc sai dấu ngăn cách số (xe chở dăm hàng tấn)
 
 class ImportService {
   constructor(store) {
@@ -23,8 +25,9 @@ class ImportService {
   }
 
   // ─────────────────────────── preview ───────────────────────────
-  async preview({ importType, contractId = '', filePath, sheetName, headerRow, mapping, fixedValues = {}, user = 'system' }) {
+  async preview({ importType, contractId = '', filePath, sheetName, headerRow, mapping, fixedValues = {}, numberStyle = 'AUTO', user = 'system' }) {
     if (!['PHIEU_CAN', 'GIAO_NHAN_DAU'].includes(importType)) throw new AppError('VALIDATION_FAILED', `importType không hợp lệ: ${importType}`);
+    if (!['AUTO', 'VN', 'EN'].includes(numberStyle)) throw new AppError('VALIDATION_FAILED', `numberStyle phải là AUTO, VN hoặc EN: ${numberStyle}`);
     if (importType === 'GIAO_NHAN_DAU') this._checkFuelContract(contractId);
     const wb = await openWorkbook(filePath);
     const sheet = sheetName || this._pickSheet(wb, importType);
@@ -44,7 +47,7 @@ class ImportService {
     const dataRows = [];
     for (let i = hIdx + 1; i < all.length; i++) dataRows.push({ rowNo: i + 1, cells: all[i] || [] });
     for (const k of Object.keys(fixed)) if (colOf[k] !== undefined) throw new AppError('VALIDATION_FAILED', `Cột ${k} đã có trong file — không gán giá trị chung`);
-    const staged = { importType, contractId, fileName: wb.fileName, fileSha256: wb.fileSha256, sheet, headerRowNo: hIdx + 1, headers, mapping: map, colOf, fixed, dataRows, user };
+    const staged = { importType, contractId, fileName: wb.fileName, fileSha256: wb.fileSha256, sheet, headerRowNo: hIdx + 1, headers, mapping: map, colOf, fixed, dataRows, numberStyle, user };
     const result = this._validate(staged);
     const prev = this.store.all('IMPORT_BATCH').find((b) => b.file_sha256 === wb.fileSha256 && b.import_type === importType && b.status === 'CONFIRMED');
     const fileWarnings = prev ? [issue('W_SAME_FILE_IMPORTED', { date: (prev.confirmed_at || prev.created_at).slice(0, 10), batchId: prev.batch_id })] : [];
@@ -53,7 +56,7 @@ class ImportService {
       header_json: JSON.stringify(headers), mapping_json: JSON.stringify(Object.keys(fixed).length ? { ...map, '(giá trị chung)': fixed } : map), ...this._counts(result.rows), status: 'PREVIEW',
     }), { user });
     this.staging.set(batch.batch_id, { ...staged, result, dataVersion: this.store.dataVersion });
-    return { batchId: batch.batch_id, fileName: wb.fileName, fileSha256: wb.fileSha256, sameFileImportedBefore: !!prev, warnings: fileWarnings,
+    return { batchId: batch.batch_id, fileName: wb.fileName, fileSha256: wb.fileSha256, sameFileImportedBefore: !!prev, warnings: fileWarnings, numberStyle,
       sheets: wb.sheets, sheet, headerRowNo: hIdx + 1, headers, mapping: map, fixedValues: fixed, summary: this._summary(result.rows),
       rows: result.rows.slice(0, PAGE).map(publicRow), total: result.rows.length, skippedBlank: result.skippedBlank };
   }
@@ -105,6 +108,7 @@ class ImportService {
     const toUpdate = keep.filter((r) => r.status === 'UPDATE');
     const out = await this.store.transaction((tx) => {
       const ids = []; const updated = []; const restored = []; const recalc = new Set();
+      const finder = draftFinder(this.store); // kỳ nháp có phạm vi chứa dòng mới / khôi phục / đổi số liệu → phải tính lại
       for (const r of toUpdate) {
         const before = tx.get('PHIEU_CAN', r.update.id);
         const F = r.update.fields; // chỉ các cột khác nhau và có trong file
@@ -114,14 +118,16 @@ class ImportService {
         tx.audit(r.update.mode === 'RESTORE' ? 'IMPORT_RESTORE' : 'IMPORT_UPDATE', 'PHIEU_CAN', r.update.id,
           { ...Object.fromEntries(F.map((f) => [f, before[f]])), ...(r.update.mode === 'RESTORE' ? { is_deleted: true } : {}) }, patch, { reason: `import ${st.fileName} dòng ${r.rowNo} (lô ${batchId})` });
         for (const p of r.update.drafts) recalc.add(p);
+        if (st.importType === 'PHIEU_CAN') for (const p of finder.forTicket({ ...before, ...patch, is_deleted: false })) recalc.add(p);
         (r.update.mode === 'RESTORE' ? restored : updated).push(r.update.id);
       }
-      for (const p of recalc) tx.update('KY_TINH', p, { needs_recalc: true });
       for (const r of toInsert) {
         const rec = { ...r.record, import_batch_id: batchId };
         if (st.importType === 'GIAO_NHAN_DAU') rec.receipt_id = tx.nextId('GD');
         tx.insert(st.importType, rec); ids.push(rec.ticket_id || rec.receipt_id);
+        for (const p of (st.importType === 'PHIEU_CAN' ? finder.forTicket(rec) : finder.forFuel(rec))) recalc.add(p);
       }
+      for (const p of recalc) tx.update('KY_TINH', p, { needs_recalc: true }); // sau cả vòng cập nhật + chèn mới
       const counts = { ...this._counts(fresh.rows), ok_rows: toInsert.filter((r) => r.status === 'OK').length, warning_rows: toInsert.filter((r) => r.status === 'WARNING').length };
       const { after } = tx.update('IMPORT_BATCH', batchId, { ...counts, status: 'CONFIRMED', confirmed_at: tx.now, confirmed_by: user });
       tx.audit('IMPORT_CONFIRM', 'IMPORT_BATCH', batchId, null, { importType: st.importType, contractId: st.contractId, file: st.fileName, inserted: ids.length, skipped: skip.size });
@@ -169,7 +175,7 @@ class ImportService {
   }
 
   _validate(st) {
-    const ctx = this._catalog();
+    const ctx = this._catalog(); ctx.numberStyle = st.numberStyle || 'AUTO';
     const rows = []; let skippedBlank = 0;
     const fixed = st.fixed || {};
     const get = (cells, key) => (st.colOf[key] === undefined ? (key in fixed ? fixed[key] : null) : cells[st.colOf[key]]);
@@ -232,11 +238,19 @@ class ImportService {
     need('plate_no', 'biển số', rec.plate_no);
     if (rec.plate_no && !ctx.plateRegex.test(rec.plate_no)) iss.push(issue('E_PLATE_FORMAT', { rowNo, value: rec.plate_no }));
     else if (rec.plate_no && !ctx.vehicles.has(rec.plate_no)) iss.push(issue('E_VEHICLE_NOT_FOUND', { rowNo, value: rec.plate_no }));
-    for (const k of ['weight1_kg', 'weight2_kg', 'net_kg']) { const n = M.toNumber(get(cells, k)); rec[k] = n.error ? '' : n.value; if (n.error && k !== 'net_kg') iss.push(issue('E_KG_INVALID', { rowNo, value: get(cells, k) })); }
-    if (!(typeof rec.net_kg === 'number' && rec.net_kg > 0)) iss.push(issue('E_KG_INVALID', { rowNo, value: get(cells, 'net_kg') }));
+    for (const k of ['weight1_kg', 'weight2_kg', 'net_kg']) {
+      const n = M.toNumber(get(cells, k), ctx.numberStyle); rec[k] = n.error || n.ambiguous ? '' : n.value;
+      if (n.ambiguous) iss.push(issue('E_NUMBER_AMBIGUOUS', { rowNo, value: get(cells, k), asVn: n.ambiguous[0], asEn: n.ambiguous[1] }));
+      else if (n.error && k !== 'net_kg') iss.push(issue('E_KG_INVALID', { rowNo, value: get(cells, k) }));
+    }
+    const ambiguousKg = iss.some((i) => i.code === 'E_NUMBER_AMBIGUOUS');
+    if (ambiguousKg) { /* đã báo lỗi chọn kiểu số — không báo thêm "KL không hợp lệ" */ }
+    else if (!(typeof rec.net_kg === 'number' && rec.net_kg > 0)) iss.push(issue('E_KG_INVALID', { rowNo, value: get(cells, 'net_kg') }));
     else if (typeof rec.weight1_kg === 'number' && typeof rec.weight2_kg === 'number' && Math.abs(rec.net_kg - Math.abs(rec.weight2_kg - rec.weight1_kg)) > ctx.kgTol) {
       iss.push(issue('W_KG_MISMATCH', { ticketNo: rec.ticket_no, netKg: rec.net_kg, diffKg: Math.abs(rec.weight2_kg - rec.weight1_kg) }));
     }
+    // KL hàng nhỏ bất thường (xe chở dăm hàng tấn): thường do đọc sai dấu ngăn cách số → cảnh báo buộc người dùng xem lại
+    if (typeof rec.net_kg === 'number' && rec.net_kg > 0 && rec.net_kg < KG_IMPLAUSIBLE_BELOW) iss.push(issue('W_KG_IMPLAUSIBLE', { rowNo, value: rec.net_kg, min: KG_IMPLAUSIBLE_BELOW }));
     for (const k of ['origin', 'customer', 'ldd', 'weigh_type']) rec[k] = M.toText(get(cells, k));
     rec.route_code = M.toText(get(cells, 'route_code')).toUpperCase();
     if (!rec.route_code) iss.push(issue('E_ROUTE_MISSING', { ticketNo: rec.ticket_no, plateNo: rec.plate_no }));
@@ -324,15 +338,17 @@ class ImportService {
     rec.owner_unit_code = veh ? veh.owner_unit_code : '';
     if (veh && rawCode !== veh.plate_no && !/^[A-Z]{2}_[0-9A-Z]+$/.test(rawCode)) iss.push(issue('W_PLATE_FORMAT', { rowNo, value: rawCode, plateNo: veh.plate_no }));
     rec.uom = (M.toText(get(cells, 'uom')) || 'LÍT').toUpperCase();
-    const q = M.toNumber(get(cells, 'qty_liter')); rec.qty_liter = q.error ? '' : q.value;
-    if (!(typeof rec.qty_liter === 'number' && rec.qty_liter !== 0)) iss.push(issue('E_QTY_INVALID', { rowNo, value: get(cells, 'qty_liter') }));
+    const q = M.toNumber(get(cells, 'qty_liter'), ctx.numberStyle); rec.qty_liter = q.error || q.ambiguous ? '' : q.value;
+    if (q.ambiguous) iss.push(issue('E_NUMBER_AMBIGUOUS', { rowNo, value: get(cells, 'qty_liter'), asVn: q.ambiguous[0], asEn: q.ambiguous[1] }));
+    else if (!(typeof rec.qty_liter === 'number' && rec.qty_liter !== 0)) iss.push(issue('E_QTY_INVALID', { rowNo, value: get(cells, 'qty_liter') }));
     const offset = typeof rec.qty_liter === 'number' && rec.qty_liter < 0; // dòng bù trừ nhiên liệu
     if (offset) iss.push(issue('W_FUEL_OFFSET', { rowNo, qty: rec.qty_liter }));
     const rawPrice = get(cells, 'fuel_price_excl_vat');
-    const pr = M.toNumber(rawPrice); rec.fuel_price_excl_vat = pr.error ? '' : pr.value;
+    const pr = M.toNumber(rawPrice, ctx.numberStyle); rec.fuel_price_excl_vat = pr.error || pr.ambiguous ? '' : pr.value;
+    if (pr.ambiguous) iss.push(issue('E_NUMBER_AMBIGUOUS', { rowNo, value: rawPrice, asVn: pr.ambiguous[0], asEn: pr.ambiguous[1] }));
     // dòng bù trừ được để trống đơn giá (lưu 0 — chỉ trừ lít); dòng thường phải có đơn giá > 0
     if (offset && (rawPrice === null || rawPrice === '' || rawPrice === undefined)) rec.fuel_price_excl_vat = 0;
-    else if (!(typeof rec.fuel_price_excl_vat === 'number' && (rec.fuel_price_excl_vat > 0 || (offset && rec.fuel_price_excl_vat === 0)))) iss.push(issue('E_PRICE_NEGATIVE', { what: `Dòng ${rowNo}: đơn giá dầu`, value: rawPrice }));
+    else if (!pr.ambiguous && !(typeof rec.fuel_price_excl_vat === 'number' && (rec.fuel_price_excl_vat > 0 || (offset && rec.fuel_price_excl_vat === 0)))) iss.push(issue('E_PRICE_NEGATIVE', { what: `Dòng ${rowNo}: đơn giá dầu`, value: rawPrice }));
     const g = M.toText(get(cells, 'giver_unit_code'));
     rec.giver_unit_code = ctx.unitByName.get(g.toUpperCase()) || '';
     if (!g) iss.push(issue('E_FIELD_MISSING', { rowNo, field: 'đơn vị giao dầu' }));

@@ -47,6 +47,11 @@ Danh mục thay đổi (thêm tuyến, thêm xe) thì tải lại file mẫu. Fi
 
 Mở khóa kỳ hoặc trả kỳ về nháp: chỉ ADMIN hoặc người được cấp quyền mở khóa, và bắt buộc ghi lý do.
 
+### Kiểu số trong file import và kỳ nháp phải tính lại (từ bản 1.2.10)
+- **Số dạng chữ trong file** (thường gặp ở CSV): `17.470` (chấm ngăn nghìn) đọc là 17.470; `1.234,5` đọc là 1.234,5. Riêng dạng **`17,470`** (1–3 chữ số, dấu phẩy, đúng 3 chữ số) đọc được hai cách khác nhau 1.000 lần (17,47 kiểu Việt hoặc 17.470 kiểu Anh) nên phần mềm **không tự đoán**: dòng đó báo lỗi `E_NUMBER_AMBIGUOUS`. Ở hộp xem trước chọn **Kiểu số trong file** (Việt Nam / Anh–Mỹ) để xem trước lại. Ô số thật của Excel không bị ảnh hưởng.
+- **KL hàng dưới 1.000 kg** bị cảnh báo `W_KG_IMPLAUSIBLE` (xe chở dăm hàng tấn; thường do đọc sai dấu ngăn cách số).
+- **Kỳ nháp tự đánh dấu "cần tính lại"** khi có phiếu cân / dòng dầu **mới**, phiếu **khôi phục** hoặc phiếu đổi tuyến thuộc phạm vi kỳ. **Xác nhận kỳ** còn kiểm lại phạm vi: nếu còn phiếu / dầu hợp lệ chưa được tính thì báo `E_NEEDS_RECALC` kèm số lượng — bấm **TÍNH GIÁ** lại rồi xác nhận. Phiếu / dòng dầu đã chủ động bỏ khỏi kỳ không bị tính là thiếu. Kỳ đã xác nhận / khóa không đổi (chỉ cảnh báo "nhập muộn").
+
 ### Bù trừ nhiên liệu (dầu âm) — từ bản 1.1.6
 - Trong bảng kê dầu ghi **số lít âm** cho dòng bù trừ (vd `-100`). Đơn giá được để trống.
 - Phần mềm: dầu thực nhận **trừ** số lít đó; đơn giá dầu của kỳ vẫn là trung bình cộng các dòng **dương** (dòng âm không làm thay đổi giá).

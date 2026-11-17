@@ -5,6 +5,7 @@
  * Xóa = xóa mềm (is_deleted), bắt lý do. Mọi thao tác ghi AUDIT_LOG.
  */
 const { AppError, businessError } = require('../../shared/errors');
+const { draftFinder } = require('./periodCoverage');
 const { issue } = require('../engine/issues');
 
 const FUEL_EDITABLE = ['receive_date', 'route_code', 'fuel_vehicle_code', 'uom', 'qty_liter', 'fuel_price_excl_vat', 'purchase_date', 'giver_unit_code', 'fuel_depot'];
@@ -63,10 +64,12 @@ class RecordService {
   /** Khôi phục phiếu đã xóa. */
   async restoreTicket({ ticketId, reason = '', user }) {
     const t = this.store.get('PHIEU_CAN', ticketId); if (!t || !t.is_deleted) throw new AppError('NOT_FOUND', `Không có phiếu đã xóa ${ticketId}`);
+    const drafts = draftFinder(this.store).forTicket({ ...t, is_deleted: false }); // kỳ nháp có phạm vi chứa phiếu khôi phục → phải tính lại
     return this.store.transaction((tx) => {
       const { after } = tx.update('PHIEU_CAN', ticketId, { is_deleted: false });
+      for (const p of drafts) tx.update('KY_TINH', p, { needs_recalc: true });
       tx.audit('RESTORE', 'PHIEU_CAN', ticketId, { is_deleted: true }, { is_deleted: false }, { reason });
-      return { record: after };
+      return { record: after, affectedPeriods: drafts };
     }, { user: user.username });
   }
   softDeleteTicket({ ticketId, reason, user }) { return this._softDelete('PHIEU_CAN', 'ticket_id', 'TRANSPORT_DETAIL', ticketId, reason, user, 'phiếu cân'); }
@@ -103,7 +106,8 @@ class RecordService {
     if (!Object.keys(patch).length) return { record: r, affectedPeriods: [] };
     // chỉ sửa kho nhận dầu (mô tả, không ảnh hưởng số tính) → sửa được cả khi dòng dầu đã ở kỳ đã chốt
     const descOnly = Object.keys(patch).every((k) => k === 'fuel_depot');
-    const drafts = descOnly ? [] : this._guard(this._periodsOf('FUEL_DETAIL', 'receipt_id', receiptId), `Dòng dầu ${receiptId}`);
+    const used = descOnly ? [] : this._guard(this._periodsOf('FUEL_DETAIL', 'receipt_id', receiptId), `Dòng dầu ${receiptId}`);
+    const drafts = descOnly ? [] : [...new Set([...used, ...draftFinder(this.store).forFuel({ ...r, ...patch })])]; // + kỳ nháp mà số liệu mới thuộc phạm vi (đổi tuyến / hợp đồng)
     return this.store.transaction((tx) => {
       const { before, after } = tx.update('GIAO_NHAN_DAU', receiptId, { ...patch, validation_flags: v.record.validation_flags }, { expectedRowVersion: rowVersion });
       for (const p of drafts) tx.update('KY_TINH', p, { needs_recalc: true });
@@ -134,10 +138,13 @@ class RecordService {
     }
     const out = await this.store.transaction((tx) => {
       const ids = [];
+      const finder = draftFinder(this.store); const recalc = new Set();
       for (const r of checked.filter((x) => x.status !== 'DUPLICATE')) {
         const rec = { ...r.record, receipt_id: tx.nextId('GD'), import_batch_id: '', raw_row_json: JSON.stringify({ nhap_tay: true, ...rows[r.rowNo - 1] }) };
         tx.insert('GIAO_NHAN_DAU', rec); ids.push(rec.receipt_id);
+        for (const p of finder.forFuel(rec)) recalc.add(p); // dầu mới → kỳ nháp của hợp đồng phải tính lại
       }
+      for (const p of recalc) tx.update('KY_TINH', p, { needs_recalc: true });
       tx.audit('CREATE', 'GIAO_NHAN_DAU', contractId, null, { manual: true, inserted: ids.length, ids });
       return { inserted: ids.length, insertedIds: ids, duplicates: checked.filter((x) => x.status === 'DUPLICATE').length, warnings: checked.filter((x) => x.status === 'WARNING').map((x) => ({ rowNo: x.rowNo, issues: x.issues })) };
     }, { user: user.username });

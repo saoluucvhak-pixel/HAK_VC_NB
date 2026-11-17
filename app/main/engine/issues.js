@@ -29,6 +29,8 @@ const ISSUE = {
   // ── dùng khi import (preview / confirm) ──
   E_FIELD_MISSING:        ['ERROR', 'Dòng {rowNo}: thiếu {field}'],
   E_KG_INVALID:           ['ERROR', 'Dòng {rowNo}: KL hàng không hợp lệ ({value}) — phải là số > 0'],
+  E_NUMBER_AMBIGUOUS:     ['ERROR', 'Dòng {rowNo}: số "{value}" đọc được hai cách ({asVn} hoặc {asEn}) — chọn "Kiểu số trong file" ở bước xem trước'],
+  W_KG_IMPLAUSIBLE:       ['WARNING', 'Dòng {rowNo}: KL hàng {value} kg nhỏ bất thường (< {min} kg) — kiểm tra dấu ngăn cách số trong file'],
   E_QTY_INVALID:          ['ERROR', 'Dòng {rowNo}: số lượng dầu không hợp lệ ({value}) — phải là số khác 0 (dòng bù trừ ghi số âm)'],
   E_PLATE_FORMAT:         ['ERROR', 'Dòng {rowNo}: biển số "{value}" sai định dạng (vd 43H-01080)'],
   E_VEHICLE_NOT_FOUND:    ['ERROR', 'Dòng {rowNo}: xe "{value}" chưa có trong danh mục xe — thêm xe trước khi import'],
