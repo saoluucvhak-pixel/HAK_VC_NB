@@ -60,3 +60,17 @@ jobs:
         with:
           name: hak-quality-report
           path: reports/
+
+  audit:
+    # cảnh báo lỗ hổng thư viện (dependencies chạy trong bản cài); không chặn merge khi có cảnh báo mới ngoài ý muốn
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm audit --omit=dev --audit-level=high

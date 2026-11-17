@@ -18,7 +18,33 @@ if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
 let win = null; let ctx = null; let router = null;
 const logFile = () => path.join(app.getPath('userData'), 'dgvc-main.log');
-const log = (...a) => { try { fs.appendFileSync(logFile(), `${new Date().toISOString()} ${a.map((x) => (x && x.stack) || String(x)).join(' ')}\n`); } catch { /* bỏ qua */ } };
+const LOG_MAX = 2 * 1024 * 1024; // nhật ký quá 2 MB thì đổi tên thành .1 (giữ 1 bản cũ) để không phình mãi
+const log = (...a) => {
+  try {
+    const f = logFile();
+    try { if (fs.statSync(f).size > LOG_MAX) fs.renameSync(f, `${f}.1`); } catch { /* chưa có file */ }
+    fs.appendFileSync(f, `${new Date().toISOString()} ${a.map((x) => (x && x.stack) || String(x)).join(' ')}\n`);
+  } catch { /* bỏ qua */ }
+};
+// lỗi không bắt được: ghi nhật ký VÀ báo người dùng (tối đa 1 hộp thoại / 30 giây để không dồn dập)
+let lastErrorBox = 0;
+const reportFatal = (kind, e) => {
+  log(kind, e);
+  const now = Date.now();
+  if (!app.isReady() || now - lastErrorBox < 30000) return;
+  lastErrorBox = now;
+  dialog.showErrorBox('Lỗi không mong muốn', `${(e && e.message) || String(e)}\n\nChi tiết đã ghi vào nhật ký. Nếu lỗi lặp lại: menu Trợ giúp → Mở thư mục nhật ký, gửi file dgvc-main.log cho ADMIN.`);
+};
+// cửa sổ giao diện hỏng / treo → cho người dùng tải lại hoặc thoát (trước đây chỉ trắng màn hình)
+let recovering = false;
+async function offerRecover(why) {
+  if (!win || win.isDestroyed() || recovering) return;
+  recovering = true;
+  const r = await dialog.showMessageBox(win, { type: 'error', buttons: ['Tải lại', 'Thoát'], defaultId: 0, cancelId: 1, title: 'Giao diện gặp sự cố', message: why,
+    detail: 'Dữ liệu đã lưu không bị ảnh hưởng. Chọn Tải lại để mở lại giao diện (có thể phải đăng nhập lại).' });
+  recovering = false;
+  if (win && !win.isDestroyed()) { if (r.response === 0) win.webContents.reload(); else app.quit(); }
+}
 
 function host() {
   return {
@@ -41,6 +67,9 @@ function createWindow() {
   win.once('ready-to-show', () => win.show());
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
+  win.webContents.on('render-process-gone', (_e, d) => { log('render-process-gone', JSON.stringify(d)); if (d.reason !== 'clean-exit') offerRecover(`Cửa sổ giao diện bị dừng đột ngột (${d.reason}).`); });
+  win.webContents.on('did-fail-load', (_e, code, desc, _url, isMain) => { if (isMain && code !== -3) { log('did-fail-load', code, desc); offerRecover(`Không nạp được giao diện (${desc}).`); } }); // -3 = bị hủy do điều hướng, bỏ qua
+  win.on('unresponsive', () => { log('unresponsive'); offerRecover('Giao diện không phản hồi.'); });
   win.loadFile(path.join(__dirname, '../../renderer/index.html'));
 }
 
@@ -64,10 +93,12 @@ app.whenReady().then(() => {
   }
   router = new Router(ctx, { host: host(), log });
   ipcMain.handle('api', (_e, action, payload, token) => router.handle(action, payload, token));
+  ipcMain.on('client-log', (_e, msg) => { if (typeof msg === 'string') log('renderer', msg.slice(0, 2000)); }); // lỗi JavaScript của giao diện
   createWindow();
   app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 });
 
 app.on('before-quit', () => { try { if (ctx) ctx.close(); } catch (e) { log('close', e); } });
 app.on('window-all-closed', () => app.quit());
-process.on('uncaughtException', (e) => log('uncaught', e));
+process.on('uncaughtException', (e) => reportFatal('uncaught', e));
+process.on('unhandledRejection', (e) => reportFatal('unhandledRejection', e));

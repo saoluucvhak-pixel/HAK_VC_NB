@@ -20,7 +20,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "adm-zip": "^0.5.18",
+    "adm-zip": "^0.6.1",
     "exceljs": "^4.4.0"
   },
   "devDependencies": {
@@ -80,5 +80,8 @@
       "vi",
       "en-US"
     ]
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }
