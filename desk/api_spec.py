@@ -9,7 +9,8 @@ A, K, X = 'ADMIN', 'KE_TOAN', 'XEM'
 ALL = [A, K, X]; EDIT = [A, K]; ADM = [A]; PUBLIC = ['(chưa đăng nhập)']
 PAGING = [('page', 'integer', False, 'mặc định 1'), ('pageSize', 'integer', False, 'mặc định 100, tối đa 1000'),
           ('sort', 'string', False, 'vd `weigh1_date:desc`')]
-ROWV = ('rowVersion', 'integer', True, 'row_version đang có ở client — sai → CONFLICT_VERSION')
+ROWV = ('rowVersion', 'integer', True, 'row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)')
+ROWV_OPT = ('rowVersion', 'integer', False, 'tùy chọn: nếu gửi thì kiểm; sai → CONFLICT_VERSION')
 
 EP = []
 def ep(action, group, desc, roles, inp, out, errors=(), reads=(), writes=(), audit=None, lock=False, scope=''):
@@ -135,7 +136,7 @@ ep('tickets.previewBulkDescriptive', 'Phiếu cân', 'Xem trước sửa hàng l
 ep('tickets.bulkUpdateDescriptive', 'Phiếu cân', 'Sửa hàng loạt 1 cột mô tả — không ảnh hưởng số tính; phiếu ở kỳ đã khóa cần quyền mở khóa; bắt buộc lý do; audit từng phiếu', EDIT,
    [('field', 'string', True, ''), ('fromValue', 'string', True, ''), ('toValue', 'string', True, ''), ('dateFrom', 'date', False, ''), ('dateTo', 'date', False, ''),
     ('reason', 'string', True, ''), ('clientRequestId', 'string', True, '')], '{updated, periods}', ['VALIDATION_FAILED', 'FORBIDDEN'], ['PHIEU_CAN', 'TRANSPORT_DETAIL', 'KY_TINH'], ['PHIEU_CAN'], 'BULK_UPDATE', True)
-ep('tickets.softDelete', 'Phiếu cân', 'Xóa mềm (cấm nếu đang dùng ở kỳ chưa hủy)', EDIT, [('ticketId', 'string', True, ''), ('reason', 'string', True, ''), ROWV],
+ep('tickets.softDelete', 'Phiếu cân', 'Xóa mềm (cấm nếu đang dùng ở kỳ chưa hủy)', EDIT, [('ticketId', 'string', True, ''), ('reason', 'string', True, ''), ROWV_OPT],
    '{record}', ['BUSINESS_RULE:E_IN_USE'], ['PHIEU_CAN', 'TRANSPORT_DETAIL'], ['PHIEU_CAN'], 'DELETE', True)
 ep('tickets.softDeleteMany', 'Phiếu cân', 'Xóa mềm nhiều phiếu (vd file import nhầm); phiếu ở kỳ đã xác nhận / khóa bỏ qua và báo lại; kỳ nháp → phải tính lại', EDIT,
    [('ticketIds', 'array<string>', True, ''), ('reason', 'string', True, '')], '{deleted, skipped:[{ticketId, ticketNo, periodCode}], affectedPeriods}', ['VALIDATION_FAILED'], ['PHIEU_CAN', 'TRANSPORT_DETAIL'], ['PHIEU_CAN', 'KY_TINH'], 'DELETE', True)
@@ -154,7 +155,7 @@ ep('fuel.softDeleteMany', 'Giao nhận dầu', 'Xóa mềm nhiều dòng dầu (
    [('receiptIds', 'array<string>', True, ''), ('reason', 'string', True, '')], '{deleted, skipped[{receiptId, periodCode}], affectedPeriods}', ['VALIDATION_FAILED'], ['GIAO_NHAN_DAU', 'FUEL_DETAIL'], ['GIAO_NHAN_DAU', 'KY_TINH'], 'DELETE', True)
 ep('fuel.update', 'Giao nhận dầu', 'Sửa 1 dòng dầu (luật như tickets.update)', EDIT, [('receiptId', 'string', True, ''), ('changes', 'object', True, ''), ROWV],
    '{record, affectedPeriods}', ['CONFLICT_VERSION', 'BUSINESS_RULE:E_FUEL_LOCKED'], ['GIAO_NHAN_DAU', 'FUEL_DETAIL'], ['GIAO_NHAN_DAU', 'KY_TINH'], 'UPDATE', True)
-ep('fuel.softDelete', 'Giao nhận dầu', 'Xóa mềm dòng dầu', EDIT, [('receiptId', 'string', True, ''), ('reason', 'string', True, ''), ROWV], '{record}',
+ep('fuel.softDelete', 'Giao nhận dầu', 'Xóa mềm dòng dầu', EDIT, [('receiptId', 'string', True, ''), ('reason', 'string', True, ''), ROWV_OPT], '{record}',
    ['BUSINESS_RULE:E_IN_USE'], ['GIAO_NHAN_DAU', 'FUEL_DETAIL'], ['GIAO_NHAN_DAU'], 'DELETE', True)
 ep('fuel.ackFlags', 'Giao nhận dầu', 'Xác nhận cảnh báo dòng dầu (vd nghi trùng nhưng không trùng)', EDIT,
    [('receiptIds', 'array<string>', True, ''), ('note', 'string', True, '')], '{updated}', [], ['GIAO_NHAN_DAU'], ['GIAO_NHAN_DAU'], 'ACK_FLAGS', True)

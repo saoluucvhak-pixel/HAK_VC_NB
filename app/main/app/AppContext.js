@@ -163,6 +163,7 @@ class AppContext {
     this.svc.vehicleKm = new VehicleKmService(store);
     this.svc.archive = new ArchiveService(store, { backup });
     if (sessions) this.svc.auth.sessions = sessions; // giữ phiên đăng nhập khi mở lại kho (sau khôi phục)
+    this.orphanBatches = importService.cancelOrphans().catch(() => ({ cancelled: [] })); // lô xem trước bỏ dở từ lần chạy trước → CANCELLED
   }
 
   /** Sau khôi phục sao lưu: store mới → dựng lại service. */

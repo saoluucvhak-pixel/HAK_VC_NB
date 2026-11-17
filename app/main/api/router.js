@@ -14,6 +14,9 @@ const { AppError } = require('../../shared/errors');
 const PUBLIC = '(chưa đăng nhập)';
 const specRoles = Object.fromEntries(SPEC.actions.map((a) => [a.action, a.roles]));
 const A = ['ADMIN']; const AK = ['ADMIN', 'KE_TOAN']; const AKX = ['ADMIN', 'KE_TOAN', 'XEM'];
+// Các lệnh SỬA có đặc tả rowVersion BẮT BUỘC: gọi thiếu thì từ chối (trước đây bỏ qua khóa lạc quan và ghi đè bản mới nhất).
+// Xóa mềm (softDelete) có rowVersion tùy chọn: gửi thì kiểm. Dịch vụ nội bộ (test, công cụ) không đổi — chỉ chặn ở biên API.
+const ROWVERSION_REQUIRED = new Set([...SPEC.actions.filter((a) => a.input.some((i) => i[0] === 'rowVersion' && i[2])).map((a) => a.action), 'contracts.setActive']);
 const needStore = (ctx) => { if (!ctx.store) throw new AppError('NOT_INITIALIZED', 'Bản cài chưa khởi tạo'); return ctx.svc; };
 const rid = (p) => p.clientRequestId || `srv-${crypto.randomBytes(6).toString('hex')}`;
 
@@ -173,6 +176,9 @@ class Router {
     try {
       const route = ROUTES[action]; if (!route) throw new AppError('NOT_FOUND', `Không có chức năng ${action}`);
       const roles = this.rolesOf(action);
+      if (ROWVERSION_REQUIRED.has(action) && !Number.isInteger(payload && payload.rowVersion)) {
+        throw new AppError('VALIDATION_FAILED', 'Thiếu rowVersion (phiên bản bản ghi đang sửa) — tải lại dữ liệu rồi thao tác lại', { field: 'rowVersion', action });
+      }
       let session = null;
       if (!roles.includes(PUBLIC)) {
         needStore(this.ctx);

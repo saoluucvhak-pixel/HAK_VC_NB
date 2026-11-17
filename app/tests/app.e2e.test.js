@@ -98,7 +98,7 @@ test('Luồng thật qua API: ĐH import → tính → xác nhận → gửi gó
   await dh.ok('tickets.bulkUpdateDescriptive', { field: 'ldd', fromValue: 'UTXK/ĐN-QS/0526', toValue: 'UTXK/ĐN-QS/0726', reason: 'Chốt LDĐ 0726' });
   const k = await dh.ok('periods.calculate', { contractId: 'HD-DH-HAKQN', dateFrom: '2026-09-18', dateTo: '2026-09-23', routeCode: 'VC.007', reportDate: '2026-09-24' });
   assert.equal(k.results[0].transportPrice, 88900);
-  await dh.ok('periods.confirm', { periodId: k.period.period_id });
+  await dh.ok('periods.confirm', { periodId: k.period.period_id, rowVersion: k.period.row_version });
   const x = await dh.ok('reports.export', { report: 'BKVC', format: 'XLSX', params: { periodId: k.period.period_id } });
   assert.ok(fs.existsSync(x.path));
   const dash = await dh.ok('dashboard.summary', { dateFrom: '2026-09-18', dateTo: '2026-09-23' });
@@ -119,7 +119,7 @@ test('Luồng thật qua API: ĐH import → tính → xác nhận → gửi gó
   const b = await qn.ok('reports.bkvc', { periodId: got.period_id });
   assert.equal(b.totals.total, 139421905); assert.equal(b.header.origin, 'IMPORTED');
   // bản cài nhận không sửa được kỳ đó
-  assert.equal((await qn.call('periods.cancel', { periodId: got.period_id, reason: 'x' })).error.details.code, 'E_READONLY_IMPORTED');
+  assert.equal((await qn.call('periods.cancel', { periodId: got.period_id, reason: 'x', rowVersion: got.row_version })).error.details.code, 'E_READONLY_IMPORTED');
   // nhập lại cùng gói: mọi thứ đã có
   const again = await qn.ok('exchange.previewPackage', { filePath: pkg.file });
   assert.equal(again.summary.KY_TINH.SAME, 1); assert.equal(again.summary.PHIEU_CAN.SAME, 77);

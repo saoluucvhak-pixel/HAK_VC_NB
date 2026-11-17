@@ -421,7 +421,7 @@ Ngừng / dùng lại đơn vị (không xóa cứng). Quyền: ADMIN.
 |---|---|---|---|
 | `unitCode` | string | ✔ |  |
 | `active` | boolean | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn) |
 
 - **Trả về:** `{record}`
 - **Lỗi:** `NOT_FOUND`, `CONFLICT_VERSION`, `BUSINESS_RULE:E_IN_USE`
@@ -465,7 +465,7 @@ Ngừng / dùng lại xe (không xóa cứng). Quyền: ADMIN, KE_TOAN.
 |---|---|---|---|
 | `plateNo` | string | ✔ |  |
 | `active` | boolean | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn) |
 
 - **Trả về:** `{record}`
 - **Lỗi:** `NOT_FOUND`, `CONFLICT_VERSION`, `BUSINESS_RULE:E_IN_USE`
@@ -513,7 +513,7 @@ Ngừng / dùng lại tuyến (không xóa cứng). Quyền: ADMIN, KE_TOAN.
 |---|---|---|---|
 | `routeCode` | string | ✔ |  |
 | `active` | boolean | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn) |
 
 - **Trả về:** `{record}`
 - **Lỗi:** `NOT_FOUND`, `CONFLICT_VERSION`, `BUSINESS_RULE:E_IN_USE`
@@ -577,7 +577,7 @@ Sửa phiên bản DRAFT (cấm khi ACTIVE đã dùng). Quyền: ADMIN, KE_TOAN.
 |---|---|---|---|
 | `priceId` | string | ✔ |  |
 | `record` | object | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn) |
 
 - **Trả về:** `{record}`
 - **Lỗi:** `BUSINESS_RULE:E_PRICE_USED`, `CONFLICT_VERSION`
@@ -591,7 +591,7 @@ Kích hoạt DRAFT → ACTIVE; tự đóng phiên bản trước (effective_to =
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
 | `priceId` | string | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn) |
 
 - **Trả về:** `{activated, closed, affectedPeriods}` — kỳ nháp dùng giá cũ có ngày ≥ ngày hiệu lực mới → `needs_recalc`
 - **Lỗi:** `BUSINESS_RULE:E_PRICE_DATE_OVERLAP`, `BUSINESS_RULE:E_PRICE_USED` (kỳ đã xác nhận/khóa dùng giá cũ có ngày ≥ ngày hiệu lực mới)
@@ -701,7 +701,7 @@ Sửa phiếu — cấm nếu đang ở kỳ DA_XAC_NHAN/DA_KHOA; kỳ NHAP → 
 |---|---|---|---|
 | `ticketId` | string | ✔ |  |
 | `changes` | object | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn) |
 
 - **Trả về:** `{record, affectedPeriods}`
 - **Lỗi:** `CONFLICT_VERSION`, `BUSINESS_RULE:E_TICKET_LOCKED`, `VALIDATION_FAILED`, `DUPLICATE`
@@ -716,7 +716,7 @@ Xóa mềm (cấm nếu đang dùng ở kỳ chưa hủy). Quyền: ADMIN, KE_TO
 |---|---|---|---|
 | `ticketId` | string | ✔ |  |
 | `reason` | string | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer |  | tùy chọn: nếu gửi thì kiểm; sai → CONFLICT_VERSION |
 
 - **Trả về:** `{record}`
 - **Lỗi:** `BUSINESS_RULE:E_IN_USE`
@@ -777,7 +777,7 @@ Sửa 1 dòng dầu (luật như tickets.update). Quyền: ADMIN, KE_TOAN.
 |---|---|---|---|
 | `receiptId` | string | ✔ |  |
 | `changes` | object | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn) |
 
 - **Trả về:** `{record, affectedPeriods}`
 - **Lỗi:** `CONFLICT_VERSION`, `BUSINESS_RULE:E_FUEL_LOCKED`
@@ -792,7 +792,7 @@ Xóa mềm dòng dầu. Quyền: ADMIN, KE_TOAN.
 |---|---|---|---|
 | `receiptId` | string | ✔ |  |
 | `reason` | string | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer |  | tùy chọn: nếu gửi thì kiểm; sai → CONFLICT_VERSION |
 
 - **Trả về:** `{record}`
 - **Lỗi:** `BUSINESS_RULE:E_IN_USE`
@@ -964,7 +964,7 @@ Xác nhận kỳ: NHAP → DA_XAC_NHAN; usage_state = CONFIRMED; PRICE_HISTORY.i
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
 | `periodId` | string | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn) |
 
 - **Trả về:** `{period}`
 - **Lỗi:** `BUSINESS_RULE:E_PERIOD_STATUS`, `CONFLICT_VERSION`, `FORBIDDEN`, `BUSINESS_RULE:E_NEEDS_RECALC`
@@ -978,7 +978,7 @@ Khóa kỳ: DA_XAC_NHAN → DA_KHOA; usage_state = LOCKED. Quyền: ADMIN, KE_TO
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
 | `periodId` | string | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn) |
 
 - **Trả về:** `{period}`
 - **Lỗi:** `BUSINESS_RULE:E_PERIOD_STATUS`, `CONFLICT_VERSION`, `FORBIDDEN`
@@ -992,7 +992,7 @@ Mở khóa: DA_KHOA → DA_XAC_NHAN (cần can_unlock + lý do). Quyền: ADMIN.
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
 | `periodId` | string | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn) |
 | `reason` | string | ✔ | bắt buộc |
 
 - **Trả về:** `{period}`
@@ -1007,7 +1007,7 @@ Trả về nháp để sửa/tính lại: DA_XAC_NHAN → NHAP (cần can_unlock
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
 | `periodId` | string | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn) |
 | `reason` | string | ✔ |  |
 
 - **Trả về:** `{period}`
@@ -1022,7 +1022,7 @@ Hủy kỳ nháp: NHAP → HUY; usage_state = RELEASED. Quyền: ADMIN, KE_TOAN.
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
 | `periodId` | string | ✔ |  |
-| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION |
+| `rowVersion` | integer | ✔ | row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn) |
 | `reason` | string | ✔ |  |
 
 - **Trả về:** `{period}`
@@ -1625,3 +1625,9 @@ Mã kiểm tra mới: `W_TICKET_LATE` (import phiếu cân có ngày thuộc k�
 ## Bổ sung bản 1.2.10
 - `import.preview` nhận thêm `numberStyle` (AUTO|VN|EN); mã mới `E_NUMBER_AMBIGUOUS` (ERROR), `W_KG_IMPLAUSIBLE` (WARNING).
 - `periods.confirm`: kiểm phạm vi phiếu/dầu hợp lệ chưa được tính → `E_NEEDS_RECALC` (kèm `ticketCount`, `fuelCount`); phiếu/dầu mới, khôi phục, đổi tuyến vào phạm vi kỳ nháp đặt `needs_recalc`.
+
+## Bổ sung bản 1.2.11 — Siết khóa lạc quan, import không ghi đè, dọn lô treo
+- **rowVersion bắt buộc ở Router** cho mọi thao tác sửa / đổi trạng thái bản ghi (đánh dấu bắt buộc trong spec; thêm `contracts.setActive`). Thiếu → `VALIDATION_FAILED` ("Thiếu rowVersion"). Xóa mềm phiếu / dầu: rowVersion tùy chọn (có thì kiểm tra).
+- **Import "Cập nhật / Khôi phục"** ghi nhận `row_version` của phiếu đích lúc xem trước; nếu phiếu bị sửa tay trước khi xác nhận → `E_PREVIEW_STALE`, không ghi đè.
+- **Lô xem trước bỏ dở** (`IMPORT_BATCH` = PREVIEW còn sót sau khi tắt phần mềm) được chuyển `CANCELLED` khi mở kho; xác nhận lô không còn phiên xem trước báo rõ (đã xác nhận / đã hủy / phiên đã hết).
+- Chưa làm: lưu `clientRequestId` bền (cần đổi lược đồ → ảnh hưởng tương thích `.dgvc`); hiện vẫn chống trùng trong bộ nhớ.

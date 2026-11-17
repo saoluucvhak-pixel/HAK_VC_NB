@@ -93,10 +93,11 @@ class ImportService {
   async confirm({ batchId, skipRowNos = [], acceptWarnings = false, clientRequestId, user = 'system' }) {
     if (!clientRequestId) throw new AppError('VALIDATION_FAILED', 'Thiếu clientRequestId');
     if (this.done.has(clientRequestId)) return this.done.get(clientRequestId);
-    const st = this.staging.get(batchId); if (!st) throw new AppError('NOT_FOUND', `Không có lô đang xem trước: ${batchId}`);
+    const st = this.staging.get(batchId); if (!st) throw this._noStaging(batchId);
     const skip = new Set(skipRowNos);
     const fresh = this._validate(st); // kiểm lại trên dữ liệu hiện tại
-    const sig = (rows) => rows.map((r) => `${r.rowNo}:${r.status}`).join('|');
+    // chữ ký = số dòng + trạng thái + PHIÊN BẢN dòng đích sẽ cập nhật / khôi phục: người khác sửa tay phiếu đó sau lúc xem trước → phải xem trước lại (không ghi đè)
+    const sig = (rows) => rows.map((r) => `${r.rowNo}:${r.status}:${r.update ? r.update.rowVersion : ''}`).join('|');
     if (sig(fresh.rows) !== sig(st.result.rows)) {
       throw businessError('E_PREVIEW_STALE', 'Dữ liệu đã thay đổi kể từ lúc xem trước — hãy xem trước lại', { before: this._summary(st.result.rows), now: this._summary(fresh.rows) });
     }
@@ -114,7 +115,7 @@ class ImportService {
         const F = r.update.fields; // chỉ các cột khác nhau và có trong file
         const patch = Object.fromEntries(F.map((f) => [f, r.record[f]]));
         if (F.includes('transport_unit_name')) patch.owner_unit_code = r.record.owner_unit_code;
-        tx.update('PHIEU_CAN', r.update.id, { ...patch, is_deleted: false, validation_flags: r.record.validation_flags, flags_ack: false });
+        tx.update('PHIEU_CAN', r.update.id, { ...patch, is_deleted: false, validation_flags: r.record.validation_flags, flags_ack: false }, { expectedRowVersion: r.update.rowVersion });
         tx.audit(r.update.mode === 'RESTORE' ? 'IMPORT_RESTORE' : 'IMPORT_UPDATE', 'PHIEU_CAN', r.update.id,
           { ...Object.fromEntries(F.map((f) => [f, before[f]])), ...(r.update.mode === 'RESTORE' ? { is_deleted: true } : {}) }, patch, { reason: `import ${st.fileName} dòng ${r.rowNo} (lô ${batchId})` });
         for (const p of r.update.drafts) recalc.add(p);
@@ -136,6 +137,30 @@ class ImportService {
     this.staging.delete(batchId);
     this.done.set(clientRequestId, out);
     return out;
+  }
+
+  /** Lô không còn dữ liệu xem trước trong bộ nhớ: nói rõ lý do theo trạng thái lô (đã xác nhận / đã hủy / phiên xem trước đã mất do khởi động lại). */
+  _noStaging(batchId) {
+    const b = this.store.get('IMPORT_BATCH', batchId);
+    if (b && b.status === 'CONFIRMED') return new AppError('NOT_FOUND', `Lô ${batchId} đã được xác nhận trước đó${b.confirmed_at ? ` (${b.confirmed_at.replace('T', ' ').slice(0, 16)})` : ''} — không nhập lại. Xem Lịch sử import hoặc danh sách phiếu để kiểm tra`);
+    if (b && b.status === 'CANCELLED') return new AppError('NOT_FOUND', `Lô ${batchId} đã bị hủy (xem trước bỏ dở) — hãy import lại file`);
+    return new AppError('NOT_FOUND', `Phiên xem trước lô ${batchId} đã hết (phần mềm đã khởi động lại hoặc lô đã đóng) — hãy xem trước lại file`);
+  }
+
+  /**
+   * Lô xem trước chỉ nằm trong bộ nhớ nhưng IMPORT_BATCH `PREVIEW` được ghi bền ngay khi xem trước: tắt phần mềm giữa chừng thì lô treo mãi.
+   * Gọi MỘT LẦN khi mở kho (bộ nhớ xem trước đang rỗng) → mọi lô PREVIEW còn lại là bỏ dở: chuyển sang CANCELLED, ghi nhật ký.
+   */
+  async cancelOrphans({ user = 'system' } = {}) {
+    const orphans = this.store.find('IMPORT_BATCH', (b) => b.status === 'PREVIEW' && !this.staging.has(b.batch_id));
+    if (!orphans.length) return { cancelled: [] };
+    await this.store.transaction((tx) => {
+      for (const b of orphans) {
+        tx.update('IMPORT_BATCH', b.batch_id, { status: 'CANCELLED' });
+        tx.audit('IMPORT_CANCEL', 'IMPORT_BATCH', b.batch_id, { status: 'PREVIEW' }, { status: 'CANCELLED' }, { reason: 'lô xem trước bỏ dở (tắt phần mềm trước khi xác nhận / hủy)' });
+      }
+    }, { user });
+    return { cancelled: orphans.map((b) => b.batch_id) };
   }
 
   async cancel({ batchId, user = 'system' }) {
@@ -296,7 +321,7 @@ class ImportService {
       const fmtv = (f, v) => (f.endsWith('_date') ? String(v || '').split('-').reverse().join('/') : v === '' || v === null || v === undefined ? '(trống)' : v);
       const changes = [...core, ...(old.is_deleted ? desc : [])].map((f) => `${LBL[f] || f} ${fmtv(f, old[f])} → ${fmtv(f, r.record[f])}`).join(', ');
       // phiếu đã xóa trước đây → import lại = KHÔI PHỤC (theo số liệu trong file)
-      if (old.is_deleted) { r.update = { id: old.ticket_id, mode: 'RESTORE', drafts: [], fields: [...core, ...desc] }; r.issues.push(issue('W_TICKET_RESTORE', { ticketNo: r.record.ticket_no, changes: changes ? ` — số liệu theo file: ${changes}` : '' })); continue; }
+      if (old.is_deleted) { r.update = { id: old.ticket_id, mode: 'RESTORE', drafts: [], fields: [...core, ...desc], rowVersion: old.row_version }; r.issues.push(issue('W_TICKET_RESTORE', { ticketNo: r.record.ticket_no, changes: changes ? ` — số liệu theo file: ${changes}` : '' })); continue; }
       if (core.length) {
         const ps = ctx.ticketPeriods.get(old.ticket_id) || [];
         const hard = ps.find((p) => p.status !== 'NHAP');
@@ -306,7 +331,7 @@ class ImportService {
           continue;
         }
         // phiếu đã có, khác số liệu, chưa ở kỳ đã chốt → CẬP NHẬT theo file
-        r.update = { id: old.ticket_id, mode: 'UPDATE', drafts: ps.map((p) => p.period_id), fields: core };
+        r.update = { id: old.ticket_id, mode: 'UPDATE', drafts: ps.map((p) => p.period_id), fields: core, rowVersion: old.row_version };
         r.issues.push(issue('W_TICKET_UPDATE', { ticketNo: r.record.ticket_no, changes, drafts: ps.length ? ` — kỳ nháp ${ps.map((p) => p.period_code).join(', ')} phải tính lại` : '' }));
         continue;
       }
