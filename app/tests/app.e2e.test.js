@@ -163,7 +163,9 @@ test('Sửa danh mục ở BẤT KỲ nhà máy nào → nhắc sửa các nhà 
   const pq = await qn.ok('exchange.previewPackage', { filePath: (await hak.ok('exchange.exportPackage', { packageType: 'DANH_MUC', targetUnitCode: 'HAKQN' })).file });
   await qn.ok('exchange.importPackage', { previewId: pq.previewId });
   const q16 = qn.ctx.store.get('TUYEN_VC', 'VC.016');
+  // dấu thời gian tính theo giây: 2 lần lưu phải nằm TRONG CÙNG 1 GIÂY thì mới "cùng sửa" → chờ tới đầu giây mới (+50 ms) rồi lưu liên tiếp, tránh lúc giây đổi giữa 2 lần lưu làm test chập chờn trên máy chậm
   await new Promise((res) => setTimeout(res, 1100));
+  await new Promise((res) => setTimeout(res, 1000 - (Date.now() % 1000) + 50));
   await qn.ok('routes.save', { record: { routeCode: 'VC.016', note: 'HAKQN ghi chú' }, rowVersion: q16.row_version });
   const h16 = hak.ctx.store.get('TUYEN_VC', 'VC.016');
   await hak.ok('routes.save', { record: { routeCode: 'VC.016', distanceKm: 21 }, rowVersion: h16.row_version });
