@@ -1621,3 +1621,7 @@ Mã kiểm tra mới: `W_TICKET_LATE` (import phiếu cân có ngày thuộc k�
 ## Bổ sung bản 1.2.9
 - Nâng Electron 38.8.6 → 45.3.3 (Chromium 156, Node 24), electron-builder 26.18.0; môi trường dựng cần Node >= 22.12.
 - Không đổi API nghiệp vụ. Xử lý lỗi: lỗi hệ thống có mã `requestId`; giao diện gửi lỗi JavaScript về nhật ký (`dgvc.logError`).
+
+## Bổ sung bản 1.2.10
+- `import.preview` nhận thêm `numberStyle` (AUTO|VN|EN); mã mới `E_NUMBER_AMBIGUOUS` (ERROR), `W_KG_IMPLAUSIBLE` (WARNING).
+- `periods.confirm`: kiểm phạm vi phiếu/dầu hợp lệ chưa được tính → `E_NEEDS_RECALC` (kèm `ticketCount`, `fuelCount`); phiếu/dầu mới, khôi phục, đổi tuyến vào phạm vi kỳ nháp đặt `needs_recalc`.

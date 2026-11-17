@@ -8,7 +8,7 @@ Unicode true
 
 !define APPNAME "Đơn giá vận chuyển dăm"
 !define APPKEY  "DGVC"
-!define VERSION "1.2.9"
+!define VERSION "1.2.10"
 !define SRC     "..\dist\win-unpacked"
 
 Name "${APPNAME}"
