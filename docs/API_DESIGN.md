@@ -1614,3 +1614,7 @@ Mã kiểm tra mới: `W_TICKET_LATE` (import phiếu cân có ngày thuộc k�
 ## Bổ sung bản 1.2.8
 - `exchange.previewPackage` → mục `conflicts[]` có thêm `kind` và `supersedeCodes`: `kind: "SUPERSEDE"` khi gói kỳ tính đến từ CÙNG máy gửi, cùng hợp đồng, cùng khoảng ngày/tuyến với đúng 1 kỳ đã nhận (vd bên gửi hủy kỳ rồi lập lại, mã `…#2`). Trước đây bị `REJECT` ("hai kỳ chồng ngày nhau").
 - `exchange.importPackage` với `decisions["KY_TINH:<id>"] = "TAKE"` → kỳ cũ chuyển `HUY` (ghi nhật ký `SUPERSEDE_PERIOD`), phiếu/dầu của kỳ cũ được giải phóng, kỳ mới thêm vào; mặc định `KEEP` (không nhận kỳ mới). Kỳ của máy khác hoặc chồng nhiều kỳ vẫn bị từ chối.
+
+## Bổ sung bản 1.2.9
+- Nâng Electron 38.8.6 → 45.3.3 (Chromium 156, Node 24), electron-builder 26.18.0; môi trường dựng cần Node >= 22.12.
+- Không đổi API nghiệp vụ. Xử lý lỗi: lỗi hệ thống có mã `requestId`; giao diện gửi lỗi JavaScript về nhật ký (`dgvc.logError`).
