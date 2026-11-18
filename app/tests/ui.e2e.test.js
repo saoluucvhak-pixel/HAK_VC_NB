@@ -170,6 +170,7 @@ test('Giao diện: đi hết luồng chính trên trình duyệt', { skip: !fs.e
     await shot('nhac-sua-danh-muc');
     await page.locator('.kpi', { hasText: 'Nhà máy DH' }).getByRole('button', { name: 'Xuất gói danh mục' }).click();
     await toast(/Đã xuất gói danh mục cho DH/);
+    await page.locator('.kpi', { hasText: 'Nhà máy DH' }).waitFor({ state: 'detached', timeout: 10000 }); // danh sách nạp lại bất đồng bộ sau toast — chờ thay vì đếm ngay
     assert.equal(await page.locator('.kpi', { hasText: 'Nhà máy DH' }).count(), 0, 'DH đã nhận gói → hết nhắc');
     // ── tổng quan + sao lưu
     await nav('Tổng quan');
