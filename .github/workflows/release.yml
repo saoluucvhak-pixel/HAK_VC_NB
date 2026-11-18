@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  checks: read
 
 jobs:
   windows:
@@ -22,6 +23,26 @@ jobs:
         working-directory: app
     steps:
       - uses: actions/checkout@v4
+      - name: Chặn phát hành khi CI của đúng commit chưa đạt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $required = @('test', 'test-sqlite', 'electron', 'quality')
+          for ($attempt = 1; $attempt -le 20; $attempt++) {
+            $payload = gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs?per_page=100"
+            if ($LASTEXITCODE -ne 0) { throw 'Không đọc được kết quả CI' }
+            $latest = @{}
+            foreach ($check in (($payload | ConvertFrom-Json).check_runs | Sort-Object id -Descending)) {
+              if (-not $latest.ContainsKey($check.name)) { $latest[$check.name] = $check }
+            }
+            $failed = @($required | Where-Object { $latest.ContainsKey($_) -and $latest[$_].status -eq 'completed' -and $latest[$_].conclusion -ne 'success' })
+            if ($failed.Count) { throw "CI chưa đạt: $($failed -join ', ')" }
+            $pending = @($required | Where-Object { -not $latest.ContainsKey($_) -or $latest[$_].status -ne 'completed' })
+            if (-not $pending.Count) { 'CI đúng commit đã đạt'; break }
+            if ($attempt -eq 20) { throw 'Hết thời gian chờ CI — chưa phát hành' }
+            "Đang chờ CI: $($pending -join ', ')"
+            Start-Sleep -Seconds 30
+          }
       - uses: actions/setup-node@v4
         with:
           node-version: 22
