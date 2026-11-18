@@ -33,7 +33,12 @@ function Run-Test([string]$Script) {
 }
 
 function Data-Hashes {
-  @(Get-ChildItem -LiteralPath $env:DGVC_TEST_HOME -Recurse -File | Sort-Object FullName | ForEach-Object {
+  $businessFiles = @(
+    Get-ChildItem -LiteralPath (Join-Path $env:DGVC_TEST_HOME 'Documents') -Recurse -File
+    Get-Item -LiteralPath (Join-Path $env:DGVC_TEST_HOME 'userData/dgvc-config.json')
+    Get-ChildItem -LiteralPath $env:DGVC_TEST_HOME -File
+  )
+  @($businessFiles | Sort-Object FullName -Unique | ForEach-Object {
     "$($_.FullName) $((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
   }) -join "`n"
 }

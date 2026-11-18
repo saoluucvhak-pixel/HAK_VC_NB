@@ -2,7 +2,7 @@
 
 Ứng dụng desktop (Electron, chạy offline) thay quy trình Excel + Power Query tính đơn giá vận chuyển dăm gỗ cho các nhà máy HAK Group. Một bộ cài dùng cho mọi nhà máy (chọn đơn vị lúc khởi tạo). Bản hiện tại: **1.3.3**.
 
-- **Kho dữ liệu:** mặc định **JSON** (được hỗ trợ chính thức). **SQLite** là chế độ *thí điểm* (Cài đặt → Dữ liệu & sao lưu, chỉ ADMIN; có chạy thử, đường lui). Chưa xác minh trên máy Windows thật — xem `docs/THI_DIEM_SQLITE_WINDOWS.md` và `docs/PHAT_HANH_1.3.3.md`.
+- **Kho dữ liệu:** mặc định **JSON** (được hỗ trợ chính thức). **SQLite** là chế độ *thí điểm* (Cài đặt → Dữ liệu & sao lưu, chỉ ADMIN; có chạy thử, đường lui). Đã kiểm thử trên Windows với dữ liệu mẫu; phạm vi và giới hạn xem `docs/THI_DIEM_SQLITE_WINDOWS.md` và `docs/PHAT_HANH_1.3.3.md`.
 - **Môi trường:** Node.js ≥ 22.12 (CI dùng Node 22), Electron 45, electron-builder 26, NSIS cho bộ cài Windows x64.
 
 ## Thư mục
