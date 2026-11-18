@@ -110,6 +110,7 @@ class JsonStore {
       if (bad.length) throw new AppError('INTEGRITY_ERROR', 'Dữ liệu bị sửa ngoài APP hoặc hỏng — đề nghị khôi phục bản sao lưu', { files: bad });
       this._reindex();
       this.opened = true;
+      this.writeBlocked = false;
       return this;
     } catch (e) { this._releaseLock(); throw e; }
   }
@@ -205,7 +206,7 @@ class JsonStore {
    */
   transaction(fn, { user = 'system', device = '' } = {}) {
     const run = async () => {
-      if (!this.opened) throw new AppError('STORAGE_ERROR', 'Kho dữ liệu chưa mở');
+      this._assertWritable();
       const tx = new Tx(this, user, device);
       const result = await fn(tx);
       if (tx.touched.size) this._commit(tx);
@@ -241,6 +242,18 @@ class JsonStore {
     this._reindex([...tx.touched]);
   }
 
+  _assertWritable() {
+    if (!this.opened) throw new AppError('STORAGE_ERROR', 'Kho dữ liệu chưa mở');
+    if (this.writeBlocked) throw new AppError('STORAGE_ERROR', 'Lần ghi trước chưa hoàn tất. Đóng và mở lại phần mềm để phục hồi trước khi ghi tiếp.', { code: 'E_RECOVERY_REQUIRED' });
+  }
+
+  _commitJournal(files, manifestData) {
+    try { return this.journal.commit(files, manifestData); } catch (error) {
+      this.writeBlocked = true;
+      throw new AppError('STORAGE_ERROR', `Chưa hoàn tất ghi dữ liệu. Đóng và mở lại phần mềm để phục hồi. ${error.message}`, { code: 'E_RECOVERY_REQUIRED', cause: error.code || '' });
+    }
+  }
+
   _commit(tx) {
     // 1. kiểm schema + ràng buộc trên dữ liệu mới
     this._validateTx(tx);
@@ -262,7 +275,7 @@ class JsonStore {
       }
     }
     // manifest.files phải theo bản đang có (newManifest được dựng từ bản cũ rồi cập nhật các tệp bị chạm ở trên)
-    const txnId = this.journal.commit(files, Buffer.from(JSON.stringify(newManifest, null, 1)));
+    const txnId = this._commitJournal(files, Buffer.from(JSON.stringify(newManifest, null, 1)));
     // 3. chỉ khi ghi đĩa xong mới đổi bộ nhớ
     this._applyTx(tx, newManifest);
     tx.txnId = txnId;
@@ -274,7 +287,7 @@ class JsonStore {
    */
   compact() {
     const run = async () => {
-      if (!this.opened) throw new AppError('STORAGE_ERROR', 'Kho dữ liệu chưa mở');
+      this._assertWritable();
       if (this.mounted.size) throw new AppError('VALIDATION_FAILED', 'Đang xem năm lưu trữ — thôi xem rồi chạy lại');
       const before = Object.keys(this.manifest.files).reduce((a, rel) => { try { return a + fs.statSync(path.join(this.root, rel)).size; } catch { return a; } }, 0);
       const newManifest = JSON.parse(JSON.stringify(this.manifest)); newManifest.files = {};
@@ -291,7 +304,7 @@ class JsonStore {
       newManifest.dataVersion = this.manifest.dataVersion + 1;
       newManifest.storageFormat = FORMAT;
       const old = Object.keys(this.manifest.files).filter((rel) => !newManifest.files[rel]);
-      this.journal.commit(files, Buffer.from(JSON.stringify(newManifest, null, 1)));
+      this._commitJournal(files, Buffer.from(JSON.stringify(newManifest, null, 1)));
       this.manifest = newManifest;
       for (const rel of old) { try { fs.unlinkSync(path.join(this.root, rel)); } catch { /* đã không còn */ } }
       // xóa thư mục năm cũ rỗng

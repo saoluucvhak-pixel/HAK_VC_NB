@@ -9,6 +9,7 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 const { _electron: electron } = require('playwright-core');
 const { FILE } = require('./install');
+let launchedApp;
 
 (async () => {
   const home = process.env.DGVC_TEST_HOME || fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-electron-'));
@@ -16,6 +17,7 @@ const { FILE } = require('./install');
   const shots = process.env.DGVC_SHOTS || '';
   const appDir = process.env.DGVC_APP_DIR || path.join(__dirname, '..'); // có thể trỏ vào app.asar đã đóng gói
   const app = await electron.launch({ executablePath: process.env.DGVC_EXECUTABLE || require('electron'), args: process.env.DGVC_EXECUTABLE ? ['--no-sandbox'] : [appDir, '--no-sandbox'], env: { ...process.env, DGVC_USER_DATA: path.join(home, 'userData'), DGVC_DOCUMENTS: path.join(home, 'Documents') } });
+  launchedApp = app;
   // giả lập hộp thoại Windows: trả sẵn đường dẫn
   const answer = async (p) => app.evaluate(({ dialog, shell }, f) => { shell.openPath = async () => ''; // không mở trình xem file trên máy kiểm thử
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [f] }); dialog.showSaveDialog = async () => ({ canceled: false, filePath: f }); }, p);
@@ -93,4 +95,8 @@ const { FILE } = require('./install');
   log('closing'); await app.close();
   log('closed');
   console.log(`ELECTRON OK — ${pdf} (${fs.statSync(pdf).size} byte)`);
-})().catch((e) => { console.error(e); process.exit(1); });
+})().catch(async (error) => {
+  if (launchedApp) await launchedApp.close().catch(() => {});
+  console.error(error);
+  process.exit(1);
+});
