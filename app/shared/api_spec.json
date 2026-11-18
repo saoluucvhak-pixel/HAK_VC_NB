@@ -1918,6 +1918,12 @@
      "số phiếu / biển số"
     ],
     [
+     "idsOnly",
+     "boolean",
+     false,
+     "true: trả TOÀN BỘ mã phiếu theo bộ lọc {ids, total, totals, lockedCount} (không phân trang) — cho thao tác hàng loạt"
+    ],
+    [
      "page",
      "integer",
      false,

@@ -173,11 +173,12 @@
     async render() {
       const f = D.form([{ key: 'username', label: 'Người' }, { key: 'action', label: 'Hành động' }, { key: 'entity', label: 'Đối tượng' }, { key: 'dateFrom', label: 'Từ ngày', type: 'date' }, { key: 'dateTo', label: 'Đến ngày', type: 'date' }], {});
       f.className = 'filters'; const out = h('div', { class: 'card flush' });
-      const load = async () => { const d = await D.api('audit.list', { ...f.values(), pageSize: 1000 }); out.innerHTML = '';
+      const PAGE = 200; let pg = 1; const guard = D.latest();
+      const load = async (opts) => { if (opts === true || (opts && opts.reset)) pg = 1; const tok = guard.next(); const d = await D.api('audit.list', { ...f.values(), page: pg, pageSize: PAGE }); if (!guard.ok(tok)) return; out.innerHTML = '';
         out.append(D.table({ rows: d.items, onRow: (r) => D.modal({ title: `${r.action} · ${r.entity} ${r.entity_id}`, body: h('div', {}, h('p', {}, `${D.dt(r.ts)} · ${r.username}${r.reason ? ` · lý do: ${r.reason}` : ''}`),
           h('div', { class: 'grid g2' }, h('div', {}, h('h2', {}, 'Trước'), h('pre', { class: 'small mono', style: { whiteSpace: 'pre-wrap' } }, pretty(r.before_json))), h('div', {}, h('h2', {}, 'Sau'), h('pre', { class: 'small mono', style: { whiteSpace: 'pre-wrap' } }, pretty(r.after_json))))) }),
-        columns: [{ key: 'ts', label: 'Lúc', fmt: 'datetime' }, { key: 'username', label: 'Người' }, { key: 'action', label: 'Hành động' }, { key: 'entity', label: 'Đối tượng' }, { key: 'entity_id', label: 'Mã' }, { key: 'reason', label: 'Lý do' }] })); };
-      const page = D.page('Lịch sử thao tác', '10 · Audit', [], h('div', { class: 'card' }, h('div', { class: 'filters' }, f, h('button', { class: 'btn primary', onclick: load }, 'Lọc'))), out);
+        columns: [{ key: 'ts', label: 'Lúc', fmt: 'datetime' }, { key: 'username', label: 'Người' }, { key: 'action', label: 'Hành động' }, { key: 'entity', label: 'Đối tượng' }, { key: 'entity_id', label: 'Mã' }, { key: 'reason', label: 'Lý do' }] }), D.pager({ total: d.total, page: pg, pageSize: PAGE, goto: (n) => { pg = n; load(); } })); };
+      const page = D.page('Lịch sử thao tác', '10 · Audit', [], h('div', { class: 'card' }, h('div', { class: 'filters' }, f, h('button', { class: 'btn primary', onclick: () => load({ reset: true }) }, 'Lọc'))), out);
       await load(); return page;
     },
   };

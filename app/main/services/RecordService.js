@@ -4,6 +4,7 @@
  * Luật chung: dữ liệu đang ở kỳ ĐÃ XÁC NHẬN / ĐÃ KHÓA → không sửa số liệu, không xóa; ở kỳ NHÁP → kỳ đó "cần tính lại".
  * Xóa = xóa mềm (is_deleted), bắt lý do. Mọi thao tác ghi AUDIT_LOG.
  */
+const { idempotentMethod } = require('./idempotent');
 const { AppError, businessError } = require('../../shared/errors');
 const { draftFinder } = require('./periodCoverage');
 const { issue } = require('../engine/issues');
@@ -11,7 +12,7 @@ const { issue } = require('../engine/issues');
 const FUEL_EDITABLE = ['receive_date', 'route_code', 'fuel_vehicle_code', 'uom', 'qty_liter', 'fuel_price_excl_vat', 'purchase_date', 'giver_unit_code', 'fuel_depot'];
 
 class RecordService {
-  constructor(store, { importService }) { this.store = store; this.imp = importService; this.done = store.requestMap('record'); }
+  constructor(store, { importService }) { this.store = store; this.imp = importService; this.done = store.requestMap('record'); idempotentMethod(this, 'saveFuelRows'); }
 
   _periodsOf(detailTable, idField, id) {
     return this.store.find(detailTable, (d) => d[idField] === id && d.is_current && d.usage_state !== 'RELEASED')

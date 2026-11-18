@@ -4,6 +4,7 @@
  * Mọi lần ghi = 1 giao dịch JsonStore: KY_TINH + CALC_RUN + TRANSPORT_CALCULATION + TRANSPORT_DETAIL + FUEL_DETAIL + BKVC_LINE + AUDIT_LOG.
  * Không xóa kết quả cũ: lần tính trước chuyển is_current = false (lịch sử còn nguyên).
  */
+const { idempotentMethod } = require('./idempotent');
 const E = require('../engine');
 const { AppError, businessError } = require('../../shared/errors');
 const { missingSources } = require('./periodCoverage');
@@ -12,7 +13,7 @@ const USAGE = { NHAP: 'DRAFT', DA_XAC_NHAN: 'CONFIRMED', DA_KHOA: 'LOCKED', HUY:
 const ymd = (d) => d.replace(/-/g, '');
 
 class PeriodService {
-  constructor(store) { this.store = store; this.done = store.requestMap('period'); }
+  constructor(store) { this.store = store; this.done = store.requestMap('period'); idempotentMethod(this, 'calculate'); }
 
   _contract(contractId) {
     const c = this.store.get('HOP_DONG', contractId);

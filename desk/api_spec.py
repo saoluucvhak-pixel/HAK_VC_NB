@@ -138,7 +138,7 @@ ep('tickets.list', 'Phiếu cân', 'Tra cứu phiếu cân', ALL,
    [('dateFrom', 'date', False, ''), ('dateTo', 'date', False, ''), ('routeCode', 'string', False, ''), ('plateNo', 'string', False, ''),
     ('ownerUnitCode', 'string', False, ''), ('contractId', 'string', False, 'kèm trạng thái sử dụng theo HĐ này'),
     ('usage', 'enum(CHUA_TINH|DA_DUA_VAO_KY|DA_XAC_NHAN|DA_KHOA)', False, 'cần contractId'), ('hasFlags', 'boolean', False, ''),
-    ('q', 'string', False, 'số phiếu / biển số')] + PAGING,
+    ('q', 'string', False, 'số phiếu / biển số'), ('idsOnly', 'boolean', False, 'true: trả TOÀN BỘ mã phiếu theo bộ lọc {ids, total, totals, lockedCount} (không phân trang) — cho thao tác hàng loạt')] + PAGING,
    '{items:[PHIEU_CAN + usageByContract:[{contractCode, periodCode, state}]], total, sums:{trips, kg}}', reads=['PHIEU_CAN', 'TRANSPORT_DETAIL', 'KY_TINH'])
 ep('tickets.get', 'Phiếu cân', 'Chi tiết 1 phiếu + các kỳ đã dùng + audit', ALL, [('ticketId', 'string', True, '')],
    '{record, usages, raw, audit}', ['NOT_FOUND'], ['PHIEU_CAN', 'TRANSPORT_DETAIL', 'AUDIT_LOG'])

@@ -53,3 +53,12 @@ test('Sửa xe nhập sai: thông tin, biển số (chuyển cả phạm vi hợ
   assert.ok(again.get('XE', '92H-99990')); assert.equal(again.get('XE', '92H-99999'), null); assert.equal(again.get('XE', '92H-88888'), null);
   again.close();
 });
+
+test('Biển số gõ tay có khoảng trắng / chữ thường được chuẩn hóa khi thêm xe (rà soát 1.3.0)', async () => {
+  const { store } = await install('DH', { withData: false });
+  const md = new (require('../main/services/MasterDataService').MasterDataService)(store);
+  const owner = store.all('XE')[0].owner_unit_code;
+  const r = await md.saveVehicle({ create: true, record: { plateNo: ' 92h - 00999 ', ownerUnitCode: owner }, user: { username: 'ketoan', role: 'KE_TOAN' } });
+  assert.equal(r.record.plate_no, '92H-00999');
+  await assert.rejects(md.saveVehicle({ create: true, record: { plateNo: '   ', ownerUnitCode: owner }, user: { username: 'ketoan', role: 'KE_TOAN' } }), (e) => e.code === 'VALIDATION_FAILED');
+});
