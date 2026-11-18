@@ -28,7 +28,7 @@ resources/catalog/catalog.json   danh mục đi kèm bộ cài (dùng chung mọ
 shared/                          schema.json (21 bảng), api_spec.json, errors.js
 installer/dgvc.nsi               bộ cài Windows (NSIS): cài cho user, lối tắt, gỡ cài không xóa dữ liệu
 build/icon.*                     biểu tượng
-tests/                           ~210 test (node:test, chạy được trên cả kho JSON và SQLite) + tests/electron.smoke.js, tests/electron.sqlite.main.js (Electron thật)
+tests/                           node:test (JSON và SQLite), Electron thật, hồi quy khóa tệp và nghiệm thu bộ cài Windows
 tools/                           dev-server (chạy giao diện trên trình duyệt), compare-excel (so APP ↔ Excel), bench-year, build-catalog
 ```
 

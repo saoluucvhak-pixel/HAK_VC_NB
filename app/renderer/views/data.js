@@ -27,7 +27,19 @@
       } else { D.toast(`${D.errorText(e)}${e.details && e.details.code === 'E_MAPPING_REQUIRED' ? ' — bấm "Tải file mẫu" để lấy file Excel đúng mẫu' : ''}`, 'err', 9000); return; }
     }
     const skip = new Set();
-    const rows = (await D.api('import.previewRows', { batchId: pv.batchId, pageSize: 5000 })).rows;
+    const rows = [];
+    try {
+      let total;
+      for (let page = 1; total === undefined || rows.length < total; page++) {
+        const result = await D.api('import.previewRows', { batchId: pv.batchId, page, pageSize: 1000 });
+        total = result.total;
+        rows.push(...result.rows);
+        if (!result.rows.length && rows.length < total) throw new Error('Không tải đủ dòng xem trước — hãy mở lại file');
+      }
+    } catch (error) {
+      await D.api('import.cancel', { batchId: pv.batchId }, { quiet: true }).catch(() => {});
+      throw error;
+    }
     const S = pv.summary;
     const accept = h('input', { type: 'checkbox', id: 'acc' });
     let modal = null;
@@ -35,6 +47,24 @@
     const styleSel = h('select', { 'aria-label': 'Kiểu số trong file', onchange: (e) => { const ns = e.target.value; modal.close(); D.importWizard({ importType, contractId, onDone, filePath, numberStyle: ns }); } },
       [['AUTO', 'Tự động'], ['VN', 'Việt Nam — 1.234,5 (chấm ngăn nghìn, phẩy thập phân)'], ['EN', 'Anh / Mỹ — 1,234.5 (phẩy ngăn nghìn, chấm thập phân)']].map(([v, t]) => h('option', { value: v, selected: v === (pv.numberStyle || 'AUTO') }, t)));
     const ambiguous = rows.some((r) => (r.issues || []).some((i) => i.code === 'E_NUMBER_AMBIGUOUS'));
+    const preview = h('div');
+    const status = h('select', { 'aria-label': 'Trạng thái dòng nhập', onchange: () => { page = 1; drawPreview(); } },
+      [['', 'Tất cả dòng'], ['ERROR', 'Dòng lỗi'], ['WARNING', 'Cảnh báo'], ['UPDATE', 'Cập nhật / khôi phục'], ['OK', 'Hợp lệ'], ['DUPLICATE', 'Đã có']]
+        .map(([value, label]) => h('option', { value }, label)));
+    let page = 1;
+    const pageSize = 200;
+    const drawPreview = () => {
+      const filtered = status.value ? rows.filter((row) => row.status === status.value) : rows;
+      preview.replaceChildren(
+      D.table({ maxHeight: '46vh', columns: [{ key: 'rowNo', label: 'Dòng', fmt: 'int' }, { key: 'status', label: 'Kiểm tra', render: (r) => h('span', { class: `tag ${{ OK: 'ok', WARNING: 'warn', ERROR: 'err', DUPLICATE: 'mute', UPDATE: 'info' }[r.status]}` }, { OK: 'Hợp lệ', WARNING: 'Cảnh báo', ERROR: 'Lỗi', DUPLICATE: 'Đã có', UPDATE: 'Cập nhật' }[r.status]) },
+        ...(importType === 'PHIEU_CAN' ? [{ key: 'a', label: 'Số phiếu', render: (r) => r.normalized.ticket_no }, { key: 'b', label: 'Ngày cân 1', render: (r) => D.dmy(r.normalized.weigh1_date) }, { key: 'c', label: 'Biển số', render: (r) => r.normalized.plate_no },
+          { key: 'd', label: 'KL (KG)', num: true, render: (r) => D.vn(r.normalized.net_kg) }, { key: 'e', label: 'Tuyến', render: (r) => r.normalized.route_code }]
+          : [{ key: 'a', label: 'Ngày nhận', render: (r) => D.dmy(r.normalized.receive_date) }, { key: 'b', label: 'Mã xe', render: (r) => r.normalized.fuel_vehicle_code }, { key: 'c', label: 'Biển số', render: (r) => r.normalized.plate_no },
+            { key: 'd', label: 'Lít', num: true, render: (r) => D.vnAuto(r.normalized.qty_liter) }, { key: 'e', label: 'Đơn giá', num: true, render: (r) => D.vnAuto(r.normalized.fuel_price_excl_vat) }]),
+        { key: 'i', label: 'Ghi chú', wrap: true, render: (r) => (r.issues || []).map((i) => i.message).join('; ') },
+        { key: 's', label: 'Bỏ', render: (r) => h('input', { type: 'checkbox', 'aria-label': `Bỏ dòng ${r.rowNo}`, checked: r.status === 'ERROR' || skip.has(r.rowNo), disabled: r.status === 'ERROR', onchange: (e) => { if (e.target.checked) skip.add(r.rowNo); else skip.delete(r.rowNo); refreshConfirm(); } }) }], rows: filtered.slice((page - 1) * pageSize, page * pageSize) }),
+        D.pager({ total: filtered.length, page, pageSize, goto: (next) => { page = next; drawPreview(); } }));
+    };
     const body = h('div', {},
       h('label', { class: 'field', style: { maxWidth: '520px', marginBottom: '8px' } }, h('span', {}, 'Kiểu số trong file'), styleSel),
       ambiguous ? h('p', { class: 'small', style: { color: 'var(--red-text)' } }, 'Có dòng số dạng chữ như "17,470" đọc được hai cách (khác nhau 1.000 lần). Chọn đúng "Kiểu số trong file" ở trên để xem trước lại.') : null,
@@ -42,18 +72,15 @@
       pv.sameFileImportedBefore ? h('p', {}, h('span', { class: 'tag warn' }, 'Cảnh báo'), ' File này đã import trước đây (cùng SHA-256).') : null,
       h('div', { class: 'kpis', style: { marginTop: '10px' } }, [['Tổng dòng', S.total], ['Hợp lệ', S.ok], ['Cảnh báo', S.warning], ...(S.update ? [['Cập nhật / khôi phục', S.update]] : []), ['Đã có (bỏ qua)', S.duplicate], ['Lỗi', S.error]].map(([l, v]) => h('div', { class: 'kpi' }, h('div', { class: 'l' }, l), h('div', { class: 'v' }, D.vn(v))))),
       h('details', {}, h('summary', {}, 'Ghép cột (tự nhận)'), D.table({ columns: [{ key: 'h', label: 'Cột trong file' }, { key: 'f', label: 'Cột dữ liệu' }], rows: Object.entries(pv.mapping).map(([k, v]) => ({ h: k, f: v })), maxHeight: '220px' })),
-      D.table({ maxHeight: '46vh', columns: [{ key: 'rowNo', label: 'Dòng', fmt: 'int' }, { key: 'status', label: 'Kiểm tra', render: (r) => h('span', { class: `tag ${{ OK: 'ok', WARNING: 'warn', ERROR: 'err', DUPLICATE: 'mute', UPDATE: 'info' }[r.status]}` }, { OK: 'Hợp lệ', WARNING: 'Cảnh báo', ERROR: 'Lỗi', DUPLICATE: 'Đã có', UPDATE: 'Cập nhật' }[r.status]) },
-        ...(importType === 'PHIEU_CAN' ? [{ key: 'a', label: 'Số phiếu', render: (r) => r.normalized.ticket_no }, { key: 'b', label: 'Ngày cân 1', render: (r) => D.dmy(r.normalized.weigh1_date) }, { key: 'c', label: 'Biển số', render: (r) => r.normalized.plate_no },
-          { key: 'd', label: 'KL (KG)', num: true, render: (r) => D.vn(r.normalized.net_kg) }, { key: 'e', label: 'Tuyến', render: (r) => r.normalized.route_code }]
-          : [{ key: 'a', label: 'Ngày nhận', render: (r) => D.dmy(r.normalized.receive_date) }, { key: 'b', label: 'Mã xe', render: (r) => r.normalized.fuel_vehicle_code }, { key: 'c', label: 'Biển số', render: (r) => r.normalized.plate_no },
-            { key: 'd', label: 'Lít', num: true, render: (r) => D.vnAuto(r.normalized.qty_liter) }, { key: 'e', label: 'Đơn giá', num: true, render: (r) => D.vnAuto(r.normalized.fuel_price_excl_vat) }]),
-        { key: 'i', label: 'Ghi chú', wrap: true, render: (r) => (r.issues || []).map((i) => i.message).join('; ') },
-        { key: 's', label: 'Bỏ', render: (r) => h('input', { type: 'checkbox', 'aria-label': `Bỏ dòng ${r.rowNo}`, checked: r.status === 'ERROR', disabled: r.status === 'ERROR', onchange: (e) => (e.target.checked ? skip.add(r.rowNo) : skip.delete(r.rowNo)) }) }], rows }),
+      h('label', { class: 'field' }, h('span', {}, 'Lọc dòng xem trước'), status), preview,
       h('label', { class: 'check', for: 'acc', style: { marginTop: '10px' } }, accept, S.update ? 'Chấp nhận các dòng cảnh báo và cập nhật phiếu đã có theo file' : 'Chấp nhận các dòng cảnh báo'));
     for (const r of rows) if (r.status === 'ERROR') skip.add(r.rowNo);
+    const confirmCount = () => rows.filter((row) => ['OK', 'WARNING', 'UPDATE'].includes(row.status) && !skip.has(row.rowNo)).length;
+    const refreshConfirm = () => { if (modal) modal.box.querySelector('.foot button.primary').textContent = `Xác nhận import ${confirmCount()} dòng`; };
+    drawPreview();
     modal = D.modal({ title: importType === 'PHIEU_CAN' ? 'Import phiếu cân — xem trước' : 'Import bảng kê dầu — xem trước', wide: true, body,
       onClose: () => D.api('import.cancel', { batchId: pv.batchId }, { quiet: true }).catch(() => {}),
-      actions: [{ label: 'Hủy', run: () => true }, { label: `Xác nhận import ${S.ok + S.warning + (S.update || 0) - [...skip].filter((n) => rows.find((r) => r.rowNo === n && r.status !== 'ERROR')).length} dòng`, primary: true, run: async () => {
+      actions: [{ label: 'Hủy', run: () => true }, { label: `Xác nhận import ${confirmCount()} dòng`, primary: true, run: async () => {
         const r = await D.api('import.confirm', { batchId: pv.batchId, skipRowNos: [...skip], acceptWarnings: accept.checked, clientRequestId: D.rid() });
         D.toast(`Đã import ${r.inserted} dòng${r.updated ? ` · cập nhật ${r.updated} phiếu` : ''}${r.restored ? ` · khôi phục ${r.restored} phiếu` : ''} · bỏ qua ${r.duplicates} dòng đã có${r.recalcPeriods && r.recalcPeriods.length ? ` · ${r.recalcPeriods.length} kỳ nháp phải tính lại` : ''}`, 'ok', 8000); if (onDone) onDone(); return true;
       } }] });

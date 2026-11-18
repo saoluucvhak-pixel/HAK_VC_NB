@@ -11,6 +11,19 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
+const fileRetryTimer = new Int32Array(new SharedArrayBuffer(4));
+const transientFileErrors = new Set(['EPERM', 'EACCES', 'EBUSY']);
+
+// Windows/OneDrive có thể giữ tệp vừa ghi trong thời gian ngắn. Giới hạn chờ 1,8 giây.
+function retryFileOperation(operation) {
+  for (let attempt = 0; ; attempt++) {
+    try { return operation(); } catch (error) {
+      if (!transientFileErrors.has(error.code) || attempt === 8) throw error;
+      Atomics.wait(fileRetryTimer, 0, 0, 50 * (attempt + 1));
+    }
+  }
+}
+function renameFile(from, to) { retryFileOperation(() => fs.renameSync(from, to)); }
 
 function writeFileSync(p, data) {
   fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -23,11 +36,11 @@ function fsyncDir(dir) {
 function writeAtomic(p, data) {
   const tmp = `${p}.tmp`;
   writeFileSync(tmp, data);
-  fs.renameSync(tmp, p);
+  renameFile(tmp, p);
   fsyncDir(path.dirname(p));
 }
 const exists = (p) => fs.existsSync(p);
-function rmIf(p) { try { fs.unlinkSync(p); } catch (e) { if (e.code !== 'ENOENT') throw e; } }
+function rmIf(p) { try { retryFileOperation(() => fs.unlinkSync(p)); } catch (e) { if (e.code !== 'ENOENT') throw e; } }
 
 class Journal {
   constructor(root, { fault = () => {} } = {}) {
@@ -61,7 +74,7 @@ class Journal {
       if (i === 0) this.fault('afterFirstSwap');
     });
     this.fault('beforeManifestSwap');
-    fs.renameSync(path.join(this.root, 'manifest.json.new'), path.join(this.root, 'manifest.json'));
+    renameFile(path.join(this.root, 'manifest.json.new'), path.join(this.root, 'manifest.json'));
     fsyncDir(this.root);
     this.fault('afterManifestSwap');
     for (const f of files) rmIf(path.join(this.root, `${f.rel}.bak`));
@@ -72,8 +85,8 @@ class Journal {
   _swap(rel) {
     const p = path.join(this.root, rel);
     if (exists(`${p}.new`)) {
-      if (exists(p)) { rmIf(`${p}.bak`); fs.renameSync(p, `${p}.bak`); }
-      fs.renameSync(`${p}.new`, p);
+      if (exists(p)) { rmIf(`${p}.bak`); renameFile(p, `${p}.bak`); }
+      renameFile(`${p}.new`, p);
       fsyncDir(path.dirname(p));
     }
   }
@@ -93,7 +106,7 @@ class Journal {
       } else if (rec.state === 'COMMITTING') {
         for (const f of rec.files) this._swap(f.rel);
         const mnew = path.join(this.root, 'manifest.json.new');
-        if (exists(mnew)) fs.renameSync(mnew, path.join(this.root, 'manifest.json'));
+        if (exists(mnew)) renameFile(mnew, path.join(this.root, 'manifest.json'));
         for (const f of rec.files) rmIf(path.join(this.root, `${f.rel}.bak`));
         done.push({ id: rec.id, action: 'ROLLED_FORWARD' });
       }

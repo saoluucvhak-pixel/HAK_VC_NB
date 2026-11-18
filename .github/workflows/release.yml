@@ -32,6 +32,18 @@ jobs:
           choco install nsis -y --no-progress
           "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
       - run: npm ci
+      - name: Lấy mã bản trước để kiểm thử nâng cấp có dữ liệu
+        uses: actions/checkout@v4
+        with:
+          ref: 23452edda1c9178d318ae19e03d19ce706204a79
+          path: .previous-release
+      - name: Dựng bộ cài 1.3.2 dùng cho nghiệm thu nâng cấp
+        working-directory: .previous-release/app
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci bản trước thất bại' }
+          npm run dist
+          if ($LASTEXITCODE -ne 0) { throw 'Dựng bản trước thất bại' }
       - name: Phiên bản
         run: |
           $v = (Get-Content package.json | ConvertFrom-Json).version
@@ -40,7 +52,6 @@ jobs:
           if ($nsi -ne $v) { throw "Phiên bản lệch: package.json=$v, dgvc.nsi=$nsi" }
       - name: Kiểm SQLite trong Electron (Windows)
         run: npx electron tests/electron.sqlite.main.js --no-sandbox
-        continue-on-error: true
         id: sqlite_electron
       - name: Dựng bộ cài (npm run dist)
         run: npm run dist
@@ -51,35 +62,12 @@ jobs:
           "$h  DGVC-Setup-$env:VERSION.exe" | Out-File -FilePath "dist\DGVC-Setup-$env:VERSION.exe.sha256" -Encoding ascii
           "SHA256=$h" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "$f  $h  $((Get-Item $f).Length) byte" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
-      - name: Cài mới (im lặng, đường dẫn có dấu cách) rồi kiểm tệp
+      - name: Nghiệm thu bộ cài Windows thực tế
         run: |
-          $dst = Join-Path $env:RUNNER_TEMP 'DGVC thu nghiem'
-          $data = Join-Path $env:USERPROFILE 'Documents\DGVC_DATA'; New-Item -ItemType Directory -Force $data | Out-Null; 'giu-lai' | Set-Content (Join-Path $data 'keep.txt')
-          Start-Process -FilePath "dist\DGVC-Setup-$env:VERSION.exe" -ArgumentList '/S', "/D=$dst" -Wait
-          if (-not (Test-Path "$dst\DGVC.exe")) { throw 'Không thấy DGVC.exe sau khi cài' }
-          if (-not (Test-Path "$dst\resources\app.asar")) { throw 'Không thấy app.asar' }
-          "DST=$dst" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          $reg = (Get-ItemProperty 'HKCU:\Software\DGVC').Version; if ($reg -ne $env:VERSION) { throw "Registry Version=$reg" }
-      - name: Chạy thử luồng chính trên mã đã cài (Electron + Chromium)
+          ./tests/windows-installer.ps1 -Installer "dist/DGVC-Setup-$env:VERSION.exe" -PreviousInstaller "../.previous-release/app/dist/DGVC-Setup-1.3.2.exe" -TestRoot (Join-Path $env:RUNNER_TEMP 'DGVC nghiệm thu')
+      - name: Ghi kết quả nghiệm thu
         run: |
-          $env:DGVC_APP_DIR = "$env:DST\resources\app.asar"
-          npx playwright-core install chromium 2>$null
-          node tests/electron.smoke.js
-        continue-on-error: true
-        id: smoke
-      - name: Cài đè lần hai (nâng cấp) + gỡ cài đặt giữ thư mục dữ liệu
-        run: |
-          Start-Process -FilePath "dist\DGVC-Setup-$env:VERSION.exe" -ArgumentList '/S', "/D=$env:DST" -Wait
-          if (-not (Test-Path "$env:DST\DGVC.exe")) { throw 'Cài đè làm mất DGVC.exe' }
-          Start-Process -FilePath "$env:DST\Go-cai-dat.exe" -ArgumentList '/S', "_?=$env:DST" -Wait
-          if (Test-Path "$env:DST\DGVC.exe") { throw 'Gỡ cài đặt chưa xóa DGVC.exe' }
-          $keep = Join-Path $env:USERPROFILE 'Documents\DGVC_DATA\keep.txt'
-          if (-not (Test-Path $keep)) { throw 'Gỡ cài đặt đã xóa thư mục dữ liệu (sai chính sách giữ dữ liệu)' }
-          'Cài mới, cài đè, gỡ cài (giữ dữ liệu): ĐẠT' | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
-      - name: Tóm tắt kiểm thử
-        run: |
-          "- SQLite trong Electron: ${{ steps.sqlite_electron.outcome }}" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
-          "- Luồng chính trên mã đã cài: ${{ steps.smoke.outcome }}" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          'Cài mới, nâng cấp từ 1.3.2 có dữ liệu, chạy DGVC.exe đã cài, Excel/PDF, backup/restore, gỡ cài giữ nguyên dữ liệu: ĐẠT' | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
       - uses: actions/upload-artifact@v4
         with:
           name: DGVC-Setup-${{ env.VERSION }}
@@ -87,7 +75,7 @@ jobs:
             app/dist/DGVC-Setup-${{ env.VERSION }}.exe
             app/dist/DGVC-Setup-${{ env.VERSION }}.exe.sha256
       - name: Tạo GitHub Release
-        if: ${{ inputs.publish }}
+        if: ${{ inputs.publish && success() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

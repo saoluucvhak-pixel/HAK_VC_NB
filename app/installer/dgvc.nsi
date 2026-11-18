@@ -8,7 +8,7 @@ Unicode true
 
 !define APPNAME "Đơn giá vận chuyển dăm"
 !define APPKEY  "DGVC"
-!define VERSION "1.3.2"
+!define VERSION "1.3.3"
 !define SRC     "..\dist\win-unpacked"
 
 Name "${APPNAME}"
@@ -41,7 +41,15 @@ VIAddVersionKey /LANG=1066 "LegalCopyright" "HAK Group"
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Vietnamese"
 
+Var AcceptanceMode
+
 Function .onInit
+  StrCpy $AcceptanceMode 0
+  ${GetParameters} $R0
+  ClearErrors
+  ${GetOptions} $R0 "/ACCEPTANCE" $R1
+  IfErrors +2 0
+    StrCpy $AcceptanceMode 1
   ; phần mềm đang chạy → nhắc đóng trước (tránh ghi đè file đang dùng)
   FindWindow $0 "" "${APPNAME}"
   StrCmp $0 0 +3
@@ -55,6 +63,8 @@ Section "Cài đặt" SecMain
   File /r "${SRC}\*.*"
   File "/oname=dgvc.ico" "..\build\icon.ico"
   WriteUninstaller "$INSTDIR\Go-cai-dat.exe"
+  StrCmp $AcceptanceMode 1 acceptance_install
+  Delete "$INSTDIR\.dgvc-acceptance"
   CreateDirectory "$SMPROGRAMS\${APPNAME}"
   CreateShortcut "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "$INSTDIR\DGVC.exe" "" "$INSTDIR\dgvc.ico" 0
   CreateShortcut "$SMPROGRAMS\${APPNAME}\Gỡ cài đặt.lnk" "$INSTDIR\Go-cai-dat.exe" "" "$INSTDIR\dgvc.ico" 0
@@ -72,13 +82,28 @@ Section "Cài đặt" SecMain
   WriteRegDWORD HKCU "${UNINST}" "NoRepair" 1
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   WriteRegDWORD HKCU "${UNINST}" "EstimatedSize" "$0"
+  Goto install_done
+acceptance_install:
+  ; Cài thử tách riêng: không ghi registry hoặc lối tắt của bản người dùng.
+  FileOpen $R0 "$INSTDIR\.dgvc-acceptance" w
+  FileWrite $R0 "1"
+  FileClose $R0
+install_done:
 SectionEnd
 
+Function un.onInit
+  StrCpy $AcceptanceMode 0
+  IfFileExists "$INSTDIR\.dgvc-acceptance" 0 +2
+    StrCpy $AcceptanceMode 1
+FunctionEnd
+
 Section "Uninstall"
+  StrCmp $AcceptanceMode 1 acceptance_uninstall
   Delete "$DESKTOP\${APPNAME}.lnk"
   RMDir /r "$SMPROGRAMS\${APPNAME}"
-  RMDir /r "$INSTDIR"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPKEY}"
   DeleteRegKey HKCU "Software\${APPKEY}"
+acceptance_uninstall:
+  RMDir /r "$INSTDIR"
   MessageBox MB_OK|MB_ICONINFORMATION "Đã gỡ phần mềm.$\r$\n$\r$\nThư mục DỮ LIỆU (mặc định Documents\DGVC_DATA) và các bản sao lưu vẫn được giữ nguyên — cài lại rồi chọn $\"Dùng thư mục dữ liệu có sẵn$\" để dùng tiếp." /SD IDOK
 SectionEnd
