@@ -72,7 +72,7 @@
           docCard(), d.header.canInvoice ? misaBox(pid, d) : ''));
       };
       const pk = await periodPicker(p, load);
-      const page = D.page('Bảng xác nhận KL & chứng từ in', '7 · BKVC · Bảng tính đơn giá · Biên bản giao nhận dầu', [h('label', { class: 'field wide' }, h('span', {}, 'Kỳ'), pk.sel)], h('div', { class: 'grid', style: { gridTemplateColumns: '1fr 340px' } }, h('div', { class: 'card' }, tabs, frame), side));
+      const page = D.page('Bảng xác nhận KL & chứng từ in', '7 · BKVC · Bảng tính đơn giá · Biên bản giao nhận dầu', [h('label', { class: 'field wide' }, h('span', {}, 'Kỳ'), pk.sel)], h('div', { class: 'grid doc-split' }, h('div', { class: 'card' }, tabs, frame), side));
       await load(pk.first);
       return page;
     },

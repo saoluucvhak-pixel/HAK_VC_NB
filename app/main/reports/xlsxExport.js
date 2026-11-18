@@ -97,6 +97,8 @@ function tableSheet(wb, d, { landscape = true, sheetName } = {}) {
   ws.getCell('A2').value = d.title; ws.getCell('A2').font = { name: FONT, bold: true, size: 14 };
   ws.getCell('A3').value = d.subtitle; ws.getCell('A3').font = { name: FONT, italic: true };
   const hr = ws.getRow(4); hr.height = 42;
+  ws.pageSetup.printTitlesRow = '4:4'; // in từ Excel nhiều trang: dòng tiêu đề cột lặp lại ở mỗi trang (PDF đã lặp)
+  ws.headerFooter.oddFooter = `&L&8${d.title}&R&8Trang &P/&N`; // chân trang mặc định (bản có chữ ký ghi đè bên dưới)
   d.columns.forEach((c, i) => { const cell = hr.getCell(i + 1); cell.value = c.header; cell.font = { name: FONT, bold: true, color: { argb: 'FFFFFFFF' } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F2740' } }; cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; cell.border = box;
     const fit = c.fmt === 'text' && c.key !== 'description' ? Math.min(42, Math.max(0, ...d.rows.map((r) => String(r[c.key] == null ? '' : r[c.key]).length)) + 2) : 0;
