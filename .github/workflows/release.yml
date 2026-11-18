@@ -1,0 +1,97 @@
+name: Release (Windows)
+
+# Chạy THỦ CÔNG (workflow_dispatch) trên máy Windows của GitHub Actions: dựng bộ cài, thử cài mới / cài đè / gỡ cài (giữ thư mục dữ liệu), thử SQLite trong Electron,
+# tính SHA-256 và (khi chọn publish) tạo GitHub Release kèm bộ cài. Không tự chạy khi push / PR.
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Tạo GitHub Release (tag v<phiên bản>) kèm bộ cài'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Cài NSIS
+        run: |
+          choco install nsis -y --no-progress
+          "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - run: npm ci
+      - name: Phiên bản
+        run: |
+          $v = (Get-Content package.json | ConvertFrom-Json).version
+          "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $nsi = Select-String -Path installer\dgvc.nsi -Pattern '!define VERSION "(.+)"' | ForEach-Object { $_.Matches[0].Groups[1].Value }
+          if ($nsi -ne $v) { throw "Phiên bản lệch: package.json=$v, dgvc.nsi=$nsi" }
+      - name: Kiểm SQLite trong Electron (Windows)
+        run: npx electron tests/electron.sqlite.main.js --no-sandbox
+        continue-on-error: true
+        id: sqlite_electron
+      - name: Dựng bộ cài (npm run dist)
+        run: npm run dist
+      - name: SHA-256 + kích thước
+        run: |
+          $f = "dist\DGVC-Setup-$env:VERSION.exe"
+          $h = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
+          "$h  DGVC-Setup-$env:VERSION.exe" | Out-File -FilePath "dist\DGVC-Setup-$env:VERSION.exe.sha256" -Encoding ascii
+          "SHA256=$h" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "$f  $h  $((Get-Item $f).Length) byte" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+      - name: Cài mới (im lặng, đường dẫn có dấu cách) rồi kiểm tệp
+        run: |
+          $dst = Join-Path $env:RUNNER_TEMP 'DGVC thu nghiem'
+          $data = Join-Path $env:USERPROFILE 'Documents\DGVC_DATA'; New-Item -ItemType Directory -Force $data | Out-Null; 'giu-lai' | Set-Content (Join-Path $data 'keep.txt')
+          Start-Process -FilePath "dist\DGVC-Setup-$env:VERSION.exe" -ArgumentList '/S', "/D=$dst" -Wait
+          if (-not (Test-Path "$dst\DGVC.exe")) { throw 'Không thấy DGVC.exe sau khi cài' }
+          if (-not (Test-Path "$dst\resources\app.asar")) { throw 'Không thấy app.asar' }
+          "DST=$dst" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $reg = (Get-ItemProperty 'HKCU:\Software\DGVC').Version; if ($reg -ne $env:VERSION) { throw "Registry Version=$reg" }
+      - name: Chạy thử luồng chính trên mã đã cài (Electron + Chromium)
+        run: |
+          $env:DGVC_APP_DIR = "$env:DST\resources\app.asar"
+          npx playwright-core install chromium 2>$null
+          node tests/electron.smoke.js
+        continue-on-error: true
+        id: smoke
+      - name: Cài đè lần hai (nâng cấp) + gỡ cài đặt giữ thư mục dữ liệu
+        run: |
+          Start-Process -FilePath "dist\DGVC-Setup-$env:VERSION.exe" -ArgumentList '/S', "/D=$env:DST" -Wait
+          if (-not (Test-Path "$env:DST\DGVC.exe")) { throw 'Cài đè làm mất DGVC.exe' }
+          Start-Process -FilePath "$env:DST\Go-cai-dat.exe" -ArgumentList '/S', "_?=$env:DST" -Wait
+          if (Test-Path "$env:DST\DGVC.exe") { throw 'Gỡ cài đặt chưa xóa DGVC.exe' }
+          $keep = Join-Path $env:USERPROFILE 'Documents\DGVC_DATA\keep.txt'
+          if (-not (Test-Path $keep)) { throw 'Gỡ cài đặt đã xóa thư mục dữ liệu (sai chính sách giữ dữ liệu)' }
+          'Cài mới, cài đè, gỡ cài (giữ dữ liệu): ĐẠT' | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+      - name: Tóm tắt kiểm thử
+        run: |
+          "- SQLite trong Electron: ${{ steps.sqlite_electron.outcome }}" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "- Luồng chính trên mã đã cài: ${{ steps.smoke.outcome }}" | Tee-Object -FilePath $env:GITHUB_STEP_SUMMARY -Append
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DGVC-Setup-${{ env.VERSION }}
+          path: |
+            app/dist/DGVC-Setup-${{ env.VERSION }}.exe
+            app/dist/DGVC-Setup-${{ env.VERSION }}.exe.sha256
+      - name: Tạo GitHub Release
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = "docs\PHAT_HANH_$env:VERSION.md"; if (-not (Test-Path "..\$notes")) { $notes = $null }
+          $body = "Bộ cài Windows x64 (chưa ký số). SHA-256: $env:SHA256`n`nCài đè lên bản cũ; dữ liệu giữ nguyên. Kho mặc định JSON; SQLite là thí điểm."
+          if ($notes) { gh release create "v$env:VERSION" "dist\DGVC-Setup-$env:VERSION.exe" "dist\DGVC-Setup-$env:VERSION.exe.sha256" --target ${{ github.sha }} --title "DGVC $env:VERSION" --notes-file "..\$notes" }
+          else { gh release create "v$env:VERSION" "dist\DGVC-Setup-$env:VERSION.exe" "dist\DGVC-Setup-$env:VERSION.exe.sha256" --target ${{ github.sha }} --title "DGVC $env:VERSION" --notes $body }
