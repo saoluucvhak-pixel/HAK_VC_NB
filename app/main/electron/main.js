@@ -5,7 +5,7 @@
  */
 const path = require('node:path');
 const fs = require('node:fs');
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, screen } = require('electron');
 const { AppContext } = require('../app/AppContext');
 const { Router } = require('../api/router');
 const { electronPdfRenderer } = require('../reports/pdf');
@@ -61,7 +61,9 @@ function host() {
 }
 
 function createWindow() {
-  win = new BrowserWindow({ width: 1440, height: 900, minWidth: 1280, minHeight: 760, title: 'Đơn giá vận chuyển dăm', backgroundColor: '#F1EFE9', show: false,
+  // Kích thước tính theo ĐƠN VỊ ĐỘC LẬP THIẾT BỊ (DIP): màn 1366×768 để tỉ lệ 125 % / 150 % chỉ còn 1093 / 910 DIP rộng — minWidth cũ 1280 buộc cửa sổ rộng hơn màn hình.
+  const wa = screen.getPrimaryDisplay().workAreaSize;
+  win = new BrowserWindow({ width: Math.min(1440, wa.width), height: Math.min(900, wa.height), minWidth: Math.min(900, wa.width), minHeight: Math.min(520, wa.height), title: 'Đơn giá vận chuyển dăm', backgroundColor: '#F1EFE9', show: false,
     icon: path.join(__dirname, `../../build/icon.${process.platform === 'win32' ? 'ico' : 'png'}`),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false } });
   win.once('ready-to-show', () => win.show());

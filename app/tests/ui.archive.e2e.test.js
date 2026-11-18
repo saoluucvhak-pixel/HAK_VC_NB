@@ -61,7 +61,7 @@ test('Giao diện ĐH: lưu trữ theo năm', { skip: !fs.existsSync(CHROME) && 
     await nav('Phiếu cân');
     await page.locator('label.field', { hasText: 'Từ ngày' }).first().locator('input').fill('2026-09-01');
     await page.locator('label.field', { hasText: 'Đến ngày' }).first().locator('input').fill('2026-09-30');
-    await page.getByRole('button', { name: 'Lọc' }).click().catch(() => {});
+    await page.getByRole('button', { name: 'Lọc', exact: true }).click().catch(() => {});
     await page.locator('.archive-banner', { hasText: 'năm lưu trữ 2026' }).waitFor();
     await page.locator('tbody tr', { hasText: '92H-00192' }).first().waitFor();
     await shot('dang-xem');

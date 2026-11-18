@@ -116,7 +116,17 @@
 
   // ───────── modal, drawer, hộp xác nhận ─────────
   D.modal = ({ title, body, actions = [], wide = false, drawer = false, onClose }) => {
-    const close = () => { ov.remove(); document.removeEventListener('keydown', esc); if (onClose) onClose(); };
+    const opener = document.activeElement; // trả focus về nơi mở hộp thoại khi đóng
+    const close = () => { ov.remove(); document.removeEventListener('keydown', esc); document.removeEventListener('keydown', trap); if (opener && opener.isConnected && opener.focus) opener.focus(); if (onClose) onClose(); };
+    // Tab / Shift+Tab xoay vòng TRONG hộp (aria-modal): không rò focus ra nền
+    const trap = (e) => {
+      if (e.key !== 'Tab' || !ov.isConnected || ov !== [...document.querySelectorAll('.overlay')].pop()) return;
+      const f = [...box.querySelectorAll('button, [href], input:not([type=hidden]), select, textarea, [tabindex]:not([tabindex="-1"])')].filter((x) => !x.disabled && x.offsetParent !== null);
+      if (!f.length) { e.preventDefault(); return; }
+      const a = document.activeElement; const i = f.indexOf(a);
+      if (e.shiftKey && (i <= 0 || !box.contains(a))) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && (i === f.length - 1 || !box.contains(a))) { e.preventDefault(); f[0].focus(); }
+    };
     // đang nhập dở (đã gõ / chọn gì đó) → không đóng khi bấm ra ngoài; Esc thì hỏi lại để khỏi mất dữ liệu
     let dirty = false; let downOnOv = false;
     const askClose = () => { if (!dirty || window.confirm('Đóng cửa sổ? Dữ liệu đang nhập chưa lưu sẽ mất.')) close(); };
@@ -131,8 +141,8 @@
     // chỉ đóng khi BẤM HẲN vào nền tối (nhấn và nhả chuột đều ở nền) và chưa nhập gì — kéo bôi đen chữ ra ngoài khung không đóng
     const ov = h('div', { class: `overlay ${drawer ? 'drawer-ov' : ''}`, onmousedown: (e) => { downOnOv = e.target === ov; },
       onclick: (e) => { if (e.target === ov && downOnOv && !dirty) close(); downOnOv = false; } }, box);
-    document.body.append(ov); document.addEventListener('keydown', esc);
-    const first = box.querySelector('input, select, textarea'); if (first) first.focus();
+    document.body.append(ov); document.addEventListener('keydown', esc); document.addEventListener('keydown', trap);
+    const first = box.querySelector('input, select, textarea') || box.querySelector('.foot button.primary, .foot button, button'); if (first) first.focus();
     return { close, box };
   };
   D.confirm = ({ title, message, okLabel = 'Đồng ý', reason = false, danger = false }) => new Promise((resolve) => {
@@ -239,6 +249,29 @@
   ];
   D.go = (view, params = {}) => { state.view = view; state.params = params; render(); };
 
+  /**
+   * Bộ lọc dùng chung (mọi màn có nút Lọc / Xem): Enter trong ô gõ = bấm Lọc; hiện "N điều kiện đang lọc" + nút "Xóa lọc" (đưa về giá trị mặc định rồi lọc lại).
+   * Gắn sau khi màn hình dựng xong — không cần sửa từng màn; mặc định = giá trị lúc dựng.
+   */
+  D.enhanceFilters = (root) => {
+    for (const apply of root.querySelectorAll('.filters button.btn.primary')) {
+      if (!/^(Lọc|Xem)$/.test(apply.textContent.trim()) || apply.dataset.enh) continue; apply.dataset.enh = '1';
+      const bar = apply.closest('.filters') && apply.closest('.filters').parentElement; if (!bar) continue;
+      const fields = [...bar.querySelectorAll('.filters input:not([type=hidden]):not([type=button]), .filters select')];
+      if (!fields.length) continue;
+      const val = (el) => (el.type === 'checkbox' ? String(el.checked) : el.value);
+      const dflt = new Map(fields.map((el) => [el, val(el)]));
+      const badge = h('span', { class: 'small muted', 'aria-live': 'polite' });
+      const clear = h('button', { class: 'btn', type: 'button', onclick: () => {
+        for (const [el, v] of dflt) { if (el.type === 'checkbox') el.checked = v === 'true'; else el.value = v; }
+        refresh(); apply.click(); } }, 'Xóa lọc');
+      const refresh = () => { const n = fields.filter((el) => val(el) !== dflt.get(el)).length; badge.textContent = n ? `${n} điều kiện đang lọc` : ''; clear.hidden = !n; };
+      apply.after(clear, badge); refresh();
+      bar.addEventListener('input', refresh); bar.addEventListener('change', refresh); apply.addEventListener('click', () => setTimeout(refresh, 0));
+      bar.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && e.target.matches('.filters input:not([type=checkbox]):not([type=button])')) { e.preventDefault(); apply.click(); } });
+    }
+  };
+
   async function render() {
     const root = document.getElementById('root');
     if (['setup', 'login'].includes(state.view)) { root.innerHTML = ''; root.append(await D.views[state.view].render(state.params)); return; }
@@ -256,7 +289,7 @@
         h('button', { onclick: async () => { await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); state.token = ''; state.boot = null; D.go('login'); } }, 'Đăng xuất')));
     root.innerHTML = ''; root.append(h('div', { class: 'app' }, side, main));
     const v = D.views[state.view];
-    try { main.append(await v.render(state.params)); } catch (e) { main.append(h('div', { class: 'card' }, h('h2', {}, 'Không mở được màn hình'), h('p', {}, e.message))); }
+    try { main.append(await v.render(state.params)); D.enhanceFilters(main); } catch (e) { main.append(h('div', { class: 'card' }, h('h2', {}, 'Không mở được màn hình'), h('p', {}, e.message))); }
   }
   D.render = render;
   D.refreshBoot = async () => { state.boot = await D.api('meta.bootstrap'); };
