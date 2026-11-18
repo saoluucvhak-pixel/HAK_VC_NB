@@ -148,6 +148,10 @@ const ROUTES = {
   'data.listBackups': [null, (ctx) => ctx.svc.backup.list()],
   'data.restore': [null, async (ctx, p, s) => { const r = await ctx.svc.backup.restore({ ...p, user: s.user }); ctx.replaceStore(r.store); return { restoredFrom: r.restoredFrom, safetyBackup: r.safetyBackup, dataVersion: r.dataVersion }; }],
   'data.changeFolder': [null, (ctx, p, s) => ctx.changeFolder({ ...p, user: s.user })],
+  'storage.info': [null, (ctx) => ctx.storageInfo()],
+  'storage.migrate': [null, async (ctx, p, s) => { const r = await ctx.migrateStorage({ dryRun: !!p.dryRun, user: s.user }); return { verified: r.verified, dryRun: r.dryRun, safetyBackup: r.safetyBackup, rows: r.report.verification.rows, closedPeriods: r.report.verification.closedPeriods, sourceUnchanged: r.report.sourceUnchanged, ...ctx.storageInfo() }; }],
+  'storage.revert': [null, async (ctx, p, s) => { await ctx.revertStorage({ user: s.user }); return ctx.storageInfo(); }],
+  'storage.exportJson': [null, (ctx, p) => ctx.exportStorageToJson({ dest: p.dest })],
   // trao đổi
   'exchange.exportPackage': [null, (ctx, p, s) => ctx.svc.exchange.exportPackage({ ...p, user: s.user })],
   'exchange.previewPackage': [null, (ctx, p, s) => ctx.svc.exchange.previewPackage({ ...p, user: s.user })],

@@ -4448,6 +4448,96 @@
    "lock": false
   },
   {
+   "action": "storage.info",
+   "group": "Dữ liệu",
+   "desc": "Kho lưu trữ đang dùng (json | sqlite), vùng đồng bộ của thư mục dữ liệu, dấu chuyển, khả năng chuyển / quay lại",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{storage, dataFolder, sqliteAvailable, syncFolder, migratedAt, sourceDataVersion, canMigrate, canRevert, blockedReason}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "storage.migrate",
+   "group": "Dữ liệu",
+   "desc": "Chuyển kho JSON → SQLite (thí điểm): dryRun=true chỉ kiểm chứng; thật = sao lưu an toàn + dựng + kiểm chứng + đổi tên + đổi cấu hình. Kho JSON cũ đóng băng làm đường lui",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "dryRun",
+     "boolean",
+     false,
+     "mặc định false"
+    ]
+   ],
+   "output": "{verified, dryRun, safetyBackup, rows, closedPeriods, sourceUnchanged, …storage.info}",
+   "errors": [
+    "BUSINESS_RULE:E_STORAGE_BLOCKED",
+    "INTEGRITY_ERROR",
+    "STORAGE_ERROR",
+    "VALIDATION_FAILED"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "MIGRATE_STORAGE",
+   "lock": true
+  },
+  {
+   "action": "storage.revert",
+   "group": "Dữ liệu",
+   "desc": "Quay lại kho JSON khi CHƯA có giao dịch mới trên SQLite (kho JSON đóng băng trùng khớp)",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{…storage.info}",
+   "errors": [
+    "BUSINESS_RULE:E_NEW_TRANSACTIONS",
+    "INTEGRITY_ERROR",
+    "VALIDATION_FAILED"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "REVERT_STORAGE",
+   "lock": true
+  },
+  {
+   "action": "storage.exportJson",
+   "group": "Dữ liệu",
+   "desc": "Xuất ngược SQLite → thư mục JSON mới (đường lui khi đã có giao dịch mới); kiểm chứng; không đổi cấu hình",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "dest",
+     "string",
+     true,
+     "thư mục đích trống"
+    ]
+   ],
+   "output": "{ok, dest, fingerprint, rows}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "INTEGRITY_ERROR"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
    "action": "exchange.exportPackage",
    "group": "Trao đổi",
    "desc": "Xuất gói .dgvc (JSON nén + SHA-256): DANH_MUC (đơn vị, xe, tuyến, giá, HĐ liên quan), PHIEU_CAN (theo khoảng ngày / xe), KY_TINH (kỳ đã xác nhận/khóa + chi tiết + BKVC)",

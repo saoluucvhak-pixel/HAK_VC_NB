@@ -771,3 +771,9 @@ Cả 3 thư mục có đủ danh mục (5 đơn vị, 17 xe, 12 tuyến, 12 phi�
 - **Q5 — chống bấm hai lần bền:** `store.requestMap(ns)`; kho SQLite lưu bảng `_request` (giữ 90 ngày), kho JSON vẫn trong RAM. Ghi ngay sau khi thao tác thành công (không cùng giao dịch dữ liệu).
 - **Gói `.dgvc`:** cùng dữ liệu logic → cùng `contentSha256` giữa kho JSON và SQLite; nhập chéo hai chiều được (test T-DGVC-04).
 - **Còn lại:** khóa ngoại SQL (Q4, cần ánh xạ ô rỗng → NULL ở cột khóa ngoại), lease thay `.lock`, dấu vân tay bảng trong `_meta` (Q3); nút giao diện + thí điểm Windows ở giai đoạn 3–4.
+
+## Giai đoạn 4a — giao diện thí điểm (bản 1.3.0; mặc định VẪN là kho JSON)
+- **Cài đặt → Dữ liệu & sao lưu → "Kho lưu trữ dữ liệu (thí điểm SQLite)"** (chỉ ADMIN): hiện kho đang dùng; **Chạy thử** (không đổi gì, hiện kết quả đối chiếu), **Chuyển sang SQLite** (xác nhận → sao lưu an toàn → dựng → kiểm chứng → đổi tên → đổi cấu hình), **Quay lại kho JSON** (khi chưa có giao dịch mới), **Xuất ngược ra JSON** (khi đã có giao dịch mới).
+- Route mới (ADMIN): `storage.info`, `storage.migrate {dryRun}`, `storage.revert`, `storage.exportJson {dest}`.
+- **Vùng đồng bộ / ổ mạng** (OneDrive, Google Drive, Dropbox, iCloud, UNC `\\máy\thư-mục`): nhận diện, hiện cảnh báo và **chặn chuyển** (`E_STORAGE_BLOCKED`) — WAL cần `-shm`, trình đồng bộ có thể khóa/chụp giữa chừng.
+- **Chưa đổi mặc định sang SQLite cho bản cài mới** và chưa xóa đường đọc JSON: chờ kết quả thí điểm trên Windows thật (docs/THI_DIEM_SQLITE_WINDOWS.md, cổng giai đoạn 3).

@@ -116,3 +116,16 @@ test('T-DGVC-04: gói kỳ tính xuất từ kho JSON và từ kho SQLite có C�
   assert.equal(q.ctx.store.get('KY_TINH', pid).origin, 'IMPORTED');
   a.ctx.close(); q.ctx.close();
 });
+
+test('Thư mục nằm trong vùng đồng bộ / ổ mạng: nhận diện, cảnh báo, và KHÔNG cho chuyển sang SQLite', { skip, timeout: 200000 }, async () => {
+  const { syncFolderKind } = require('../main/app/AppContext');
+  assert.equal(syncFolderKind('C:\\Users\\a\\OneDrive\\DGVC_DATA'), 'ONEDRIVE'); assert.equal(syncFolderKind('C:\\Users\\a\\Google Drive\\x'), 'GOOGLEDRIVE');
+  assert.equal(syncFolderKind('\\\\may-chu\\chia-se\\DGVC'), 'NETWORK'); assert.equal(syncFolderKind('D:\\DGVC_DATA'), ''); assert.equal(syncFolderKind('/home/u/Documents/DGVC_DATA'), '');
+  const home = tmp('sync'); const dataFolder = path.join(home, 'OneDrive', 'DGVC_DATA');
+  const ctx = new AppContext({ configFile: path.join(home, 'userData', 'c.json'), documentsDir: home });
+  await ctx.init({ mode: 'NEW', dataFolder, unitCode: 'DH' });
+  const info = ctx.storageInfo(); assert.equal(info.syncFolder, 'ONEDRIVE'); assert.equal(info.canMigrate, false); assert.match(info.blockedReason, /vùng đồng bộ/);
+  await assert.rejects(ctx.migrateStorage({ user: ADMIN }), (e) => e.details && e.details.code === 'E_STORAGE_BLOCKED');
+  assert.equal(ctx.storageKind(), 'json'); assert.ok(!fs.existsSync(path.join(dataFolder, 'dgvc.sqlite')));
+  ctx.close();
+});

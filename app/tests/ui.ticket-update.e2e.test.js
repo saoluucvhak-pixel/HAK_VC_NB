@@ -58,7 +58,7 @@ test('Giao diện: cập nhật phiếu cân qua import, xóa nhiều, khôi ph�
     await page.locator('label.field', { hasText: 'Từ ngày' }).locator('input').fill('2026-09-20');
     await page.locator('label.field', { hasText: 'Đến ngày' }).locator('input').fill('2026-09-20');
     await page.getByRole('button', { name: 'Lọc', exact: true }).click();
-    const del = page.getByRole('button', { name: /Xóa \d+ phiếu đang lọc/ }); await del.waitFor();
+    const del = page.getByRole('button', { name: /Xóa [1-9] phiếu đang lọc/ }); await del.waitFor(); // chờ danh sách ĐÃ lọc (1 chữ số); nút trước khi lọc ghi cả 77 phiếu — đọc nhầm sẽ ra số xóa khác
     const cnt = Number((await del.textContent()).match(/Xóa (\d+)/)[1]);
     await del.click(); await page.locator('.modal textarea').fill('file nhập nhầm'); await page.locator('.modal').getByRole('button', { name: 'Đồng ý' }).click();
     await toast(new RegExp(`Đã xóa ${cnt} phiếu`));
