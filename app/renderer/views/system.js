@@ -26,6 +26,38 @@
   }
 
   // ───────── Lưu trữ theo năm (bản 1.2.5) ─────────
+  /** Kho lưu trữ (thí điểm SQLite) — chỉ ADMIN. Mặc định vẫn là kho JSON; chuyển là thao tác chủ động, có chạy thử, có đường lui. */
+  async function storageCard() {
+    const d = await D.api('storage.info', {}, { quiet: true }).catch(() => null);
+    if (!d) return null;
+    const again = async () => { await D.refreshBoot(); D.go('settings', { tab: 'backup' }); };
+    const result = (r) => h('div', {},
+      h('p', {}, r.verified ? D.tag('ok', r.dryRun ? 'Chạy thử đạt' : 'Đã chuyển và kiểm chứng') : D.tag('err', 'Không đạt'),
+        ` Kho JSON nguồn ${r.sourceUnchanged ? 'nguyên vẹn' : 'đã đổi (!)'}.`, r.safetyBackup ? ` Bản sao an toàn: ${r.safetyBackup}` : ''),
+      h('p', { class: 'small mono' }, Object.entries(r.rows || {}).filter(([, n]) => n).map(([t, n]) => `${t}: ${D.vn(n)}`).join(' · ')),
+      h('p', { class: 'small' }, `Đã đối chiếu số dòng, dấu vân tay từng bảng, bộ đếm sinh mã và tổng của ${Object.keys(r.closedPeriods || {}).length} kỳ đã chốt.`));
+    const migrate = async (dryRun) => {
+      if (!dryRun && !(await D.confirm({ title: 'Chuyển sang kho SQLite (thí điểm)', danger: true,
+        message: 'Đóng mọi cửa sổ DGVC khác. APP sao lưu an toàn, dựng kho SQLite, đối chiếu từng bảng và từng kỳ đã chốt rồi mới chuyển. Kho JSON cũ được ĐÓNG BĂNG làm đường lui (chỉ quay lại bằng cách đổi cấu hình nếu chưa nhập / sửa gì mới). Khuyến nghị: chạy thử trước.' }))) return;
+      let r; try { r = await D.api('storage.migrate', { dryRun }); } catch { return; }
+      D.modal({ title: dryRun ? 'Kết quả chạy thử' : 'Kết quả chuyển kho', wide: true, body: result(r), actions: [{ label: 'Đóng', primary: true, run: async () => { if (!dryRun) await again(); return true; } }] });
+    };
+    return h('div', { class: 'card' }, h('h2', {}, 'Kho lưu trữ dữ liệu (thí điểm SQLite)'),
+      h('p', {}, 'Đang dùng: ', D.tag(d.storage === 'sqlite' ? 'ok' : 'info', d.storage === 'sqlite' ? 'SQLite' : 'JSON (mặc định)'),
+        d.migratedAt ? ` · chuyển lúc ${D.dt(d.migratedAt)}` : ''),
+      d.syncFolder ? h('p', {}, D.tag('warn', 'Cảnh báo'), ` Thư mục dữ liệu nằm trong vùng đồng bộ / ổ mạng (${d.syncFolder}) — SQLite có thể bị trình đồng bộ khóa hoặc chụp giữa chừng. Nên dùng ổ cục bộ cố định.`) : null,
+      d.blockedReason ? h('p', { class: 'small' }, d.blockedReason) : null,
+      h('p', { class: 'small' }, d.storage === 'json'
+        ? 'Chức năng thí điểm: chỉ chuyển khi đã được hướng dẫn (xem docs/THI_DIEM_SQLITE_WINDOWS.md). Kho JSON vẫn là mặc định và vẫn dùng bình thường.'
+        : d.canRevert ? 'Chưa có giao dịch mới nào sau khi chuyển: có thể quay lại kho JSON cũ (đang đóng băng, trùng khớp).'
+          : 'Đã có giao dịch mới trên SQLite mà kho JSON cũ không có: muốn quay lại phải "Xuất ngược" ra thư mục JSON mới.'),
+      h('div', { class: 'btns' },
+        d.storage === 'json' ? h('button', { class: 'btn', disabled: !d.canMigrate, onclick: () => migrate(true) }, 'Chạy thử (không đổi gì)') : null,
+        d.storage === 'json' ? h('button', { class: 'btn danger', disabled: !d.canMigrate, onclick: () => migrate(false) }, 'Chuyển sang SQLite') : null,
+        d.storage === 'sqlite' && d.canRevert ? h('button', { class: 'btn', onclick: async () => { if (!(await D.confirm({ title: 'Quay lại kho JSON', message: 'Dùng lại kho JSON cũ (đã đóng băng, trùng khớp với SQLite vì chưa có giao dịch mới).' }))) return; try { await D.api('storage.revert', {}); } catch { return; } await again(); } }, 'Quay lại kho JSON') : null,
+        d.storage === 'sqlite' ? h('button', { class: 'btn', onclick: async () => { const f = await D.pickFolder('Chọn thư mục TRỐNG để xuất ngược ra JSON'); if (!f) return; try { const r = await D.api('storage.exportJson', { dest: f }); D.toast(`Đã xuất JSON ra ${r.dest} và kiểm chứng đạt`, 'ok', 9000); } catch { /* lỗi đã hiện */ } } }, 'Xuất ngược ra JSON') : null));
+  }
+
   async function archiveCard() {
     const d = await D.api('archive.years', {}, { quiet: true }).catch(() => null);
     if (!d) return null;
@@ -169,6 +201,7 @@
           h('div', { class: 'sep' }), h('h2', {}, 'Thư mục dữ liệu'), h('p', { class: 'small mono' }, D.state.boot.install.dataFolder),
           admin ? h('button', { class: 'btn', onclick: async () => { const f = await D.pickFolder('Chọn thư mục mới (trống), vd D:\\DGVC_DATA'); if (!f) return; if (!(await D.confirm({ title: 'Đổi thư mục dữ liệu', message: `Chép toàn bộ dữ liệu sang ${f} rồi dùng thư mục mới. Thư mục cũ giữ nguyên.` }))) return; await D.api('data.changeFolder', { newFolder: f }); await D.refreshBoot(); D.go('settings', { tab: 'backup' }); } }, 'Đổi sang ổ khác…') : null)),
         admin ? await archiveCard() : null,
+        admin ? await storageCard() : null,
         h('div', { class: 'card flush' }, D.table({ rows: b.items, columns: [{ key: 'createdAt', label: 'Lúc', fmt: 'datetime' }, { key: 'kind', label: 'Loại' }, { key: 'name', label: 'File' }, { key: 'sizeBytes', label: 'Dung lượng (byte)', fmt: 'int' },
           { key: 'x', label: '', render: (r) => (admin ? h('button', { class: 'btn small danger', onclick: async () => { const reason = await D.confirm({ title: 'Khôi phục sao lưu', message: `Dữ liệu trở về lúc ${D.dt(r.createdAt)}. APP sao lưu an toàn hiện trạng trước.`, reason: true, danger: true }); if (!reason) return; await D.api('data.restore', { file: r.file, reason }); D.toast('Đã khôi phục', 'ok'); await D.refreshBoot(); D.go('dashboard'); } }, 'Khôi phục') : '') }], empty: 'Chưa có bản sao lưu' })));
       } else if (tab === 'params') {

@@ -237,6 +237,10 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | `data.listBackups` | Danh sách bản sao lưu (ngày / tháng / thủ công) | A |  |  |
 | `data.restore` | Khôi phục từ 1 bản sao lưu: tự sao lưu hiện trạng trước, thay thư mục tables/, mở lại APP | A |  | RESTORE |
 | `data.changeFolder` | Chuyển thư mục dữ liệu sang vị trí khác (copy + kiểm SHA-256 + đổi cấu hình) | A |  | CHANGE_FOLDER |
+| `storage.info` | Kho lưu trữ đang dùng (json / sqlite), vùng đồng bộ, dấu chuyển, khả năng chuyển / quay lại | A |  |  |
+| `storage.migrate` | Chuyển kho JSON → SQLite (thí điểm; `dryRun` chỉ kiểm chứng) — sao lưu an toàn, kiểm chứng, đổi tên, đổi cấu hình | A | 🔒 | MIGRATE_STORAGE |
+| `storage.revert` | Quay lại kho JSON khi chưa có giao dịch mới trên SQLite | A | 🔒 | REVERT_STORAGE |
+| `storage.exportJson` | Xuất ngược SQLite → thư mục JSON mới (kiểm chứng) | A |  |  |
 
 ### 4.15. Trao đổi
 

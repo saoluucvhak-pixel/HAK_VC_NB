@@ -34,6 +34,14 @@ const CATALOG_FILE = path.join(__dirname, '../../resources/catalog/catalog.json'
 const CATALOG_TABLES = ['DON_VI', 'XE', 'TUYEN_VC', 'HOP_DONG', 'HOP_DONG_XE', 'PRICE_HISTORY', 'CONFIG', 'USERS'];
 const APP_VERSION = require('../../package.json').version;
 
+/** Thư mục dữ liệu có nằm trong vùng đồng bộ / ổ mạng không? SQLite (WAL) cần `-shm` và không chịu được trình đồng bộ giữa chừng → không chuyển, chỉ cảnh báo. */
+function syncFolderKind(p) {
+  const s = String(p || '');
+  if (/^\\\\/.test(s) || /^\/\//.test(s)) return 'NETWORK';
+  const m = /(onedrive|google ?drive|dropbox|icloud|my drive|box sync)/i.exec(s);
+  return m ? m[1].toUpperCase().replace(/\s+/g, '') : '';
+}
+
 function defaultDataFolder() {
   const docs = process.platform === 'win32' ? path.join(os.homedir(), 'Documents') : path.join(os.homedir(), 'Documents');
   return path.join(docs, 'DGVC_DATA');
@@ -55,6 +63,16 @@ class AppContext {
   writeConfig(c) {
     fs.mkdirSync(path.dirname(this.configFile), { recursive: true });
     const tmp = `${this.configFile}.tmp`; fs.writeFileSync(tmp, JSON.stringify(c, null, 1)); fs.renameSync(tmp, this.configFile);
+  }
+  /** Thông tin kho cho màn hình Cài đặt: loại kho, vùng đồng bộ, dấu chuyển, khả năng chuyển / quay lại. */
+  storageInfo() {
+    const kind = this.storageKind(); const folder = this.readConfig().dataFolder || '';
+    let sqliteOk = true; try { require('node:sqlite'); } catch { sqliteOk = false; }
+    let marker = null; try { marker = JSON.parse(fs.readFileSync(path.join(folder, 'STORAGE_MIGRATED.json'), 'utf8')); } catch { /* chưa chuyển */ }
+    const sync = syncFolderKind(folder);
+    const canRevert = kind === 'sqlite' && !!marker && !!this.store && this.store.dataVersion <= marker.sourceDataVersion + 1;
+    return { storage: kind, dataFolder: folder, sqliteAvailable: sqliteOk, syncFolder: sync, migratedAt: marker ? marker.migratedAt : null, sourceDataVersion: marker ? marker.sourceDataVersion : null,
+      canMigrate: kind === 'json' && sqliteOk && !sync, canRevert, blockedReason: kind !== 'json' ? '' : !sqliteOk ? 'Môi trường không hỗ trợ SQLite' : sync ? `Thư mục dữ liệu nằm trong vùng đồng bộ / ổ mạng (${sync}) — chuyển sang ổ cục bộ cố định (vd D:\\DGVC_DATA) trước` : '' };
   }
   /** Loại kho đang dùng của bản cài này. */
   storageKind() { return this.readConfig().storage === 'sqlite' ? 'sqlite' : 'json'; }
@@ -214,6 +232,7 @@ class AppContext {
   async migrateStorage({ user = { username: 'system' }, dryRun = false } = {}) {
     if (this.storageKind() === 'sqlite') throw new AppError('VALIDATION_FAILED', 'Bản cài đã dùng kho SQLite');
     const { dataFolder } = this.readConfig(); if (!dataFolder) throw new AppError('NOT_INITIALIZED', 'Bản cài chưa khởi tạo');
+    const blocked = this.storageInfo().blockedReason; if (blocked) throw new AppError('BUSINESS_RULE', blocked, { code: 'E_STORAGE_BLOCKED' });
     const { migrateJsonToSqlite } = require('../repo/migrate/migrate');
     const sessions = this.svc ? this.svc.auth.sessions : null;
     this.close();
@@ -260,4 +279,4 @@ class AppContext {
   close() { if (this.store) { this.store.close(); this.store = null; } }
 }
 
-module.exports = { AppContext, defaultDataFolder, CATALOG_FILE };
+module.exports = { AppContext, defaultDataFolder, syncFolderKind, CATALOG_FILE };

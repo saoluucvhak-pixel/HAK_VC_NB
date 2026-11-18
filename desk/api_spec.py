@@ -296,6 +296,15 @@ ep('data.restore', 'Dữ liệu', 'Khôi phục từ 1 bản sao lưu: tự sao 
    [('backupPath', 'string', True, ''), ('reason', 'string', True, '')], '{restoredDataVersion, safetyBackupPath}', ['INTEGRITY_ERROR', 'STORAGE_ERROR'], audit='RESTORE')
 ep('data.changeFolder', 'Dữ liệu', 'Chuyển thư mục dữ liệu sang vị trí khác (copy + kiểm SHA-256 + đổi cấu hình)', ADM, [('newFolder', 'string', True, '')],
    '{dataFolder}', ['STORAGE_ERROR', 'DATA_LOCKED'], audit='CHANGE_FOLDER')
+ep('storage.info', 'Dữ liệu', 'Kho lưu trữ đang dùng (json | sqlite), vùng đồng bộ của thư mục dữ liệu, dấu chuyển, khả năng chuyển / quay lại', ADM, [],
+   '{storage, dataFolder, sqliteAvailable, syncFolder, migratedAt, sourceDataVersion, canMigrate, canRevert, blockedReason}')
+ep('storage.migrate', 'Dữ liệu', 'Chuyển kho JSON → SQLite (thí điểm): dryRun=true chỉ kiểm chứng; thật = sao lưu an toàn + dựng + kiểm chứng + đổi tên + đổi cấu hình. Kho JSON cũ đóng băng làm đường lui', ADM,
+   [('dryRun', 'boolean', False, 'mặc định false')], '{verified, dryRun, safetyBackup, rows, closedPeriods, sourceUnchanged, …storage.info}',
+   ['BUSINESS_RULE:E_STORAGE_BLOCKED', 'INTEGRITY_ERROR', 'STORAGE_ERROR', 'VALIDATION_FAILED'], [], [], 'MIGRATE_STORAGE', True)
+ep('storage.revert', 'Dữ liệu', 'Quay lại kho JSON khi CHƯA có giao dịch mới trên SQLite (kho JSON đóng băng trùng khớp)', ADM, [], '{…storage.info}',
+   ['BUSINESS_RULE:E_NEW_TRANSACTIONS', 'INTEGRITY_ERROR', 'VALIDATION_FAILED'], [], [], 'REVERT_STORAGE', True)
+ep('storage.exportJson', 'Dữ liệu', 'Xuất ngược SQLite → thư mục JSON mới (đường lui khi đã có giao dịch mới); kiểm chứng; không đổi cấu hình', ADM,
+   [('dest', 'string', True, 'thư mục đích trống')], '{ok, dest, fingerprint, rows}', ['VALIDATION_FAILED', 'INTEGRITY_ERROR'])
 
 # ------------------------------------------------------------ Trao đổi giữa các bản cài
 ep('exchange.exportPackage', 'Trao đổi', 'Xuất gói .dgvc (JSON nén + SHA-256): DANH_MUC (đơn vị, xe, tuyến, giá, HĐ liên quan), PHIEU_CAN (theo khoảng ngày / xe), KY_TINH (kỳ đã xác nhận/khóa + chi tiết + BKVC)', EDIT,
