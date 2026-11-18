@@ -11,10 +11,11 @@ const { _electron: electron } = require('playwright-core');
 const { FILE } = require('./install');
 
 (async () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-electron-'));
+  const home = process.env.DGVC_TEST_HOME || fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-electron-'));
+  fs.mkdirSync(home, { recursive: true });
   const shots = process.env.DGVC_SHOTS || '';
   const appDir = process.env.DGVC_APP_DIR || path.join(__dirname, '..'); // có thể trỏ vào app.asar đã đóng gói
-  const app = await electron.launch({ executablePath: require('electron'), args: [appDir, '--no-sandbox'], env: { ...process.env, DGVC_USER_DATA: path.join(home, 'userData'), DGVC_DOCUMENTS: path.join(home, 'Documents') } });
+  const app = await electron.launch({ executablePath: process.env.DGVC_EXECUTABLE || require('electron'), args: process.env.DGVC_EXECUTABLE ? ['--no-sandbox'] : [appDir, '--no-sandbox'], env: { ...process.env, DGVC_USER_DATA: path.join(home, 'userData'), DGVC_DOCUMENTS: path.join(home, 'Documents') } });
   // giả lập hộp thoại Windows: trả sẵn đường dẫn
   const answer = async (p) => app.evaluate(({ dialog, shell }, f) => { shell.openPath = async () => ''; // không mở trình xem file trên máy kiểm thử
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [f] }); dialog.showSaveDialog = async () => ({ canceled: false, filePath: f }); }, p);
@@ -69,6 +70,16 @@ const { FILE } = require('./install');
   assert.equal(fs.readFileSync(pdf).subarray(0, 5).toString(), '%PDF-');
   if (shots) await w.screenshot({ path: path.join(shots, 'electron-bkvc.png') });
   log('pdf ok'); assert.deepEqual(errors, []);
+  if (process.env.DGVC_ACCEPTANCE_CONFIRM === '1') {
+    await w.evaluate(async () => {
+      const D = window.DGVC;
+      let period = (await D.api('periods.list', {})).items[0];
+      await D.api('periods.confirm', { periodId: period.period_id, rowVersion: period.row_version });
+      period = (await D.api('periods.list', {})).items[0];
+      await D.api('periods.lock', { periodId: period.period_id, rowVersion: period.row_version });
+    });
+    log('kỳ đã xác nhận và khóa trước khi kiểm tra nâng cấp');
+  }
   const cfg = JSON.parse(fs.readFileSync(path.join(home, 'userData', 'dgvc-config.json'), 'utf8'));
   assert.equal(cfg.dataFolder, path.join(home, 'Documents', 'DGVC_DATA'));
   log(`windows: ${await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((x) => x.getTitle() + (x.isVisible() ? ' (hiện)' : ' (ẩn)')).join(', '))}`);

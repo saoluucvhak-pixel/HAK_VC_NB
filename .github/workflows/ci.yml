@@ -46,6 +46,11 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
+      - name: Cài Chromium và Poppler cho SQLite
+        run: |
+          sudo apt-get update && sudo apt-get install -y poppler-utils
+          npx playwright-core install --with-deps chromium
+          echo "CHROMIUM_PATH=$(node -e "console.log(require('playwright-core').chromium.executablePath())")" >> "$GITHUB_ENV"
       - name: Bộ test trên kho SQLite
         env:
           DGVC_STORAGE: sqlite
