@@ -32,12 +32,15 @@ test('Giao diện: Nhật trình xe theo tháng / quý', { skip: !fs.existsSync(
     await page.getByRole('button', { name: 'Vào phần mềm' }).click();
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     for (const [menu, title] of [['Phiếu cân', 'Import phiếu cân — xem trước'], ['Giao nhận dầu', 'Import bảng kê dầu — xem trước']]) {
-      await page.locator('nav button', { hasText: menu }).click(); await next(FILE.DH);
+      await page.locator('nav button', { hasText: menu }).click();
+      await page.getByRole('heading', { name: menu, exact: true }).waitFor();
+      await next(FILE.DH);
       await page.getByRole('button', { name: 'Import từ Excel' }).click();
       await page.getByText(title).waitFor();
       await page.getByLabel('Chấp nhận các dòng cảnh báo').check();
       await page.getByRole('button', { name: /Xác nhận import/ }).click();
       await toast(/Đã import \d+ dòng/);
+      await page.getByRole('dialog', { name: title, exact: true }).waitFor({ state: 'hidden' });
     }
     await page.locator('nav button', { hasText: 'Báo cáo' }).click();
     await page.getByRole('tab', { name: 'Nhật trình xe' }).click();
