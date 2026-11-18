@@ -68,22 +68,28 @@
         { key: 'q', label: 'Số phiếu / biển số', placeholder: 'tìm…' }, { key: 'onlyFlags', label: 'Chỉ phiếu có cảnh báo', type: 'check' }], p);
       f.className = 'filters';
       const out = h('div', { class: 'card flush' });
-      const load = async () => {
-        const d = await D.api('tickets.list', { ...f.values(), pageSize: 5000 });
+      const PAGE = 500; let pg = 1; const guard = D.latest();
+      const load = async (opts = {}) => {
+        if (opts === true || (opts && opts.reset)) pg = 1; // bấm Lọc / đổi điều kiện → về trang 1
+        const tok = guard.next();
+        const d = await D.api('tickets.list', { ...f.values(), page: pg, pageSize: PAGE });
+        if (!guard.ok(tok)) return; // đã có lần tải mới hơn — bỏ kết quả cũ
+        if (d.total && pg > Math.ceil(d.total / PAGE)) { pg = Math.ceil(d.total / PAGE); return load(); } // sau khi xóa hết trang cuối
         out.innerHTML = '';
         const deletedView = f.values().usage === 'DELETED';
         out.append(h('div', { class: 'row', style: { padding: '10px 14px', borderBottom: '1px solid var(--line)' } },
           h('span', { class: 'small muted grow' }, deletedView ? 'Phiếu đã xóa — bấm vào 1 phiếu để khôi phục (import lại file có phiếu đó cũng tự khôi phục).' : 'Bấm vào 1 phiếu để xem / sửa / xóa. Import lại file đã sửa số liệu sẽ cập nhật phiếu đã có (trừ phiếu ở kỳ đã chốt).'),
-          D.writer() && !deletedView && d.items.length ? h('button', { class: 'btn small danger', onclick: () => bulkDelete(d.items, load) }, `Xóa ${D.vn(d.items.length)} phiếu đang lọc…`) : null));
+          D.writer() && !deletedView && d.total ? h('button', { class: 'btn small danger', onclick: () => bulkDelete(f.values(), load) }, `Xóa ${D.vn(d.total)} phiếu đang lọc…`) : null));
         out.append(D.table({ rows: d.items, onRow: (r) => ticketDrawer(r.ticket_id, load), footer: { ticket_no: `${D.vn(d.totals.trips)} phiếu`, net_kg: d.totals.kg },
           columns: [...D.TICKET_COLS, { key: 'ldd', label: 'LDĐ' }, { key: 'u', label: 'Kỳ đang dùng', render: (r) => (r.usages.length ? r.usages.map((u) => h('div', {}, D.tag(u.status), ' ', h('span', { class: 'mono small' }, u.periodCode))) : h('span', { class: 'tag mute' }, 'Chưa tính')) },
             { key: 'validation_flags', label: 'Cảnh báo', render: (r) => (r.validation_flags && !r.flags_ack ? h('span', { class: 'tag warn' }, r.validation_flags) : '') }],
           empty: 'Chưa có phiếu cân — bấm "Import từ Excel"' }));
+        out.append(D.pager({ total: d.total, page: pg, pageSize: PAGE, goto: (n) => { pg = n; load(); } }));
       };
       const page = D.page('Phiếu cân', '2 · Phiếu cân', [D.writer() ? h('button', { class: 'btn', onclick: () => bulkDesc(load) }, 'Sửa hàng loạt cột mô tả') : null,
         D.writer() ? h('button', { class: 'btn', onclick: () => D.importTemplate({ importType: 'PHIEU_CAN' }) }, 'Tải file mẫu') : null,
         D.writer() ? h('button', { class: 'btn primary', onclick: () => D.importWizard({ importType: 'PHIEU_CAN', onDone: load }) }, 'Import từ Excel') : null],
-      h('div', { class: 'card' }, h('div', { class: 'filters' }, f, h('button', { class: 'btn primary', onclick: load }, 'Lọc'))), out);
+      h('div', { class: 'card' }, h('div', { class: 'filters' }, f, h('button', { class: 'btn primary', onclick: () => load({ reset: true }) }, 'Lọc'))), out);
       await load();
       return page;
     },
@@ -117,13 +123,14 @@
     D.modal({ title: 'Chi tiết phiếu cân', body, drawer: true, actions });
   }
 
-  async function bulkDelete(items, reload) {
-    const locked = items.filter((t) => t.usages.some((u) => u.status !== 'NHAP')).length;
-    const kg = items.reduce((a, t) => a + t.net_kg, 0);
+  async function bulkDelete(filter, reload) {
+    // áp lên TOÀN BỘ phiếu khớp bộ lọc (mọi trang), không chỉ trang đang hiện
+    const all = await D.api('tickets.list', { ...filter, idsOnly: true });
+    const locked = all.lockedCount; const kg = all.totals.kg;
     const r = await D.confirm({ title: 'Xóa phiếu cân đang lọc', danger: true, reason: true,
-      message: `Xóa ${D.vn(items.length)} phiếu (${D.vn(kg)} kg) đang hiện trong danh sách.${locked ? ` ${D.vn(locked)} phiếu ở kỳ đã xác nhận / khóa sẽ được GIỮ LẠI.` : ''} Xóa mềm — khôi phục được (lọc "Đã xóa", hoặc import lại file).` });
+      message: `Xóa ${D.vn(all.total)} phiếu (${D.vn(kg)} kg) khớp bộ lọc hiện tại (tất cả các trang).${locked ? ` ${D.vn(locked)} phiếu ở kỳ đã xác nhận / khóa sẽ được GIỮ LẠI.` : ''} Xóa mềm — khôi phục được (lọc "Đã xóa", hoặc import lại file).` });
     if (!r) return;
-    const x = await D.api('tickets.softDeleteMany', { ticketIds: items.map((t) => t.ticket_id), reason: r });
+    const x = await D.api('tickets.softDeleteMany', { ticketIds: all.ids, reason: r });
     D.toast(`Đã xóa ${x.deleted} phiếu${x.skipped.length ? ` · giữ ${x.skipped.length} phiếu ở kỳ đã chốt` : ''}${x.notFound && x.notFound.length ? ` · ${x.notFound.length} mã không tồn tại` : ''}${x.alreadyDeleted && x.alreadyDeleted.length ? ` · ${x.alreadyDeleted.length} phiếu đã xóa từ trước` : ''}${x.affectedPeriods.length ? ` · ${x.affectedPeriods.length} kỳ nháp phải tính lại` : ''}`, 'ok', 9000);
     reload();
   }

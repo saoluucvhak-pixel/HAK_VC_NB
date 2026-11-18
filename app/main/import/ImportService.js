@@ -3,6 +3,7 @@
  * ImportService — import phiếu cân / bảng kê dầu từ Excel (API: import.preview, import.previewRows, import.confirm, import.cancel).
  * Không bao giờ ghi thẳng: preview (kiểm tra, không ghi dữ liệu) → người dùng xem, bỏ dòng lỗi → confirm (kiểm lại + ghi 1 giao dịch).
  */
+const { idempotentMethod } = require('../services/idempotent');
 const crypto = require('node:crypto');
 const { openWorkbook } = require('./excelReader');
 const M = require('./mapping');
@@ -22,6 +23,8 @@ class ImportService {
     this.store = store;
     this.staging = new Map();   // batchId → dữ liệu preview (trong bộ nhớ)
     this.done = store.requestMap('import'); // clientRequestId → kết quả (chống bấm 2 lần; kho SQLite: bền qua khởi động lại)
+    this.confirming = new Set(); // lô đang xác nhận: hai yêu cầu khác id cho cùng một lô không chạy song song
+    idempotentMethod(this, 'confirm');
   }
 
   // ─────────────────────────── preview ───────────────────────────
@@ -94,6 +97,12 @@ class ImportService {
     if (!clientRequestId) throw new AppError('VALIDATION_FAILED', 'Thiếu clientRequestId');
     if (this.done.has(clientRequestId)) return this.done.get(clientRequestId);
     const st = this.staging.get(batchId); if (!st) throw this._noStaging(batchId);
+    if (this.confirming.has(batchId)) throw new AppError('BUSINESS_RULE', 'Lô này đang được xác nhận ở yêu cầu khác — chờ kết quả rồi xem lại danh sách', { code: 'E_BATCH_BUSY' });
+    this.confirming.add(batchId);
+    try { return await this._confirmLocked({ batchId, st, skipRowNos, acceptWarnings, clientRequestId, user }); } finally { this.confirming.delete(batchId); }
+  }
+
+  async _confirmLocked({ batchId, st, skipRowNos, acceptWarnings, clientRequestId, user }) {
     const skip = new Set(skipRowNos);
     const fresh = this._validate(st); // kiểm lại trên dữ liệu hiện tại
     // chữ ký = số dòng + trạng thái + PHIÊN BẢN dòng đích sẽ cập nhật / khôi phục: người khác sửa tay phiếu đó sau lúc xem trước → phải xem trước lại (không ghi đè)

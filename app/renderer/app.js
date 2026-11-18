@@ -176,6 +176,17 @@
 
   // ───────── bảng khai báo ─────────
   /** columns: [{key, label, fmt: int|money|dec1|dec2|date|datetime|tag, num, render(row), width}] */
+  /** Chống phản hồi về sai thứ tự: mỗi lần tải gọi next() lấy số thứ tự; chỉ phản hồi của lần tải MỚI NHẤT (ok(số)) mới được vẽ — kết quả cũ không ghi đè bộ lọc mới. */
+  D.latest = () => { let n = 0; return { next: () => ++n, ok: (t) => t === n }; };
+  /** Thanh phân trang: "Hiện a–b / tổng" + Trước / Sau. goto(trang) do màn hình xử lý. */
+  D.pager = ({ total, page, pageSize, goto }) => {
+    const pages = Math.max(1, Math.ceil(total / pageSize)); const a = total ? (page - 1) * pageSize + 1 : 0; const b = Math.min(total, page * pageSize);
+    return h('div', { class: 'row', style: { padding: '8px 14px', borderTop: '1px solid var(--line)', gap: '10px', alignItems: 'center' }, role: 'navigation', 'aria-label': 'Phân trang' },
+      h('span', { class: 'small muted grow' }, `Hiện ${D.vn(a)}–${D.vn(b)} / ${D.vn(total)}`),
+      pages > 1 ? h('button', { class: 'btn small', disabled: page <= 1, onclick: () => goto(page - 1) }, '‹ Trước') : null,
+      pages > 1 ? h('span', { class: 'small' }, `Trang ${D.vn(page)} / ${D.vn(pages)}`) : null,
+      pages > 1 ? h('button', { class: 'btn small', disabled: page >= pages, onclick: () => goto(page + 1) }, 'Sau ›') : null);
+  };
   D.table = ({ columns, rows, footer, onRow, empty = 'Chưa có dữ liệu', maxHeight }) => {
     let sortKey = null; let asc = true;
     const body = h('tbody');

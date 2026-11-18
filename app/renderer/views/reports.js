@@ -145,13 +145,21 @@
       { key: 'ownerUnitCode', label: 'Nhóm xe (chủ xe)', type: 'select', options: D.unitOptions(true) }, { key: 'plateNo', label: 'Biển số', type: 'text' }], { dateFrom: monthStart(), dateTo: D.today() });
     f.className = 'filters'; const out = h('div');
     const params = () => { const v = f.values(); v.plateNo = (v.plateNo || '').trim().toUpperCase(); return v; };
-    const load = async () => {
-      const d = await D.api('reports.tickets', params()); out.innerHTML = '';
-      out.append(h('div', { class: 'card flush' }, D.table({ rows: d.rows.slice(0, 1000), maxHeight: '60vh', columns: colsOf(d).filter((c) => !['weigh2_time', 'weight1_kg', 'weight2_kg', 'origin', 'customer', 'weigh_type'].includes(c.key)),
-        footer: d.totalsRow, empty: 'Không có phiếu cân' })), d.rows.length > 1000 ? h('p', { class: 'small muted' }, `Hiện 1.000 / ${D.vn(d.rows.length)} phiếu — tải Excel để xem đủ.`) : null);
+    const PAGE = 500; let pg = 1; const guard = D.latest(); let lastTotal = 0;
+    const load = async (opts) => {
+      if (opts === true || (opts && opts.reset)) pg = 1;
+      const tok = guard.next();
+      const d = await D.api('reports.tickets', params());
+      if (!guard.ok(tok)) return; // phản hồi cũ không ghi đè bộ lọc mới
+      lastTotal = d.rows.length; out.innerHTML = '';
+      if (pg > Math.max(1, Math.ceil(d.rows.length / PAGE))) pg = 1;
+      out.append(h('div', { class: 'card flush' }, D.table({ rows: d.rows.slice((pg - 1) * PAGE, pg * PAGE), maxHeight: '60vh', columns: colsOf(d).filter((c) => !['weigh2_time', 'weight1_kg', 'weight2_kg', 'origin', 'customer', 'weigh_type'].includes(c.key)),
+        footer: d.totalsRow, empty: 'Không có phiếu cân' }), D.pager({ total: d.rows.length, page: pg, pageSize: PAGE, goto: (n) => { pg = n; load(); } })),
+        h('p', { class: 'small muted' }, 'Dòng tổng cộng và file Excel tính trên TOÀN BỘ phiếu khớp điều kiện (mọi trang).'));
+      void lastTotal;
     };
-    f.addEventListener('change', load);
-    body.append(h('div', { class: 'card' }, h('div', { class: 'filters' }, f, h('button', { class: 'btn primary', onclick: load }, 'Xem'), h('span', { style: { flex: 1 } }), ...rangeBtns('TICKETS', params, 'PhieuCan'))), out);
+    f.addEventListener('change', () => load({ reset: true }));
+    body.append(h('div', { class: 'card' }, h('div', { class: 'filters' }, f, h('button', { class: 'btn primary', onclick: () => load({ reset: true }) }, 'Xem'), h('span', { style: { flex: 1 } }), ...rangeBtns('TICKETS', params, 'PhieuCan'))), out);
     await load();
   }
 

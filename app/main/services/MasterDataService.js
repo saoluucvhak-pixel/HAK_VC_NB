@@ -91,7 +91,7 @@ class MasterDataService {
     return { items: this.store.find('XE', (x) => (includeInactive || x.is_active) && (!ownerUnitCode || x.owner_unit_code === ownerUnitCode)).sort((a, b) => a.plate_no.localeCompare(b.plate_no)) };
   }
   saveVehicle({ record, rowVersion, create = false, reason, user }) {
-    if (record.plateNo) record.plateNo = String(record.plateNo).trim().toUpperCase();
+    if (record.plateNo) record.plateNo = String(record.plateNo).replace(/\s+/g, '').toUpperCase(); // bỏ mọi khoảng trắng (gõ "92h - 00057" vẫn nhận)
     const cfg = Object.fromEntries(this.store.all('CONFIG').map((c) => [c.config_key, c.config_value]));
     const re = new RegExp(cfg.PLATE_REGEX || '^\\d{2}[A-Z]{1,2}-\\d{4,5}$');
     const rec = { ...record }; if (rec.plateNo) rec.plateKey = plateKey(rec.plateNo);
@@ -134,7 +134,7 @@ class MasterDataService {
     const s = this.store; const old = s.get('XE', plateNo);
     if (!old) throw new AppError('NOT_FOUND', `Không có xe ${plateNo}`);
     if (rowVersion !== undefined && old.row_version !== rowVersion) throw new AppError('CONFLICT_VERSION', `Xe ${plateNo} đã bị sửa ở nơi khác — mở lại`);
-    const np = String(newPlateNo || '').trim().toUpperCase();
+    const np = String(newPlateNo || '').replace(/\s+/g, '').toUpperCase();
     if (!np || np === plateNo) throw new AppError('VALIDATION_FAILED', 'Nhập biển số mới (khác biển số cũ)');
     const u = this.vehicleUsage({ plateNo });
     if (!u.canRename) throw new AppError('VALIDATION_FAILED', `Xe ${plateNo} đã có ${u.blockers.join(', ')} — biển số này đến từ dữ liệu cân, không đổi được. Nếu xe ${plateNo} nhập nhầm: thêm xe ${np} rồi bấm "Ngừng dùng" xe ${plateNo}`, { usage: u });

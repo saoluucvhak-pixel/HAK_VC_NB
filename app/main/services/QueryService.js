@@ -38,7 +38,7 @@ class QueryService {
     return m;
   }
 
-  tickets({ dateFrom = '', dateTo = '', routeCode = '', plateNo = '', ownerUnitCode = '', usage = '', onlyFlags = false, q = '', page: p, pageSize } = {}) {
+  tickets({ dateFrom = '', dateTo = '', routeCode = '', plateNo = '', ownerUnitCode = '', usage = '', onlyFlags = false, q = '', idsOnly = false, page: p, pageSize } = {}) {
     const use = this._usageByTicket(); const k = q.trim().toUpperCase();
     const rows = this.store.find('PHIEU_CAN', (t) => (usage === 'DELETED' ? t.is_deleted : !t.is_deleted) && inRange(t.weigh1_date, dateFrom, dateTo) && (!routeCode || t.route_code === routeCode)
       && (!plateNo || t.plate_no === plateNo) && (!ownerUnitCode || t.owner_unit_code === ownerUnitCode) && (!onlyFlags || (t.validation_flags && !t.flags_ack))
@@ -46,8 +46,11 @@ class QueryService {
       .map((t) => ({ ...t, usages: use.get(t.ticket_id) || [] }))
       .filter((t) => !usage || usage === 'DELETED' || (usage === 'FREE' ? !t.usages.length : t.usages.some((u) => u.status === usage)))
       .sort((a, b) => (a.weigh1_date + a.weigh1_time).localeCompare(b.weigh1_date + b.weigh1_time));
+    const totals = { trips: rows.length, kg: rows.reduce((a, t) => a + t.net_kg, 0) };
+    // idsOnly: TOÀN BỘ tập kết quả theo bộ lọc (không phân trang) — để thao tác hàng loạt áp lên đủ mọi trang, không chỉ trang đang hiện
+    if (idsOnly) return { ids: rows.map((t) => t.ticket_id), total: rows.length, totals, lockedCount: rows.filter((t) => t.usages.some((u) => u.status !== 'NHAP')).length };
     const out = page(rows, { page: p, pageSize });
-    out.totals = { trips: rows.length, kg: rows.reduce((a, t) => a + t.net_kg, 0) };
+    out.totals = totals;
     return out;
   }
 

@@ -10,6 +10,7 @@
  *              sửa được cả khi phiếu đã vào kỳ; kỳ đã xác nhận → bắt buộc lý do; kỳ đã khóa → thêm quyền mở khóa.
  * Mọi thay đổi ghi AUDIT_LOG từng phiếu (trước / sau / lý do).
  */
+const { idempotentMethod } = require('./idempotent');
 const { AppError, businessError } = require('../../shared/errors');
 const { draftFinder } = require('./periodCoverage');
 
@@ -29,7 +30,7 @@ function expandRaw(store, row) {
 }
 
 class TicketService {
-  constructor(store) { this.store = store; this.done = store.requestMap('ticket'); }
+  constructor(store) { this.store = store; this.done = store.requestMap('ticket'); idempotentMethod(this, 'bulkUpdateDescriptive'); }
 
   /** Các kỳ (chưa hủy) đang dùng phiếu: [{period, state}] */
   _usages(ticketIds) {
