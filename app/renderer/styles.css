@@ -176,3 +176,5 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .guide-n { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--brand-soft); color: var(--brand-text); }
 .guide-ol { margin: 6px 0 10px; padding-left: 22px; } .guide-ol li { margin: 4px 0; }
 .sticky-act { position: sticky; bottom: 0; z-index: 3; background: var(--bg); padding: 12px 0; margin-top: 12px; border-top: 1px solid var(--line); } /* thanh nút luôn nằm ở đáy màn hình khi nội dung dài (vd Nhập gói) */
+
+.main[aria-busy="true"] { opacity: .65; cursor: progress; }

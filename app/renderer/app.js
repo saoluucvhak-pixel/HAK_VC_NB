@@ -272,24 +272,45 @@
     }
   };
 
+  const renderGuard = D.latest();
   async function render() {
+    const token = renderGuard.next();
+    const view = state.view;
+    const params = state.params;
     const root = document.getElementById('root');
-    if (['setup', 'login'].includes(state.view)) { root.innerHTML = ''; root.append(await D.views[state.view].render(state.params)); return; }
+    const previousMain = root.querySelector('main');
+    if (previousMain) { previousMain.inert = true; previousMain.setAttribute('aria-busy', 'true'); }
+    if (['setup', 'login'].includes(view)) {
+      root.innerHTML = '';
+      const page = await D.views[view].render(params);
+      if (renderGuard.ok(token)) root.append(page);
+      return;
+    }
     if (!state.boot) { D.go('login'); return; }
-    const b = state.boot; const main = h('main', { class: 'main', id: 'main' });
+    const b = state.boot; const main = h('main', { class: 'main', id: 'main', 'aria-busy': 'true' });
     const sync = await D.api('sync.list', {}, { quiet: true }).catch(() => ({ total: 0 }));
+    if (!renderGuard.ok(token)) return;
     const rc = await D.api('reconcile.audit', {}, { quiet: true }).catch(() => ({ problems: 0 }));
+    if (!renderGuard.ok(token)) return;
     const side = h('aside', { class: 'side' },
       h('div', { class: 'brand' }, h('div', { class: 'logo', 'aria-hidden': 'true' }, 'VC'), h('div', {}, 'Đơn giá vận chuyển', h('div', { class: 'sub' }, 'dăm gỗ · HAK Group'))),
       h('div', { class: 'install' }, h('b', {}, `Bản cài · ${b.install.unitCode}`), b.install.unitName),
-      h('nav', { 'aria-label': 'Menu chính' }, h('ul', { class: 'nav' }, NAV.filter(([v]) => v !== 'audit' || true).map(([v, n, t]) => h('li', {}, h('button', { 'aria-current': state.view === v ? 'page' : null, onclick: () => D.go(v) },
+      h('nav', { 'aria-label': 'Menu chính' }, h('ul', { class: 'nav' }, NAV.filter(([v]) => v !== 'audit' || true).map(([v, n, t]) => h('li', {}, h('button', { 'aria-current': view === v ? 'page' : null, onclick: () => D.go(v) },
         h('span', { class: 'n' }, n), t, v === 'sync' && sync.total ? h('span', { class: 'badge', 'aria-label': `${sync.total} nhắc` }, sync.total) : null, v === 'reconcile' && rc.problems ? h('span', { class: 'badge', 'aria-label': `${rc.problems} vấn đề cần xử lý` }, rc.problems) : null))))),
       h('div', { class: 'me' }, h('div', {}, b.user.fullName || b.user.username), h('div', {}, `${b.user.role} · dữ liệu: `, h('span', { class: 'mono' }, b.install.dataFolder)),
         h('button', { class: 'theme-btn', 'aria-label': 'Đổi giao diện sáng/tối', onclick: (e) => { D.cycleTheme(); e.currentTarget.textContent = `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`; } }, `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`),
         h('button', { onclick: async () => { await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); state.token = ''; state.boot = null; D.go('login'); } }, 'Đăng xuất')));
     root.innerHTML = ''; root.append(h('div', { class: 'app' }, side, main));
-    const v = D.views[state.view];
-    try { main.append(await v.render(state.params)); D.enhanceFilters(main); } catch (e) { main.append(h('div', { class: 'card' }, h('h2', {}, 'Không mở được màn hình'), h('p', {}, e.message))); }
+    const v = D.views[view];
+    try {
+      const page = await v.render(params);
+      if (!renderGuard.ok(token)) return;
+      main.append(page);
+      D.enhanceFilters(main);
+    } catch (error) {
+      if (!renderGuard.ok(token)) return;
+      main.append(h('div', { class: 'card' }, h('h2', {}, 'Không mở được màn hình'), h('p', {}, error.message)));
+    } finally { main.removeAttribute('aria-busy'); }
   }
   D.render = render;
   D.refreshBoot = async () => { state.boot = await D.api('meta.bootstrap'); };
