@@ -45,7 +45,7 @@ Function .onInit
   ; phần mềm đang chạy → nhắc đóng trước (tránh ghi đè file đang dùng)
   FindWindow $0 "" "${APPNAME}"
   StrCmp $0 0 +3
-    MessageBox MB_OK|MB_ICONEXCLAMATION "Phần mềm đang mở. Hãy đóng phần mềm rồi chạy lại bộ cài."
+    MessageBox MB_OK|MB_ICONEXCLAMATION "Phần mềm đang mở. Hãy đóng phần mềm rồi chạy lại bộ cài." /SD IDOK
     Abort
 FunctionEnd
 
@@ -80,5 +80,5 @@ Section "Uninstall"
   RMDir /r "$INSTDIR"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPKEY}"
   DeleteRegKey HKCU "Software\${APPKEY}"
-  MessageBox MB_OK|MB_ICONINFORMATION "Đã gỡ phần mềm.$\r$\n$\r$\nThư mục DỮ LIỆU (mặc định Documents\DGVC_DATA) và các bản sao lưu vẫn được giữ nguyên — cài lại rồi chọn $\"Dùng thư mục dữ liệu có sẵn$\" để dùng tiếp."
+  MessageBox MB_OK|MB_ICONINFORMATION "Đã gỡ phần mềm.$\r$\n$\r$\nThư mục DỮ LIỆU (mặc định Documents\DGVC_DATA) và các bản sao lưu vẫn được giữ nguyên — cài lại rồi chọn $\"Dùng thư mục dữ liệu có sẵn$\" để dùng tiếp." /SD IDOK
 SectionEnd

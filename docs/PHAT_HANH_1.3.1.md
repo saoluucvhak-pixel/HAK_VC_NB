@@ -42,3 +42,9 @@ Cơ sở: `main` tại `f5c39fd` (1.3.0) + nhánh `codex/release-1.3.1`. Môi tr
 
 ## Nâng cấp
 Cài đè lên bản cũ; dữ liệu giữ nguyên. Sao lưu thủ công trước. Kho vẫn là JSON. Muốn thử SQLite: `docs/THI_DIEM_SQLITE_WINDOWS.md`.
+
+## Phát hành GitHub Release — trạng thái và bước còn chờ
+- Phiên làm việc dựng bộ cài **không có quyền tạo tag / Release** (đẩy tag bị 403; API Release trả "Creating, editing, or deleting releases is not permitted for this session type"). Vì vậy Release **chưa được tạo từ phiên này**.
+- Đã thêm workflow `.github/workflows/release.yml` (chạy thủ công, `workflow_dispatch`) trên máy **Windows** của GitHub Actions: dựng bộ cài → cài mới (đường dẫn có dấu cách) → chạy thử luồng chính trên mã đã cài → cài đè → gỡ cài (kiểm giữ thư mục dữ liệu) → thử SQLite trong Electron → SHA-256 → (tùy chọn `publish`) tạo Release `v<phiên bản>` kèm bộ cài + checksum. **Workflow này chưa được chạy** (không có Windows/quyền kích hoạt trong phiên này); kết quả đầu tiên sẽ là bằng chứng Windows đầu tiên.
+- Cách phát hành: vào Actions → "Release (Windows)" → Run workflow → chọn `publish` (hoặc tạo Release thủ công từ tệp bộ cài đã gửi).
+- Bộ cài `.nsi` đã thêm `/SD IDOK` cho hai hộp thoại để cài / gỡ im lặng (`/S`) không bị treo.
