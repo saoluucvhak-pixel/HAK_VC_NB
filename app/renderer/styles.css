@@ -190,3 +190,8 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .sticky-act { position: sticky; bottom: 0; z-index: 3; background: var(--bg); padding: 12px 0; margin-top: 12px; border-top: 1px solid var(--line); } /* thanh nút luôn nằm ở đáy màn hình khi nội dung dài (vd Nhập gói) */
 
 .main[aria-busy="true"] { opacity: .65; cursor: progress; }
+
+/* thẻ thông tin công ty vận chuyển (Cài đặt → Công ty & xe) */
+.company-card { padding: 14px 18px; }
+.company-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 22px; }
+.company-grid .kv { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }

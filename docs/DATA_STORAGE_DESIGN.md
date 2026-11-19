@@ -263,6 +263,8 @@ PK `unit_code` · + 5 cột audit chung · file: `tables/DON_VI.json` · mẫu: 
 | `factory_name` | text |  | Nhà máy (ủy thác) | Danh mục công ty |
 | `email` | text |  |  | Danh mục công ty |
 | `phone` | text |  |  | Danh mục công ty |
+| `bank_name` | text |  | Ngân hàng của công ty (từ 1.6.0) |  |
+| `bank_account` | text |  | Số tài khoản của công ty (từ 1.6.0) |  |
 | `doc_display_name` | text |  | tên ghi trên chứng từ xuất hàng | Danh mục công ty |
 | `sign_priority` | số nguyên | ✔ | thứ tự ký: 1 HAK, 2 HAKQN, 3 ĐH, 4 CNHAK (đơn vị ngoài tập đoàn: 90+) — bên số nhỏ hơn ký bằng người ký chính | chỉ đạo 24/09/2026 |
 | `accountant_name` | text |  | kế toán ký BKVC phía đơn vị này — người dùng tự điền | BKVC!D32, I33 |
