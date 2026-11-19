@@ -12,6 +12,7 @@ const CHROME = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
 
 test('Giao diện ĐH: thí điểm kho SQLite (chạy thử, chuyển, dùng bình thường, quay lại JSON)', { skip: (!fs.existsSync(CHROME) && 'không có Chromium') || (!sqliteAvailable() && 'không có node:sqlite'), timeout: 240000 }, async () => {
   const { chromium } = require('playwright-core');
+  process.env.DGVC_DEFAULT_STORAGE = 'json'; // bản cài cũ (JSON) → thử nâng cấp bằng giao diện
   const srv = await start({ port: 0, quiet: true });
   const browser = await chromium.launch({ executablePath: CHROME });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, locale: 'vi-VN' });
@@ -41,32 +42,29 @@ test('Giao diện ĐH: thí điểm kho SQLite (chạy thử, chuyển, dùng b�
     await toast(/Đã import \d+ dòng/);
 
     await nav('Cài đặt');
-    const card = page.locator('details.storage-card');
-    assert.equal(await card.evaluate((e) => e.open), false, 'mặc định thu gọn');
-    await card.locator('summary').click();
-    await card.getByText('JSON (mặc định)').waitFor();
-    // chạy thử: không đổi gì
-    await card.getByRole('button', { name: 'Chạy thử' }).click();
+    const card = page.locator('.storage-card');
+    await card.getByText('JSON (kho cũ)').waitFor(); await card.getByText('Cần nâng cấp').waitFor();
+    // chạy thử (mục Nâng cao): không đổi gì
+    await card.locator('summary').click(); await card.getByRole('button', { name: /Chạy thử chuyển sang SQLite/ }).click();
     const m1 = page.locator('.modal', { hasText: 'Kết quả chạy thử' });
     await m1.getByText('Chạy thử đạt').waitFor(); await m1.getByText(/PHIEU_CAN: 77/).waitFor();
     await m1.locator('.foot').getByRole('button', { name: 'Đóng' }).click();
     assert.ok(!fs.existsSync(path.join(srv.home, 'DGVC_DATA', 'dgvc.sqlite')), 'chạy thử không để lại DB');
-    // chuyển thật
-    await card.getByRole('button', { name: 'Chuyển sang SQLite' }).click();
-    await page.locator('.modal', { hasText: 'Chuyển sang kho SQLite (thí điểm)' }).getByRole('button', { name: 'Đồng ý' }).click();
+    // nâng cấp thật
+    await page.locator('.storage-card').getByRole('button', { name: 'Nâng cấp sang SQLite ngay' }).click();
+    await page.locator('.modal', { hasText: 'Nâng cấp sang kho SQLite' }).getByRole('button', { name: 'Đồng ý' }).click();
     const m2 = page.locator('.modal', { hasText: 'Kết quả chuyển kho' });
     await m2.getByText('Đã chuyển và kiểm chứng').waitFor();
     await m2.locator('.foot').getByRole('button', { name: 'Đóng' }).click();
-    const card2 = page.locator('details.storage-card');
-    await card2.getByText('SQLite', { exact: true }).waitFor(); await card2.getByRole('button', { name: 'Quay lại kho JSON' }).waitFor();
+    await page.locator('.storage-card').getByText('SQLite (kho chính)').waitFor();
     assert.ok(fs.existsSync(path.join(srv.home, 'DGVC_DATA', 'dgvc.sqlite')));
     // ứng dụng vẫn dùng bình thường trên SQLite: Phiếu cân còn nguyên
     await nav('Phiếu cân'); await page.getByText(/77/).first().waitFor();
-    // quay lại JSON (chưa có giao dịch nghiệp vụ mới)
+    // quay lại JSON (Nâng cao; chưa có giao dịch nghiệp vụ mới)
     await nav('Cài đặt');
-    await page.locator('details.storage-card').getByRole('button', { name: 'Quay lại kho JSON' }).click();
+    await page.locator('.storage-card summary').click(); await page.locator('.storage-card').getByRole('button', { name: 'Quay lại kho JSON' }).click();
     await page.locator('.modal', { hasText: 'Quay lại kho JSON' }).getByRole('button', { name: 'Đồng ý' }).click();
-    await page.locator('details.storage-card summary').click(); await page.locator('details.storage-card').getByText('JSON (mặc định)').waitFor();
+    await page.locator('.storage-card').getByText('JSON (kho cũ)').waitFor();
     assert.deepEqual(errors, []);
-  } finally { await browser.close(); await srv.close(); }
+  } finally { delete process.env.DGVC_DEFAULT_STORAGE; await browser.close(); await srv.close(); }
 });

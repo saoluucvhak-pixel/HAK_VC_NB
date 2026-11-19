@@ -75,7 +75,7 @@ function createWindow() {
   win.loadFile(path.join(__dirname, '../../renderer/index.html'));
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: 'Tệp', submenu: [{ role: 'reload', label: 'Tải lại' }, { type: 'separator' }, { role: 'quit', label: 'Thoát' }] },
     { label: 'Xem', submenu: [{ role: 'zoomIn', label: 'Phóng to' }, { role: 'zoomOut', label: 'Thu nhỏ' }, { role: 'resetZoom', label: 'Cỡ chuẩn' }, { role: 'togglefullscreen', label: 'Toàn màn hình' },
@@ -93,6 +93,8 @@ app.whenReady().then(() => {
       } else dialog.showErrorBox('Không mở được dữ liệu', `${e.message}\n\nVào Cài đặt → Dữ liệu & sao lưu để khôi phục bản sao lưu, hoặc liên hệ ADMIN.`);
     }
   }
+  // bản cài cũ (kho JSON) tự nâng cấp sang SQLite một lần, có sao lưu + đối chiếu; lỗi thì vẫn dùng JSON
+  try { if (ctx.store) { const u = await ctx.autoUpgradeStorage(); if (u.state !== 'skip') log('storage-upgrade', JSON.stringify(u)); } } catch (e) { log('storage-upgrade', e); }
   router = new Router(ctx, { host: host(), log });
   ipcMain.handle('api', (_e, action, payload, token) => router.handle(action, payload, token));
   ipcMain.on('client-log', (_e, msg) => { if (typeof msg === 'string') log('renderer', msg.slice(0, 2000)); }); // lỗi JavaScript của giao diện

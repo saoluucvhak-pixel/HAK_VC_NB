@@ -193,7 +193,7 @@ test('Sao lưu: ngay / tự động hằng ngày / chép ra USB-Google Drive; kh
   assert.equal(m.ctx.store.get('TUYEN_VC', 'VC.007').route_name, 'Xã Quế Sơn - Tiên Sa', 'dữ liệu trở về lúc sao lưu');
   assert.equal((await m.call('auth.me')).ok, true, 'vẫn đăng nhập sau khôi phục');
   // file sao lưu hỏng → không khôi phục
-  const AdmZip = require('adm-zip'); const z = new AdmZip(b.file); z.updateFile('tables/TUYEN_VC.json', Buffer.from('{"hack":1}')); const bad = path.join(m.home, 'bad.zip'); z.writeZip(bad);
+  const AdmZip = require('adm-zip'); const z = new AdmZip(b.file); if (z.getEntry('dgvc.db')) { const buf = z.readFile('dgvc.db'); buf[buf.length - 10] ^= 0xff; z.updateFile('dgvc.db', buf); } else z.updateFile('tables/TUYEN_VC.json', Buffer.from('{"hack":1}')); const bad = path.join(m.home, 'bad.zip'); z.writeZip(bad);
   assert.equal((await m.call('data.restore', { file: bad, reason: 'x' })).error.code, 'INTEGRITY_ERROR');
   const list = await m.ok('data.listBackups', {});
   assert.ok(list.items.some((i) => i.kind === 'safety')); assert.equal(list.warning, null);

@@ -31,7 +31,7 @@ const ROUTES = {
   'auth.changePassword': [null, (ctx, p, s) => ctx.svc.auth.changePassword({ ...p, token: s.token })],
   'auth.logout': [null, (ctx, p, s) => ctx.svc.auth.logout({ token: s.token })],
   'auth.me': [null, (ctx, p, s) => ({ user: s.user })],
-  'meta.bootstrap': [null, (ctx, p, s) => ctx.svc.query.bootstrap(s)],
+  'meta.bootstrap': [null, (ctx, p, s) => ({ ...ctx.svc.query.bootstrap(s), storage: ctx.storageKind(), storageNotice: ctx.storageNotice })],
   'system.health': [null, (ctx) => ctx.svc.query.health()],
   // hộp thoại (Electron) — dev-server trả đường dẫn truyền sẵn trong payload
   'dialog.openFile': [AKX, (ctx, p, s, host) => host.openFile(p)],
@@ -148,7 +148,7 @@ const ROUTES = {
   'data.listBackups': [null, (ctx) => ctx.svc.backup.list()],
   'data.restore': [null, async (ctx, p, s) => { const r = await ctx.svc.backup.restore({ ...p, user: s.user }); ctx.replaceStore(r.store); return { restoredFrom: r.restoredFrom, safetyBackup: r.safetyBackup, dataVersion: r.dataVersion }; }],
   'data.inspectBackup': [null, (ctx, p) => ctx.svc.backup.inspect(p)],
-  'data.exportJson': [null, (ctx, p, s) => ctx.exportJsonSnapshot({ dest: p.dest, user: s.user })],
+  'data.exportJson': [null, (ctx, p, s) => (p.file ? ctx.exportJsonShare({ file: p.file, user: s.user }) : ctx.exportJsonSnapshot({ dest: p.dest, user: s.user }))],
   'data.changeFolder': [null, (ctx, p, s) => ctx.changeFolder({ ...p, user: s.user })],
   'storage.info': [null, (ctx) => ctx.storageInfo()],
   'storage.migrate': [null, async (ctx, p, s) => { const r = await ctx.migrateStorage({ dryRun: !!p.dryRun, user: s.user }); return { verified: r.verified, dryRun: r.dryRun, safetyBackup: r.safetyBackup, rows: r.report.verification.rows, closedPeriods: r.report.verification.closedPeriods, sourceUnchanged: r.report.sourceUnchanged, ...ctx.storageInfo() }; }],
