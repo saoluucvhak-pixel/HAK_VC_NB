@@ -7,7 +7,7 @@ Triển khai đúng kế hoạch đã được chủ sản phẩm duyệt:
 - Thiết kế (đã duyệt): `docs/superpowers/specs/2026-11-19-gia-ba-tang-design.md`
 - Kế hoạch từng bước (7 việc, 2 đợt): `docs/superpowers/plans/2026-11-19-gia-ba-tang.md`
 
-Đọc cả hai file trước khi viết dòng code nào. Làm đúng thứ tự Task 1 → 7, theo TDD (viết test thất bại trước), mỗi task một commit.
+Đọc cả hai file trước khi viết dòng code nào — **kể cả mục "BỔ SUNG SAU RÀ SOÁT LẦN 2" (B1–B9) ở cuối kế hoạch, đó là yêu cầu bắt buộc**. Làm đúng thứ tự Task 1 → 7, theo TDD (viết test thất bại trước), mỗi task một commit.
 
 ## 2. Nhánh làm việc
 - Lấy nhánh `codex/gia-ba-tang-design` (đang chứa thiết kế và kế hoạch), tạo nhánh làm việc mới `codex/gia-ba-tang-dot1` từ đó cho đợt 1 (và `codex/gia-ba-tang-dot2` cho đợt 2).
