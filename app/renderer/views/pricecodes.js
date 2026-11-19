@@ -17,7 +17,7 @@
       // ── Cha: tạo / sửa mã ──
       const codeForm = (unitCode, rec) => {
         const fields = [{ key: 'priceCode', label: 'Mã đơn giá', required: true, readonly: !!rec, hint: rec ? 'không đổi được' : 'vd DG-DH-2026 (chữ HOA, số, . _ -)' },
-          { key: 'unitCode', label: 'Đơn vị', type: 'select', options: D.unitOptions(), required: true }, { key: 'priceName', label: 'Tên mã đơn giá', required: true, full: true, hint: 'vd "Giá cố định 2026 — Đại Hiệp"' }, { key: 'note', label: 'Ghi chú', full: true }];
+          { key: 'unitCode', label: 'Đơn vị', type: 'select', options: D.unitOptions().filter(([c]) => c !== D.state.boot.install.unitCode || c === (rec && rec.unit_code)), required: true, hint: 'công ty đối tác áp dụng mã giá' }, { key: 'priceName', label: 'Tên mã đơn giá', required: true, full: true, hint: 'vd "Giá cố định 2026 — Đại Hiệp"' }, { key: 'note', label: 'Ghi chú', full: true }];
         D.formModal({ title: rec ? `Sửa mã ${rec.price_code}` : 'Tạo mã đơn giá', fields, wide: false, values: rec ? { priceCode: rec.price_code, unitCode: rec.unit_code, priceName: rec.price_name, note: rec.note } : { unitCode },
           submit: async (v) => {
             const r = await D.api('pricecodes.save', rec ? { record: v, rowVersion: rec.row_version } : { create: true, record: v });
@@ -103,15 +103,16 @@
 
       async function loadTree() {
         const d = await D.api('pricecodes.list'); tree.replaceChildren();
-        const withCodes = d.units.filter((u) => u.codes.length); const without = d.units.filter((u) => !u.codes.length);
+        const me = D.state.boot.install.unitCode; const shown = d.units.filter((u) => u.unitCode !== me || u.codes.length); // công ty mình không phải đối tác để gán giá
+        const withCodes = shown.filter((u) => u.codes.length); const without = shown.filter((u) => !u.codes.length);
         const unitBlock = (u) => h('div', { class: 'pc-unit' }, h('div', { class: 'row pc-unit-h' }, h('b', { class: 'grow' }, `${u.unitCode}`, h('span', { class: 'small muted', style: { fontWeight: 400 } }, ` · ${u.unitName}`)), w ? h('button', { class: 'btn small', title: `Tạo mã đơn giá cho ${u.unitCode}`, onclick: () => codeForm(u.unitCode) }, '+ Tạo mã') : null),
           u.codes.length ? u.codes.map((c) => h('button', { class: 'pc-code', 'aria-current': String(c.price_code === sel), onclick: async () => { sel = c.price_code; await loadTree(); await loadDetail(); } },
             h('span', { class: 'mono' }, c.price_code), h('span', { class: 'small muted' }, ` ${c.price_name}`), c.status !== 'ACTIVE' ? h('span', { class: 'tag mute', style: { marginLeft: '6px' } }, 'đóng') : null)) : h('p', { class: 'small muted', style: { margin: '2px 0 8px' } }, 'Chưa có mã đơn giá'));
-        tree.append(h('h2', {}, 'Đơn vị → Mã đơn giá'), withCodes.length ? withCodes.map(unitBlock) : h('p', { class: 'small muted' }, 'Chưa có mã đơn giá nào. Chọn đơn vị bên dưới và bấm "+ Tạo mã".'),
-          without.length ? h('details', { open: !withCodes.length }, h('summary', { class: 'small muted' }, `Đơn vị chưa có mã (${without.length})`), without.map(unitBlock)) : null);
+        tree.append(h('h2', {}, 'Công ty đối tác → Mã đơn giá'), withCodes.length ? withCodes.map(unitBlock) : h('p', { class: 'small muted' }, 'Chưa có mã đơn giá nào. Chọn đơn vị bên dưới và bấm "+ Tạo mã".'),
+          without.length ? h('details', { open: !withCodes.length }, h('summary', { class: 'small muted' }, `Đối tác chưa có mã (${without.length})`), without.map(unitBlock)) : null);
       }
 
-      const page = D.page('Mã đơn giá', '5 · Đơn giá cố định theo đơn vị', [], h('p', { class: 'small muted', style: { margin: '0 0 10px' } }, 'Tổ chức cha–con: Đơn vị → Mã đơn giá → Dòng giá theo tuyến. Hợp đồng gán mã sẽ dùng dòng giá của mã (theo tuyến và ngày); hợp đồng không gán mã chạy như cũ.'), h('div', { class: 'pc-layout' }, tree, detail));
+      const page = D.page('Mã đơn giá', '5 · Đơn giá cố định theo đơn vị', [], h('p', { class: 'small muted', style: { margin: '0 0 10px' } }, 'Tổ chức cha–con: Công ty đối tác → Mã đơn giá → Dòng giá theo tuyến. Hợp đồng gán mã sẽ dùng dòng giá của mã (theo tuyến và ngày); hợp đồng không gán mã chạy như cũ.'), h('div', { class: 'pc-layout' }, tree, detail));
       await loadTree(); await loadDetail();
       return page;
     },

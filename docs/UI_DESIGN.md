@@ -191,7 +191,7 @@ Ký hiệu: 🖼 = có màn hình mẫu trên trang thiết kế.
 | Tab | Nội dung | Ai |
 |---|---|---|
 | Tham số tính | làm tròn ĐG HĐ / đơn giá VC / tiền, chế độ làm tròn, VAT, phương pháp giá dầu (trung bình cộng), tiêu chí ngày kỳ — sửa bắt lý do, áp dụng cho kỳ tính sau | ADMIN |
-| Đơn vị & xe | danh mục đơn vị (MST, địa chỉ, người đại diện, **kế toán ký BKVC** tự điền, thứ tự ký), xe (biển số, chủ xe, mã xe dầu) | ADMIN / KẾ TOÁN (bản HAKQN) |
+| Công ty & xe | thông tin công ty vận chuyển (công ty dùng app: MST, đại diện, ngân hàng) + danh mục công ty đối tác (MST, địa chỉ, người đại diện, **kế toán ký BKVC** tự điền, thứ tự ký), xe (biển số, chủ xe, mã xe dầu) | ADMIN / KẾ TOÁN (bản HAKQN) |
 | Người dùng | thêm user, vai trò, đơn vị, cờ mở khóa, đặt lại mật khẩu, khóa tài khoản | ADMIN |
 | Dữ liệu & sao lưu | thư mục dữ liệu (đổi sang ổ D:), thư mục sao lưu ngoài, danh sách bản sao lưu, **Sao lưu ngay**, **Khôi phục**, kiểm tra toàn vẹn | ADMIN |
 | Thông tin | phiên bản APP, bản cài, schemaVersion, dung lượng dữ liệu | tất cả |

@@ -16,7 +16,7 @@ const isDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 const diffSummary = (before, patch) => Object.keys(patch).map((k) => `${k}: ${before[k] === '' || before[k] === undefined ? '(trống)' : before[k]} → ${patch[k] === '' ? '(trống)' : patch[k]}`).join('; ');
 
 const UNIT_FIELDS = ['unit_code', 'unit_name', 'short_name', 'unit_type', 'name_aliases', 'tax_code', 'address', 'legal_rep_name', 'legal_rep_salutation', 'legal_rep_title',
-  'factory_name', 'email', 'phone', 'doc_display_name', 'sign_priority', 'accountant_name', 'fuel_prefix', 'note'];
+  'factory_name', 'email', 'phone', 'bank_name', 'bank_account', 'doc_display_name', 'sign_priority', 'accountant_name', 'fuel_prefix', 'note'];
 const VEH_FIELDS = ['plate_no', 'owner_unit_code', 'fuel_code', 'note'];
 const CONTRACT_FIELDS = ['contract_id', 'contract_code', 'contract_no', 'customer_unit_code', 'carrier_unit_code', 'effective_from', 'effective_to', 'report_title', 'service_desc',
   'carrier_print_name', 'customer_print_name', 'sign_place', 'customer_signers_json', 'carrier_signers_json', 'note', 'price_code'];

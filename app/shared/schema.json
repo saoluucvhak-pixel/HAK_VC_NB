@@ -85,6 +85,16 @@
      "required": false
     },
     {
+     "name": "bank_name",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "bank_account",
+     "type": "TEXT",
+     "required": false
+    },
+    {
      "name": "doc_display_name",
      "type": "TEXT",
      "required": false

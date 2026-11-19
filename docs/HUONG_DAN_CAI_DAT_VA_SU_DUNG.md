@@ -239,7 +239,7 @@ Hai máy cài cùng một đơn vị sinh mã kỳ giống nhau (KY-DH-000001…
 - **Không trùng:** ghi lý do, ví dụ "2 lần đổ thật". Cả 2 dòng vẫn tính và không cảnh báo nữa.
 - Ví dụ kỳ ĐH 18–23/09: bỏ 1 trong 2 dòng 400 lít ngày 18/09 của xe 92H-00192 → **96.900** (khớp hóa đơn 1C26TYY); giữ cả 2 → **88.900**.
 
-## 4b. Sửa danh mục xe nhập sai (Cài đặt → Đơn vị & xe, từ bản 1.1.7)
+## 4b. Sửa danh mục xe nhập sai (Cài đặt → Công ty & xe, từ bản 1.1.7)
 Bấm vào 1 xe trong bảng **Xe** → cửa sổ sửa xe, có ghi rõ xe đang được dùng ở đâu:
 - **Lưu**: sửa chủ xe (nhóm xe), mã xe trong bảng kê dầu, ghi chú.
 - **Sửa biển số…**: khi biển số gõ nhầm và xe **chưa có phiếu cân, chưa vào kỳ tính** → phần mềm đổi sang biển số đúng, chuyển luôn phạm vi xe của hợp đồng và dòng dầu chưa tính kỳ.
