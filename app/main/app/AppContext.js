@@ -117,7 +117,7 @@ class AppContext {
     const manifest = exists ? this._readManifest(folder, kind) : null;
     return { initialized: exists && !!manifest, dataFolder: folder, defaultDataFolder: this.defaultFolder, installId: manifest && manifest.installId,
       installCode: manifest && manifest.installCode, unitCode: manifest && manifest.unitCode, schemaVersion: manifest && manifest.schemaVersion,
-      usersNeedPassword: this.svc ? this.svc.auth.usersNeedPassword() : [], units: exists ? [] : this.installableUnits(), appVersion: APP_VERSION, opened: !!this.store };
+      usersNeedPassword: this.svc ? this.svc.auth.usersNeedPassword() : [], firstAdminOpen: this.svc ? this.svc.auth.firstAdminOpen() : false, singleUserName: this.svc ? this.svc.auth.singleUserName() : '', units: exists ? [] : this.installableUnits(), appVersion: APP_VERSION, opened: !!this.store };
   }
 
   /**

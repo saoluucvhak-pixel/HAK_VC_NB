@@ -2237,6 +2237,21 @@
      "required": false
     },
     {
+     "name": "setup_code_hash",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "setup_code_salt",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "setup_code_expires_at",
+     "type": "TEXT",
+     "required": false
+    },
+    {
      "name": "is_active",
      "type": "BOOL",
      "required": true

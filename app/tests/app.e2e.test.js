@@ -62,13 +62,14 @@ test('Đăng nhập: chưa có mật khẩu → đặt lần đầu; mật khẩ
   assert.equal((await r.handle('periods.list', {})).error.code, 'SESSION_EXPIRED');
   assert.equal((await r.handle('periods.list', {}, t)).ok, true);
   // ADMIN tạo tài khoản XEM và KẾ TOÁN cho đơn vị
-  assert.equal((await r.handle('users.save', { record: { username: 'xem.dh', fullName: 'Người xem', role: 'XEM', unitCode: 'DH' } }, t)).ok, true);
-  assert.equal((await r.handle('users.save', { record: { username: 'ketoan.dh', fullName: 'Kế toán ĐH', role: 'KE_TOAN', unitCode: 'DH' } }, t)).ok, true);
-  const tx = (await r.handle('auth.setFirstPassword', { username: 'xem.dh', newPassword: 'Xem12345' })).data.token;
+  const sx = await r.handle('users.save', { record: { username: 'xem.dh', fullName: 'Người xem', role: 'XEM', unitCode: 'DH' } }, t); assert.equal(sx.ok, true); assert.match(sx.data.setupCode, /^[A-Z2-9]{8}$/); // P1 1.6.1: mã kích hoạt một lần
+  const sk = await r.handle('users.save', { record: { username: 'ketoan.dh', fullName: 'Kế toán ĐH', role: 'KE_TOAN', unitCode: 'DH' } }, t); assert.equal(sk.ok, true);
+  assert.equal((await r.handle('auth.setFirstPassword', { username: 'xem.dh', newPassword: 'Xem12345' })).error.code, 'AUTH_FAILED', 'thiếu mã kích hoạt');
+  const tx = (await r.handle('auth.setFirstPassword', { username: 'xem.dh', newPassword: 'Xem12345', setupCode: sx.data.setupCode })).data.token;
   assert.equal((await r.handle('periods.list', {}, tx)).ok, true, 'XEM xem được');
   assert.equal((await r.handle('import.preview', { importType: 'PHIEU_CAN', filePath: FILE.DH }, tx)).error.code, 'FORBIDDEN', 'XEM không import được');
   assert.equal((await r.handle('users.list', {}, tx)).error.code, 'FORBIDDEN');
-  const tk = (await r.handle('auth.setFirstPassword', { username: 'ketoan.dh', newPassword: 'Ketoan2026' })).data.token;
+  const tk = (await r.handle('auth.setFirstPassword', { username: 'ketoan.dh', newPassword: 'Ketoan2026', setupCode: sk.data.setupCode })).data.token;
   assert.equal((await r.handle('users.save', { record: { username: 'x1', role: 'ADMIN' } }, tk)).error.code, 'FORBIDDEN', 'kế toán không tạo user');
   // sai mật khẩu 5 lần → khóa
   for (let i = 1; i <= 4; i++) assert.match((await r.handle('auth.login', { username: 'ketoan.dh', password: 'sai' })).error.message, new RegExp(`còn ${5 - i} lần`));

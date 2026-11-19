@@ -29,11 +29,11 @@ async function machine() {
 test('Tự động hằng ngày: mỗi ngày 1 bản; xoay vòng giữ N bản; ngày 1 thêm bản hằng tháng; kho SQLite → zip có dgvc.db', async () => {
   const m = await machine(); await m.setCfg('BACKUP_DAILY_KEEP', 2);
   assert.equal(m.ctx.store.storageKind, 'sqlite');
-  const made1 = await m.bs.autoDaily(); assert.equal(made1.length, 1); assert.ok(new AdmZip(made1[0].file).getEntry('dgvc.db'));
+  const made1 = await m.bs.autoDaily(); assert.equal(made1.length, 2, '1.6.1: tháng chưa có bản monthly → tạo luôn (không phải đợi ngày 1)'); assert.ok(new AdmZip(made1[0].file).getEntry('dgvc.db'));
   assert.equal((await m.bs.autoDaily()).length, 0, 'cùng ngày không tạo thêm');
   for (const d of [11, 12, 13]) { m.clock.set(new Date(2026, 8, d, 9, 0, 0)); assert.equal((await m.bs.autoDaily()).length, 1); }
   assert.equal(m.files('daily').length, 2, 'giữ đúng 2 bản hằng ngày'); assert.ok(m.files('daily')[1].includes('20260913'), 'giữ bản mới nhất');
-  m.clock.set(new Date(2026, 9, 1, 9, 0, 0)); const first = await m.bs.autoDaily(); assert.equal(first.length, 2, 'ngày 1: daily + monthly'); assert.equal(m.files('monthly').length, 1);
+  m.clock.set(new Date(2026, 9, 1, 9, 0, 0)); const first = await m.bs.autoDaily(); assert.equal(first.length, 2, 'ngày 1 tháng mới: daily + monthly'); assert.equal(m.files('monthly').length, 2, 'tháng 9 (tạo ngay lần đầu) + tháng 10');
   // bản an toàn giữ 10
   for (let i = 0; i < 12; i++) { m.clock.set(new Date(2026, 9, 2, 9, 0, i)); await m.bs.backup({ kind: 'safety', note: `t${i}`, user: U }); }
   assert.equal(m.files('safety').length, 10); m.ctx.close();

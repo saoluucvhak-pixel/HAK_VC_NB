@@ -93,7 +93,7 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | Action | Mô tả | Quyền | Ghi | Audit |
 |---|---|---|---|---|
 | `auth.login` | Đăng nhập tài khoản nội bộ → sessionToken (giữ trong bộ nhớ main process) | — | 🔒 USERS | LOGIN |
-| `auth.setFirstPassword` | User chưa có mật khẩu (dữ liệu mẫu / ADMIN vừa tạo) đặt mật khẩu lần đầu | — | 🔒 USERS | SET_PASSWORD |
+| `auth.setFirstPassword` | User chưa có mật khẩu đặt mật khẩu lần đầu bằng mã kích hoạt dùng một lần do ADMIN cấp (ngoại lệ bản cài mới: ADMIN đầu tiên chưa cần mã) | — | 🔒 USERS | SET_PASSWORD |
 | `auth.changePassword` | Đổi mật khẩu | A/K/X | 🔒 USERS | CHANGE_PASSWORD |
 | `auth.logout` | Đăng xuất (hủy session) | A/K/X |  | LOGOUT |
 | `auth.me` | Người dùng hiện tại, quyền, đơn vị bản cài | A/K/X |  |  |
@@ -193,8 +193,8 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | `periods.get` | Chi tiết kỳ: kết quả hiện hành, BKVC, lịch sử các lần tính | A/K/X |  |  |
 | `periods.confirm` | Xác nhận kỳ: NHAP → DA_XAC_NHAN; usage_state = CONFIRMED; PRICE_HISTORY.is_used = TRUE | A/K | 🔒 KY_TINH, TRANSPORT_DETAIL, FUEL_DETAIL, CALC_RUN, PRICE_HISTORY | CONFIRM |
 | `periods.lock` | Khóa kỳ: DA_XAC_NHAN → DA_KHOA; usage_state = LOCKED | A/K | 🔒 KY_TINH, TRANSPORT_DETAIL, FUEL_DETAIL, CALC_RUN | LOCK |
-| `periods.unlock` | Mở khóa: DA_KHOA → DA_XAC_NHAN (cần can_unlock + lý do) | A | 🔒 KY_TINH, TRANSPORT_DETAIL, FUEL_DETAIL, CALC_RUN | UNLOCK |
-| `periods.reopen` | Trả về nháp để sửa/tính lại: DA_XAC_NHAN → NHAP (cần can_unlock + lý do) | A | 🔒 KY_TINH, TRANSPORT_DETAIL, FUEL_DETAIL, CALC_RUN | REOPEN |
+| `periods.unlock` | Mở khóa: DA_KHOA → DA_XAC_NHAN (cần lý do). ADMIN, hoặc KE_TOAN chỉ dùng được khi tài khoản có quyền mở khóa (can_unlock) | A/K | 🔒 KY_TINH, TRANSPORT_DETAIL, FUEL_DETAIL, CALC_RUN | UNLOCK |
+| `periods.reopen` | Trả về nháp để sửa/tính lại: DA_XAC_NHAN → NHAP (cần lý do). ADMIN, hoặc KE_TOAN chỉ dùng được khi tài khoản có quyền mở khóa (can_unlock) | A/K | 🔒 KY_TINH, TRANSPORT_DETAIL, FUEL_DETAIL, CALC_RUN | REOPEN |
 | `periods.cancel` | Hủy kỳ nháp: NHAP → HUY; usage_state = RELEASED | A/K | 🔒 KY_TINH, TRANSPORT_DETAIL, FUEL_DETAIL, CALC_RUN | CANCEL |
 | `calc.trace` | XEM CHI TIẾT TÍNH: chuỗi công thức từng bước + link nguồn | A/K/X |  |  |
 | `calc.tickets` | Phiếu cân cấu thành 1 dòng kết quả | A/K/X |  |  |
@@ -228,9 +228,9 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | Action | Mô tả | Quyền | Ghi | Audit |
 |---|---|---|---|---|
 | `audit.list` | Lịch sử thao tác | A/K/X |  |  |
-| `users.resetPassword` | ADMIN xóa mật khẩu của user → user tự đặt lại khi đăng nhập (must_change_password) | A | 🔒 USERS | RESET_PASSWORD |
+| `users.resetPassword` | ADMIN xóa mật khẩu của user và cấp mã kích hoạt mới (trả một lần) → user đặt lại bằng mã (must_change_password) | A | 🔒 USERS | RESET_PASSWORD |
 | `users.list` | Danh sách người dùng | A |  |  |
-| `users.save` | Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này) | A | 🔒 USERS | USER_SAVE |
+| `users.save` | Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này); người dùng mới nhận mã kích hoạt một lần | A | 🔒 USERS | USER_SAVE |
 | `config.list` | Tham số cấu hình | A/K/X |  |  |
 | `config.save` | Sửa tham số (làm tròn, VAT, người ký…) — áp dụng cho kỳ tính SAU; kỳ cũ giữ snapshot | A | 🔒 CONFIG | CONFIG_UPDATE |
 
@@ -1005,7 +1005,7 @@ Khóa kỳ: DA_XAC_NHAN → DA_KHOA; usage_state = LOCKED. Quyền: ADMIN, KE_TO
 
 #### `periods.unlock`
 
-Mở khóa: DA_KHOA → DA_XAC_NHAN (cần can_unlock + lý do). Quyền: ADMIN. Phạm vi: bên VC của HĐ; hoặc user can_unlock.
+Mở khóa: DA_KHOA → DA_XAC_NHAN (cần lý do). ADMIN, hoặc KE_TOAN chỉ dùng được khi tài khoản có quyền mở khóa (can_unlock). Quyền: ADMIN, KE_TOAN. Phạm vi: bên VC của HĐ; hoặc user can_unlock.
 
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
@@ -1020,7 +1020,7 @@ Mở khóa: DA_KHOA → DA_XAC_NHAN (cần can_unlock + lý do). Quyền: ADMIN.
 
 #### `periods.reopen`
 
-Trả về nháp để sửa/tính lại: DA_XAC_NHAN → NHAP (cần can_unlock + lý do). Quyền: ADMIN. Phạm vi: bên VC của HĐ; hoặc user can_unlock.
+Trả về nháp để sửa/tính lại: DA_XAC_NHAN → NHAP (cần lý do). ADMIN, hoặc KE_TOAN chỉ dùng được khi tài khoản có quyền mở khóa (can_unlock). Quyền: ADMIN, KE_TOAN. Phạm vi: bên VC của HĐ; hoặc user can_unlock.
 
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|

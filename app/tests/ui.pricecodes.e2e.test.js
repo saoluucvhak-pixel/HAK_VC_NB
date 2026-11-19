@@ -101,9 +101,10 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     assert.equal(await page.locator('.pc-detail tbody tr', { hasText: 'VC.002' }).getByRole('button', { name: 'Áp dụng' }).isDisabled(), true);
     await page.locator('.pc-detail').getByRole('columnheader', { name: /Đơn giá cố định/ }).waitFor(); await page.locator('.pc-detail').getByRole('columnheader', { name: /ĐG ký HĐ dự kiến/ }).waitFor();
     // B7: vai trò XEM không thấy nút tạo/sửa/áp dụng/gán
-    await page.evaluate(() => window.DGVC.api('users.save', { record: { username: 'xem.qn', fullName: 'Người xem', role: 'XEM', unitCode: 'HAKQN' } }));
+    const xem = await page.evaluate(() => window.DGVC.api('users.save', { record: { username: 'xem.qn', fullName: 'Người xem', role: 'XEM', unitCode: 'HAKQN' } })); // 1.6.1: nhận mã kích hoạt một lần
     await page.getByRole('button', { name: 'Đăng xuất' }).click();
     await page.getByLabel('Tên đăng nhập').fill('xem.qn'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
+    await page.getByLabel('Mã kích hoạt').fill(xem.setupCode);
     await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
     await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     await nav('Mã đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: /DG-UI-02/ }).click(); await page.locator('.pc-detail').getByText(/DG-UI-02/).first().waitFor();
