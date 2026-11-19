@@ -265,20 +265,29 @@ class BackupService {
         throw e;
       }
     } else {
+      // rà soát 1.8.2: MỌI lỗi sau close() (ghi tệp tạm, chuyển JSON → SQLite, đổi tên, mở lại) → trả bản cũ và LUÔN mở lại kho
       const cur = path.join(root, 'dgvc.sqlite'); const next = path.join(root, 'dgvc.sqlite.restoring'); const old = path.join(root, 'dgvc.sqlite.before-restore');
       const clean = (p) => { for (const sfx of ['', '-wal', '-shm']) { try { fs.rmSync(p + sfx, { force: true }); } catch { /* không có */ } } };
-      clean(next);
-      if (storageFormat === 'sqlite') fs.writeFileSync(next, zip.readFile('dgvc.db'));
-      else {
-        const { migrateJsonToSqlite } = require('../repo/migrate/migrate');
-        const tmp = path.join(root, `restore-${Date.now()}`); fs.mkdirSync(tmp, { recursive: true }); zip.extractAllTo(tmp, true);
-        try { await migrateJsonToSqlite({ root: tmp, backup: false, user: user.username }); fs.renameSync(path.join(tmp, 'dgvc.sqlite'), next); }
-        catch (e) { fs.rmSync(tmp, { recursive: true, force: true }); this.store = this.reopen(root); throw e; }
-        fs.rmSync(tmp, { recursive: true, force: true });
+      let swapped = false; let tmp = '';
+      try {
+        clean(next);
+        if (storageFormat === 'sqlite') fs.writeFileSync(next, zip.readFile('dgvc.db'));
+        else {
+          const { migrateJsonToSqlite } = require('../repo/migrate/migrate');
+          tmp = path.join(root, `restore-${Date.now()}`); fs.mkdirSync(tmp, { recursive: true }); zip.extractAllTo(tmp, true);
+          await migrateJsonToSqlite({ root: tmp, backup: false, user: user.username }); fs.renameSync(path.join(tmp, 'dgvc.sqlite'), next);
+          fs.rmSync(tmp, { recursive: true, force: true }); tmp = '';
+        }
+        clean(old); fs.renameSync(cur, old); swapped = true; clean(cur); fs.renameSync(next, cur);
+        this.store = this.reopen(root);
+        clean(old);
+      } catch (e) {
+        if (tmp) { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* bỏ */ } }
+        clean(next);
+        if (swapped && fs.existsSync(old)) { clean(cur); try { fs.renameSync(old, cur); } catch { /* cố hết sức */ } }
+        try { this.store = this.reopen(root); } catch { /* không mở lại được — ném lỗi gốc */ }
+        throw e;
       }
-      clean(old); fs.renameSync(cur, old); clean(cur); fs.renameSync(next, cur);
-      try { this.store = this.reopen(root); } catch (e) { clean(cur); fs.renameSync(old, cur); this.store = this.reopen(root); throw e; }
-      clean(old);
     }
     if (kind !== 'json') store = this.store;
     this.store = store;
