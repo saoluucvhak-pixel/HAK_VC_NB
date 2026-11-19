@@ -225,6 +225,11 @@
           D.table({ rows: rs.items, empty: 'Chưa có tuyến nào có giá hiệu lực', maxHeight: '30vh', columns: [{ key: 'routeCode', label: 'Mã tuyến' }, { key: 'routeName', label: 'Tên tuyến', wrap: true },
             { key: 'source', label: 'Nguồn giá', render: (r) => (r.source === 'CODE' ? D.tag('info', `theo mã ${r.priceCode} (${METHOD_TXT[r.priceMethod]})`) : r.source === 'CONTRACT' ? h('span', { class: 'small' }, 'giá riêng hợp đồng (cách cũ)') : h('span', { class: 'small muted' }, 'dùng giá chung (cách cũ)')) },
             { key: 'priceMethod', label: 'Hình thức', render: (r) => (r.priceMethod === 'CO_DINH' ? 'Cố định' : 'Theo giá dầu') }] }));
+        // B2: "Giao nhận dầu" là bảng con của hợp đồng — chỉ hiện khi hợp đồng còn tuyến theo giá dầu
+        const hasFuelRoutes = rs.items.some((x) => x.priceMethod !== 'CO_DINH');
+        const fuelBlock = hasFuelRoutes ? h('div', { class: 'card', style: { margin: '12px 0' } }, h('h2', {}, 'Giao nhận dầu của hợp đồng'),
+          h('p', { class: 'small' }, `${D.vn(use.fuelRows)} dòng dầu · ${D.vn(use.periods)} kỳ tính. Dầu nhập tay hoặc import từ Excel đều gắn đúng hợp đồng này; chỉ dùng cho các tuyến theo giá dầu.`),
+          h('button', { class: 'btn small', onclick: () => { if (dlg) dlg.close(); D.go('fuel', { contractId: c.contract_id }); } }, 'Sang màn nhập dầu →')) : null;
         const back = async () => { await D.refreshBoot(); load(); };
         const extra = w ? [
           ...(use.canDelete ? [{ label: 'Xóa hợp đồng…', danger: true, run: async () => {
@@ -236,7 +241,7 @@
             const r = await D.api('contracts.setActive', { contractId: c.contract_id, active: !c.is_active, rowVersion: c.row_version }); showReminder(r); await back(); return true; } }] : [];
         const vehTxt = h('textarea', { rows: 6, 'aria-label': 'Phạm vi xe' }); vehTxt.value = veh.items.map((v) => `${v.plate_no}\t${v.effective_from}\t${v.effective_to || ''}`).join('\n');
         const signer = (s) => h('div', {}, h('b', {}, s.unitName), h('div', {}, `${s.signer.title}: ${s.signer.name}`), h('div', { class: 'small muted' }, `Kế toán: ${s.accountant || '—'} · ${s.source === 'OVERRIDE' ? 'ghi đè' : 'theo thứ tự ưu tiên'}`));
-        dlg = D.modal({ title: `Hợp đồng ${c.contract_code}`, wide: true, body: h('div', {}, usageNote, f, priceBlock, h('div', { class: 'sep' }), h('h2', {}, 'Người ký (thứ tự ưu tiên HAK → HAKQN → ĐH → CNHAK)'), h('div', { class: 'grid g2' }, signer(signers.carrier), signer(signers.customer)),
+        dlg = D.modal({ title: `Hợp đồng ${c.contract_code}`, wide: true, body: h('div', {}, usageNote, f, priceBlock, fuelBlock, h('div', { class: 'sep' }), h('h2', {}, 'Người ký (thứ tự ưu tiên HAK → HAKQN → ĐH → CNHAK)'), h('div', { class: 'grid g2' }, signer(signers.carrier), signer(signers.customer)),
           h('div', { class: 'sep' }), h('h2', {}, 'Phạm vi xe'), h('p', { class: 'small muted' }, 'Mỗi dòng: biển số [tab] hiệu lực từ [tab] hiệu lực đến (trống = đang dùng). Xe bỏ khỏi danh sách được đóng hiệu lực, không xóa.'), vehTxt,
           D.writer() ? h('button', { class: 'btn small', onclick: async () => { const s = await D.api('contracts.suggestVehicles', { contractId: c.contract_id }); const have = new Set(vehTxt.value.split('\n').map((l) => l.split('\t')[0])); vehTxt.value += s.plates.filter((x) => !have.has(x)).map((x) => `\n${x}\t${c.effective_from}\t`).join(''); } }, 'Gợi ý xe') : null),
         actions: D.writer() ? [...extra, { label: 'Lưu phạm vi xe', run: async () => { const vehicles = vehTxt.value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const [plateNo, effectiveFrom, effectiveTo] = l.split(/\t|\s{2,}|,/); return { plateNo, effectiveFrom, effectiveTo }; });
