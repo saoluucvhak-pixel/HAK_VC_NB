@@ -257,10 +257,10 @@ Bấm vào 1 hợp đồng trong danh sách. Dòng đầu cửa sổ cho biết 
 ![Sửa hợp đồng đã dùng](man_hinh_giao_dien_moi/31-sua-hop-dong-da-dung.png)
 
 ## 5. Sao lưu — khôi phục (Cài đặt → Dữ liệu & sao lưu)
-- **Tự động:** 1 bản mỗi ngày (giữ 30 bản), 1 bản mỗi tháng (giữ 24 bản). Có thêm **bản an toàn** trước khi khôi phục, nhập gói hoặc đổi thư mục.
-- **Sao lưu ra USB / Google Drive:** bật và chọn thư mục. Mỗi bản sao lưu được chép thêm sang `…\DGVC_BACKUP\<đơn vị>`.
+- **Tự động:** 1 bản mỗi ngày (giữ 30 bản); 1 bản cho **mỗi tháng** (giữ 24 bản) — tạo ngay lần đầu mở app trong tháng, không cần đúng ngày mùng 1. Có thêm **bản an toàn** trước khi khôi phục, nhập gói hoặc đổi thư mục.
+- **Sao lưu ra USB / Google Drive:** bật và chọn thư mục. Mỗi bản sao lưu được chép thêm sang `…\DGVC_BACKUP\<đơn vị>`; app đọc lại kiểm SHA-256, sai thì báo lỗi (không để file hỏng) và màn Sao lưu hiện **cảnh báo vàng** nếu lần chép gần nhất lỗi. Giữ tối đa `BACKUP_MIRROR_KEEP` bản ở thư mục ngoài (mặc định 60; 0 = không xóa).
 - **Sao lưu ngay:** bấm trước khi làm việc lớn.
-- **Khôi phục:** chọn bản → ghi lý do. Phần mềm kiểm SHA-256 và tự sao lưu hiện trạng trước khi khôi phục.
+- **Khôi phục:** chọn bản → ghi lý do. Phần mềm kiểm SHA-256 và tự sao lưu hiện trạng trước khi khôi phục; nếu khôi phục lỗi giữa chừng, dữ liệu trước đó được trả lại nguyên vẹn.
 - **Đổi thư mục dữ liệu** (vd sang ổ D:): phần mềm chép toàn bộ sang thư mục mới; thư mục cũ vẫn giữ nguyên.
 
 ### Lưu trữ theo năm (từ bản 1.2.5)
@@ -279,9 +279,9 @@ Sau khi lưu trữ:
 ![Lưu trữ theo năm](man_hinh_giao_dien_moi/34-luu-tru-xem-truoc.png)
 
 ## 6. Người dùng (ADMIN: Cài đặt → Người dùng)
-- **Thêm người dùng:** email, vai trò **Kế toán** / **Chỉ xem** / **ADMIN**, đơn vị, quyền mở khóa kỳ. Người dùng mới tự đặt mật khẩu ở lần đăng nhập đầu tiên.
+- **Thêm người dùng:** email, vai trò **Kế toán** / **Chỉ xem** / **ADMIN**, đơn vị, quyền mở khóa kỳ. Sau khi lưu, app hiện **mã kích hoạt 8 ký tự (chỉ hiện một lần, hạn 24 giờ)** — bấm **Sao chép** và gửi cho người dùng; họ nhập mã ở màn *Đặt mật khẩu lần đầu*. Sai mã quá 5 lần → khóa 15 phút. Ngoại lệ: **ADMIN đầu tiên của bản cài mới** đặt mật khẩu không cần mã.
 - **Nhập sai mật khẩu 5 lần:** tài khoản bị khóa 15 phút.
-- **Quên mật khẩu:** ADMIN bấm **Đặt lại mật khẩu**.
+- **Quên mật khẩu / tài khoản chưa có mật khẩu:** ADMIN bấm **Đặt lại mật khẩu** → nhận mã kích hoạt mới (mã cũ vô hiệu). Hai ADMIN sửa cùng một người dùng cùng lúc: người lưu sau nhận thông báo xung đột phiên bản, mở lại để lấy bản mới.
 - **Không thao tác 60 phút:** phần mềm tự đăng xuất.
 
 ## 7. Gỡ cài đặt / cài lại / chuyển máy
