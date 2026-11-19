@@ -200,59 +200,90 @@
     signPlace: c.sign_place, reportTitle: c.report_title, carrierPrintName: c.carrier_print_name, customerPrintName: c.customer_print_name, serviceDesc: c.service_desc, note: c.note }); // KHÔNG có priceCode: mã đơn giá chỉ sửa ở màn Mã đơn giá
 
   D.views.contracts = {
-    async render() {
-      const out = h('div', { class: 'card flush' });
-      const load = async () => { const d = await D.api('contracts.list'); out.innerHTML = ''; out.append(D.table({ rows: d.items, onRow: open, columns: [{ key: 'contract_code', label: 'Mã' }, { key: 'contract_no', label: 'Số HĐ' },
-        { key: 'carrier_unit_code', label: 'Bên VC' }, { key: 'customer_unit_code', label: 'Bên thuê' }, { key: 'role', label: 'Vai trò bản cài', fmt: 'tag' }, { key: 'effective_from', label: 'Hiệu lực từ', fmt: 'date' },
-        { key: 'effective_to', label: 'Đến', fmt: 'date' }, { key: 'vehicles', label: 'Số xe', fmt: 'int' }, { key: 'is_active', label: 'Trạng thái', render: (r) => (r.is_active ? D.tag('ACTIVE') : D.tag('CLOSED', 'Ngừng')) }] })); };
-      const open = async (c) => {
-        const [signers, veh, use] = await Promise.all([D.api('contracts.resolveSigners', { contractId: c.contract_id }), D.api('contracts.vehicles', { contractId: c.contract_id }), D.api('contracts.usage', { contractId: c.contract_id })]);
-        const w = D.writer();
+    // Màn Hợp đồng kiểu cha–con (1.8.x): trái = danh sách hợp đồng (lọc), phải = chi tiết hợp đồng đang chọn với các thẻ Thông tin · Xe của hợp đồng · Mã đơn giá · Kỳ tính.
+    async render(p) {
+      const w = D.writer(); const guard = D.latest(); const me = D.state.boot.install.unitCode;
+      let sel = p.contractId || ''; let tab = 'info'; let items = []; let drawnKey = ''; let drawingKey = ''; // khóa (hợp đồng|thẻ) đã / đang vẽ: bấm lại đúng hợp đồng đang mở không vẽ lại (mất chữ đang gõ)
+      const fStatus = h('select', { 'aria-label': 'Trạng thái hợp đồng' }, h('option', { value: 'active' }, 'Đang dùng'), h('option', { value: 'all' }, 'Tất cả'));
+      const fRole = h('select', { 'aria-label': 'Vai trò bản cài' }, h('option', { value: '' }, 'Mọi vai trò'), h('option', { value: 'CARRIER' }, 'Bên vận chuyển'), h('option', { value: 'CUSTOMER' }, 'Bên thuê'));
+      const fQ = h('input', { type: 'search', placeholder: 'Tìm mã / công ty…', 'aria-label': 'Tìm hợp đồng' });
+      const listBox = h('div', { class: 'ct-items' }); const detail = h('section', { class: 'ct-detail', 'aria-live': 'polite' });
+      const layout = h('div', { class: 'ct-layout' }, h('aside', { class: 'card ct-list', 'aria-label': 'Danh sách hợp đồng' }, h('div', { class: 'ct-filters' }, fStatus, fRole, fQ), listBox), detail);
+      const crumb = () => `Danh mục › Hợp đồng${sel ? ` › ${(items.find((x) => x.contract_id === sel) || {}).contract_code || sel}` : ''}`;
+      const syncCrumb = () => { const c = page.querySelector('.crumb'); if (c) c.textContent = crumb(); layout.dataset.sel = sel ? '1' : ''; };
+      const drawList = () => {
+        const q = fQ.value.trim().toLowerCase();
+        const rows = items.filter((c) => (fStatus.value === 'all' || c.is_active) && (!fRole.value || c.role === fRole.value) && (!q || `${c.contract_code} ${c.contract_no || ''} ${c.carrier_unit_code} ${c.customer_unit_code}`.toLowerCase().includes(q)));
+        listBox.replaceChildren(...(rows.length ? rows.map((c) => h('button', { class: 'pc-code', 'aria-current': String(c.contract_id === sel), onclick: () => choose(c.contract_id) },
+          h('span', { class: 'mono' }, c.contract_code), h('span', { class: 'small muted' }, ` ${c.carrier_unit_code} → ${c.customer_unit_code}${c.role === 'CUSTOMER' ? ' (bên thuê)' : ''}`), c.is_active ? null : h('span', { class: 'tag mute', style: { marginLeft: '6px' } }, 'ngừng'))) : [h('p', { class: 'small muted' }, 'Không có hợp đồng phù hợp bộ lọc.')]));
+      };
+      const reload = async (keep = sel) => { const d = await D.api('contracts.list'); items = d.items; if (keep && !items.some((c) => c.contract_id === keep)) sel = ''; drawList(); syncCrumb(); };
+      const choose = async (id, t0) => { sel = id; if (t0) tab = t0; drawList(); syncCrumb(); await drawDetail(); };
+      const back = async () => { await D.refreshBoot(); await reload(); await drawDetail(true); };
+
+      async function drawDetail(force = false) {
+        const key = `${sel}|${tab}`;
+        if (!force && (drawnKey === key || drawingKey === key)) return;
+        const tok = guard.next(); drawingKey = key;
+        const c = items.find((x) => x.contract_id === sel);
+        if (!c) { drawingKey = ''; drawnKey = ''; detail.replaceChildren(h('div', { class: 'card' }, h('h2', {}, 'Chọn một hợp đồng'), h('p', { class: 'muted' }, 'Bấm một hợp đồng ở danh sách để xem / sửa thông tin, phạm vi xe, mã đơn giá và các kỳ tính.'), syncNote())); return; }
+        const failed = (e) => { if (drawingKey === key) drawingKey = ''; throw e; };
+        const [signers, veh, use, rs, periods] = await Promise.all([D.api('contracts.resolveSigners', { contractId: c.contract_id }), D.api('contracts.vehicles', { contractId: c.contract_id }), D.api('contracts.usage', { contractId: c.contract_id }),
+          D.api('contracts.routeSources', { contractId: c.contract_id }, { quiet: true }).catch(() => ({ items: [] })), D.api('periods.list', { contractId: c.contract_id }, { quiet: true }).catch(() => ({ items: [] }))]).catch(failed);
+        const partner = c.carrier_unit_code === me ? c.customer_unit_code : c.carrier_unit_code;
+        const pcs = await D.api('pricecodes.list', { unitCode: partner }, { quiet: true }).catch(() => ({ items: [] }));
+        if (!guard.ok(tok)) { if (drawingKey === key) drawingKey = ''; return; } // người dùng đã chọn hợp đồng khác trong lúc chờ
         const f = D.form(CF(false, w && use.canEditParties), cVal(c));
         const usageNote = h('p', { class: 'small', style: { margin: '0 0 12px' } }, use.canEditParties
-          ? [D.tag('ok', 'Chưa dùng'), ` Hợp đồng chưa có kỳ tính, chưa có dòng dầu — sửa được cả mã hợp đồng, bên vận chuyển, bên thuê; xóa được nếu nhập nhầm.`]
+          ? [D.tag('ok', 'Chưa dùng'), ' Hợp đồng chưa có kỳ tính, chưa có dòng dầu — sửa được cả mã hợp đồng, bên vận chuyển, bên thuê; xóa được nếu nhập nhầm.']
           : [D.tag('info', 'Đã dùng'), ` Hợp đồng đã có ${use.blockers.join(', ')} — sửa được số HĐ, ngày hiệu lực, tên in, người ký, phạm vi xe; KHÔNG đổi mã / hai bên và không xóa. Nhập nhầm thì thêm hợp đồng đúng rồi bấm "Ngừng dùng".`]);
-        // Giá áp dụng: CHỈ XEM ở đây (mã đơn giá chỉ sửa ở màn Mã đơn giá) — nguồn giá từng tuyến + mã của đối tác
-        let dlg = null; // hộp thoại hợp đồng — đóng trước khi sang màn Mã đơn giá
         const METHOD_TXT = { CO_DINH: 'đơn giá cố định', THEO_DAU: 'theo giá dầu' };
-        const partner = c.carrier_unit_code === D.state.boot.install.unitCode ? c.customer_unit_code : c.carrier_unit_code;
-        const [rs, pcs] = await Promise.all([D.api('contracts.routeSources', { contractId: c.contract_id }, { quiet: true }).catch(() => ({ items: [] })), D.api('pricecodes.list', { unitCode: partner }, { quiet: true }).catch(() => ({ items: [] }))]);
         const myCode = (pcs.items || []).find((x) => x.price_code === c.price_code);
-        const priceBlock = h('div', { class: 'card', style: { margin: '12px 0' } }, h('h2', {}, 'Giá áp dụng'),
-          h('p', {}, 'Mã đơn giá: ', c.price_code ? h('b', {}, `${c.price_code}${myCode ? ` — ${myCode.priceMethodLabel}` : ''}`) : h('b', {}, 'Giá chung (cách cũ)'), ' ',
-            h('button', { class: 'btn small', onclick: () => { if (dlg) dlg.close(); D.go('pricecodes', { unitCode: partner, code: c.price_code || '' }); } }, 'Đổi ở Mã đơn giá →')),
-          h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, `Mã đơn giá của đối tác ${partner}: `, (pcs.items || []).filter((x) => x.status === 'ACTIVE').length ? pcs.items.filter((x) => x.status === 'ACTIVE').map((x) => h('span', { class: 'tag info', style: { marginRight: '6px' } }, `${x.price_code} · ${x.priceMethodLabel}`)) : 'chưa có'),
-          D.table({ rows: rs.items, empty: 'Chưa có tuyến nào có giá hiệu lực', maxHeight: '30vh', columns: [{ key: 'routeCode', label: 'Mã tuyến' }, { key: 'routeName', label: 'Tên tuyến', wrap: true },
-            { key: 'source', label: 'Nguồn giá', render: (r) => (r.source === 'CODE' ? D.tag('info', `theo mã ${r.priceCode} (${METHOD_TXT[r.priceMethod]})`) : r.source === 'CONTRACT' ? h('span', { class: 'small' }, 'giá riêng hợp đồng (cách cũ)') : h('span', { class: 'small muted' }, 'dùng giá chung (cách cũ)')) },
-            { key: 'priceMethod', label: 'Hình thức', render: (r) => (r.priceMethod === 'CO_DINH' ? 'Cố định' : 'Theo giá dầu') }] }));
-        // B2: "Giao nhận dầu" là bảng con của hợp đồng — chỉ hiện khi hợp đồng còn tuyến theo giá dầu
-        const hasFuelRoutes = rs.items.some((x) => x.priceMethod !== 'CO_DINH');
-        const fuelBlock = hasFuelRoutes ? h('div', { class: 'card', style: { margin: '12px 0' } }, h('h2', {}, 'Giao nhận dầu của hợp đồng'),
+        const priceBlock = h('div', {}, h('p', {}, 'Mã đơn giá: ', c.price_code ? h('b', {}, `${c.price_code}${myCode ? ` — ${myCode.priceMethodLabel}` : ''}`) : h('b', {}, 'Giá chung (cách cũ)'), ' ',
+          h('button', { class: 'btn small', onclick: () => D.go('pricecodes', { unitCode: partner, code: c.price_code || '' }) }, 'Đổi ở Mã đơn giá →')),
+        h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, `Mã đơn giá của đối tác ${partner}: `, (pcs.items || []).filter((x) => x.status === 'ACTIVE').length ? pcs.items.filter((x) => x.status === 'ACTIVE').map((x) => h('span', { class: 'tag info', style: { marginRight: '6px' } }, `${x.price_code} · ${x.priceMethodLabel}`)) : 'chưa có'),
+        D.table({ rows: rs.items, empty: 'Chưa có tuyến nào có giá hiệu lực', maxHeight: '40vh', columns: [{ key: 'routeCode', label: 'Mã tuyến' }, { key: 'routeName', label: 'Tên tuyến', wrap: true },
+          { key: 'source', label: 'Nguồn giá', render: (r) => (r.source === 'CODE' ? D.tag('info', `theo mã ${r.priceCode} (${METHOD_TXT[r.priceMethod]})`) : r.source === 'CONTRACT' ? h('span', { class: 'small' }, 'giá riêng hợp đồng (cách cũ)') : h('span', { class: 'small muted' }, 'dùng giá chung (cách cũ)')) },
+          { key: 'priceMethod', label: 'Hình thức', render: (r) => (r.priceMethod === 'CO_DINH' ? 'Cố định' : 'Theo giá dầu') }] }));
+        // "Giao nhận dầu" là bảng con của hợp đồng — chỉ hiện khi hợp đồng còn tuyến theo giá dầu
+        const fuelBlock = rs.items.some((x) => x.priceMethod !== 'CO_DINH') ? h('div', { class: 'card', style: { margin: '12px 0' } }, h('h2', {}, 'Giao nhận dầu của hợp đồng'),
           h('p', { class: 'small' }, `${D.vn(use.fuelRows)} dòng dầu · ${D.vn(use.periods)} kỳ tính. Dầu nhập tay hoặc import từ Excel đều gắn đúng hợp đồng này; chỉ dùng cho các tuyến theo giá dầu.`),
-          h('button', { class: 'btn small', onclick: () => { if (dlg) dlg.close(); D.go('fuel', { contractId: c.contract_id }); } }, 'Sang màn nhập dầu →')) : null;
-        const back = async () => { await D.refreshBoot(); load(); };
-        const extra = w ? [
-          ...(use.canDelete ? [{ label: 'Xóa hợp đồng…', danger: true, run: async () => {
-            const reason = await D.confirm({ title: 'Xóa hợp đồng', message: `Xóa hẳn hợp đồng ${c.contract_code} (${c.carrier_unit_code} → ${c.customer_unit_code})${use.vehicles ? `, kèm ${use.vehicles} dòng phạm vi xe` : ''}${use.prices ? ` và ${use.prices} phiên bản giá riêng` : ''}?`, reason: true, danger: true, okLabel: 'Xóa' });
-            if (!reason) return false;
-            const r = await D.api('contracts.delete', { contractId: c.contract_id, reason }); D.toast(`Đã xóa hợp đồng ${r.contractCode}`, 'ok'); showReminder(r); await back(); return true; } }] : []),
-          { label: c.is_active ? 'Ngừng dùng' : 'Dùng lại', run: async () => {
-            if (c.is_active && !(await D.confirm({ title: 'Ngừng dùng hợp đồng', message: `Hợp đồng ${c.contract_code} sẽ không tính giá được nữa (danh sách chọn ghi "(ngừng dùng)"). Dữ liệu, các kỳ đã tính và báo cáo giữ nguyên; bấm "Dùng lại" bất cứ lúc nào.` }))) return false;
-            const r = await D.api('contracts.setActive', { contractId: c.contract_id, active: !c.is_active, rowVersion: c.row_version }); showReminder(r); await back(); return true; } }] : [];
-        const vehTxt = h('textarea', { rows: 6, 'aria-label': 'Phạm vi xe' }); vehTxt.value = veh.items.map((v) => `${v.plate_no}\t${v.effective_from}\t${v.effective_to || ''}`).join('\n');
+          h('button', { class: 'btn small', onclick: () => D.go('fuel', { contractId: c.contract_id }) }, 'Sang màn nhập dầu →')) : null;
+        const vehTxt = h('textarea', { rows: 8, 'aria-label': 'Phạm vi xe' }); vehTxt.value = veh.items.map((v) => `${v.plate_no}\t${v.effective_from}\t${v.effective_to || ''}`).join('\n');
         const signer = (s) => h('div', {}, h('b', {}, s.unitName), h('div', {}, `${s.signer.title}: ${s.signer.name}`), h('div', { class: 'small muted' }, `Kế toán: ${s.accountant || '—'} · ${s.source === 'OVERRIDE' ? 'ghi đè' : 'theo thứ tự ưu tiên'}`));
-        dlg = D.modal({ title: `Hợp đồng ${c.contract_code}`, wide: true, body: h('div', {}, usageNote, f, priceBlock, fuelBlock, h('div', { class: 'sep' }), h('h2', {}, 'Người ký (thứ tự ưu tiên HAK → HAKQN → ĐH → CNHAK)'), h('div', { class: 'grid g2' }, signer(signers.carrier), signer(signers.customer)),
-          h('div', { class: 'sep' }), h('h2', {}, 'Phạm vi xe'), h('p', { class: 'small muted' }, 'Mỗi dòng: biển số [tab] hiệu lực từ [tab] hiệu lực đến (trống = đang dùng). Xe bỏ khỏi danh sách được đóng hiệu lực, không xóa.'), vehTxt,
-          D.writer() ? h('button', { class: 'btn small', onclick: async () => { const s = await D.api('contracts.suggestVehicles', { contractId: c.contract_id }); const have = new Set(vehTxt.value.split('\n').map((l) => l.split('\t')[0])); vehTxt.value += s.plates.filter((x) => !have.has(x)).map((x) => `\n${x}\t${c.effective_from}\t`).join(''); } }, 'Gợi ý xe') : null),
-        actions: D.writer() ? [...extra, { label: 'Lưu phạm vi xe', run: async () => { const vehicles = vehTxt.value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const [plateNo, effectiveFrom, effectiveTo] = l.split(/\t|\s{2,}|,/); return { plateNo, effectiveFrom, effectiveTo }; });
-          const r = await D.api('contracts.setVehicles', { contractId: c.contract_id, vehicles }); D.toast(`Thêm ${r.added} · sửa ${r.updated} · đóng ${r.closed}`, 'ok'); showReminder(r); load(); } },
-        { label: 'Lưu hợp đồng', primary: true, run: async () => { const r = await D.api('contracts.save', { record: { contractId: c.contract_id, ...f.values() }, rowVersion: c.row_version }); D.toast('Đã lưu hợp đồng', 'ok'); showReminder(r); await D.refreshBoot(); load(); } }] : [] });
-      };
-      const add = () => D.formModal({ title: 'Thêm hợp đồng vận chuyển', fields: CF(true, true), wide: true, values: { carrierUnitCode: D.state.boot.install.unitCode, effectiveFrom: D.today() },
-        submit: async (v) => { const r = await D.api('contracts.save', { create: true, record: v }); showReminder(r); await D.refreshBoot(); load(); } });
-      const page = D.page('Hợp đồng vận chuyển', 'Hợp đồng 2 bên — bên vận chuyển tự tính', [D.writer() ? h('button', { class: 'btn primary', onclick: add }, 'Thêm hợp đồng') : null],
-        h('div', { class: 'card' }, h('p', { class: 'small', style: { margin: '0 0 6px' } }, h('b', {}, 'Bấm vào 1 hợp đồng'), ' để sửa, xóa (hợp đồng nhập nhầm, chưa dùng) hoặc ngừng dùng.'), syncNote()), out);
-      await load();
+        const saveContract = async () => { const r = await D.api('contracts.save', { record: { contractId: c.contract_id, ...f.values() }, rowVersion: c.row_version }); D.toast('Đã lưu hợp đồng', 'ok'); showReminder(r); await back(); };
+        const saveVehicles = async () => { const vehicles = vehTxt.value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const [plateNo, effectiveFrom, effectiveTo] = l.split(/\t|\s{2,}|,/); return { plateNo, effectiveFrom, effectiveTo }; });
+          const r = await D.api('contracts.setVehicles', { contractId: c.contract_id, vehicles }); D.toast(`Thêm ${r.added} · sửa ${r.updated} · đóng ${r.closed}`, 'ok'); showReminder(r); await back(); };
+        const del = async () => { const reason = await D.confirm({ title: 'Xóa hợp đồng', message: `Xóa hẳn hợp đồng ${c.contract_code} (${c.carrier_unit_code} → ${c.customer_unit_code})${use.vehicles ? `, kèm ${use.vehicles} dòng phạm vi xe` : ''}${use.prices ? ` và ${use.prices} phiên bản giá riêng` : ''}?`, reason: true, danger: true, okLabel: 'Xóa' });
+          if (!reason) return; const r = await D.api('contracts.delete', { contractId: c.contract_id, reason }); D.toast(`Đã xóa hợp đồng ${r.contractCode}`, 'ok'); showReminder(r); sel = ''; await back(); };
+        const toggle = async () => { if (c.is_active && !(await D.confirm({ title: 'Ngừng dùng hợp đồng', message: `Hợp đồng ${c.contract_code} sẽ không tính giá được nữa (danh sách chọn ghi "(ngừng dùng)"). Dữ liệu, các kỳ đã tính và báo cáo giữ nguyên; bấm "Dùng lại" bất cứ lúc nào.` }))) return;
+          const r = await D.api('contracts.setActive', { contractId: c.contract_id, active: !c.is_active, rowVersion: c.row_version }); showReminder(r); await back(); };
+        const panels = {
+          info: () => h('div', {}, usageNote, f, h('div', { class: 'sep' }), h('h2', {}, 'Người ký (thứ tự ưu tiên HAK → HAKQN → ĐH → CNHAK)'), h('div', { class: 'grid g2' }, signer(signers.carrier), signer(signers.customer)),
+            w ? h('div', { class: 'btns', style: { marginTop: '12px' } }, h('button', { class: 'btn primary', 'data-hotkey': 'primary', onclick: saveContract }, 'Lưu hợp đồng'), ...(use.canDelete ? [h('button', { class: 'btn danger', onclick: del }, 'Xóa hợp đồng…')] : []),
+              h('button', { class: 'btn', onclick: toggle }, c.is_active ? 'Ngừng dùng' : 'Dùng lại')) : null),
+          vehicles: () => h('div', {}, h('p', { class: 'small muted' }, 'Mỗi dòng: biển số [tab] hiệu lực từ [tab] hiệu lực đến (trống = đang dùng). Xe bỏ khỏi danh sách được đóng hiệu lực, không xóa.'), vehTxt,
+            w ? h('div', { class: 'btns', style: { marginTop: '8px' } }, h('button', { class: 'btn small', onclick: async () => { const s = await D.api('contracts.suggestVehicles', { contractId: c.contract_id }); const have = new Set(vehTxt.value.split('\n').map((l) => l.split('\t')[0])); vehTxt.value += s.plates.filter((x) => !have.has(x)).map((x) => `\n${x}\t${c.effective_from}\t`).join(''); } }, 'Gợi ý xe'),
+              h('button', { class: 'btn primary', onclick: saveVehicles }, 'Lưu phạm vi xe')) : null),
+          price: () => h('div', {}, priceBlock, fuelBlock),
+          periods: () => D.table({ rows: periods.items, empty: 'Hợp đồng chưa có kỳ tính', columns: [{ key: 'period_code', label: 'Mã kỳ' }, { key: 'date_from', label: 'Từ ngày', fmt: 'date' }, { key: 'date_to', label: 'Đến ngày', fmt: 'date' }, { key: 'status', label: 'Trạng thái', fmt: 'tag' },
+            { key: 'x', label: '', render: (r) => h('button', { class: 'btn small', onclick: () => D.go('calc', { periodId: r.period_id }) }, 'Mở kỳ') }] }),
+        };
+        const TABS = [['info', 'Thông tin'], ['vehicles', 'Xe của hợp đồng'], ['price', 'Mã đơn giá'], ['periods', `Kỳ tính (${periods.items.length})`]];
+        const tabsEl = h('div', { class: 'tabs', role: 'tablist' }, TABS.map(([k, label]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: async () => { tab = k; await drawDetail(); } }, label)));
+        detail.replaceChildren(h('div', { class: 'card' },
+          h('div', { class: 'row' }, h('button', { class: 'btn small ct-back', onclick: () => { sel = ''; drawnKey = ''; drawList(); syncCrumb(); drawDetail(true); } }, '← Danh sách'),
+            h('h2', { class: 'grow', style: { margin: 0 } }, `Hợp đồng ${c.contract_code}`), c.is_active ? D.tag('ACTIVE') : D.tag('CLOSED', 'Ngừng')),
+          h('p', { class: 'small muted' }, `${c.carrier_unit_code} → ${c.customer_unit_code} · hiệu lực từ ${c.effective_from}${c.effective_to ? ` đến ${c.effective_to}` : ''} · ${D.vn(c.vehicles)} xe`),
+          tabsEl, h('div', { role: 'tabpanel', style: { marginTop: '10px' } }, panels[tab]())));
+        drawnKey = key; drawingKey = '';
+      }
+
+      const add = () => D.formModal({ title: 'Thêm hợp đồng vận chuyển', fields: CF(true, true), wide: true, values: { carrierUnitCode: me, effectiveFrom: D.today() },
+        submit: async (v) => { const r = await D.api('contracts.save', { create: true, record: v }); showReminder(r); await D.refreshBoot(); await reload(); if (r.record && r.record.contract_id) await choose(r.record.contract_id, 'info'); } });
+      for (const el of [fStatus, fRole]) el.addEventListener('change', drawList); fQ.addEventListener('input', drawList);
+      const page = D.page('Hợp đồng vận chuyển', crumb(), [w ? h('button', { class: 'btn primary', onclick: add }, 'Thêm hợp đồng') : null], layout);
+      await reload(sel); if (sel && !items.some((x) => x.contract_id === sel)) sel = ''; syncCrumb(); await drawDetail();
       return page;
     },
   };

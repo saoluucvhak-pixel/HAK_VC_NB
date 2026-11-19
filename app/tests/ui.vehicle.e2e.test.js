@@ -1,5 +1,5 @@
 'use strict';
-/** Giao diện — Cài đặt → Công ty & xe: thêm nhầm xe → bấm vào xe → sửa biển số; xe đã có phiếu cân thì báo không đổi được. */
+/** Giao diện — menu Danh mục → Xe (trước đây Cài đặt → Công ty & xe): thêm nhầm xe → bấm vào xe → sửa biển số; xe đã có phiếu cân thì báo không đổi được. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -19,7 +19,7 @@ test('Giao diện: sửa biển số xe nhập nhầm', { skip: !fs.existsSync(C
   const next = (p) => fetch(`${srv.url}/dev/next`, { method: 'POST', body: JSON.stringify({ path: p }) });
   const shot = async (name) => { if (SHOTS) { fs.mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: path.join(SHOTS, `xe-${name}.png`) }); } };
   const toast = async (re) => { await page.locator('.toast', { hasText: re }).first().waitFor({ timeout: 20000 }); };
-  const units = async () => { await page.locator('nav button', { hasText: 'Cài đặt' }).click(); await page.getByRole('tab', { name: 'Công ty & xe' }).click(); await page.getByRole('tab', { name: 'Công ty & xe', selected: true }).waitFor(); };
+  const units = async () => { await page.locator('nav').getByRole('button', { name: 'Xe', exact: true }).click(); await page.getByRole('heading', { name: 'Xe', exact: true }).first().waitFor(); }; // 1.8.x: màn Xe tách khỏi Cài đặt
   try {
     await page.goto(srv.url);
     await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
