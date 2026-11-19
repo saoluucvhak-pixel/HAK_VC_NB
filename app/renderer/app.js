@@ -263,7 +263,15 @@
   const navClosedGet = () => { try { const o = JSON.parse(localStorage.getItem('dgvc.navClosed') || '{}'); return o && typeof o === 'object' ? o : {}; } catch { return {}; } };
   const navClosedSet = (o) => { try { localStorage.setItem('dgvc.navClosed', JSON.stringify(o)); } catch { /* không có localStorage: vẫn dùng được, chỉ không nhớ */ } };
 
-  D.go = (view, params = {}) => { state.view = view; state.params = params; render(); };
+  // D.leaveGuard: màn đang mở có thể đặt hàm () => true | Promise<bool> — rời màn khi còn thay đổi chưa lưu thì hỏi trước (vd Hợp đồng).
+  // Không hỏi khi về đăng nhập / khởi tạo (hết phiên, đăng xuất). Mỗi lần chuyển màn thật thì gỡ guard; màn mới tự đặt lại nếu cần.
+  D.leaveGuard = null;
+  D.go = (view, params = {}) => {
+    const g = D.leaveGuard; const go = () => { D.leaveGuard = null; state.view = view; state.params = params; render(); };
+    if (!g || ['login', 'setup'].includes(view)) { go(); return; }
+    const ok = g(); if (ok === true) { go(); return; }
+    Promise.resolve(ok).then((yes) => { if (yes) go(); });
+  };
 
   /**
    * Bộ lọc dùng chung (mọi màn có nút Lọc / Xem): Enter trong ô gõ = bấm Lọc; hiện "N điều kiện đang lọc" + nút "Xóa lọc" (đưa về giá trị mặc định rồi lọc lại).

@@ -21,8 +21,10 @@ const APP_VERSION = require('../../package.json').version;
 const canon = (v) => (Array.isArray(v) ? `[${v.map(canon).join(',')}]`
   : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canon(v[k])}`).join(',')}}` : JSON.stringify(v));
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
+// catalog_date (TUYEN_VC, 1.8.0) là ngày theo dõi của từng máy (tự gán khi sửa) — không coi là khác nội dung, tránh xung đột giả khi 2 nhà máy "sửa giống" ở 2 ngày
 const META = new Set(['created_at', 'created_by', 'updated_at', 'updated_by', 'row_version']);
-const content = (r) => Object.fromEntries(Object.entries(r).filter(([k]) => !META.has(k)));
+const CMP_SKIP = new Set([...META, 'catalog_date']); // chỉ bỏ khi SO nội dung; khi nhập UPDATE thật thì ngày vẫn chép theo
+const content = (r) => Object.fromEntries(Object.entries(r).filter(([k]) => !CMP_SKIP.has(k)));
 const sameContent = (a, b) => canon(content(a)) === canon(content(b));
 const vnNum = (n) => Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 const stampOf = (r) => r.updated_at || r.created_at || '';
@@ -355,7 +357,7 @@ function sanitize(t, r, h, pkgSha) {
   if (t === 'KY_TINH') Object.assign(x, { origin: 'IMPORTED', origin_install_id: h.sourceInstallId, package_sha256: pkgSha });
   return x;
 }
-function diff(a, b) { return Object.keys({ ...a, ...b }).filter((k) => !META.has(k) && canon(a[k]) !== canon(b[k])).map((k) => ({ field: k, local: a[k], incoming: b[k] })); }
+function diff(a, b) { return Object.keys({ ...a, ...b }).filter((k) => !CMP_SKIP.has(k) && canon(a[k]) !== canon(b[k])).map((k) => ({ field: k, local: a[k], incoming: b[k] })); }
 function roleText(h, s) {
   if (h.packageType === 'KY_TINH') return `Bản cài ${s.unitCode} nhận kỳ tính của bên vận chuyển ${h.sourceUnitCode} — lưu để xem / in lại, không sửa được`;
   if (h.packageType === 'DANH_MUC') return `Nhận danh mục do bản cài ${h.sourceUnitCode} gửi — cập nhật tuyến, giá, đơn vị, xe, hợp đồng liên quan`;

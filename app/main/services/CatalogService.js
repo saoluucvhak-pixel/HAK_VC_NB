@@ -309,14 +309,25 @@ class CatalogService {
   contractRouteSources({ contractId }) {
     const c = this.store.get('HOP_DONG', contractId); if (!c) throw new AppError('NOT_FOUND', `Không có hợp đồng ${contractId}`);
     const prices = this.store.all('PRICE_HISTORY'); const cfg = this._cfg(); const code = c.price_code || ''; const today = localToday();
+    // TUYẾN CỦA HỢP ĐỒNG (rà soát #38): tuyến có phiếu cân của xe trong phạm vi hợp đồng (đúng hiệu lực xe) ∪ tuyến có dòng giá
+    // trong mã đang gán ∪ tuyến có giá riêng hợp đồng. Các tuyến khác vẫn trả về (inContract=false) để xem nguồn giá nếu sau này chạy.
+    const byPlate = new Map(); for (const v of this.store.find('HOP_DONG_XE', (x) => x.contract_id === contractId)) { if (!byPlate.has(v.plate_no)) byPlate.set(v.plate_no, []); byPlate.get(v.plate_no).push(v); }
+    const inScope = (v, d) => v.effective_from <= d && (!v.effective_to || v.effective_to >= d);
+    const used = new Set();
+    if (byPlate.size) for (const t of this.store.all('PHIEU_CAN')) { const vs = !t.is_deleted && byPlate.get(t.plate_no); if (vs && vs.some((v) => inScope(v, t.weigh1_date))) used.add(t.route_code); }
+    const priced = new Set(prices.filter((p) => (code && p.price_code === code) || (!p.price_code && p.contract_id === contractId)).map((p) => p.route_code));
     const items = [];
     for (const r of this.store.all('TUYEN_VC').filter((x) => x.is_active).sort((a, b) => a.route_code.localeCompare(b.route_code, 'vi', { numeric: true }))) {
       const sel = E.selectPriceVersion(prices, r.route_code, contractId, today, today, cfg, code);
       if (!sel.price) continue; // tuyến chưa có giá hiệu lực: không có nguồn để nêu
       const p = sel.price; const source = code && p.price_code === code ? 'CODE' : p.contract_id ? 'CONTRACT' : 'GENERAL';
-      items.push({ routeCode: r.route_code, routeName: r.route_name, source, priceCode: p.price_code || '', priceMethod: lineMethod(p), priceId: p.price_id });
+      const inUse = used.has(r.route_code);
+      items.push({ routeCode: r.route_code, routeName: r.route_name, source, priceCode: p.price_code || '', priceMethod: lineMethod(p), priceId: p.price_id, inUse, inContract: inUse || priced.has(r.route_code) });
     }
-    return { items };
+    items.sort((a, b) => Number(b.inContract) - Number(a.inContract)); // tuyến của hợp đồng lên đầu (sort ổn định, giữ thứ tự mã tuyến)
+    const mine = items.filter((x) => x.inContract);
+    // allFixed: true = mọi tuyến của hợp đồng là giá cố định (không cần nhập dầu); false = còn tuyến theo giá dầu; null = chưa xác định (chưa có tuyến của hợp đồng)
+    return { items, contractRoutes: mine.length, allFixed: mine.length ? mine.every((x) => x.priceMethod === 'CO_DINH') : null };
   }
 
   // ─────────────────────── MÃ ĐƠN GIÁ (cha) → DÒNG GIÁ (con) ───────────────────────

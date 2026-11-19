@@ -66,6 +66,9 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     assert.equal(await cm.getByLabel('Mã đơn giá áp dụng').count(), 0, 'không còn ô chọn mã ở màn Hợp đồng');
     await cm.getByText('DG-UI-01 — Đơn giá cố định').waitFor();
     await cm.locator('tr', { hasText: 'VC.007' }).getByText(/theo mã DG-UI-01 \(đơn giá cố định\)/).waitFor();
+    // rà soát #38: mặc định chỉ tuyến của hợp đồng (VC.009 không thuộc hợp đồng / mã) → bấm xem cả tuyến khác
+    assert.equal(await cm.locator('tr', { hasText: 'VC.009' }).count(), 0, 'tuyến ngoài hợp đồng ẩn mặc định');
+    await cm.getByRole('button', { name: /Xem cả \d+ tuyến khác/ }).click();
     await cm.locator('tr', { hasText: 'VC.009' }).getByText(/dùng giá chung \(cách cũ\)/).waitFor();
     await cm.getByText(/Mã đơn giá của đối tác/).waitFor(); assert.equal(await cm.getByText('DG-KHAC-DT').count(), 0, 'không thấy mã của đối tác khác');
     await cm.getByRole('tab', { name: 'Thông tin' }).click(); await cm.getByLabel('Ghi chú').fill('sửa ghi chú — không đụng mã giá'); await cm.getByRole('button', { name: 'Lưu hợp đồng' }).click(); await toast(/Đã lưu hợp đồng/);

@@ -35,7 +35,7 @@ test('Giao diện HAKQN: luồng Hợp đồng → Giao nhận dầu → Tính g
     assert.equal(await page.getByText(/toàn tuyến cố định — không cần nhập dầu/).count(), 0);
     await nav('Hợp đồng vận chuyển'); await page.locator('.ct-items button', { hasText: 'HAKQN-QS' }).first().click(); await page.getByRole('tab', { name: 'Mã đơn giá' }).click();
     const cm = page.locator('.ct-detail', { hasText: 'Hợp đồng HAKQN-QS' }); await cm.getByRole('heading', { name: 'Giao nhận dầu của hợp đồng' }).waitFor();
-    await cm.getByText(/dòng dầu/).first().waitFor(); await cm.getByRole('button', { name: 'Sang màn nhập dầu →' }).click();
+    await cm.locator('#ct-panel-price').getByText(/dòng dầu/).first().waitFor(); // 1.8.x rà soát #39: các thẻ cùng nằm trong DOM (ẩn/hiện) → tìm trong thẻ đang mở await cm.getByRole('button', { name: 'Sang màn nhập dầu →' }).click();
     await page.getByRole('heading', { name: 'Giao nhận dầu' }).first().waitFor();
 
     // (2) gán mã đơn giá cố định phủ MỌI tuyến đang có giá → toàn tuyến cố định → có thông báo (vẫn nhập được); khối dầu ở màn Hợp đồng biến mất
