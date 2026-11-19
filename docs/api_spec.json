@@ -1700,6 +1700,37 @@
    "lock": false
   },
   {
+   "action": "contracts.routeSources",
+   "group": "Hợp đồng",
+   "desc": "Từng tuyến đang có giá của hợp đồng kèm NGUỒN GIÁ hôm nay (theo thứ tự ưu tiên của bộ chọn giá): CODE (dòng của mã đơn giá gán cho hợp đồng) | CONTRACT (giá riêng hợp đồng) | GENERAL (giá chung, cách cũ). Chỉ đọc",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{items:[{routeCode, routeName, source, priceCode, priceMethod, priceId}]}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "HOP_DONG",
+    "TUYEN_VC",
+    "PRICE_HISTORY"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
    "action": "contracts.usage",
    "group": "Hợp đồng",
    "desc": "Hợp đồng đang dùng ở đâu (kỳ tính, dòng dầu, lô import, giá riêng, phạm vi xe) — biết có sửa mã / hai bên, xóa được không",

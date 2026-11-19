@@ -150,6 +150,7 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | `contracts.vehicles` | Phạm vi xe của một hợp đồng (HOP_DONG_XE) | A/K/X |  |  |
 | `contracts.setActive` | Ngừng / dùng lại hợp đồng (không xóa) — `rowVersion` bắt buộc | A/K | 🔒 HOP_DONG | UPDATE |
 | `contracts.suggestVehicles` | Gợi ý phạm vi xe = xe bên VC + xe của các HĐ mà bên VC là bên thuê | A/K |  |  |
+| `contracts.routeSources` | Từng tuyến của hợp đồng kèm nguồn giá (CODE / CONTRACT / GENERAL) — chỉ đọc | A/K/X |  |  |
 | `contracts.resolveSigners` | Người ký 2 bên theo sign_priority (hoặc giá trị ghi đè) | A/K/X |  |  |
 
 ### 4.7. Phiếu cân

@@ -302,6 +302,23 @@ class CatalogService {
     }, { user: user.username });
   }
 
+  /**
+   * Hợp đồng: từng tuyến đang có giá kèm NGUỒN GIÁ tại ngày hôm nay — chọn bằng chính selectPriceVersion của engine (mã gán cho hợp đồng > giá riêng hợp đồng > giá chung).
+   * source: CODE (dòng của mã) | CONTRACT (giá riêng hợp đồng) | GENERAL (giá chung, cách cũ). CHỈ ĐỌC — không đổi cách tính giá.
+   */
+  contractRouteSources({ contractId }) {
+    const c = this.store.get('HOP_DONG', contractId); if (!c) throw new AppError('NOT_FOUND', `Không có hợp đồng ${contractId}`);
+    const prices = this.store.all('PRICE_HISTORY'); const cfg = this._cfg(); const code = c.price_code || ''; const today = localToday();
+    const items = [];
+    for (const r of this.store.all('TUYEN_VC').filter((x) => x.is_active).sort((a, b) => a.route_code.localeCompare(b.route_code, 'vi', { numeric: true }))) {
+      const sel = E.selectPriceVersion(prices, r.route_code, contractId, today, today, cfg, code);
+      if (!sel.price) continue; // tuyến chưa có giá hiệu lực: không có nguồn để nêu
+      const p = sel.price; const source = code && p.price_code === code ? 'CODE' : p.contract_id ? 'CONTRACT' : 'GENERAL';
+      items.push({ routeCode: r.route_code, routeName: r.route_name, source, priceCode: p.price_code || '', priceMethod: lineMethod(p), priceId: p.price_id });
+    }
+    return { items };
+  }
+
   // ─────────────────────── MÃ ĐƠN GIÁ (cha) → DÒNG GIÁ (con) ───────────────────────
   // Cha: Đơn vị (DON_VI) → Mã đơn giá (MA_DON_GIA). Con: dòng giá = PRICE_HISTORY có price_code (tuyến + đơn giá, hiệu lực). Hợp đồng chọn mã ở HOP_DONG.price_code.
   // Hợp đồng không chọn mã → giá chung / giá riêng hợp đồng chạy NGUYÊN NHƯ CŨ (xem engine/period.js selectPriceVersion).

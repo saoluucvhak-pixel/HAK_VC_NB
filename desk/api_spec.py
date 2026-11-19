@@ -119,6 +119,8 @@ ep('archive.reopen', 'Dữ liệu', 'Mở lại năm lưu trữ gần nhất: đ
    [('year', 'integer', True, ''), ('reason', 'string', True, '')], '{year, counts}', ['VALIDATION_FAILED', 'NOT_FOUND'], ['PHIEU_CAN'], ['PHIEU_CAN', 'GIAO_NHAN_DAU', 'KY_TINH', 'AUDIT_LOG'], 'REOPEN_YEAR', True)
 ep('archive.restoreFile', 'Dữ liệu', 'Nạp lại thư mục lưu trữ năm từ file zip lưu trữ (máy mới / sau khôi phục)', ADM,
    [('file', 'string', True, '')], '{year, ok}', ['NOT_FOUND', 'VALIDATION_FAILED', 'INTEGRITY_ERROR'])
+ep('contracts.routeSources', 'Hợp đồng', 'Từng tuyến đang có giá của hợp đồng kèm NGUỒN GIÁ hôm nay (theo thứ tự ưu tiên của bộ chọn giá): CODE (dòng của mã đơn giá gán cho hợp đồng) | CONTRACT (giá riêng hợp đồng) | GENERAL (giá chung, cách cũ). Chỉ đọc', ALL, [('contractId', 'string', True, '')],
+   '{items:[{routeCode, routeName, source, priceCode, priceMethod, priceId}]}', ['NOT_FOUND'], ['HOP_DONG', 'TUYEN_VC', 'PRICE_HISTORY'])
 ep('contracts.usage', 'Hợp đồng', 'Hợp đồng đang dùng ở đâu (kỳ tính, dòng dầu, lô import, giá riêng, phạm vi xe) — biết có sửa mã / hai bên, xóa được không', ALL,
    [('contractId', 'string', True, '')], '{periods, fuelRows, importBatches, prices, vehicles, blockers, canEditParties, canDelete}', ['NOT_FOUND'], ['HOP_DONG', 'KY_TINH', 'GIAO_NHAN_DAU', 'IMPORT_BATCH', 'PRICE_HISTORY', 'HOP_DONG_XE'])
 ep('contracts.delete', 'Hợp đồng', 'Xóa hợp đồng nhập nhầm — chỉ khi chưa có kỳ tính / dòng dầu; xóa kèm phạm vi xe và giá riêng chưa dùng. Đã dùng thì Ngừng dùng', EDIT,

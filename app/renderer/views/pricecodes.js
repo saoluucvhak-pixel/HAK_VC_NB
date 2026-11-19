@@ -13,7 +13,7 @@
 
   D.views.pricecodes = {
     async render(p) {
-      const w = D.writer(); let sel = p.code || ''; const guard = D.latest();
+      const w = D.writer(); let sel = p.code || p.priceCode || ''; const guard = D.latest();
       const tree = h('aside', { class: 'card pc-tree', 'aria-label': 'Đơn vị và mã đơn giá' }); const detail = h('section', { class: 'pc-detail', 'aria-live': 'polite' });
       const again = async (code) => { if (code !== undefined) sel = code; await loadTree(); await loadDetail(); };
 
@@ -149,7 +149,7 @@
         tree.append(h('h2', {}, 'Hình thức giá → Mã đơn giá'), d.total ? null : h('p', { class: 'small muted' }, 'Chưa có mã đơn giá nào. Chọn hình thức giá bên dưới và bấm "+ Mã …".'), d.methods.map(group));
               }
 
-      const page = D.page('Mã đơn giá', '5 · Hình thức giá → Mã đơn giá → Dòng giá theo tuyến', [], h('p', { class: 'small muted', style: { margin: '0 0 10px' } }, 'Ba tầng: Hình thức giá (cố định / theo giá dầu) → Mã đơn giá (của một công ty đối tác) → Dòng giá theo tuyến. Hợp đồng gán mã sẽ dùng dòng giá của mã (theo tuyến và ngày); hợp đồng không gán mã chạy như cũ.'), h('div', { class: 'pc-layout' }, tree, detail));
+      const page = D.page('Mã đơn giá', '5 · Hình thức giá → Mã đơn giá → Dòng giá theo tuyến', [], D.priceScreenNote('pricecodes'), h('p', { class: 'small muted', style: { margin: '0 0 10px' } }, 'Ba tầng: Hình thức giá (cố định / theo giá dầu) → Mã đơn giá (của một công ty đối tác) → Dòng giá theo tuyến. Hợp đồng gán mã sẽ dùng dòng giá của mã (theo tuyến và ngày); hợp đồng không gán mã chạy như cũ.'), h('div', { class: 'pc-layout' }, tree, detail));
       await loadTree(); await loadDetail();
       return page;
     },
