@@ -17,4 +17,9 @@
 
 ## Lưu ý nâng cấp
 - **Các nhà máy phải nâng cấp cùng đợt**: gói trao đổi danh mục có cột mới `price_method` của mã đơn giá; bản cũ nhận gói mới (hoặc ngược lại) có thể bỏ qua cột này.
-- Dữ liệu cũ tự đúng: mã đơn giá 1.5.0 (cột rỗng) đọc ra *Đơn giá cố định*.
+- **Mã đơn giá cũ (tạo ở 1.5.x, cột hình thức rỗng) được suy hình thức từ các dòng giá của mã:**
+  - không có dòng, hoặc mọi dòng là *Đơn giá cố định* → **Đơn giá cố định**;
+  - mọi dòng còn lại (kể cả dòng có cột hình thức rỗng) → **Đơn giá theo giá dầu**;
+  - lẫn cả hai loại → **Hỗn hợp**: app **không ghi** hình thức, hiện cảnh báo "Mã có cả dòng cố định và theo giá dầu (tạo ở bản cũ) — tách thành 2 mã" trên màn Mã đơn giá, và **chặn thêm dòng / sửa nháp / áp dụng dòng nháp** cho tới khi người dùng tách mã (dòng đang áp dụng vẫn tính bình thường, kết quả không đổi).
+  - Khi mở kho lần đầu sau nâng cấp, app ghi `price_method` cho các mã suy ra được (nhật ký `PRICE_CODE_METHOD_BACKFILL`); mã Hỗn hợp để trống.
+  - Máy chủ chặn dòng thuộc mã khác hình thức của mã (sửa nháp, áp dụng), dòng giá chung / giá riêng hợp đồng không bị ràng buộc.

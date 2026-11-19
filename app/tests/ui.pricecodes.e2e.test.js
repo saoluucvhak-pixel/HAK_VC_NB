@@ -89,6 +89,17 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     }
     await nav('Mã đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: /DG-UI-02/ }).click(); await page.locator('.pc-detail').getByText(/ĐG ký HĐ|Đơn giá ký hợp đồng/).first().waitFor();
     for (const w of [1366, 910]) { await page.setViewportSize({ width: w, height: 800 }); const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); assert.ok(over <= 1, `tràn ngang ${over}px ở ${w}px`); if (process.env.SHOT_DIR) await page.screenshot({ path: path.join(process.env.SHOT_DIR, `pricecodes-${w}.png`) }); }
+    // mã cũ lẫn 2 loại dòng (tạo ở bản cũ): nhóm "Hỗn hợp", cảnh báo, chặn thêm/sửa/áp dụng; bảng chọn cột theo từng dòng
+    const L = (id, route, method) => ({ price_id: id, route_code: route, contract_id: '', price_code: 'DG-CU-HON', version_no: 1, effective_from: '2026-01-01', effective_to: '', status: 'DRAFT', is_used: false, price_method: method,
+      fixed_price: method === 'CO_DINH' ? 150000 : '', new_price: method === 'CO_DINH' ? 0 : 165000, fuel_price_excl_vat: method === 'CO_DINH' ? 0 : 15500, fuel_norm_l_per_km: method === 'CO_DINH' ? 0 : 0.4, avg_load_ton: method === 'CO_DINH' ? 0 : 18, base_price_excl_vat: '', base_price_source: '', price_per_km: '', avg_volume_m3: '', source_note: '' });
+    await ctx.store.transaction((tx) => { tx.insert('MA_DON_GIA', { price_code: 'DG-CU-HON', unit_code: unit, price_name: 'Mã cũ lẫn', status: 'ACTIVE', note: '' }); tx.insert('PRICE_HISTORY', L('PR-VC.007-DG-CU-HON-v1', 'VC.007', 'CO_DINH')); tx.insert('PRICE_HISTORY', L('PR-VC.002-DG-CU-HON-v1', 'VC.002', 'THEO_DAU')); }, { user: 'test' });
+    await nav('Mã đơn giá'); await page.locator('.pc-tree').getByRole('heading', { name: /Hỗn hợp/ }).waitFor();
+    await page.locator('.pc-tree').getByRole('button', { name: /DG-CU-HON/ }).click();
+    await page.locator('.pc-detail').getByText(/tách thành 2 mã/).first().waitFor();
+    assert.equal(await page.locator('.pc-detail').getByRole('button', { name: /Thêm dòng giá/ }).isDisabled(), true);
+    assert.equal(await page.locator('.pc-detail tbody tr', { hasText: 'VC.007' }).getByRole('button', { name: 'Sửa' }).isDisabled(), true);
+    assert.equal(await page.locator('.pc-detail tbody tr', { hasText: 'VC.002' }).getByRole('button', { name: 'Áp dụng' }).isDisabled(), true);
+    await page.locator('.pc-detail').getByRole('columnheader', { name: /Đơn giá cố định/ }).waitFor(); await page.locator('.pc-detail').getByRole('columnheader', { name: /ĐG ký HĐ dự kiến/ }).waitFor();
     // B7: vai trò XEM không thấy nút tạo/sửa/áp dụng/gán
     await page.evaluate(() => window.DGVC.api('users.save', { record: { username: 'xem.qn', fullName: 'Người xem', role: 'XEM', unitCode: 'HAKQN' } }));
     await page.getByRole('button', { name: 'Đăng xuất' }).click();

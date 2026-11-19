@@ -16,7 +16,9 @@
  */
 const E = require('../engine');
 const { AppError, businessError } = require('../../shared/errors');
-const PRICE_METHOD_LABEL = { CO_DINH: 'Đơn giá cố định', THEO_DAU: 'Đơn giá theo giá dầu' };
+const PRICE_METHOD_LABEL = { CO_DINH: 'Đơn giá cố định', THEO_DAU: 'Đơn giá theo giá dầu', HON_HOP: 'Hỗn hợp (cần tách mã)' };
+const MIXED_WARNING = 'Mã có cả dòng cố định và theo giá dầu (tạo ở bản cũ) — tách thành 2 mã';
+const lineMethod = (p) => (p.price_method === 'CO_DINH' ? 'CO_DINH' : 'THEO_DAU'); // dòng giá cũ cột rỗng = theo giá dầu
 const { remindTx } = require('./SyncReminderService');
 
 const ROUTE_FIELDS = ['route_code', 'route_name', 'distance_km', 'trip_distance_km', 'from_place', 'to_place', 'uom', 'catalog_unit_code', 'note'];
@@ -212,7 +214,8 @@ class CatalogService {
     return { ...a, current: cur ? { priceId: cur.price_id, contractPrice: E.computeContractPrice(route, cur, this._cfg()).contractPrice } : null };
   }
 
-  async createPriceVersion({ record, user }) {
+  /** Dựng bản ghi phiên bản giá NHÁP (kiểm hợp lệ + chống điền lùi ngày) — chưa ghi. Dùng chung createPriceVersion và addCodeLine (gộp giao dịch). */
+  _buildPriceVersion(record) {
     const p = this._normPrice(record); const route = this.store.get('TUYEN_VC', p.route_code);
     this._validatePrice(p, route);
     const same = this.store.find('PRICE_HISTORY', (x) => x.route_code === p.route_code && (x.contract_id || '') === p.contract_id && (x.price_code || '') === (p.price_code || ''));
@@ -223,6 +226,11 @@ class CatalogService {
     const version = same.reduce((m, x) => Math.max(m, x.version_no), 0) + 1;
     const rec = { base_price_excl_vat: '', base_price_source: '', price_per_km: '', avg_volume_m3: '', source_note: '', price_method: 'THEO_DAU', fixed_price: '', ...p,
       price_id: `PR-${p.route_code}${p.contract_id ? `-${p.contract_id}` : ''}${p.price_code ? `-${p.price_code}` : ''}-v${version}`, version_no: version, effective_to: '', status: 'DRAFT', is_used: false };
+    return { rec, route };
+  }
+
+  async createPriceVersion({ record, user }) {
+    const { rec, route } = this._buildPriceVersion(record);
     const out = await this.store.transaction((tx) => {
       const r = tx.insert('PRICE_HISTORY', rec);
       tx.audit('PRICE_CREATE', 'PRICE_HISTORY', r.price_id, null, r);
@@ -231,12 +239,20 @@ class CatalogService {
     return { record: out, contractPrice: E.computeContractPrice(route, out, this._cfg()).contractPrice, warnings: [] };
   }
 
+  _assertLineMatchesCode(line) {
+    if (!line.price_code) return; // giá chung / giá riêng hợp đồng: không ràng buộc
+    const c = this.store.get('MA_DON_GIA', line.price_code); if (!c) return;
+    const method = this._codeMethod(c); const lm = lineMethod(line);
+    if (method !== lm) throw this._methodMismatch(c.price_code, method, lm);
+  }
+
   async updatePriceDraft({ priceId, record, rowVersion, user }) {
     const old = this.store.get('PRICE_HISTORY', priceId);
     if (!old) throw new AppError('NOT_FOUND', `Không có phiên bản giá ${priceId}`);
     if (old.status !== 'DRAFT' || old.is_used) throw businessError('E_PRICE_USED', `Phiên bản ${priceId} đã kích hoạt/đã dùng — không sửa, hãy tạo phiên bản mới`);
     const p = this._normPrice(record); delete p.route_code; delete p.contract_id; delete p.price_code;
     const next = { ...old, ...p }; const route = this.store.get('TUYEN_VC', old.route_code);
+    this._assertLineMatchesCode(next); // dòng thuộc mã: hình thức sau khi sửa phải bằng hình thức của mã
     this._validatePrice(next, route);
     const out = await this.store.transaction((tx) => {
       const { before, after } = tx.update('PRICE_HISTORY', priceId, p, { expectedRowVersion: rowVersion });
@@ -250,6 +266,7 @@ class CatalogService {
     const d = this.store.get('PRICE_HISTORY', priceId);
     if (!d) throw new AppError('NOT_FOUND', `Không có phiên bản giá ${priceId}`);
     if (d.status !== 'DRAFT') throw businessError('E_PRICE_USED', `Phiên bản ${priceId} không ở trạng thái nháp`);
+    this._assertLineMatchesCode(d);
     const prev = this.store.find('PRICE_HISTORY', (x) => x.price_id !== priceId && x.route_code === d.route_code && (x.contract_id || '') === (d.contract_id || '') && (x.price_code || '') === (d.price_code || '') && x.status !== 'DRAFT'
       && (!x.effective_to || x.effective_to >= d.effective_from));
     for (const x of prev) {
@@ -279,13 +296,34 @@ class CatalogService {
   // Cha: Đơn vị (DON_VI) → Mã đơn giá (MA_DON_GIA). Con: dòng giá = PRICE_HISTORY có price_code (tuyến + đơn giá, hiệu lực). Hợp đồng chọn mã ở HOP_DONG.price_code.
   // Hợp đồng không chọn mã → giá chung / giá riêng hợp đồng chạy NGUYÊN NHƯ CŨ (xem engine/period.js selectPriceVersion).
 
-  _codeMethod(c) { return c && c.price_method === 'THEO_DAU' ? 'THEO_DAU' : 'CO_DINH'; } // mã 1.5.0 (cột rỗng) = đơn giá cố định
+  /** Hình thức của mã. Cột rỗng (mã 1.5.x) → suy từ các dòng: không dòng/toàn cố định → CO_DINH; toàn khác → THEO_DAU; lẫn cả hai → HON_HOP. */
+  _codeMethod(c) {
+    if (!c) return 'CO_DINH';
+    if (c.price_method === 'THEO_DAU' || c.price_method === 'CO_DINH') return c.price_method;
+    const ms = new Set(this.store.find('PRICE_HISTORY', (p) => p.price_code === c.price_code).map(lineMethod));
+    return ms.size === 0 ? 'CO_DINH' : ms.size === 2 ? 'HON_HOP' : [...ms][0];
+  }
+
+  /** Lỗi khi dòng giá không cùng hình thức với mã (dùng chung addCodeLine / updatePriceDraft / activatePrice). */
+  _methodMismatch(priceCode, method, lineM) {
+    if (method === 'HON_HOP') return new AppError('VALIDATION_FAILED', `Mã ${priceCode}: ${MIXED_WARNING} trước khi thêm / sửa / áp dụng dòng giá`);
+    return new AppError('VALIDATION_FAILED', `Mã ${priceCode} là ${PRICE_METHOD_LABEL[method].toLowerCase()} — không thêm dòng ${PRICE_METHOD_LABEL[lineM] ? PRICE_METHOD_LABEL[lineM].toLowerCase() : lineM} (tạo mã đúng hình thức)`);
+  }
+
+  /** Nâng cấp một lần khi mở kho: ghi price_method cho mã cũ còn rỗng theo quy tắc suy ra; mã HON_HOP KHÔNG ghi (để người dùng tách). */
+  async backfillCodeMethods({ user = { username: 'system' } } = {}) {
+    const todo = this.store.all('MA_DON_GIA').filter((c) => !c.price_method).map((c) => ({ c, m: this._codeMethod(c) }));
+    const mixed = todo.filter((x) => x.m === 'HON_HOP').map((x) => x.c.price_code); const set = todo.filter((x) => x.m !== 'HON_HOP');
+    if (set.length) await this.store.transaction((tx) => { for (const { c, m } of set) { tx.update('MA_DON_GIA', c.price_code, { price_method: m }); tx.audit('PRICE_CODE_METHOD_BACKFILL', 'MA_DON_GIA', c.price_code, { price_method: '' }, { price_method: m }, { reason: 'Nâng cấp 1.7.0: suy hình thức của mã cũ từ các dòng giá' }); } }, { user: user.username });
+    return { updated: set.map((x) => x.c.price_code), mixed };
+  }
 
   _codeView(c) {
     const lines = this.store.find('PRICE_HISTORY', (p) => p.price_code === c.price_code);
     const unit = this.store.get('DON_VI', c.unit_code);
     const contracts = this.store.find('HOP_DONG', (h) => h.price_code === c.price_code);
-    return { ...c, priceMethod: this._codeMethod(c), priceMethodLabel: PRICE_METHOD_LABEL[this._codeMethod(c)], unitName: unit ? unit.unit_name : c.unit_code, lineCount: lines.length, activeLines: lines.filter((p) => p.status === 'ACTIVE').length, draftLines: lines.filter((p) => p.status === 'DRAFT').length,
+    const method = this._codeMethod(c);
+    return { ...c, priceMethod: method, priceMethodLabel: PRICE_METHOD_LABEL[method], ...(method === 'HON_HOP' ? { methodWarning: MIXED_WARNING } : {}), unitName: unit ? unit.unit_name : c.unit_code, lineCount: lines.length, activeLines: lines.filter((p) => p.status === 'ACTIVE').length, draftLines: lines.filter((p) => p.status === 'DRAFT').length,
       contracts: contracts.map((h) => ({ contractId: h.contract_id, contractCode: h.contract_code })), used: lines.some((p) => p.is_used) };
   }
 
@@ -295,7 +333,7 @@ class CatalogService {
       .sort((a, b) => a.price_code.localeCompare(b.price_code, 'vi', { numeric: true }));
     const units = this.store.all('DON_VI').filter((u) => !unitCode || u.unit_code === unitCode).sort((a, b) => (a.sign_priority - b.sign_priority) || a.unit_code.localeCompare(b.unit_code))
       .map((u) => ({ unitCode: u.unit_code, unitName: u.unit_name, codes: codes.filter((c) => c.unit_code === u.unit_code) }));
-    const methods = ['CO_DINH', 'THEO_DAU'].map((m) => ({ method: m, label: PRICE_METHOD_LABEL[m], codes: codes.filter((c) => c.priceMethod === m) }));
+    const methods = ['CO_DINH', 'THEO_DAU', 'HON_HOP'].map((m) => ({ method: m, label: PRICE_METHOD_LABEL[m], codes: codes.filter((c) => c.priceMethod === m) })).filter((g) => g.method !== 'HON_HOP' || g.codes.length);
     return { methods, units, items: codes, total: codes.length };
   }
 
@@ -340,7 +378,7 @@ class CatalogService {
       const used = this.store.find('PRICE_HISTORY', (p) => p.price_code === code).length + this.store.find('HOP_DONG', (h) => h.price_code === code).length;
       if (used) throw new AppError('VALIDATION_FAILED', 'Mã đã có dòng giá hoặc đã gán cho hợp đồng — không đổi hình thức giá (tạo mã mới cho hình thức khác)');
       patch.price_method = wantMethod;
-    } else if (!old.price_method) patch.price_method = this._codeMethod(old);
+    } else if (!old.price_method && this._codeMethod(old) !== 'HON_HOP') patch.price_method = this._codeMethod(old);
     return this.store.transaction((tx) => {
       const { before, after } = tx.update('MA_DON_GIA', code, patch, { expectedRowVersion: rowVersion });
       tx.audit('PRICE_CODE_UPDATE', 'MA_DON_GIA', code, before, after, { reason });
@@ -372,21 +410,26 @@ class CatalogService {
       base.price_method = src.price_method || 'THEO_DAU'; // giá cũ cột rỗng = theo giá dầu
     }
     const method = this._codeMethod(c); const asked = toSnake(record).price_method; const copied = base.price_method || '';
-    const mismatch = (m) => new AppError('VALIDATION_FAILED', `Mã ${priceCode} là ${PRICE_METHOD_LABEL[method].toLowerCase()} — không thêm dòng ${PRICE_METHOD_LABEL[m] ? PRICE_METHOD_LABEL[m].toLowerCase() : m} (tạo mã đúng hình thức)`);
-    if (asked && asked !== method) throw mismatch(asked);
+    if (method === 'HON_HOP') throw this._methodMismatch(priceCode, method, asked || copied);
+    if (asked && asked !== method) throw this._methodMismatch(priceCode, method, asked);
     // sao chép từ giá có sẵn khác hình thức: chỉ khi mã còn TRỐNG (chưa dòng, chưa hợp đồng) thì mã nhận hình thức của dòng đầu tiên
     let adopt = '';
     if (!asked && copied && copied !== method) {
       const used = this.store.find('PRICE_HISTORY', (p) => p.price_code === priceCode).length + this.store.find('HOP_DONG', (h) => h.price_code === priceCode).length;
-      if (used) throw mismatch(copied);
+      if (used) throw this._methodMismatch(priceCode, method, copied);
       adopt = copied;
     }
     const rec = { ...base, ...toSnake(record), price_method: adopt || method, price_code: priceCode, contract_id: '' };
     if (!rec.effective_from) throw new AppError('VALIDATION_FAILED', 'Nhập ngày hiệu lực');
-    if (adopt) {
-      const out = await this.createPriceVersion({ record: rec, user });
-      await this.store.transaction((tx) => { const { before, after } = tx.update('MA_DON_GIA', priceCode, { price_method: adopt }, { expectedRowVersion: c.row_version }); tx.audit('PRICE_CODE_UPDATE', 'MA_DON_GIA', priceCode, before, after, { reason: 'Mã còn trống nhận hình thức giá của dòng sao chép đầu tiên' }); }, { user: user.username });
-      return out;
+    if (adopt) { // chèn dòng + đổi hình thức mã trong MỘT giao dịch: lỗi ở bước nào cũng không để lại dòng nháp thừa
+      const { rec: built, route } = this._buildPriceVersion(rec);
+      const out = await this.store.transaction((tx) => {
+        const r = tx.insert('PRICE_HISTORY', built); tx.audit('PRICE_CREATE', 'PRICE_HISTORY', r.price_id, null, r);
+        const { before, after } = tx.update('MA_DON_GIA', priceCode, { price_method: adopt }, { expectedRowVersion: c.row_version });
+        tx.audit('PRICE_CODE_UPDATE', 'MA_DON_GIA', priceCode, before, after, { reason: 'Mã còn trống nhận hình thức giá của dòng sao chép đầu tiên' });
+        return r;
+      }, { user: user.username });
+      return { record: out, contractPrice: E.computeContractPrice(route, out, this._cfg()).contractPrice, warnings: [] };
     }
     return this.createPriceVersion({ record: rec, user });
   }

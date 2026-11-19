@@ -175,3 +175,70 @@ test('B8: tạo mã đơn giá trả cảnh báo nhắc sửa giống nhà máy 
   const r = await s.mkCode('DG-NHAC', { priceMethod: 'THEO_DAU' });
   assert.ok(Array.isArray(r.warnings) && r.warnings.length >= 1 && /nhà máy|giống/i.test(r.warnings[0].message), JSON.stringify(r.warnings));
 });
+
+// ───────── Sửa lỗi sau rà soát: mã cũ (cột rỗng), chốt chặn máy chủ, giao dịch gộp ─────────
+const oldCode = (s, code, lines = []) => s.store.transaction((tx) => {
+  tx.insert('MA_DON_GIA', { price_code: code, unit_code: s.unit, price_name: 'Mã 1.5.x', status: 'ACTIVE', note: '' }); // không có price_method
+  for (const l of lines) tx.insert('PRICE_HISTORY', { price_id: `PR-${l.route}-${code}-v1`, route_code: l.route, contract_id: '', price_code: code, version_no: 1, effective_from: '2026-01-01', effective_to: '', status: 'ACTIVE', is_used: false,
+    price_method: l.method, fixed_price: l.method === 'CO_DINH' ? 150000 : '', new_price: l.method === 'CO_DINH' ? 0 : 165000, fuel_price_excl_vat: l.method === 'CO_DINH' ? 0 : 15500, fuel_norm_l_per_km: l.method === 'CO_DINH' ? 0 : 0.4, avg_load_ton: l.method === 'CO_DINH' ? 0 : 18,
+    base_price_excl_vat: '', base_price_source: '', price_per_km: '', avg_volume_m3: '', source_note: '' }); }, { user: 'test' });
+
+test('mã cũ (price_method rỗng) suy hình thức từ các dòng: không dòng → CO_DINH; toàn CO_DINH → CO_DINH; toàn khác (kể cả rỗng) → THEO_DAU; lẫn → HON_HOP', async () => {
+  const s = await setup();
+  await oldCode(s, 'DG-O0'); await oldCode(s, 'DG-O1', [{ route: 'VC.007', method: 'CO_DINH' }]);
+  await oldCode(s, 'DG-O2', [{ route: 'VC.007', method: 'THEO_DAU' }, { route: 'VC.002', method: '' }]); await oldCode(s, 'DG-O3', [{ route: 'VC.007', method: 'CO_DINH' }, { route: 'VC.002', method: 'THEO_DAU' }]);
+  const m = (c) => s.cat.getPriceCode({ priceCode: c }).record.priceMethod;
+  assert.deepEqual(['DG-O0', 'DG-O1', 'DG-O2', 'DG-O3'].map(m), ['CO_DINH', 'CO_DINH', 'THEO_DAU', 'HON_HOP']);
+  const l = s.cat.listPriceCodes(); assert.deepEqual(l.methods.map((x) => x.method), ['CO_DINH', 'THEO_DAU', 'HON_HOP'], 'nhóm HON_HOP chỉ xuất hiện khi có');
+  assert.deepEqual(l.methods[2].codes.map((c) => c.price_code), ['DG-O3']);
+  assert.match(s.cat.getPriceCode({ priceCode: 'DG-O3' }).record.methodWarning, /tách thành 2 mã/);
+});
+
+test('nâng cấp một lần: ghi price_method cho mã rỗng theo quy tắc (có audit), HON_HOP để trống; chạy lại không đổi gì; HON_HOP chặn thêm dòng / sửa nháp', async () => {
+  const s = await setup();
+  await oldCode(s, 'DG-O2', [{ route: 'VC.007', method: 'THEO_DAU' }]); await oldCode(s, 'DG-O3', [{ route: 'VC.007', method: 'CO_DINH' }, { route: 'VC.002', method: 'THEO_DAU' }]);
+  const r = await s.cat.backfillCodeMethods({ user: { username: 'system' } });
+  assert.deepEqual(r.updated.sort(), ['DG-O2']); assert.deepEqual(r.mixed, ['DG-O3']);
+  assert.equal(s.store.get('MA_DON_GIA', 'DG-O2').price_method, 'THEO_DAU'); assert.ok(!s.store.get('MA_DON_GIA', 'DG-O3').price_method, 'HON_HOP không ghi');
+  assert.ok(s.store.all('AUDIT_LOG').some((a) => a.action === 'PRICE_CODE_METHOD_BACKFILL' && a.entity_id === 'DG-O2'));
+  assert.deepEqual((await s.cat.backfillCodeMethods({ user: { username: 'system' } })).updated, [], 'lần hai không còn gì để ghi');
+  await assert.rejects(() => s.cat.addCodeLine({ priceCode: 'DG-O3', record: { routeCode: 'VC.009', effectiveFrom: '2026-02-01', fixedPrice: 150000 }, user: KETOAN }), (e) => e.code === 'VALIDATION_FAILED' && /tách thành 2 mã/.test(e.message));
+  // sửa nháp của mã HON_HOP bị chặn
+  await s.store.transaction((tx) => { tx.insert('PRICE_HISTORY', { price_id: 'PR-VC.009-DG-O3-v1', route_code: 'VC.009', contract_id: '', price_code: 'DG-O3', version_no: 1, effective_from: '2026-03-01', effective_to: '', status: 'DRAFT', is_used: false, price_method: 'CO_DINH', fixed_price: 150000, new_price: 0, fuel_price_excl_vat: 0, fuel_norm_l_per_km: 0, avg_load_ton: 0, base_price_excl_vat: '', base_price_source: '', price_per_km: '', avg_volume_m3: '', source_note: '' }); }, { user: 'test' });
+  const d = s.store.get('PRICE_HISTORY', 'PR-VC.009-DG-O3-v1');
+  await assert.rejects(() => s.cat.updatePriceDraft({ priceId: d.price_id, record: { fixedPrice: 160000 }, rowVersion: d.row_version, user: KETOAN }), (e) => e.code === 'VALIDATION_FAILED');
+  await assert.rejects(() => s.cat.activatePrice({ priceId: d.price_id, rowVersion: d.row_version, user: KETOAN }), (e) => e.code === 'VALIDATION_FAILED');
+});
+
+test('updatePriceDraft/activatePrice: dòng thuộc mã phải đúng hình thức của mã; dòng giá chung (không mã) đổi hình thức như cũ', async () => {
+  const s = await setup();
+  await s.mkCode('DG-FIX');
+  const l = await s.cat.addCodeLine({ priceCode: 'DG-FIX', record: { routeCode: 'VC.002', effectiveFrom: '2026-01-01', fixedPrice: 150000 }, user: KETOAN });
+  await assert.rejects(() => s.cat.updatePriceDraft({ priceId: l.record.price_id, record: { priceMethod: 'THEO_DAU', newPrice: 200000, fuelPriceExclVat: 20000, fuelNormLPerKm: 0.5, avgLoadTon: 25 }, rowVersion: l.record.row_version, user: KETOAN }), (e) => e.code === 'VALIDATION_FAILED' && /đơn giá cố định/i.test(e.message));
+  // gửi priceMethod trùng hình thức của mã → bỏ qua, sửa bình thường
+  const ok = await s.cat.updatePriceDraft({ priceId: l.record.price_id, record: { priceMethod: 'CO_DINH', fixedPrice: 155000 }, rowVersion: l.record.row_version, user: KETOAN });
+  assert.equal(ok.record.fixed_price, 155000);
+  // activate: ép trái hình thức bằng cách ghi thẳng vào kho (giả lập dữ liệu hỏng) → bị chặn
+  await s.store.transaction((tx) => { tx.update('PRICE_HISTORY', l.record.price_id, { price_method: 'THEO_DAU' }); }, { user: 'test' });
+  const cur = s.store.get('PRICE_HISTORY', l.record.price_id);
+  await assert.rejects(() => s.cat.activatePrice({ priceId: cur.price_id, rowVersion: cur.row_version, user: KETOAN }), (e) => e.code === 'VALIDATION_FAILED');
+  // giá chung (không mã): đổi hình thức nháp vẫn được
+  const g = await s.cat.createPriceVersion({ record: { routeCode: 'VC.009', priceMethod: 'CO_DINH', fixedPrice: 120000, effectiveFrom: '2027-06-01' }, user: KETOAN });
+  const g2 = await s.cat.updatePriceDraft({ priceId: g.record.price_id, record: { priceMethod: 'THEO_DAU', newPrice: 200000, fuelPriceExclVat: 20000, fuelNormLPerKm: 0.5, avgLoadTon: 25 }, rowVersion: g.record.row_version, user: KETOAN });
+  assert.equal(g2.record.price_method, 'THEO_DAU');
+});
+
+test('addCodeLine nhận hình thức dòng sao chép: chèn dòng + cập nhật mã trong MỘT giao dịch — lỗi ở bước cập nhật mã → không còn dòng nháp thừa', async () => {
+  const s = await setup();
+  const src = s.store.find('PRICE_HISTORY', (p) => p.route_code === 'VC.007' && !p.contract_id && !p.price_code && p.status === 'ACTIVE')[0];
+  await s.mkCode('DG-ADOPT'); // mặc định CO_DINH, còn trống
+  const orig = s.store.transaction.bind(s.store);
+  s.store.transaction = (fn, o) => orig((tx) => fn(new Proxy(tx, { get: (t, k) => (k === 'update' ? (table, ...a) => { if (table === 'MA_DON_GIA') throw new Error('giả lập lỗi cập nhật mã'); return t.update(table, ...a); } : (typeof t[k] === 'function' ? t[k].bind(t) : t[k])) })), o);
+  await assert.rejects(() => s.cat.addCodeLine({ priceCode: 'DG-ADOPT', fromPriceId: src.price_id, record: { effectiveFrom: '2027-01-01' }, user: KETOAN }), /giả lập lỗi/);
+  s.store.transaction = orig;
+  assert.equal(s.store.find('PRICE_HISTORY', (p) => p.price_code === 'DG-ADOPT').length, 0, 'không còn dòng nháp thừa');
+  assert.equal(s.cat.getPriceCode({ priceCode: 'DG-ADOPT' }).record.priceMethod, 'CO_DINH', 'mã giữ nguyên hình thức');
+  // không lỗi → cả hai cùng có
+  const ok = await s.cat.addCodeLine({ priceCode: 'DG-ADOPT', fromPriceId: src.price_id, record: { effectiveFrom: '2027-01-01' }, user: KETOAN });
+  assert.equal(ok.record.price_method, 'THEO_DAU'); assert.equal(s.store.get('MA_DON_GIA', 'DG-ADOPT').price_method, 'THEO_DAU');
+});
