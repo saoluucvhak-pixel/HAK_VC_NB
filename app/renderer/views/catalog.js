@@ -6,7 +6,8 @@
 
   // ───────── Tuyến ─────────
   const ROUTE_FIELDS = (isNew) => [
-    { key: 'routeCode', label: 'Mã tuyến', required: true, readonly: !isNew, hint: isNew ? 'vd VC.016 — không đổi được về sau' : 'không đổi được' },
+    { key: 'catalogDate', label: 'Ngày cập nhật', type: 'date', hint: isNew ? 'mặc định hôm nay, điền tay được' : 'ngày chỉnh sửa gần nhất (để trống / giữ nguyên = hôm nay khi có sửa)' },
+    { key: 'routeCode', label: 'Mã tuyến', required: true, readonly: !isNew, hint: isNew ? 'đã gợi ý mã kế tiếp, sửa được trước khi lưu; sửa giống ở các nhà máy còn lại — không đổi được về sau' : 'không đổi được' },
     { key: 'routeName', label: 'Tên tuyến', required: true, hint: 'vd "Xã Quế Sơn - Tiên Sa"' },
     { key: 'distanceKm', label: 'Cự ly (km)', type: 'number', required: true }, { key: 'tripDistanceKm', label: 'Cự ly chuyến (km)', type: 'number', hint: 'trống = 2 × cự ly (đi + về)' },
     { key: 'uom', label: 'ĐVT tính giá', type: 'select', options: [['TAN', 'Tấn'], ['M3', 'M³']] }, { key: 'catalogUnitCode', label: 'Đơn vị trong bảng giá', type: 'select', options: D.unitOptions(true) },
@@ -14,7 +15,7 @@
     { key: 'toPlace', label: 'Điểm đến (in diễn giải hóa đơn)', full: true, hint: 'trống = phần sau dấu " - " của tên tuyến' },
     { key: 'note', label: 'Ghi chú', full: true }, ...(isNew ? [] : [{ key: 'reason', label: 'Lý do (bắt buộc nếu sửa cự ly / ĐVT của tuyến đã dùng ở kỳ đã xác nhận)', full: true }])];
   const routeValues = (r) => ({ routeCode: r.route_code, routeName: r.route_name, distanceKm: r.distance_km, tripDistanceKm: r.trip_distance_km, uom: r.uom, catalogUnitCode: r.catalog_unit_code,
-    fromPlace: r.from_place, toPlace: r.to_place, note: r.note });
+    fromPlace: r.from_place, toPlace: r.to_place, note: r.note, catalogDate: r.catalogDate || r.catalog_date || '' });
   const showReminder = (res) => { for (const w of (res && res.warnings) || []) if (w.code === 'I_SYNC_REMINDER') D.toast(w.message, 'info', 9000); };
 
   D.views.routes = {
@@ -23,7 +24,7 @@
       const load = async () => {
         const d = await D.api('routes.list', { includeInactive: inactive.checked });
         out.innerHTML = '';
-        out.append(D.table({ rows: d.items, onRow: D.writer() ? edit : null, columns: [{ key: 'route_code', label: 'Mã tuyến' }, { key: 'route_name', label: 'Tuyến', wrap: true }, { key: 'distance_km', label: 'Cự ly', fmt: 'auto' },
+        out.append(D.table({ rows: d.items, onRow: D.writer() ? edit : null, columns: [{ key: 'catalogDate', label: 'Ngày cập nhật', fmt: 'date' }, { key: 'route_code', label: 'Mã tuyến' }, { key: 'route_name', label: 'Tuyến', wrap: true }, { key: 'distance_km', label: 'Cự ly', fmt: 'auto' },
           { key: 'trip_distance_km', label: 'Cự ly chuyến', fmt: 'auto' }, { key: 'uom', label: 'ĐVT' }, { key: 'from_place', label: 'Điểm đi' }, { key: 'to_place', label: 'Điểm đến' }, { key: 'catalog_unit_code', label: 'Đơn vị' },
           { key: 'p', label: 'ĐG ký HĐ hiện hành', num: true, render: (r) => (r.activePrice ? r.activePrice.price_id : h('span', { class: 'tag warn' }, 'chưa có giá')) }, { key: 'usedInPeriods', label: 'Số kỳ đã dùng', fmt: 'int' },
           { key: 'is_active', label: 'Trạng thái', render: (r) => (r.is_active ? D.tag('ACTIVE') : D.tag('CLOSED', 'Ngừng dùng')) }] }));
@@ -31,8 +32,8 @@
       const edit = (r) => D.formModal({ title: `Sửa tuyến ${r.route_code}`, fields: ROUTE_FIELDS(false), values: routeValues(r), submit: async (v) => {
         const { reason, ...record } = v; const res = await D.api('routes.save', { record, rowVersion: r.row_version, reason });
         if (res.affectedPeriods.length) D.toast(`${res.affectedPeriods.length} kỳ nháp dùng tuyến này phải tính lại`, 'info'); showReminder(res); await D.refreshBoot(); load(); } });
-      const add = () => D.formModal({ title: 'Thêm tuyến vận chuyển', fields: ROUTE_FIELDS(true), values: { uom: 'TAN', catalogUnitCode: D.state.boot.install.unitCode }, submit: async (v) => {
-        const res = await D.api('routes.save', { create: true, record: v }); showReminder(res); D.toast(`Đã thêm tuyến ${res.record.route_code} — nhớ tạo đơn giá cho tuyến`, 'ok'); await D.refreshBoot(); load(); } });
+      const add = async () => { const next = await D.api('routes.nextCode', {}, { quiet: true }).catch(() => ({ routeCode: '' })); D.formModal({ title: 'Thêm tuyến vận chuyển', fields: ROUTE_FIELDS(true), values: { routeCode: next.routeCode, catalogDate: D.today(), uom: 'TAN', catalogUnitCode: D.state.boot.install.unitCode }, submit: async (v) => {
+        const res = await D.api('routes.save', { create: true, record: v }); showReminder(res); D.toast(`Đã thêm tuyến ${res.record.route_code} — nhớ tạo đơn giá cho tuyến`, 'ok'); await D.refreshBoot(); load(); } }); };
       inactive.addEventListener('change', load);
       const page = D.page('Danh mục tuyến', '4 · Tuyến vận chuyển — sửa được, bổ sung được', [D.writer() ? h('button', { class: 'btn primary', onclick: add }, 'Thêm tuyến') : null],
         h('div', { class: 'card' }, h('label', { class: 'check', for: 'ina' }, inactive, 'Hiện cả tuyến ngừng dùng'), syncNote()), out);

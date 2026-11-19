@@ -52,6 +52,7 @@ const ROUTES = {
   'vehicles.delete': [null, (ctx, p, s) => ctx.svc.master.deleteVehicle({ ...p, user: s.user })],
   'vehicles.resolvePlate': [null, (ctx, p) => ({ results: (p.codes || []).map((c) => { const { plateKey } = require('../import/mapping'); const v = ctx.store.find('XE', (x) => x.plate_key === plateKey(c))[0]; return { input: c, plateNo: v ? v.plate_no : null, ownerUnitCode: v ? v.owner_unit_code : null }; }) })],
   'routes.list': [null, (ctx, p) => ctx.svc.catalog.listRoutes(p)],
+  'routes.nextCode': [null, (ctx) => ctx.svc.catalog.nextRouteCode()],
   'routes.save': [null, (ctx, p, s) => ctx.svc.catalog.saveRoute({ ...p, user: s.user })],
   'routes.setActive': [null, (ctx, p, s) => ctx.svc.catalog.setRouteActive({ ...p, user: s.user })],
   'prices.list': [null, (ctx, p) => ctx.svc.catalog.listPrices(p)],

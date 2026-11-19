@@ -120,7 +120,8 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | `vehicles.save` | Thêm / sửa xe | A/K | 🔒 XE | CREATE/UPDATE |
 | `vehicles.setActive` | Ngừng / dùng lại xe (không xóa cứng) | A/K | 🔒 XE | SET_ACTIVE |
 | `routes.list` | Danh sách tuyến | A/K/X |  |  |
-| `routes.save` | Thêm / sửa tuyến | A/K | 🔒 TUYEN_VC | CREATE/UPDATE |
+| `routes.nextCode` | Mã tuyến gợi ý kế tiếp (VC.nnn) — chỉ gợi ý, trùng khi lưu → DUPLICATE | A/K |  |  |
+| `routes.save` | Thêm / sửa tuyến (kèm `catalogDate` — ngày cập nhật) | A/K | 🔒 TUYEN_VC | CREATE/UPDATE |
 | `routes.setActive` | Ngừng / dùng lại tuyến (không xóa cứng) | A/K | 🔒 TUYEN_VC | SET_ACTIVE |
 | `vehicles.resolvePlate` | Chuẩn hóa mã xe bất kỳ (`DH_92H00192`, `92H00195`) → biển số chuẩn | A/K/X |  |  |
 

@@ -58,6 +58,7 @@ for ent, sheet, key, label in [('units', 'DON_VI', 'unitCode', 'đơn vị'), ('
     ep(f'{ent}.setActive', 'Danh mục', f'Ngừng / dùng lại {label} (không xóa cứng)', EDIT if ent != 'units' else ADM,
        [(key, 'string', True, ''), ('active', 'boolean', True, ''), ROWV], '{record}',
        ['NOT_FOUND', 'CONFLICT_VERSION', 'BUSINESS_RULE:E_IN_USE'], [sheet], [sheet], 'SET_ACTIVE', True)
+ep('routes.nextCode', 'Danh mục', 'Mã tuyến gợi ý kế tiếp (VC. + số lớn nhất + 1, 3 chữ số). Chỉ gợi ý — sửa được trước khi lưu; trùng mã khi lưu → DUPLICATE (không ghi đè). Ngày cập nhật của tuyến (catalogDate) mặc định ngày hệ thống, điền tay được', EDIT, [], '{routeCode}', reads=['TUYEN_VC'])
 ep('vehicles.resolvePlate', 'Danh mục', 'Chuẩn hóa mã xe bất kỳ (`DH_92H00192`, `92H00195`) → biển số chuẩn', ALL,
    [('codes', 'array<string>', True, '')], '{results:[{input, plateNo|null, ownerUnitCode}]}', reads=['XE'])
 ep('vehicles.usage', 'Danh mục', 'Xe đang dùng ở đâu: phiếu cân, dòng dầu, kỳ tính, hợp đồng — biết có sửa biển số / xóa được không', ALL,
