@@ -23,7 +23,7 @@ const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // bỏ 0 O 1 I L cho k
 const newSetupCode = () => Array.from({ length: 8 }, () => CODE_ALPHABET[crypto.randomInt(CODE_ALPHABET.length)]).join('');
 const NO_CODE = { setup_code_hash: '', setup_code_salt: '', setup_code_expires_at: '' };
 const publicUser = (u) => ({ username: u.username, fullName: u.full_name, unitCode: u.unit_code, role: u.role, canUnlock: !!u.can_unlock,
-  isActive: !!u.is_active, hasPassword: !!u.password_hash, mustChangePassword: !!u.must_change_password, lockedUntil: u.locked_until || '', lastLoginAt: u.last_login_at || '' });
+  isActive: !!u.is_active, hasPassword: !!u.password_hash, mustChangePassword: !!u.must_change_password, lockedUntil: u.locked_until || '', lastLoginAt: u.last_login_at || '', rowVersion: u.row_version });
 
 function checkStrength(pw) {
   if (typeof pw !== 'string' || pw.length < 8 || !/[A-Za-zÀ-ỹ]/.test(pw) || !/\d/.test(pw)) {

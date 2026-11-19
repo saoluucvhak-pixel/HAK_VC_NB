@@ -33,6 +33,12 @@ test('Giao diện: mã kích hoạt một lần cho người dùng mới', { ski
     const cm = page.locator('.modal', { hasText: 'Mã kích hoạt của ketoan.moi@example.com' }); await cm.waitFor();
     const code = (await cm.locator('.mono').innerText()).trim(); assert.match(code, /^[A-Z2-9]{8}$/);
     await cm.getByRole('button', { name: 'Đã ghi lại mã' }).click();
+    // khóa lạc quan: mở hộp sửa, có người khác sửa trước → "Lưu" nhận lỗi xung đột, không ghi đè
+    await page.locator('tbody tr', { hasText: 'ketoan.moi@example.com' }).first().click();
+    const em = page.locator('.modal', { hasText: 'ketoan.moi@example.com' });
+    await page.evaluate(async () => { const l = await window.DGVC.api('users.list'); const u = l.items.find((x) => x.username === 'ketoan.moi@example.com'); await window.DGVC.api('users.save', { record: { username: u.username, fullName: 'Người khác sửa trước', role: 'KE_TOAN', unitCode: u.unitCode }, rowVersion: u.rowVersion }); });
+    await em.getByRole('button', { name: 'Lưu' }).click(); await page.locator('.toast', { hasText: /đã bị sửa ở nơi khác/ }).first().waitFor();
+    await em.getByRole('button', { name: 'Đóng' }).click();
     // đăng xuất, đăng nhập lần đầu bằng mã
     await page.getByRole('button', { name: 'Đăng xuất' }).click();
     await page.getByLabel('Tên đăng nhập').fill('ketoan.moi@example.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
