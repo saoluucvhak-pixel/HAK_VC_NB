@@ -73,6 +73,14 @@
     for (const [k, v] of Object.entries(attrs || {})) {
       if (v === null || v === undefined || v === false) continue;
       if (k === 'class') el.className = v; else if (k === 'text') el.textContent = v; else if (k === 'html') el.innerHTML = v;
+      else if (k === 'onclick' && tag === 'button') { // rà soát 1.8.2: nút có xử lý bất đồng bộ → khóa tới khi xong (chống bấm đúp gửi 2 lệnh)
+        el.addEventListener('click', (e) => {
+          if (el.dataset.busy) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+          const r = v(e);
+          if (r && typeof r.then === 'function') { el.dataset.busy = '1'; const was = el.disabled; el.disabled = true; el.setAttribute('aria-busy', 'true');
+            Promise.resolve(r).catch(() => {}).finally(() => { delete el.dataset.busy; el.removeAttribute('aria-busy'); if (el.isConnected) el.disabled = was; }); }
+        });
+      }
       else if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
       else el.setAttribute(k, v === true ? '' : v);
     }

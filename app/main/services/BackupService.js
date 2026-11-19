@@ -86,11 +86,20 @@ class BackupService {
     } catch (e) { if (part) { try { fs.rmSync(part, { force: true }); } catch { /* không có */ } } return done({ ok: false, message: `Không chép được ra ${dest}: ${e.message}` }); }
   }
 
-  /** Thư mục ngoài: giữ tối đa BACKUP_MIRROR_KEEP bản .zip mới nhất (mặc định 60; 0 = không xóa). */
+  /**
+   * Thư mục ngoài: xoay vòng THEO TỪNG LOẠI (tên tệp có _daily / _safety / _monthly / _manual).
+   * daily + safety: giữ tối đa BACKUP_MIRROR_KEEP bản mỗi loại (mặc định 60; 0 = không xóa); monthly: giữ BACKUP_MONTHLY_KEEP như trên máy; manual: không tự xóa.
+   * Rà soát 1.8.2: trước đây đếm chung mọi loại → bản tháng và bản thủ công ở USB/Drive bị xóa sau ~2 tháng.
+   */
   _rotateMirror(dir) {
     const keep = Number(this._cfg('BACKUP_MIRROR_KEEP', 60)); if (!(keep > 0)) return;
+    const limit = { daily: keep, safety: keep, monthly: Math.max(keep, Number(this._cfg('BACKUP_MONTHLY_KEEP', 24)) || 0) };
+    const kindOf = (f) => (/_(daily|monthly|manual|safety)(?:_|\.zip$)/.exec(f) || [])[1] || '';
     const files = fs.readdirSync(dir).filter((f) => f.endsWith('.zip')).sort();
-    for (const f of files.slice(0, Math.max(0, files.length - keep))) { try { fs.rmSync(path.join(dir, f)); } catch { /* bỏ qua */ } }
+    for (const [kind, n] of Object.entries(limit)) {
+      const mine = files.filter((f) => kindOf(f) === kind);
+      for (const f of mine.slice(0, Math.max(0, mine.length - n))) { try { fs.rmSync(path.join(dir, f)); } catch { /* bỏ qua */ } }
+    }
   }
 
   _rotate() {

@@ -58,6 +58,9 @@
       // dòng dầu người dùng bỏ khỏi kỳ (vd nhập trùng) — lưu theo lần tính, tính lại vẫn giữ
       const excl = new Set();
       let exclDirty = false;
+      // rà soát 1.8.2: "Bỏ khỏi kỳ" / "xác nhận dầu = 0" chỉ nằm trong bộ nhớ tới khi bấm TÍNH GIÁ → rời màn thì hỏi trước
+      D.leaveGuard = () => (!exclDirty ? true : D.confirm({ title: 'Bỏ lựa chọn chưa tính?', danger: true, okLabel: 'Bỏ lựa chọn',
+        message: 'Bạn đã bỏ dòng dầu khỏi kỳ / xác nhận dầu = 0 nhưng chưa bấm TÍNH GIÁ để lưu. Rời màn sẽ mất các lựa chọn này.' }).then((x) => !!x));
       if (period) for (const id of (periodEx || {}).excludeReceiptIds || []) excl.add(id);
       const ovr = new Map(); // tuyến → xác nhận tính với dầu = 0
       for (const o of (periodEx || {}).overrides || []) if (o.code === 'E_NO_FUEL') ovr.set(o.routeCode, o);
@@ -135,7 +138,7 @@
           const r = await D.api('periods.calculate', { ...v, periodId: samePeriod(v) ? period.period_id : undefined, clientRequestId: D.rid() }, { quiet: true });
           D.toast(`Đã tính và lưu kỳ ${r.period.period_code}`, 'ok'); period = r.period; exclDirty = false; show(r, r.period);
         } catch (err) {
-          if (err.code === 'DUPLICATE' && err.details && err.details.periodId) { D.toast(`${err.message}`, 'info'); D.go('calc', { periodId: err.details.periodId }); return; }
+          if (err.code === 'DUPLICATE' && err.details && err.details.periodId) { D.toast(`${err.message}`, 'info'); exclDirty = false; D.go('calc', { periodId: err.details.periodId }); return; }
           D.toast(D.errorText(err), 'err'); if (err.details && (err.details.issues || err.details.blocked)) show({ results: [], issues: err.details.issues || [], blocked: err.details.blocked || [] }, null);
         } finally { e.target.disabled = false; }
       };

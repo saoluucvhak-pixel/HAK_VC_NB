@@ -241,6 +241,7 @@ class CatalogService {
 
   async createPriceVersion({ record, user }) {
     const { rec, route } = this._buildPriceVersion(record);
+    this._assertLineMatchesCode(rec); // rà soát 1.8.2: dòng thuộc mã đơn giá phải đúng hình thức của mã (trước đây chỉ kiểm ở sửa nháp / áp dụng)
     const out = await this.store.transaction((tx) => {
       const r = tx.insert('PRICE_HISTORY', rec);
       tx.audit('PRICE_CREATE', 'PRICE_HISTORY', r.price_id, null, r);
