@@ -17,7 +17,7 @@ Triển khai đúng kế hoạch đã được chủ sản phẩm duyệt:
 1. **Không đổi cách tính giá.** Không sửa `app/main/engine/*`. Hợp đồng không gán mã đơn giá, giá chung, giá riêng hợp đồng, kỳ đã xác nhận/khóa phải ra **đúng từng đồng như trước**.
 2. 241 test hiện có phải xanh **không sửa** (trừ test giao diện bị ảnh hưởng bởi đổi nhãn/bố cục, nêu rõ trong PR).
 3. Mỗi nơi chỉ nhập một lần: cự ly lưu **một chỗ ở Danh mục tuyến**; dòng giá chỉ hiển thị. Định mức/hệ số nằm ở dòng giá theo giá dầu.
-4. Thuật ngữ giao diện: **"Đơn giá ký hợp đồng"** (viết tắt "ĐG ký HĐ"), không dùng "đơn giá hợp đồng"/"ĐG HĐ". Không đổi tên cột dữ liệu, không đổi mẫu in BKVC.
+4. **Giữ nguyên tiêu đề cột mẫu in/Excel/PDF** (chủ sản phẩm đã quyết). Thuật ngữ giao diện: **"Đơn giá ký hợp đồng"** (viết tắt "ĐG ký HĐ"), không dùng "đơn giá hợp đồng"/"ĐG HĐ". Không đổi tên cột dữ liệu, không đổi mẫu in BKVC.
 5. Hình thức giá chỉ có 2 giá trị hệ thống: `CO_DINH` (đơn giá cố định) và `THEO_DAU` (theo giá dầu). Không làm màn thêm/sửa/xóa hình thức.
 6. Dữ liệu cũ tự đúng: mã đơn giá 1.5.0 (cột hình thức rỗng) đọc ra `CO_DINH`. Thêm cột theo kiểu cộng thêm (`DEFAULT ''`), SQLite dùng `syncSchema`.
 7. Không dùng dữ liệu nhà máy thật trong test (chỉ dữ liệu mẫu/thư mục tạm).
