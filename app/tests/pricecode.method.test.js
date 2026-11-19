@@ -98,3 +98,18 @@ test('sao chép giá có sẵn khác hình thức: mã trống nhận hình th�
   await s.mkCode('DG-FIX'); await s.cat.addCodeLine({ priceCode: 'DG-FIX', record: { routeCode: 'VC.002', effectiveFrom: '2027-01-01', fixedPrice: 99000 }, user: KETOAN });
   await assert.rejects(() => s.cat.addCodeLine({ priceCode: 'DG-FIX', fromPriceId: src.price_id, record: { effectiveFrom: '2027-01-01' }, user: KETOAN }), (e) => e.code === 'VALIDATION_FAILED');
 });
+
+test('ngày cập nhật của dòng trong mã: điền lùi ≤ bản đang dùng → E_PRICE_DATE_OVERLAP; bản sau ngày → áp dụng thì bản cũ đóng', async () => {
+  const s = await setup();
+  await s.mkCode('DG-OV', { priceMethod: 'THEO_DAU' });
+  const first = await s.cat.addCodeLine({ priceCode: 'DG-OV', record: THEO_DAU, user: KETOAN });
+  await s.cat.activatePrice({ priceId: first.record.price_id, rowVersion: first.record.row_version, user: KETOAN });
+  for (const d of ['2026-01-01', '2025-12-31']) {
+    await assert.rejects(() => s.cat.addCodeLine({ priceCode: 'DG-OV', record: { ...THEO_DAU, effectiveFrom: d }, user: KETOAN }), (e) => e.code === 'BUSINESS_RULE' && (e.details || e.extra || {}).code === 'E_PRICE_DATE_OVERLAP');
+  }
+  const next = await s.cat.addCodeLine({ priceCode: 'DG-OV', record: { ...THEO_DAU, newPrice: 210000, effectiveFrom: '2026-06-01' }, user: KETOAN });
+  await s.cat.activatePrice({ priceId: next.record.price_id, rowVersion: next.record.row_version, user: KETOAN });
+  const old = s.store.get('PRICE_HISTORY', first.record.price_id);
+  assert.equal(old.status, 'CLOSED'); assert.ok(old.effective_to && old.effective_to >= '2026-05-31' && old.effective_to < '2026-06-01'.replace('06-01', '06-02'));
+  assert.equal(s.store.get('PRICE_HISTORY', next.record.price_id).status, 'ACTIVE');
+});
