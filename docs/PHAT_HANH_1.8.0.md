@@ -14,3 +14,8 @@
 
 ## Việc cần chủ sản phẩm làm sau khi gộp
 Chạy workflow **"Release (Windows)"** (cài mới / cài đè / gỡ trên Windows thật) và ghi kết quả vào mục này. Không tự tạo Release.
+
+## Sửa sau rà soát (#38)
+- **Nguồn giá ở Hợp đồng chỉ lấy tuyến của hợp đồng**: tuyến có phiếu cân của xe trong phạm vi hợp đồng (đúng hiệu lực xe), hoặc có dòng giá trong mã đang gán, hoặc có giá riêng hợp đồng. Các tuyến khác ẩn sau nút "Xem cả N tuyến khác". `contracts.routeSources` trả thêm `inUse`, `inContract`, `contractRoutes`, `allFixed`.
+- "Hợp đồng toàn tuyến cố định — không cần nhập dầu" (màn Giao nhận dầu) và khối "Giao nhận dầu của hợp đồng" (màn Hợp đồng) tính trên **tuyến của hợp đồng** (`allFixed`). Trước đây tính trên mọi tuyến của danh mục, nên câu báo gần như không bao giờ hiện, còn khối dầu gần như luôn hiện.
+- **Trao đổi danh mục**: `TUYEN_VC.catalog_date` (ngày theo dõi của từng máy) không còn bị coi là khác nội dung. Hai nhà máy "sửa giống" một tuyến ở hai ngày khác nhau sẽ ra SAME, không còn xung đột giả. Khi có thay đổi thật thì ngày vẫn được chép theo.
