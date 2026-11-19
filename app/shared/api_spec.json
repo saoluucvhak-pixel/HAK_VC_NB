@@ -1038,7 +1038,7 @@
   {
    "action": "pricecodes.list",
    "group": "Đơn giá",
-   "desc": "Cây cha–con: Đơn vị → Mã đơn giá (kèm số dòng giá, số hợp đồng đang dùng)",
+   "desc": "Cây Hình thức giá → Mã đơn giá (kèm số dòng giá, số hợp đồng đang dùng); vẫn trả cây theo Đơn vị",
    "roles": [
     "ADMIN",
     "KE_TOAN",
@@ -1059,7 +1059,7 @@
      "mặc định true"
     ]
    ],
-   "output": "{units:[{unitCode, unitName, codes:[MA_DON_GIA + lineCount, activeLines, contracts]}], items, total}",
+   "output": "{methods:[{method:CO_DINH|THEO_DAU, label, codes}], units:[{unitCode, unitName, codes:[MA_DON_GIA + priceMethod, lineCount, activeLines, contracts]}], items, total}",
    "errors": [],
    "reads": [
     "MA_DON_GIA",
@@ -1105,7 +1105,7 @@
   {
    "action": "pricecodes.save",
    "group": "Đơn giá",
-   "desc": "Tạo / sửa mã đơn giá (cha): mã, đơn vị, tên, ghi chú. Sửa phải gửi rowVersion",
+   "desc": "Tạo / sửa mã đơn giá (cha): mã, đơn vị, hình thức giá (mặc định CO_DINH; không đổi khi mã đã có dòng/hợp đồng), tên, ghi chú. Sửa phải gửi rowVersion",
    "roles": [
     "ADMIN",
     "KE_TOAN"
@@ -1116,7 +1116,7 @@
      "record",
      "object",
      true,
-     "{priceCode, unitCode, priceName, note}"
+     "{priceCode, unitCode, priceName, priceMethod?, note}"
     ],
     [
      "create",
@@ -1205,7 +1205,7 @@
   {
    "action": "pricecodes.addLine",
    "group": "Đơn giá",
-   "desc": "Thêm dòng giá (con) vào mã: nhập tuyến + đơn giá cố định + hiệu lực, hoặc chọn một đơn giá có sẵn (fromPriceId) để sao chép; dòng mới NHÁP → prices.activate",
+   "desc": "Thêm dòng giá (con) vào mã (hình thức dòng = hình thức của mã, trái hình thức → VALIDATION_FAILED): nhập tuyến + đơn giá cố định (hoặc đơn giá ký hợp đồng + giá dầu + định mức nếu mã theo giá dầu) + hiệu lực, hoặc chọn một đơn giá có sẵn (fromPriceId) để sao chép; dòng mới NHÁP → prices.activate",
    "roles": [
     "ADMIN",
     "KE_TOAN"

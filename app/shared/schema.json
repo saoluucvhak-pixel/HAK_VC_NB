@@ -530,6 +530,15 @@
      "required": false
     },
     {
+     "name": "price_method",
+     "type": "ENUM",
+     "required": false,
+     "enum": [
+      "CO_DINH",
+      "THEO_DAU"
+     ]
+    },
+    {
      "name": "created_at",
      "type": "DATETIME",
      "required": true
