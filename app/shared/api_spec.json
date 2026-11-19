@@ -3466,9 +3466,10 @@
   {
    "action": "periods.unlock",
    "group": "Tính giá",
-   "desc": "Mở khóa: DA_KHOA → DA_XAC_NHAN (cần can_unlock + lý do)",
+   "desc": "Mở khóa: DA_KHOA → DA_XAC_NHAN (cần lý do). ADMIN, hoặc KE_TOAN chỉ dùng được khi tài khoản có quyền mở khóa (can_unlock)",
    "roles": [
-    "ADMIN"
+    "ADMIN",
+    "KE_TOAN"
    ],
    "scope": "bên VC của HĐ; hoặc user can_unlock",
    "input": [
@@ -3512,9 +3513,10 @@
   {
    "action": "periods.reopen",
    "group": "Tính giá",
-   "desc": "Trả về nháp để sửa/tính lại: DA_XAC_NHAN → NHAP (cần can_unlock + lý do)",
+   "desc": "Trả về nháp để sửa/tính lại: DA_XAC_NHAN → NHAP (cần lý do). ADMIN, hoặc KE_TOAN chỉ dùng được khi tài khoản có quyền mở khóa (can_unlock)",
    "roles": [
-    "ADMIN"
+    "ADMIN",
+    "KE_TOAN"
    ],
    "scope": "bên VC của HĐ; hoặc user can_unlock",
    "input": [

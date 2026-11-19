@@ -234,10 +234,11 @@ ep('periods.get', 'Tính giá', 'Chi tiết kỳ: kết quả hiện hành, BKVC
 for act, desc, frm, to, aud, extra in [
         ('confirm', 'Xác nhận kỳ: NHAP → DA_XAC_NHAN; usage_state = CONFIRMED; PRICE_HISTORY.is_used = TRUE', 'NHAP', 'DA_XAC_NHAN', 'CONFIRM', []),
         ('lock', 'Khóa kỳ: DA_XAC_NHAN → DA_KHOA; usage_state = LOCKED', 'DA_XAC_NHAN', 'DA_KHOA', 'LOCK', []),
-        ('unlock', 'Mở khóa: DA_KHOA → DA_XAC_NHAN (cần can_unlock + lý do)', 'DA_KHOA', 'DA_XAC_NHAN', 'UNLOCK', [('reason', 'string', True, 'bắt buộc')]),
-        ('reopen', 'Trả về nháp để sửa/tính lại: DA_XAC_NHAN → NHAP (cần can_unlock + lý do)', 'DA_XAC_NHAN', 'NHAP', 'REOPEN', [('reason', 'string', True, '')]),
+        ('unlock', 'Mở khóa: DA_KHOA → DA_XAC_NHAN (cần lý do). ADMIN, hoặc KE_TOAN chỉ dùng được khi tài khoản có quyền mở khóa (can_unlock)', 'DA_KHOA', 'DA_XAC_NHAN', 'UNLOCK', [('reason', 'string', True, 'bắt buộc')]),
+        ('reopen', 'Trả về nháp để sửa/tính lại: DA_XAC_NHAN → NHAP (cần lý do). ADMIN, hoặc KE_TOAN chỉ dùng được khi tài khoản có quyền mở khóa (can_unlock)', 'DA_XAC_NHAN', 'NHAP', 'REOPEN', [('reason', 'string', True, '')]),
         ('cancel', 'Hủy kỳ nháp: NHAP → HUY; usage_state = RELEASED', 'NHAP', 'HUY', 'CANCEL', [('reason', 'string', True, '')])]:
-    ep(f'periods.{act}', 'Tính giá', desc, (ADM if act in ('unlock', 'reopen') else EDIT), [('periodId', 'string', True, ''), ROWV] + extra,
+    # unlock / reopen: router + dịch vụ cho ADMIN hoặc KE_TOAN có can_unlock (kiểm ở PeriodService._transition)
+    ep(f'periods.{act}', 'Tính giá', desc, EDIT, [('periodId', 'string', True, ''), ROWV] + extra,
        '{period}', ['BUSINESS_RULE:E_PERIOD_STATUS', 'CONFLICT_VERSION', 'FORBIDDEN'] + (['BUSINESS_RULE:E_NEEDS_RECALC'] if act == 'confirm' else []),
        ['KY_TINH'], ['KY_TINH', 'TRANSPORT_DETAIL', 'FUEL_DETAIL', 'CALC_RUN'] + (['PRICE_HISTORY'] if act == 'confirm' else []), aud, True,
        'bên VC của HĐ' + ('; hoặc user can_unlock' if act in ('unlock', 'reopen') else ''))
