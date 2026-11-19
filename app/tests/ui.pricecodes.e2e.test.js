@@ -42,7 +42,8 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     // thêm dòng giá cố định
     await page.locator('.pc-detail').getByRole('button', { name: 'Thêm dòng giá cố định' }).click();
     const lm = page.locator('.modal', { hasText: 'Thêm dòng giá cố định vào mã DG-UI-01' });
-    await lm.getByLabel('Tuyến').selectOption('VC.007'); await lm.getByLabel(/Đơn giá cố định/).fill('150000'); await lm.getByLabel(/Hiệu lực từ ngày/).fill('2026-01-01'); await lm.getByRole('button', { name: 'Lưu' }).click();
+    await lm.getByLabel('Tuyến').selectOption('VC.007'); await lm.getByLabel(/Đơn giá cố định/).fill('150.000'); // gõ dấu chấm ngăn cách nghìn kiểu Việt
+    await lm.getByLabel(/Hiệu lực từ ngày/).fill('2026-01-01'); await lm.getByRole('button', { name: 'Lưu' }).click();
     await toast(/Đã thêm dòng giá/); const row = page.locator('.pc-detail tbody tr', { hasText: 'VC.007' }); await row.getByText('Cố định').waitFor(); await row.getByText('Nháp').waitFor();
     await row.getByRole('button', { name: 'Áp dụng' }).click(); await toast(/Đã áp dụng/); await page.locator('.pc-detail tbody tr', { hasText: 'VC.007' }).getByText('Đang dùng').waitFor();
     // gán cho hợp đồng từ màn Mã đơn giá

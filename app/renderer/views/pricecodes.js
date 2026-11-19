@@ -29,7 +29,7 @@
       // ── Con: thêm dòng giá cố định ──
       const lineForm = (code, line) => {
         const fields = [...(line ? [] : [{ key: 'routeCode', label: 'Tuyến', type: 'select', options: D.routeOptions(false), required: true }]),
-          { key: 'fixedPrice', label: 'Đơn giá cố định / tấn (chưa VAT)', type: 'number', required: true, hint: 'dùng nguyên số này làm đơn giá vận chuyển — không tính dầu, không làm tròn lại' },
+          { key: 'fixedPrice', label: 'Đơn giá cố định / tấn (chưa VAT)', money: true, required: true, hint: 'dùng nguyên số này làm đơn giá vận chuyển — không tính dầu, không làm tròn lại' },
           { key: 'effectiveFrom', label: 'Hiệu lực từ ngày', type: 'date', required: true }, { key: 'sourceNote', label: 'Căn cứ', full: true, hint: 'vd Phụ lục HĐ số …' }];
         D.formModal({ title: line ? `Sửa dòng giá nháp ${line.price_id}` : `Thêm dòng giá cố định vào mã ${code.price_code}`, fields,
           values: line ? { fixedPrice: line.fixed_price, effectiveFrom: line.effective_from, sourceNote: line.source_note } : { effectiveFrom: D.today() },

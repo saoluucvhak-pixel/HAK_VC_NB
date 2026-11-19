@@ -113,11 +113,11 @@
       const out = h('div');
       const PF = [{ key: 'priceMethod', label: 'Phương thức đơn giá', type: 'select', full: true, options: [['THEO_DAU', 'Theo giá dầu — ĐG HĐ + chênh lệch dầu thực nhận (cách cũ)'], ['CO_DINH', 'Đơn giá cố định (đ/tấn) — không nhận dầu, không tính chênh lệch dầu']] },
         { key: 'effectiveFrom', label: 'Hiệu lực từ ngày', type: 'date', required: true }, { key: 'contractId', label: 'Giá riêng cho hợp đồng', type: 'select', options: [['', '— giá chung —'], ...D.contractOptions()] },
-        { key: 'fixedPrice', label: 'Đơn giá cố định / tấn (chưa VAT)', type: 'number', hint: 'dùng nguyên số này làm đơn giá vận chuyển mọi kỳ — không làm tròn lại' },
-        { key: 'newPrice', label: 'Đơn giá cước / tấn (chưa VAT) — dùng tính', type: 'number', required: true, hint: 'gồm dầu theo định mức; = cột "Đơn giá mới" của Excel' },
-        { key: 'basePriceExclVat', label: 'Đơn giá tham khảo (chưa VAT)', type: 'number', hint: 'không dùng tính — chỉ để đối chiếu' },
+        { key: 'fixedPrice', label: 'Đơn giá cố định / tấn (chưa VAT)', money: true, hint: 'dùng nguyên số này làm đơn giá vận chuyển mọi kỳ — không làm tròn lại' },
+        { key: 'newPrice', label: 'Đơn giá cước / tấn (chưa VAT) — dùng tính', money: true, required: true, hint: 'gồm dầu theo định mức; = cột "Đơn giá mới" của Excel' },
+        { key: 'basePriceExclVat', label: 'Đơn giá tham khảo (chưa VAT)', money: true, hint: 'không dùng tính — chỉ để đối chiếu' },
         { key: 'basePriceSource', label: 'Nguồn đơn giá tham khảo', full: true, hint: 'bắt buộc khi có đơn giá tham khảo — vd: File Excel … · bảng … · cột … · ngày …' },
-        { key: 'fuelPriceExclVat', label: 'ĐG dầu chưa VAT (danh mục)', type: 'number', required: true }, { key: 'fuelNormLPerKm', label: 'Định mức dầu (lít/km)', type: 'number', required: true, hint: '0,4 lít/km = 40 lít/100 km' },
+        { key: 'fuelPriceExclVat', label: 'ĐG dầu chưa VAT (danh mục)', money: true, required: true }, { key: 'fuelNormLPerKm', label: 'Định mức dầu (lít/km)', type: 'number', required: true, hint: '0,4 lít/km = 40 lít/100 km' },
         { key: 'avgLoadTon', label: 'KL trung bình (tấn)', type: 'number', required: true }, { key: 'avgVolumeM3', label: 'Thể tích TB (m³) — tuyến M3', type: 'number' }, { key: 'sourceNote', label: 'Căn cứ', full: true }];
       const load = async () => {
         const d = await D.api('prices.list', { routeCode: sel.value });

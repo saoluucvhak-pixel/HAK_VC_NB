@@ -329,14 +329,17 @@ class AppContext {
     return this.svc.backup.exportJsonFolder({ dest, user });
   }
 
-  /** Xuất ngược SQLite → thư mục JSON mới (bản chụp nhất quán + kiểm chứng). Không đổi cấu hình. */
+  /**
+   * Xuất ngược SQLite → thư mục JSON mới (bản chụp nhất quán + kiểm chứng). Không đổi cấu hình và KHÔNG đóng kho đang dùng:
+   * chụp ảnh DB (VACUUM INTO) sang thư mục tạm rồi xuất từ ảnh đó — người dùng vẫn thao tác bình thường trong lúc xuất.
+   */
   async exportStorageToJson({ dest }) {
     if (this.storageKind() !== 'sqlite') throw new AppError('VALIDATION_FAILED', 'Bản cài đang dùng kho JSON');
     const { exportSqliteToJson } = require('../repo/migrate/migrate');
-    const root = this.store.root; const sessions = this.svc.auth.sessions;
-    this.close();
-    try { return await exportSqliteToJson({ root, dest }); }
-    finally { this.open(); this.svc.auth.sessions = sessions; }
+    await this.store.queue; // chờ giao dịch đang ghi xong
+    const tmpRoot = path.join(os.tmpdir(), `dgvc-snap-${process.pid}-${Date.now()}`); fs.mkdirSync(tmpRoot, { recursive: true });
+    try { this.store.snapshotDbTo(path.join(tmpRoot, 'dgvc.sqlite')); return await exportSqliteToJson({ root: tmpRoot, dest }); }
+    finally { fs.rmSync(tmpRoot, { recursive: true, force: true }); }
   }
 
   close() { if (this.store) { this.store.close(); this.store = null; } }
