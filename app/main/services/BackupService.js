@@ -2,10 +2,11 @@
 /**
  * BackupService — sao lưu / khôi phục thư mục dữ liệu (DATA_STORAGE_DESIGN §5).
  *   daily   : lần ghi đầu tiên mỗi ngày (autoDaily) — giữ BACKUP_DAILY_KEEP bản
- *   monthly : ngày đầu tháng — giữ BACKUP_MONTHLY_KEEP bản
+ *   monthly : lần đầu tiên của THÁNG chưa có bản monthly (bất kể ngày nào) — giữ BACKUP_MONTHLY_KEEP bản
  *   manual  : nút "Sao lưu ngay" — không tự xóa
  *   safety  : trước khôi phục / nhập gói / đổi thư mục — giữ 10 bản
- * Sao lưu ra ngoài: sau mỗi bản, chép file zip sang BACKUP_MIRROR_FOLDER (USB, ổ mạng, thư mục Google Drive for Desktop) nếu BACKUP_MIRROR_ENABLED.
+ * Sao lưu ra ngoài: sau mỗi bản, chép file zip sang BACKUP_MIRROR_FOLDER (USB, ổ mạng, thư mục Google Drive for Desktop) nếu BACKUP_MIRROR_ENABLED:
+ *   chép ra <tên>.part → đọc lại kiểm SHA-256 → khớp mới đổi tên; giữ tối đa BACKUP_MIRROR_KEEP bản (mặc định 60; 0 = không xóa).
  * File zip kho JSON: manifest.json + tables/** (không có .lock, journal, backups, exports, logs). Kiểm SHA-256 từng file theo manifest khi khôi phục.
  * File zip kho SQLite (giai đoạn 2): dgvc.db (ảnh chụp nhất quán bằng VACUUM INTO — KHÔNG chép thô tệp khi còn -wal) + backup-info.json {storageFormat:'sqlite', userVersion,
  *   schemaVersion, dataVersion, dbSha256, rows, installId, unitCode}. Bản sao lưu JSON CŨ vẫn khôi phục được vào kho SQLite (Q9) qua trình di chuyển.
@@ -70,13 +71,26 @@ class BackupService {
   _mirror(file) {
     if (String(this._cfg('BACKUP_MIRROR_ENABLED', 'FALSE')).toUpperCase() !== 'TRUE') return null;
     const dest = this._cfg('BACKUP_MIRROR_FOLDER', '');
-    if (!dest) return { ok: false, message: 'Chưa chọn thư mục sao lưu ngoài (USB / Google Drive)' };
+    const done = (r) => { this.lastMirror = { ...r, at: this.now().toISOString() }; return r; };
+    if (!dest) return done({ ok: false, message: 'Chưa chọn thư mục sao lưu ngoài (USB / Google Drive)' });
+    let part = '';
     try {
-      if (!fs.existsSync(dest)) return { ok: false, message: `Không thấy thư mục ${dest} — USB chưa cắm hoặc Google Drive chưa chạy` };
+      if (!fs.existsSync(dest)) return done({ ok: false, message: `Không thấy thư mục ${dest} — USB chưa cắm hoặc Google Drive chưa chạy` });
       const d = path.join(dest, 'DGVC_BACKUP', this.store.unitCode); fs.mkdirSync(d, { recursive: true });
-      const to = path.join(d, path.basename(file)); fs.copyFileSync(file, to);
-      return { ok: true, path: to };
-    } catch (e) { return { ok: false, message: `Không chép được ra ${dest}: ${e.message}` }; }
+      const to = path.join(d, path.basename(file)); part = `${to}.part`;
+      fs.copyFileSync(file, part);
+      if (sha(fs.readFileSync(part)) !== sha(fs.readFileSync(file))) { fs.rmSync(part, { force: true }); return done({ ok: false, message: `Bản chép ra ${dest} bị sai nội dung (SHA-256) — kiểm tra USB/ổ mạng` }); }
+      fs.renameSync(part, to); part = '';
+      this._rotateMirror(d);
+      return done({ ok: true, path: to });
+    } catch (e) { if (part) { try { fs.rmSync(part, { force: true }); } catch { /* không có */ } } return done({ ok: false, message: `Không chép được ra ${dest}: ${e.message}` }); }
+  }
+
+  /** Thư mục ngoài: giữ tối đa BACKUP_MIRROR_KEEP bản .zip mới nhất (mặc định 60; 0 = không xóa). */
+  _rotateMirror(dir) {
+    const keep = Number(this._cfg('BACKUP_MIRROR_KEEP', 60)); if (!(keep > 0)) return;
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.zip')).sort();
+    for (const f of files.slice(0, Math.max(0, files.length - keep))) { try { fs.rmSync(path.join(dir, f)); } catch { /* bỏ qua */ } }
   }
 
   _rotate() {
@@ -87,14 +101,25 @@ class BackupService {
     }
   }
 
-  /** Gọi sau mỗi lần ghi (hoặc lúc mở APP): nếu hôm nay chưa có bản daily → tạo; ngày 1 → thêm bản monthly. */
-  async autoDaily() {
+  /**
+   * Gọi sau mỗi lần ghi (hoặc lúc mở APP): hôm nay chưa có bản daily → tạo; THÁNG này chưa có bản monthly → tạo (bất kể ngày).
+   * Gọi dồn dập (không chờ) dùng chung MỘT lượt chạy; ngày đã kiểm xong thì không quét thư mục nữa.
+   */
+  autoDaily() {
     const today = localDate(this.now()).replace(/-/g, '');
-    const made = [];
-    const has = (kind, prefix) => fs.readdirSync(this._dir(kind)).some((f) => f.includes(`_${prefix}`));
-    if (!has('daily', today)) made.push(await this.backup({ kind: 'daily' }));
-    if (today.endsWith('01') && !has('monthly', today.slice(0, 6))) made.push(await this.backup({ kind: 'monthly' }));
-    return made;
+    if (this._autoRunning) return this._autoRunning;
+    if (this._autoCheckedDay === today) return Promise.resolve([]);
+    this._autoRunning = (async () => {
+      try {
+        const made = [];
+        const has = (kind, prefix) => fs.readdirSync(this._dir(kind)).some((f) => f.includes(`_${prefix}`));
+        if (!has('daily', today)) made.push(await this.backup({ kind: 'daily' }));
+        if (!has('monthly', today.slice(0, 6))) made.push(await this.backup({ kind: 'monthly' }));
+        this._autoCheckedDay = today;
+        return made;
+      } finally { this._autoRunning = null; }
+    })();
+    return this._autoRunning;
   }
 
   list() {
@@ -109,7 +134,7 @@ class BackupService {
     items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
     const last = items.find((i) => i.kind !== 'safety');
     const ageDays = last ? (this.now() - new Date(last.createdAt)) / 86400000 : null;
-    return { items, lastBackupAt: last ? last.createdAt : null, warning: ageDays === null || ageDays > 7 ? { code: 'W_BACKUP_OLD', message: ageDays === null ? 'Chưa có bản sao lưu nào' : `Đã ${Math.floor(ageDays)} ngày chưa sao lưu` } : null };
+    return { items, lastMirror: this.lastMirror || null, lastBackupAt: last ? last.createdAt : null, warning: ageDays === null || ageDays > 7 ? { code: 'W_BACKUP_OLD', message: ageDays === null ? 'Chưa có bản sao lưu nào' : `Đã ${Math.floor(ageDays)} ngày chưa sao lưu` } : null };
   }
 
   /** Kiểm 1 file sao lưu (JSON hoặc SQLite): đúng định dạng, đủ file, SHA-256 khớp; SQLite thêm mở chỉ đọc + integrity_check + đối chiếu số dòng. */
@@ -217,14 +242,28 @@ class BackupService {
     const safety = await this.backup({ kind: 'safety', note: 'truoc-khoi-phuc', user });
     const root = this.store.root;
     this.store.close();
+    let store = null;
     if (kind === 'json') {
-      const tmp = path.join(root, `restore-${Date.now()}`);
-      fs.mkdirSync(tmp, { recursive: true });
-      zip.extractAllTo(tmp, true);
-      fs.rmSync(path.join(root, 'tables'), { recursive: true, force: true });
-      fs.renameSync(path.join(tmp, 'tables'), path.join(root, 'tables'));
-      fs.copyFileSync(path.join(tmp, 'manifest.json'), path.join(root, 'manifest.json'));
-      fs.rmSync(tmp, { recursive: true, force: true });
+      // an toàn: giải nén + kiểm SHA-256 → đổi tên bản cũ sang *.before-restore → đặt bản mới → thử mở lại; lỗi bất kỳ → trả bản cũ, kho luôn được mở lại
+      const tmp = path.join(root, `restore-${Date.now()}`); const tablesNew = path.join(tmp, 'tables'); const tables = path.join(root, 'tables');
+      const tablesBak = path.join(root, 'tables.before-restore'); const manifest0 = path.join(root, 'manifest.json'); const manBak = path.join(root, 'manifest.json.before-restore');
+      let movedOld = false; const rmQuiet = (p) => { try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* không có */ } };
+      try {
+        fs.mkdirSync(tmp, { recursive: true }); zip.extractAllTo(tmp, true);
+        const mNew = JSON.parse(fs.readFileSync(path.join(tmp, 'manifest.json'), 'utf8')); const bad = [];
+        for (const [rel, meta] of Object.entries(mNew.files)) { const p = path.join(tmp, rel); if (!fs.existsSync(p)) bad.push(`${rel}: thiếu`); else if (sha(fs.readFileSync(p)) !== meta.sha256) bad.push(`${rel}: sai SHA-256`); }
+        if (bad.length) throw new AppError('INTEGRITY_ERROR', `Giải nén sai: ${bad.join('; ')}`, { problems: bad });
+        rmQuiet(tablesBak); rmQuiet(manBak);
+        fs.renameSync(tables, tablesBak); movedOld = true; fs.copyFileSync(manifest0, manBak);
+        fs.renameSync(tablesNew, tables); fs.copyFileSync(path.join(tmp, 'manifest.json'), manifest0);
+        store = this.reopen(root); // lỗi ở đây → khối catch trả bản cũ
+        rmQuiet(tablesBak); rmQuiet(manBak); rmQuiet(tmp);
+      } catch (e) {
+        if (movedOld) { rmQuiet(tables); try { fs.renameSync(tablesBak, tables); if (fs.existsSync(manBak)) fs.copyFileSync(manBak, manifest0); } catch { /* cố hết sức; bước dưới vẫn mở lại */ } }
+        rmQuiet(tmp); rmQuiet(manBak);
+        try { this.store = this.reopen(root); } catch { /* không mở lại được — ném lỗi gốc */ }
+        throw e;
+      }
     } else {
       const cur = path.join(root, 'dgvc.sqlite'); const next = path.join(root, 'dgvc.sqlite.restoring'); const old = path.join(root, 'dgvc.sqlite.before-restore');
       const clean = (p) => { for (const sfx of ['', '-wal', '-shm']) { try { fs.rmSync(p + sfx, { force: true }); } catch { /* không có */ } } };
@@ -241,7 +280,7 @@ class BackupService {
       try { this.store = this.reopen(root); } catch (e) { clean(cur); fs.renameSync(old, cur); this.store = this.reopen(root); throw e; }
       clean(old);
     }
-    const store = kind === 'json' ? this.reopen(root) : this.store;
+    if (kind !== 'json') store = this.store;
     this.store = store;
     await store.transaction((tx) => tx.audit('RESTORE', 'DATA', path.basename(file), { dataVersionBefore: safety && safety.sha256 }, { file: path.basename(file), dataVersion: manifest.dataVersion, storageFormat, safety: path.basename(safety.file) }, { reason }), { user: user.username });
     return { store, restoredFrom: file, safetyBackup: safety.file, dataVersion: store.dataVersion };
