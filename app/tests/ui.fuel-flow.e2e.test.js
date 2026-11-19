@@ -33,9 +33,9 @@ test('Giao diện HAKQN: luồng Hợp đồng → Giao nhận dầu → Tính g
     // (1) hợp đồng có tuyến theo giá dầu (giá chung) → KHÔNG có thông báo; màn Hợp đồng có khối "Giao nhận dầu của hợp đồng"
     await nav('Giao nhận dầu'); await page.getByRole('heading', { name: 'Giao nhận dầu' }).first().waitFor(); await page.waitForTimeout(600);
     assert.equal(await page.getByText(/toàn tuyến cố định — không cần nhập dầu/).count(), 0);
-    await nav('Hợp đồng vận chuyển'); await page.locator('tbody tr', { hasText: 'HAKQN-QS' }).first().click();
-    const cm = page.locator('.modal', { hasText: 'Hợp đồng HAKQN-QS' }); await cm.getByRole('heading', { name: 'Giao nhận dầu của hợp đồng' }).waitFor();
-    await cm.getByText(/dòng dầu/).first().waitFor(); await cm.getByRole('button', { name: 'Sang màn nhập dầu →' }).click();
+    await nav('Hợp đồng vận chuyển'); await page.locator('.ct-items button', { hasText: 'HAKQN-QS' }).first().click(); await page.getByRole('tab', { name: 'Mã đơn giá' }).click();
+    const cm = page.locator('.ct-detail', { hasText: 'Hợp đồng HAKQN-QS' }); await cm.getByRole('heading', { name: 'Giao nhận dầu của hợp đồng' }).waitFor();
+    await cm.locator('#ct-panel-price').getByText(/dòng dầu/).first().waitFor(); // 1.8.x rà soát #39: các thẻ cùng nằm trong DOM (ẩn/hiện) → tìm trong thẻ đang mở await cm.getByRole('button', { name: 'Sang màn nhập dầu →' }).click();
     await page.getByRole('heading', { name: 'Giao nhận dầu' }).first().waitFor();
 
     // (2) gán mã đơn giá cố định phủ MỌI tuyến đang có giá → toàn tuyến cố định → có thông báo (vẫn nhập được); khối dầu ở màn Hợp đồng biến mất
@@ -49,9 +49,9 @@ test('Giao diện HAKQN: luồng Hợp đồng → Giao nhận dầu → Tính g
     const md = ctx.svc.master; await md.saveContract({ record: { contractId, priceCode: 'DG-ALL-FIX' }, rowVersion: ctx.store.get('HOP_DONG', contractId).row_version, user: KETOAN });
     await nav('Đơn giá'); await nav('Giao nhận dầu'); await page.getByText(/toàn tuyến cố định — không cần nhập dầu/).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Nhập tay' }).count() >= 0, true, 'vẫn nhập được');
-    await nav('Hợp đồng vận chuyển'); await page.locator('tbody tr', { hasText: 'HAKQN-QS' }).first().click();
-    await page.locator('.modal', { hasText: 'Hợp đồng HAKQN-QS' }).getByText('DG-ALL-FIX — Đơn giá cố định').waitFor();
-    assert.equal(await page.locator('.modal').getByRole('heading', { name: 'Giao nhận dầu của hợp đồng' }).count(), 0, 'toàn tuyến cố định → không có khối dầu');
+    await nav('Hợp đồng vận chuyển'); await page.locator('.ct-items button', { hasText: 'HAKQN-QS' }).first().click(); await page.getByRole('tab', { name: 'Mã đơn giá' }).click();
+    await page.locator('.ct-detail', { hasText: 'Hợp đồng HAKQN-QS' }).getByText('DG-ALL-FIX — Đơn giá cố định').waitFor();
+    assert.equal(await page.locator('.ct-detail').getByRole('heading', { name: 'Giao nhận dầu của hợp đồng' }).count(), 0, 'toàn tuyến cố định → không có khối dầu');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await srv.close(); }
 });

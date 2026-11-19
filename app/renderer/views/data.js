@@ -186,7 +186,7 @@
         const v = f.values(); if (!v.contractId) return;
         const d = await D.api('fuel.list', v);
         const rs = await D.api('contracts.routeSources', { contractId: v.contractId }, { quiet: true }).catch(() => ({ items: [] }));
-        fixedNote.replaceChildren(...(rs.items.length && rs.items.every((x) => x.priceMethod === 'CO_DINH') ? [h('p', { class: 'small', style: { margin: '8px 0 0' } }, D.tag('info', 'Đơn giá cố định'), ' Hợp đồng toàn tuyến cố định — không cần nhập dầu (vẫn nhập được nếu có). Dầu chỉ dùng cho tuyến theo giá dầu.')] : []));
+        fixedNote.replaceChildren(...(rs.allFixed === true ? [h('p', { class: 'small', style: { margin: '8px 0 0' } }, D.tag('info', 'Đơn giá cố định'), ' Hợp đồng toàn tuyến cố định — không cần nhập dầu (vẫn nhập được nếu có). Dầu chỉ dùng cho tuyến theo giá dầu.')] : []));
         acts.innerHTML = '';
         if (D.writer() && isCarrier()) acts.append(h('button', { class: 'btn', onclick: () => manualFuel(v.contractId, load) }, 'Nhập tay'), h('button', { class: 'btn', onclick: () => D.importTemplate({ importType: 'GIAO_NHAN_DAU', contractId: v.contractId }) }, 'Tải file mẫu'), h('button', { class: 'btn primary', onclick: () => D.importWizard({ importType: 'GIAO_NHAN_DAU', contractId: v.contractId, onDone: load }) }, 'Import từ Excel'));
         out.innerHTML = '';
