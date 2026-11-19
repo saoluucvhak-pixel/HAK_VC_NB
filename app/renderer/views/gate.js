@@ -42,7 +42,7 @@
           const inp = h('input', { value: s.mirrorFolder, placeholder: 'vd E:\\ (USB) hoặc G:\\My Drive (Google Drive for Desktop)' });
           box.append(h('h2', {}, 'Bước 4 — Sao lưu ra ngoài'), h('p', { class: 'muted small' }, 'APP tự sao lưu mỗi ngày trong thư mục dữ liệu. Chọn thêm USB / Google Drive để chép bản sao lưu ra ngoài máy (có thể bỏ trống, chọn sau trong Cài đặt).'),
             h('label', { class: 'field' }, h('span', {}, 'Thư mục sao lưu ngoài'), h('div', { class: 'row' }, inp, h('button', { class: 'btn', onclick: async () => { const p = await D.pickFolder('Chọn USB / Google Drive'); if (p) inp.value = p; } }, 'Chọn…'))),
-            h('p', { class: 'small muted' }, 'Tài khoản ADMIN có sẵn: saoluucvhak@gmail.com, phuthuy.apple@gmail.com — đặt mật khẩu ở màn hình đăng nhập.'),
+            h('p', { class: 'small muted' }, 'Sau khi khởi tạo, ADMIN đầu tiên đặt mật khẩu ở màn hình đăng nhập; các tài khoản khác do ADMIN tạo và cấp mã kích hoạt.'),
             h('div', { class: 'btns', style: { marginTop: '16px', justifyContent: 'space-between' } }, h('button', { class: 'btn', onclick: () => { s.step = 3; draw(); } }, 'Quay lại'),
               h('button', { class: 'btn primary', 'data-hotkey': 'primary', onclick: async (e) => { s.mirrorFolder = inp.value.trim(); e.target.disabled = true; try { await finish(); } finally { e.target.disabled = false; } } }, 'Khởi tạo bản cài')));
         }
@@ -64,19 +64,21 @@
       const st = await D.api('setup.status', {}, { quiet: true });
       if (!st.initialized) { D.state.setup = st; setTimeout(() => D.go('setup')); return h('div'); }
       const need = new Set(st.usersNeedPassword || []);
-      const user = h('input', { autocomplete: 'username', value: localStorage.getItem('dgvc.lastUser') || '', 'aria-label': 'Tên đăng nhập' });
+      const user = h('input', { autocomplete: 'username', value: localStorage.getItem('dgvc.lastUser') || st.singleUserName || '', 'aria-label': 'Tên đăng nhập' });
       const pw = h('input', { type: 'password', autocomplete: 'current-password', 'aria-label': 'Mật khẩu' });
       const pw2 = h('input', { type: 'password', autocomplete: 'new-password', 'aria-label': 'Nhập lại mật khẩu' });
+      const code = h('input', { autocomplete: 'one-time-code', autocapitalize: 'characters', maxlength: 12, 'aria-label': 'Mã kích hoạt' });
+      const codeBox = h('label', { class: 'field', style: { display: 'none', marginTop: '10px' } }, h('span', {}, 'Mã kích hoạt (do ADMIN cấp)'), code);
       const second = h('label', { class: 'field', style: { display: 'none' } }, h('span', {}, 'Nhập lại mật khẩu mới'), pw2);
       const title = h('h2', {}, 'Đăng nhập'); const note = h('p', { class: 'small muted' });
-      const sync = () => { const first = need.has(user.value.trim().toLowerCase()); second.style.display = first ? '' : 'none'; title.textContent = first ? 'Đặt mật khẩu lần đầu' : 'Đăng nhập';
-        note.textContent = first ? 'Tài khoản chưa có mật khẩu — đặt mật khẩu ít nhất 8 ký tự, có chữ và số.' : ''; };
+      const sync = () => { const first = need.has(user.value.trim().toLowerCase()); second.style.display = first ? '' : 'none'; codeBox.style.display = first && !st.firstAdminOpen ? '' : 'none'; title.textContent = first ? 'Đặt mật khẩu lần đầu' : 'Đăng nhập';
+        note.textContent = first ? (st.firstAdminOpen ? 'Bản cài mới — ADMIN đầu tiên đặt mật khẩu ít nhất 8 ký tự, có chữ và số.' : 'Tài khoản chưa có mật khẩu — nhập mã kích hoạt do ADMIN cấp, rồi đặt mật khẩu ít nhất 8 ký tự, có chữ và số.') : ''; };
       user.addEventListener('input', sync);
       const go = async (e) => {
         e.preventDefault(); const u = user.value.trim().toLowerCase(); let r;
         if (need.has(u)) {
           if (pw.value !== pw2.value) { D.toast('Hai lần nhập mật khẩu không giống nhau', 'err'); return; }
-          r = await D.api('auth.setFirstPassword', { username: u, newPassword: pw.value });
+          try { r = await D.api('auth.setFirstPassword', { username: u, newPassword: pw.value, setupCode: code.value.trim() }); } catch { return; } // lỗi đã hiện thành thông báo (sai mã, mật khẩu yếu…)
         } else {
           try { r = await D.api('auth.login', { username: u, password: pw.value }, { quiet: true }); } catch (err) {
             if (err.code === 'PASSWORD_NOT_SET') { need.add(u); sync(); D.toast(err.message, 'info'); return; }
@@ -87,7 +89,7 @@
         await D.refreshBoot(); D.go('dashboard');
       };
       const form = h('form', { class: 'box card', onsubmit: go }, title, note,
-        h('label', { class: 'field' }, h('span', {}, 'Tên đăng nhập'), user), h('label', { class: 'field', style: { marginTop: '10px' } }, h('span', {}, 'Mật khẩu'), pw), second,
+        h('label', { class: 'field' }, h('span', {}, 'Tên đăng nhập'), user), h('label', { class: 'field', style: { marginTop: '10px' } }, h('span', {}, 'Mật khẩu'), pw), second, codeBox,
         h('button', { class: 'btn primary', type: 'submit', style: { width: '100%', marginTop: '16px' } }, 'Vào phần mềm'));
       setTimeout(sync);
       return h('div', { class: 'gate' }, left('Đơn giá vận chuyển dăm', 'Tính đơn giá vận chuyển, bảng xác nhận khối lượng, diễn giải hóa đơn — thay cho Excel + Power Query.',

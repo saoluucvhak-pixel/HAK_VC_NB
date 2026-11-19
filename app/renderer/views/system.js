@@ -151,9 +151,10 @@
               h('span', { class: 'small muted' }, 'Phiếu đã có tự bỏ qua; phiếu thuộc kỳ đã chốt sẽ hiện ở Đối chiếu dữ liệu.')) : null) : null,
           pv.ticketsOnly ? h('div', { class: 'card small' }, h('b', {}, 'Chỉ nhập phiếu cân'), ' trong gói — bỏ qua kỳ tính, dầu, danh mục.') : null,
           pv.conflicts.length ? h('div', { class: 'card' }, h('h2', {}, `Xung đột (${pv.conflicts.length}) — chọn giữ bản này hay lấy bản đến`), pv.conflicts.map((c) => {
-            const sup = c.kind === 'SUPERSEDE';
-            const sel = h('select', { onchange: (e) => { decisions[`${c.table}:${c.id}`] = e.target.value; } }, h('option', { value: 'KEEP' }, sup ? 'Giữ kỳ cũ (không nhận kỳ này)' : 'Giữ bản này'), h('option', { value: 'TAKE' }, sup ? 'Thay kỳ cũ bằng kỳ này' : 'Lấy bản đến'));
-            const label = sup ? `Kỳ tính mới thay kỳ ${(c.supersedeCodes || []).join(', ')} —` : c.table === 'KY_TINH' ? 'Kỳ tính' : c.table;
+            const sup = c.kind === 'SUPERSEDE'; const dup = c.kind === 'POSSIBLE_DUPLICATE'; // nghi trùng dòng dầu: SKIP (mặc định) / KEEP
+            const sel = dup ? h('select', { 'aria-label': 'Xử lý dòng dầu nghi trùng', onchange: (e) => { decisions[`${c.table}:${c.id}`] = e.target.value; } }, h('option', { value: 'SKIP' }, 'Bỏ qua (đã có ở máy này)'), h('option', { value: 'KEEP' }, 'Vẫn nhập (ghi thêm)'))
+              : h('select', { onchange: (e) => { decisions[`${c.table}:${c.id}`] = e.target.value; } }, h('option', { value: 'KEEP' }, sup ? 'Giữ kỳ cũ (không nhận kỳ này)' : 'Giữ bản này'), h('option', { value: 'TAKE' }, sup ? 'Thay kỳ cũ bằng kỳ này' : 'Lấy bản đến'));
+            const label = dup ? 'Dòng dầu nghi trùng —' : sup ? `Kỳ tính mới thay kỳ ${(c.supersedeCodes || []).join(', ')} —` : c.table === 'KY_TINH' ? 'Kỳ tính' : c.table;
             return h('div', { style: { borderBottom: '1px dashed var(--line)', padding: '10px 0' } },
               h('div', { class: 'row' }, h('b', { class: 'grow' }, `${label} `, h('span', { class: 'mono' }, c.id)), h('span', { class: 'small muted' }, 'Chọn:'), sel),
               c.note ? h('div', { class: 'small muted', style: { margin: '4px 0' } }, c.note) : null,
@@ -221,6 +222,7 @@
             admin ? h('button', { class: 'btn', onclick: () => restoreFromFile() }, 'Khôi phục từ file…') : null),
           h('p', { class: 'small muted' }, 'Dữ liệu chính lưu trong kho SQLite và máy luôn tự sao lưu hằng ngày. Sao lưu JSON là bản phụ để gửi máy khác. Khôi phục từ file: chọn bản sao lưu SQL (.zip) hoặc bản JSON (.zip / manifest.json) — cả hai đều được.')),
         h('div', { class: 'card' }, h('h2', {}, 'Sao lưu ra ngoài (USB / Google Drive)'), h('p', { class: 'small mono' }, cfg.BACKUP_MIRROR_FOLDER || '(chưa chọn)'), h('p', { class: 'small' }, `Đang ${cfg.BACKUP_MIRROR_ENABLED === 'TRUE' ? 'BẬT' : 'TẮT'}`),
+          b.lastMirror && !b.lastMirror.ok ? h('p', { role: 'alert', class: 'warn-line' }, h('span', { class: 'tag warn' }, 'Cảnh báo'), ` Lần chép ra ngoài gần nhất bị lỗi: ${b.lastMirror.message}`) : null,
           admin ? h('div', { class: 'btns' }, h('button', { class: 'btn', onclick: async () => { const f = await D.pickFolder('Chọn USB / thư mục Google Drive'); if (!f) return; await D.api('config.save', { key: 'BACKUP_MIRROR_FOLDER', value: f }); await D.api('config.save', { key: 'BACKUP_MIRROR_ENABLED', value: 'TRUE' }); await D.refreshBoot(); D.go('settings', { tab: 'backup' }); } }, 'Chọn thư mục…'),
             h('button', { class: 'btn', onclick: async () => { await D.api('config.save', { key: 'BACKUP_MIRROR_ENABLED', value: cfg.BACKUP_MIRROR_ENABLED === 'TRUE' ? 'FALSE' : 'TRUE' }); await D.refreshBoot(); D.go('settings', { tab: 'backup' }); } }, cfg.BACKUP_MIRROR_ENABLED === 'TRUE' ? 'Tắt' : 'Bật')) : null,
           h('div', { class: 'sep' }), h('h2', {}, 'Thư mục dữ liệu'), h('p', { class: 'small mono' }, D.state.boot.install.dataFolder),
@@ -266,10 +268,15 @@
           const d = await D.api('users.list');
           const UF = [{ key: 'username', label: 'Tên đăng nhập (email)', required: true }, { key: 'fullName', label: 'Họ tên' }, { key: 'role', label: 'Vai trò', type: 'select', options: [['KE_TOAN', 'Kế toán'], ['XEM', 'Chỉ xem'], ['ADMIN', 'ADMIN']] },
             { key: 'unitCode', label: 'Đơn vị', type: 'select', options: D.unitOptions(true) }, { key: 'canUnlock', label: 'Được mở khóa kỳ', type: 'check' }, { key: 'isActive', label: 'Đang hoạt động', type: 'check' }];
-          body.append(h('div', { class: 'head' }, h('span', { class: 'grow' }), h('button', { class: 'btn primary', onclick: () => D.formModal({ title: 'Thêm người dùng', fields: UF, values: { role: 'KE_TOAN', unitCode: D.state.boot.install.unitCode, isActive: true }, submit: async (x) => { await D.api('users.save', { record: x }); D.toast('Đã thêm — người dùng tự đặt mật khẩu lần đầu đăng nhập', 'ok'); D.go('settings', { tab: 'users' }); } }) }, 'Thêm người dùng')),
+          // hiện MÃ KÍCH HOẠT đúng một lần (server không lưu mã gốc)
+          const showCode = (username, r) => D.modal({ title: `Mã kích hoạt của ${username}`, body: h('div', {}, h('p', {}, 'Gửi mã này cho người dùng để đặt mật khẩu lần đầu:'),
+            h('p', { class: 'mono', style: { fontSize: '28px', letterSpacing: '4px', margin: '8px 0' } }, r.setupCode),
+            h('p', { class: 'small muted' }, `Hết hạn: ${new Date(r.setupCodeExpiresAt).toLocaleString('vi-VN')}. Mã chỉ hiện một lần — đóng hộp thoại là không xem lại được (cần mã mới thì bấm "Đặt lại mật khẩu").`)),
+            actions: [{ label: 'Sao chép', run: async () => { try { await navigator.clipboard.writeText(r.setupCode); D.toast('Đã sao chép mã', 'ok'); } catch { D.toast('Không sao chép được — hãy chép tay mã trên màn hình', 'err'); } return false; } }, { label: 'Đã ghi lại mã', primary: true, run: () => true }] });
+          body.append(h('div', { class: 'head' }, h('span', { class: 'grow' }), h('button', { class: 'btn primary', onclick: () => D.formModal({ title: 'Thêm người dùng', fields: UF, values: { role: 'KE_TOAN', unitCode: D.state.boot.install.unitCode, isActive: true }, submit: async (x) => { const r = await D.api('users.save', { record: x }); D.toast('Đã thêm người dùng — cấp mã kích hoạt cho họ', 'ok'); showCode(x.username, r); D.go('settings', { tab: 'users' }); } }) }, 'Thêm người dùng')),
             h('div', { class: 'card flush' }, D.table({ rows: d.items, onRow: (x) => D.modal({ title: x.username, body: D.form(UF.map((f) => (f.key === 'username' ? { ...f, readonly: true } : f)), x), actions: [
-              { label: 'Đặt lại mật khẩu', run: async () => { await D.api('users.resetPassword', { username: x.username }); D.toast('Người dùng sẽ đặt mật khẩu mới ở lần đăng nhập tới', 'ok'); } },
-              { label: 'Lưu', primary: true, run: async () => { const f = document.querySelector('.modal .form'); await D.api('users.save', { record: f.values ? f.values() : {} }); D.go('settings', { tab: 'users' }); } }] }),
+              { label: 'Đặt lại mật khẩu', run: async () => { const r = await D.api('users.resetPassword', { username: x.username }); D.toast('Đã đặt lại — cấp mã kích hoạt cho người dùng', 'ok'); showCode(x.username, r); D.go('settings', { tab: 'users' }); return true; } }, // đóng hộp sửa (rowVersion đã đổi) và nạp lại danh sách
+              { label: 'Lưu', primary: true, run: async () => { const f = document.querySelector('.modal .form'); await D.api('users.save', { record: f.values ? f.values() : {}, rowVersion: x.rowVersion }); D.go('settings', { tab: 'users' }); } }] }), // khóa lạc quan: người sửa sau nhận lỗi xung đột phiên bản
             columns: [{ key: 'username', label: 'Tên đăng nhập' }, { key: 'fullName', label: 'Họ tên' }, { key: 'role', label: 'Vai trò' }, { key: 'unitCode', label: 'Đơn vị' }, { key: 'canUnlock', label: 'Mở khóa', fmt: 'bool' },
               { key: 'hasPassword', label: 'Đã đặt mật khẩu', fmt: 'bool' }, { key: 'isActive', label: 'Hoạt động', fmt: 'bool' }, { key: 'lastLoginAt', label: 'Đăng nhập gần nhất', fmt: 'datetime' }] })));
         }
