@@ -313,7 +313,7 @@
     } finally { main.removeAttribute('aria-busy'); }
   }
   D.render = render;
-  D.refreshBoot = async () => { state.boot = await D.api('meta.bootstrap'); };
+  D.refreshBoot = async () => { state.boot = await D.api('meta.bootstrap'); const n = state.boot && state.boot.storageNotice; if (n && n.message && state.shownStorageNotice !== n.message) { state.shownStorageNotice = n.message; D.toast(n.message, n.level === 'warn' ? 'err' : 'ok', 14000); } };
   D.page = (title, crumb, actions, ...content) => h('div', {}, h('div', { class: 'crumb' }, crumb || ''), h('div', { class: 'head' }, h('h1', { class: 'grow' }, title), h('div', { class: 'btns' }, actions || [])), ...content);
   D.contractOptions = (onlyCarrier = false) => state.boot.contracts.filter((c) => !onlyCarrier || c.role === 'CARRIER').sort((a, b) => (b.is_active === false ? 0 : 1) - (a.is_active === false ? 0 : 1))
     .map((c) => [c.contract_id, `${c.contract_code} · ${c.carrier_unit_code} → ${c.customer_unit_code}${c.role === 'CARRIER' ? '' : ' (bên thuê)'}${c.is_active === false ? ' (ngừng dùng)' : ''}`]);

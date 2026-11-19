@@ -300,8 +300,12 @@ Sau khi lưu trữ:
 | Gói `.dgvc` báo "bị sửa hoặc hỏng" | Nhờ bên gửi xuất và gửi lại gói |
 | Cần xem nhật ký kỹ thuật | Menu **Trợ giúp → Mở thư mục nhật ký** |
 
-### Kho lưu trữ dữ liệu — thí điểm SQLite (từ bản 1.3.0, chỉ ADMIN)
-Mặc định app vẫn dùng kho JSON như trước, **không cần làm gì**. Mục **Cài đặt → Dữ liệu & sao lưu → Kho lưu trữ dữ liệu (thí điểm SQLite)** dành cho việc thử có kiểm soát: bấm **Chạy thử** (không đổi gì) để xem app đối chiếu từng bảng và từng kỳ đã chốt; chỉ khi đạt và đã được hướng dẫn mới bấm **Chuyển sang SQLite**. Kho JSON cũ được giữ nguyên làm đường lui; **Quay lại kho JSON** dùng được khi chưa nhập / sửa gì mới, còn không thì dùng **Xuất ngược ra JSON**. Không chuyển được khi thư mục dữ liệu nằm trong OneDrive / Google Drive / ổ mạng — hãy dùng ổ cục bộ (vd `D:\DGVC_DATA`). Chi tiết: `docs/THI_DIEM_SQLITE_WINDOWS.md`.
+### Kho dữ liệu và sao lưu (từ bản 1.4.0)
+- **Kho chính: SQLite** (file `dgvc.sqlite` trong thư mục dữ liệu). Bản cài mới dùng SQLite ngay. Bản cài cũ (kho JSON) **tự nâng cấp** sang SQLite khi mở app lần đầu: app sao lưu trước, đối chiếu từng bảng và từng kỳ đã chốt, giữ nguyên kho JSON cũ làm dự phòng; nếu có lỗi thì vẫn dùng JSON và báo cho bạn.
+- **Tự sao lưu hằng ngày** (giữ 30 bản), hằng tháng (24 bản); thêm bản "an toàn" trước khi khôi phục. Bấm **Sao lưu ngay** khi cần. Bật "Sao lưu ra ngoài" để chép sang USB / Google Drive.
+- **Sao lưu phụ JSON — để gửi máy khác:** **Sao lưu JSON gửi máy khác…** tạo một file `.zip`; máy nhận bấm **Khôi phục từ file…**.
+- **Khôi phục từ file** nhận cả hai loại: bản sao lưu SQL (`.zip`) và bản JSON (`.zip` hoặc `manifest.json`). Bản của máy khác cùng đơn vị cần xác nhận; khác đơn vị thì không.
+- Không để thư mục dữ liệu trong OneDrive / Google Drive / ổ mạng: SQLite cần ổ cục bộ (vd `D:\DGVC_DATA`); app sẽ nhắc và tạm dùng JSON ở đó.
 
 ### Khôi phục từ file tự chọn và Sao lưu JSON (từ bản 1.3.4, chỉ ADMIN)
 **Cài đặt → Dữ liệu & sao lưu**: **Khôi phục từ file…** — chọn file sao lưu `.zip` (ở USB / ổ khác) hoặc file `manifest.json` trong một thư mục dữ liệu JSON; app hiển thị đơn vị và phiên bản dữ liệu, hỏi lý do rồi khôi phục (tự sao lưu an toàn trước). Bản sao lưu của **máy khác cùng đơn vị** (khi thay máy) được phép sau khi xác nhận; khác đơn vị thì không. **Sao lưu JSON ra thư mục…** — xuất bản chụp (`manifest.json`, `tables/`, `snapshot-info.json`) ra thư mục trống để lưu lâu dài; muốn quay lại thì dùng **Khôi phục từ file…** chọn `manifest.json` đó.

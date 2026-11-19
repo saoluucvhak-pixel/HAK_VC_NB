@@ -10,7 +10,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { createStorage, newStore } = require('../repo/createStore');
+const { createStorage, newStore, storageKinds } = require('../repo/createStore');
 // Loại kho của bản cài lấy từ cấu hình máy (dgvc-config.json: storage). Mặc định 'json'; chỉ trình di chuyển (migrateStorage) mới đặt 'sqlite'. Không đọc biến môi trường.
 const { AppError } = require('../../shared/errors');
 const { AuthService } = require('../services/AuthService');
@@ -52,10 +52,14 @@ class AppContext {
    * @param configFile  file cấu hình máy (Electron: <userData>/dgvc-config.json)
    * @param pdfRenderer hàm in PDF (Electron: printToPDF; kiểm thử: Chromium)
    */
-  constructor({ configFile, pdfRenderer = null, catalogFile = CATALOG_FILE, documentsDir = '' } = {}) {
+  constructor({ configFile, pdfRenderer = null, catalogFile = CATALOG_FILE, documentsDir = '', defaultStorage = '' } = {}) {
     this.configFile = configFile; this.pdfRenderer = pdfRenderer; this.catalogFile = catalogFile;
     this.defaultFolder = documentsDir ? path.join(documentsDir, 'DGVC_DATA') : defaultDataFolder();
     this.store = null; this.svc = null;
+    // Kho mặc định của bản cài MỚI: SQLite (nếu máy hỗ trợ). Có thể đặt 'json' qua tùy chọn / DGVC_DEFAULT_STORAGE (chỉ dùng cho kiểm thử).
+    const want = defaultStorage || process.env.DGVC_DEFAULT_STORAGE || 'sqlite';
+    this.defaultStorage = want === 'sqlite' && !storageKinds().includes('sqlite') ? 'json' : want;
+    this.storageNotice = null;
   }
 
   readConfig() { try { return JSON.parse(fs.readFileSync(this.configFile, 'utf8')); } catch { return {}; } }
@@ -75,7 +79,14 @@ class AppContext {
       canMigrate: kind === 'json' && sqliteOk && !sync, canRevert, blockedReason: kind !== 'json' ? '' : !sqliteOk ? 'Môi trường không hỗ trợ SQLite' : sync ? `Thư mục dữ liệu nằm trong vùng đồng bộ / ổ mạng (${sync}) — chuyển sang ổ cục bộ cố định (vd D:\\DGVC_DATA) trước` : '' };
   }
   /** Loại kho đang dùng của bản cài này. */
-  storageKind() { return this.readConfig().storage === 'sqlite' ? 'sqlite' : 'json'; }
+  storageKind() {
+    const cfg = this.readConfig();
+    if (cfg.storage === 'sqlite' || cfg.storage === 'json') return cfg.storage;
+    const f = cfg.dataFolder || '';
+    if (f && fs.existsSync(path.join(f, 'manifest.json'))) return 'json'; // bản cài cũ chưa nâng cấp
+    if (f && fs.existsSync(path.join(f, 'dgvc.sqlite'))) return 'sqlite';
+    return this.defaultStorage; // bản cài mới
+  }
   /** Đọc manifest của thư mục dữ liệu theo loại kho (không mở kho, không khóa). */
   _readManifest(folder, kind) {
     try {
@@ -101,7 +112,7 @@ class AppContext {
   status() {
     const cfg = this.readConfig();
     const folder = cfg.dataFolder || '';
-    const kind = cfg.storage === 'sqlite' ? 'sqlite' : 'json';
+    const kind = this.storageKind();
     const exists = this._hasData(folder, kind);
     const manifest = exists ? this._readManifest(folder, kind) : null;
     return { initialized: exists && !!manifest, dataFolder: folder, defaultDataFolder: this.defaultFolder, installId: manifest && manifest.installId,
@@ -133,8 +144,10 @@ class AppContext {
     const unit = cat.DON_VI.find((u) => u.unit_code === unitCode && u.is_active);
     if (!unit) throw new AppError('VALIDATION_FAILED', `Chọn đơn vị của bản cài (${this.installableUnits().map((u) => u.unitCode).join(' / ')})`);
     if (fs.existsSync(dataFolder) && fs.readdirSync(dataFolder).length) throw new AppError('VALIDATION_FAILED', `Thư mục ${dataFolder} không trống — chọn thư mục trống`);
-    createStorage(dataFolder, { installCode: unitCode, unitCode, installId: `INS-${crypto.randomBytes(5).toString('hex').toUpperCase()}`, appVersion: APP_VERSION }, 'json');
-    const store = newStore(dataFolder, {}, 'json').open();
+    // SQLite (WAL) không chịu được thư mục đồng bộ / ổ mạng → bản cài mới đặt ở đó dùng JSON và được nhắc chuyển thư mục
+    const kindNew = syncFolderKind(dataFolder) ? 'json' : this.defaultStorage;
+    createStorage(dataFolder, { installCode: unitCode, unitCode, installId: `INS-${crypto.randomBytes(5).toString('hex').toUpperCase()}`, appVersion: APP_VERSION }, kindNew);
+    const store = newStore(dataFolder, {}, kindNew).open();
     const mine = new Set(cat.HOP_DONG.filter((c) => c.carrier_unit_code === unitCode || c.customer_unit_code === unitCode).map((c) => c.contract_id));
     await store.transaction((tx) => {
       for (const t of CATALOG_TABLES) {
@@ -152,7 +165,7 @@ class AppContext {
       tx.audit('SETUP_INIT', 'DATA', unitCode, null, { unitCode, dataFolder, contracts: [...mine], catalog: path.basename(this.catalogFile) });
     }, { user: user.username });
     store.close();
-    this.writeConfig({ ...this.readConfig(), dataFolder, storage: 'json' });
+    this.writeConfig({ ...this.readConfig(), dataFolder, storage: kindNew });
     this.open();
     let catalogImport = null;
     if (catalogPackagePath) {
@@ -222,6 +235,50 @@ class AppContext {
     this.writeConfig({ ...this.readConfig(), dataFolder: newFolder, previousDataFolder: old });
     this.open();
     return { dataFolder: newFolder, previousDataFolder: old, note: 'Thư mục cũ vẫn giữ nguyên — xóa tay khi đã kiểm tra xong' };
+  }
+
+  /**
+   * Nâng cấp TỰ ĐỘNG bản cài cũ (kho JSON) sang SQLite — gọi một lần lúc khởi động. An toàn: sao lưu trước, đối chiếu từng bảng và từng kỳ đã chốt,
+   * kho JSON cũ được giữ nguyên làm dự phòng; lỗi bất kỳ → vẫn dùng JSON. Không làm khi thư mục dữ liệu nằm trong vùng đồng bộ / ổ mạng.
+   * Đã thất bại ở đúng bản app này thì không thử lại (tránh vòng lặp) — vẫn chuyển tay được ở Cài đặt.
+   */
+  async autoUpgradeStorage() {
+    if (!this.store || this.storageKind() !== 'json') return { state: 'skip' };
+    const info = this.storageInfo();
+    if (!info.sqliteAvailable) return { state: 'skip', reason: 'no-sqlite' };
+    if (info.syncFolder) { this.storageNotice = { level: 'warn', message: `Dữ liệu đang ở thư mục đồng bộ / ổ mạng (${info.syncFolder}) nên chưa dùng được kho SQLite. Chuyển thư mục dữ liệu sang ổ cục bộ (vd D:\\DGVC_DATA) trong Cài đặt để app tự nâng cấp.` }; return { state: 'blocked' }; }
+    const tried = this.readConfig().storageUpgrade;
+    if (tried && tried.state === 'failed' && tried.version === APP_VERSION) return { state: 'skip', reason: 'failed-before' };
+    try {
+      await this.migrateStorage({ user: { username: 'system' } });
+      this.writeConfig({ ...this.readConfig(), storageUpgrade: { state: 'done', at: new Date().toISOString(), version: APP_VERSION } });
+      this.storageNotice = { level: 'ok', message: 'Dữ liệu đã được nâng cấp sang kho SQLite (đã sao lưu và đối chiếu; kho JSON cũ được giữ làm dự phòng).' };
+      return { state: 'done' };
+    } catch (e) {
+      this.writeConfig({ ...this.readConfig(), storageUpgrade: { state: 'failed', at: new Date().toISOString(), version: APP_VERSION, message: e.message } });
+      this.storageNotice = { level: 'warn', message: `Chưa nâng cấp được sang SQLite (${e.message}). Vẫn dùng kho JSON — dữ liệu an toàn.` };
+      if (!this.store) { try { this.open(); } catch { /* báo ở nơi gọi */ } }
+      return { state: 'failed', error: e.message };
+    }
+  }
+
+  /**
+   * SAO LƯU PHỤ (JSON) để GỬI MÁY KHÁC: một file .zip duy nhất gồm manifest.json + tables/ + snapshot-info.json (đọc được trên mọi bản, không phụ thuộc kho SQLite).
+   * Máy nhận dùng "Khôi phục từ file…" chọn đúng file này.
+   */
+  async exportJsonShare({ file, user = { username: 'system' } }) {
+    if (!file) throw new AppError('VALIDATION_FAILED', 'Chọn nơi lưu file');
+    const AdmZip = require('adm-zip'); const tmp = path.join(os.tmpdir(), `dgvc-share-${process.pid}-${Date.now()}`);
+    try {
+      if (this.storageKind() === 'sqlite') await this.exportStorageToJson({ dest: tmp }); else await this.svc.backup.exportJsonFolder({ dest: tmp, user });
+      const m = JSON.parse(fs.readFileSync(path.join(tmp, 'manifest.json'), 'utf8'));
+      if (!fs.existsSync(path.join(tmp, 'snapshot-info.json'))) fs.writeFileSync(path.join(tmp, 'snapshot-info.json'), JSON.stringify({ app: 'DGVC', source: 'sqlite', exportedAt: new Date().toISOString(), exportedBy: user.username, dataVersion: m.dataVersion, schemaVersion: m.schemaVersion, installId: m.installId, unitCode: m.unitCode, appVersion: APP_VERSION }, null, 1));
+      const zip = new AdmZip(); zip.addLocalFolder(tmp);
+      zip.addFile('backup-info.json', Buffer.from(JSON.stringify({ app: 'DGVC', kind: 'json-share', note: 'sao lưu phụ JSON gửi máy khác', createdAt: new Date().toISOString(), createdBy: user.username, installId: m.installId, unitCode: m.unitCode, dataVersion: m.dataVersion }, null, 1)));
+      const out = file.toLowerCase().endsWith('.zip') ? file : `${file}.zip`; fs.mkdirSync(path.dirname(out), { recursive: true });
+      const buf = zip.toBuffer(); fs.writeFileSync(`${out}.part`, buf); fs.renameSync(`${out}.part`, out);
+      return { ok: true, file: out, sizeBytes: buf.length, unitCode: m.unitCode, dataVersion: m.dataVersion };
+    } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
   }
 
   /**

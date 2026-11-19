@@ -18,7 +18,7 @@ const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `dgvc-ac-${p}-`));
 
 async function app(unit = 'DH') {
   const home = tmp(unit);
-  const ctx = new AppContext({ configFile: path.join(home, 'userData', 'dgvc-config.json'), documentsDir: home });
+  const ctx = new AppContext({ configFile: path.join(home, 'userData', 'dgvc-config.json'), documentsDir: home, defaultStorage: 'json' });
   await ctx.init({ mode: 'NEW', dataFolder: path.join(home, 'DATA'), unitCode: unit });
   const imp = ctx.svc.import;
   const a = await imp.preview({ importType: 'PHIEU_CAN', filePath: FILE[unit], user: 'ketoan' });

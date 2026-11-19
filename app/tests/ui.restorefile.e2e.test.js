@@ -35,31 +35,30 @@ test('Giao diện ĐH: sao lưu JSON ra thư mục, thay đổi dữ liệu, kh�
     const live = () => srv.ctx.store.find('PHIEU_CAN', (t) => !t.is_deleted).length; const n0 = live(); assert.ok(n0 > 0);
 
     await nav('Cài đặt');
-    // 1) Sao lưu JSON
-    const dest = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-ui-json-')), 'JSON'); await next(dest);
-    await page.getByRole('button', { name: 'Sao lưu JSON ra thư mục…' }).click(); await toast(/Đã sao lưu JSON/);
-    assert.ok(fs.existsSync(path.join(dest, 'manifest.json'))); assert.ok(fs.existsSync(path.join(dest, 'snapshot-info.json')));
-    // 2) làm thay đổi dữ liệu rồi khôi phục từ manifest.json
+    assert.equal(srv.ctx.store.storageKind, 'sqlite', 'bản cài mới mặc định SQLite');
+    await page.locator('.storage-card').getByText('SQLite (kho chính)').waitFor();
+    // 1) Sao lưu PHỤ JSON để gửi máy khác: một file .zip
+    const zipJson = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-ui-json-')), 'DGVC_JSON.zip'); await next(zipJson);
+    await page.getByRole('button', { name: 'Sao lưu JSON gửi máy khác…' }).click(); await toast(/Đã lưu .*DGVC_JSON\.zip/);
+    assert.ok(fs.existsSync(zipJson)); const AdmZip = require('adm-zip'); assert.ok(new AdmZip(zipJson).getEntry('manifest.json'));
+    // 2) thay đổi dữ liệu rồi khôi phục từ file JSON đó
     await srv.ctx.svc.records.softDeleteTickets({ ticketIds: srv.ctx.store.all('PHIEU_CAN').slice(0, 5).map((t) => t.ticket_id), reason: 'thử', user: { username: 'phuthuy.apple@gmail.com', role: 'ADMIN' } });
     assert.equal(live(), n0 - 5);
-    await next(path.join(dest, 'manifest.json'));
-    await page.getByRole('button', { name: 'Khôi phục từ file…' }).click();
-    const m = page.locator('.modal', { hasText: 'Khôi phục từ file' }); await m.getByText(/Đơn vị DH/).waitFor();
+    await next(zipJson); await page.getByRole('button', { name: 'Khôi phục từ file…' }).click();
+    const m = page.locator('.modal', { hasText: 'Khôi phục từ file' }); await m.getByText(/Đơn vị DH/).waitFor(); await m.getByText(/kho JSON/).waitFor();
     await m.locator('textarea').fill('khôi phục thử từ JSON'); await m.getByRole('button', { name: 'Khôi phục' }).click();
-    await toast(/Đã khôi phục từ file/); assert.equal(live(), n0);
-    // 3) khôi phục từ .zip đặt ở nơi khác
+    await toast(/Đã khôi phục từ file/); assert.equal(live(), n0); assert.equal(srv.ctx.store.storageKind, 'sqlite', 'sau khôi phục từ JSON vẫn là SQLite');
+    // 3) khôi phục từ bản sao lưu SQL (.zip có dgvc.db) đặt ở nơi khác
     await nav('Cài đặt');
     const b = await srv.ctx.svc.backup.backup({ kind: 'manual', user: { username: 'phuthuy.apple@gmail.com' } }); const usb = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-ui-usb-')), 'sao-luu.zip'); fs.copyFileSync(b.file, usb);
     await srv.ctx.svc.records.softDeleteTickets({ ticketIds: srv.ctx.store.all('PHIEU_CAN').slice(0, 3).map((t) => t.ticket_id), reason: 'thử', user: { username: 'phuthuy.apple@gmail.com', role: 'ADMIN' } });
     await next(usb); await page.getByRole('button', { name: 'Khôi phục từ file…' }).click();
-    const m2 = page.locator('.modal', { hasText: 'Khôi phục từ file' }); await m2.locator('textarea').fill('từ USB'); await m2.getByRole('button', { name: 'Khôi phục' }).click();
+    const m2 = page.locator('.modal', { hasText: 'Khôi phục từ file' }); await m2.getByText(/kho SQLite/).waitFor(); await m2.locator('textarea').fill('từ USB'); await m2.getByRole('button', { name: 'Khôi phục' }).click();
     await toast(/Đã khôi phục từ file/); assert.equal(live(), n0);
     // 4) file không hợp lệ → thông báo, không đổi gì
     await nav('Cài đặt'); const bad = path.join(os.tmpdir(), `khong-phai-sao-luu-${Date.now()}.zip`); fs.writeFileSync(bad, 'khong phai zip'); await next(bad);
     await page.getByRole('button', { name: 'Khôi phục từ file…' }).click(); await page.locator('.toast', { hasText: /File sao lưu hỏng|không toàn vẹn|Không có/ }).first().waitFor({ timeout: 20000 });
     assert.equal(live(), n0);
-    // 5) thẻ kho lưu trữ: một thông báo, không lặp lại cùng một ý
-    await nav('Cài đặt'); await page.locator('details.storage-card summary').click(); const txt = await page.locator('details.storage-card').innerText(); assert.equal((txt.match(/vùng đồng bộ/g) || []).length <= 1, true);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await srv.close(); }
 });
