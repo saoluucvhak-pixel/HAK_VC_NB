@@ -49,7 +49,7 @@
         const kmField = { key: 'distanceKm', label: 'Cự ly chuyến (km) — lấy từ Danh mục tuyến', readonly: true, hint: 'chỉ hiển thị; sửa ở Danh mục tuyến' };
         const priceFields = method === 'CO_DINH'
           ? [{ ...all.fixedPrice, required: true, hint: 'dùng nguyên số này làm đơn giá vận chuyển — không tính dầu, không làm tròn lại' }]
-          : [{ ...all.newPrice, label: 'Đơn giá ký hợp đồng / tấn (chưa VAT)', hint: 'gồm dầu theo định mức' }, { ...all.fuelPriceExclVat }, { ...all.fuelNormLPerKm }, { ...all.avgLoadTon }, { ...all.avgVolumeM3 }];
+          : [{ ...all.newPrice, label: 'Đơn giá ký hợp đồng dự kiến / tấn (chưa VAT)', hint: 'đơn giá dự kiến ghi trong danh mục, gồm dầu theo định mức' }, { ...all.fuelPriceExclVat }, { ...all.fuelNormLPerKm }, { ...all.avgLoadTon }, { ...all.avgVolumeM3 }];
         const fields = [...(line ? [] : [{ key: 'routeCode', label: 'Tuyến', type: 'select', options: D.routeOptions(false), required: true }]), kmField, ...priceFields, date, { ...all.sourceNote }];
         const km = (rc) => { const r = routeOf(rc); return r ? D.vnAuto(r.trip_distance_km) : ''; };
         const first = line ? line.route_code : (D.routeOptions(false)[0] || [''])[0];
@@ -129,7 +129,7 @@
         const table = h('div', { class: 'card flush', style: { overflowX: 'auto' } }, D.table({ rows: d.lines, empty: 'Mã chưa có dòng giá — bấm "Thêm dòng giá …" hoặc "Chọn đơn giá có sẵn…"', columns: [
           { key: 'route_code', label: 'Tuyến' }, { key: 'routeName', label: 'Tên tuyến', wrap: true }, { key: 'km', label: 'Cự ly (km)', num: true, render: (r) => { const t = routeOf(r.route_code); return t ? D.vnAuto(t.trip_distance_km) : ''; } },
           ...(c.priceMethod === 'CO_DINH' ? [{ key: 'fixed_price', label: 'Đơn giá cố định', num: true, render: (r) => D.vnAuto(r.fixed_price) }]
-            : [{ key: 'new_price', label: 'ĐG ký HĐ', num: true, render: (r) => D.vnAuto(r.new_price) }, { key: 'fuel_price_excl_vat', label: 'ĐG dầu', num: true, render: (r) => D.vnAuto(r.fuel_price_excl_vat) },
+            : [{ key: 'new_price', label: 'ĐG ký HĐ dự kiến', num: true, render: (r) => D.vnAuto(r.new_price) }, { key: 'fuel_price_excl_vat', label: 'ĐG dầu', num: true, render: (r) => D.vnAuto(r.fuel_price_excl_vat) },
               { key: 'fuel_norm_l_per_km', label: 'ĐM (l/km)', num: true, render: (r) => D.vnAuto(r.fuel_norm_l_per_km) }, { key: 'avg_load_ton', label: 'KL_TB', num: true, render: (r) => D.vnAuto(r.avg_load_ton) }]),
           { key: 'uom', label: 'ĐVT', render: (r) => (r.uom === 'M3' ? 'đ/m³' : 'đ/tấn') },
           { key: 'effective_from', label: 'Ngày cập nhật', fmt: 'date' }, { key: 'effective_to', label: 'Đến ngày', fmt: 'date' }, { key: 'status', label: 'Trạng thái', fmt: 'tag' },
