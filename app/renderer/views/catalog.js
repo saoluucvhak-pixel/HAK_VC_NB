@@ -179,27 +179,29 @@
 
   // ───────── Hợp đồng ─────────
   // canParties: hợp đồng chưa có kỳ tính / dòng dầu → sửa được mã HĐ và hai bên (bản 1.2.4)
-  const CF = (isNew, canParties = isNew) => [
+  const CF = (isNew, canParties = isNew, codeOpts = [['', '— Không dùng mã (giá chung / giá riêng như cũ) —']]) => [
     { key: 'contractCode', label: 'Mã hợp đồng', required: true, readonly: !canParties, hint: 'vd DH-HAKQN' }, { key: 'contractNo', label: 'Số hợp đồng (tự điền)' },
     { key: 'carrierUnitCode', label: 'Bên vận chuyển', type: 'select', options: D.unitOptions(), readonly: !canParties }, { key: 'customerUnitCode', label: 'Bên thuê', type: 'select', options: D.unitOptions(), readonly: !canParties },
     { key: 'effectiveFrom', label: 'Hiệu lực từ', type: 'date', required: true }, { key: 'effectiveTo', label: 'Hiệu lực đến', type: 'date' },
     { key: 'signPlace', label: 'Nơi lập BKVC', hint: 'vd Quế Sơn Trung' }, { key: 'reportTitle', label: 'Tiêu đề BKVC' },
     { key: 'carrierPrintName', label: 'Tên bên vận chuyển in trên chứng từ', hint: 'trống = "Tên ghi trên chứng từ" của đơn vị' }, { key: 'customerPrintName', label: 'Tên bên thuê in trên chứng từ', hint: 'trống = "Tên ghi trên chứng từ" của đơn vị' },
     { key: 'serviceDesc', label: 'Mẫu diễn giải cước để viết hóa đơn', type: 'textarea', full: true, hint: 'Chỗ trống: {BKS} {DIEM_DI} {DIEM_DEN} {TUYEN} {MA_TUYEN} {TU_NGAY} {DEN_NGAY}. Trống = mẫu chung "Cước vận chuyển dăm gỗ từ {DIEM_DI} đến {DIEM_DEN} bằng xe thùng BKS : {BKS}"' },
+    { key: 'priceCode', label: 'Mã đơn giá áp dụng', type: 'select', full: true, options: codeOpts, hint: 'Chọn mã để hợp đồng dùng dòng giá của mã (tạo mã ở màn "Mã đơn giá"). Không chọn = giá chung / giá riêng hợp đồng như cũ.' },
     { key: 'note', label: 'Ghi chú', full: true }];
+  const priceCodeOptions = async () => { const d = await D.api('pricecodes.list', {}, { quiet: true }).catch(() => ({ items: [] })); return [['', '— Không dùng mã (giá chung / giá riêng như cũ) —'], ...d.items.map((c) => [c.price_code, `${c.price_code} · ${c.price_name} (${c.unit_code})${c.status === 'ACTIVE' ? '' : ' — đã đóng'}`])]; };
   const cVal = (c) => ({ contractCode: c.contract_code, contractNo: c.contract_no, carrierUnitCode: c.carrier_unit_code, customerUnitCode: c.customer_unit_code, effectiveFrom: c.effective_from, effectiveTo: c.effective_to,
-    signPlace: c.sign_place, reportTitle: c.report_title, carrierPrintName: c.carrier_print_name, customerPrintName: c.customer_print_name, serviceDesc: c.service_desc, note: c.note });
+    signPlace: c.sign_place, reportTitle: c.report_title, carrierPrintName: c.carrier_print_name, customerPrintName: c.customer_print_name, serviceDesc: c.service_desc, priceCode: c.price_code || '', note: c.note });
 
   D.views.contracts = {
     async render() {
-      const out = h('div', { class: 'card flush' });
-      const load = async () => { const d = await D.api('contracts.list'); out.innerHTML = ''; out.append(D.table({ rows: d.items, onRow: open, columns: [{ key: 'contract_code', label: 'Mã' }, { key: 'contract_no', label: 'Số HĐ' },
+      const out = h('div', { class: 'card flush' }); let codeOptsNow = await priceCodeOptions(); // nạp sẵn: mở hộp "Thêm hợp đồng" không phải chờ
+      const load = async () => { codeOptsNow = await priceCodeOptions(); const d = await D.api('contracts.list'); out.innerHTML = ''; out.append(D.table({ rows: d.items, onRow: open, columns: [{ key: 'contract_code', label: 'Mã' }, { key: 'contract_no', label: 'Số HĐ' },
         { key: 'carrier_unit_code', label: 'Bên VC' }, { key: 'customer_unit_code', label: 'Bên thuê' }, { key: 'role', label: 'Vai trò bản cài', fmt: 'tag' }, { key: 'effective_from', label: 'Hiệu lực từ', fmt: 'date' },
         { key: 'effective_to', label: 'Đến', fmt: 'date' }, { key: 'vehicles', label: 'Số xe', fmt: 'int' }, { key: 'is_active', label: 'Trạng thái', render: (r) => (r.is_active ? D.tag('ACTIVE') : D.tag('CLOSED', 'Ngừng')) }] })); };
       const open = async (c) => {
         const [signers, veh, use] = await Promise.all([D.api('contracts.resolveSigners', { contractId: c.contract_id }), D.api('contracts.vehicles', { contractId: c.contract_id }), D.api('contracts.usage', { contractId: c.contract_id })]);
-        const w = D.writer();
-        const f = D.form(CF(false, w && use.canEditParties), cVal(c));
+        const w = D.writer(); const codeOpts = await priceCodeOptions();
+        const f = D.form(CF(false, w && use.canEditParties, codeOpts), cVal(c));
         const usageNote = h('p', { class: 'small', style: { margin: '0 0 12px' } }, use.canEditParties
           ? [D.tag('ok', 'Chưa dùng'), ` Hợp đồng chưa có kỳ tính, chưa có dòng dầu — sửa được cả mã hợp đồng, bên vận chuyển, bên thuê; xóa được nếu nhập nhầm.`]
           : [D.tag('info', 'Đã dùng'), ` Hợp đồng đã có ${use.blockers.join(', ')} — sửa được số HĐ, ngày hiệu lực, tên in, người ký, phạm vi xe; KHÔNG đổi mã / hai bên và không xóa. Nhập nhầm thì thêm hợp đồng đúng rồi bấm "Ngừng dùng".`]);
@@ -221,7 +223,7 @@
           const r = await D.api('contracts.setVehicles', { contractId: c.contract_id, vehicles }); D.toast(`Thêm ${r.added} · sửa ${r.updated} · đóng ${r.closed}`, 'ok'); showReminder(r); load(); } },
         { label: 'Lưu hợp đồng', primary: true, run: async () => { const r = await D.api('contracts.save', { record: { contractId: c.contract_id, ...f.values() }, rowVersion: c.row_version }); D.toast('Đã lưu hợp đồng', 'ok'); showReminder(r); await D.refreshBoot(); load(); } }] : [] });
       };
-      const add = () => D.formModal({ title: 'Thêm hợp đồng vận chuyển', fields: CF(true), wide: true, values: { carrierUnitCode: D.state.boot.install.unitCode, effectiveFrom: D.today() },
+      const add = () => D.formModal({ title: 'Thêm hợp đồng vận chuyển', fields: CF(true, true, codeOptsNow), wide: true, values: { carrierUnitCode: D.state.boot.install.unitCode, effectiveFrom: D.today() },
         submit: async (v) => { const r = await D.api('contracts.save', { create: true, record: v }); showReminder(r); await D.refreshBoot(); load(); } });
       const page = D.page('Hợp đồng vận chuyển', 'Hợp đồng 2 bên — bên vận chuyển tự tính', [D.writer() ? h('button', { class: 'btn primary', onclick: add }, 'Thêm hợp đồng') : null],
         h('div', { class: 'card' }, h('p', { class: 'small', style: { margin: '0 0 6px' } }, h('b', {}, 'Bấm vào 1 hợp đồng'), ' để sửa, xóa (hợp đồng nhập nhầm, chưa dùng) hoặc ngừng dùng.'), syncNote()), out);

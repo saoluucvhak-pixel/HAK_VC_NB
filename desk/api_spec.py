@@ -73,8 +73,20 @@ ep('vehicles.delete', 'Danh mục', 'Xóa xe nhập nhầm — chỉ khi chưa d
    [('plateNo', 'string', True, ''), ('reason', 'string', False, '')], '{deleted, warnings}', ['NOT_FOUND', 'VALIDATION_FAILED'], ['XE'], ['XE'], 'DELETE', True)
 
 ep('prices.list', 'Đơn giá', 'Lịch sử phiên bản giá theo tuyến (+ hợp đồng)', ALL,
-   [('routeCode', 'string', False, ''), ('contractId', 'string', False, 'trống = giá chung'), ('status', 'enum(DRAFT|ACTIVE|CLOSED)', False, '')],
+   [('routeCode', 'string', False, ''), ('contractId', 'string', False, 'trống = giá chung'), ('status', 'enum(DRAFT|ACTIVE|CLOSED)', False, ''), ('priceCode', 'string', False, 'chỉ dòng giá của mã này; bỏ trống = giá chung / giá riêng hợp đồng (không gồm dòng thuộc mã)')],
    '{items:[PRICE_HISTORY + contractPrice tính sẵn]}', reads=['PRICE_HISTORY'])
+ep('pricecodes.list', 'Đơn giá', 'Cây cha–con: Đơn vị → Mã đơn giá (kèm số dòng giá, số hợp đồng đang dùng)', ALL,
+   [('unitCode', 'string', False, 'lọc theo đơn vị'), ('includeClosed', 'boolean', False, 'mặc định true')], '{units:[{unitCode, unitName, codes:[MA_DON_GIA + lineCount, activeLines, contracts]}], items, total}', reads=['MA_DON_GIA', 'PRICE_HISTORY', 'HOP_DONG', 'DON_VI'])
+ep('pricecodes.get', 'Đơn giá', 'Chi tiết một mã đơn giá: thông tin (cha) + các dòng giá theo tuyến (con)', ALL,
+   [('priceCode', 'string', True, '')], '{record, lines:[PRICE_HISTORY + routeName, uom, contractPrice]}', ['NOT_FOUND'], ['MA_DON_GIA', 'PRICE_HISTORY', 'TUYEN_VC'])
+ep('pricecodes.save', 'Đơn giá', 'Tạo / sửa mã đơn giá (cha): mã, đơn vị, tên, ghi chú. Sửa phải gửi rowVersion', EDIT,
+   [('record', 'object', True, '{priceCode, unitCode, priceName, note}'), ('create', 'boolean', False, 'true = tạo mã mới'), ('rowVersion', 'integer', False, 'bắt buộc khi sửa'), ('reason', 'string', False, '')], '{record}',
+   ['VALIDATION_FAILED', 'DUPLICATE', 'CONFLICT_VERSION'], ['MA_DON_GIA', 'DON_VI'], ['MA_DON_GIA'], 'PRICE_CODE_CREATE/UPDATE', True)
+ep('pricecodes.setActive', 'Đơn giá', 'Đóng / mở lại mã đơn giá (đóng: không thêm dòng, không gán hợp đồng mới; hợp đồng đang dùng vẫn tính)', EDIT,
+   [('priceCode', 'string', True, ''), ('active', 'boolean', True, ''), ROWV, ('reason', 'string', False, '')], '{record}', ['NOT_FOUND', 'CONFLICT_VERSION'], ['MA_DON_GIA'], ['MA_DON_GIA'], 'PRICE_CODE_OPEN/CLOSE', True)
+ep('pricecodes.addLine', 'Đơn giá', 'Thêm dòng giá (con) vào mã: nhập tuyến + đơn giá cố định + hiệu lực, hoặc chọn một đơn giá có sẵn (fromPriceId) để sao chép; dòng mới NHÁP → prices.activate', EDIT,
+   [('priceCode', 'string', True, ''), ('record', 'object', False, '{routeCode, effectiveFrom, fixedPrice?, priceMethod?, …}'), ('fromPriceId', 'string', False, 'sao chép từ một phiên bản giá có sẵn')], '{record, contractPrice}',
+   ['VALIDATION_FAILED', 'BUSINESS_RULE:E_PRICE_DATE_OVERLAP', 'NOT_FOUND'], ['MA_DON_GIA', 'PRICE_HISTORY', 'TUYEN_VC'], ['PRICE_HISTORY'], 'PRICE_CREATE', True)
 ep('prices.preview', 'Đơn giá', 'Tính Tầng A (ĐG 1 chuyến → ĐG_HĐ) cho 1 bộ tham số, không lưu — dùng khi nhập giá mới', ALL,
    [('record', 'object', True, 'tham số giá + tuyến')], '{tripPrice, fuelPerTrip, fuelCostPerTrip, fuelCostRatio, priceNoDiesel, contractPrice, trace}',
    ['VALIDATION_FAILED'], ['TUYEN_VC', 'CONFIG'])

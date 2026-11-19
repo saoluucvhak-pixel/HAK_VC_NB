@@ -309,3 +309,10 @@ Sau khi lưu trữ:
 
 ### Khôi phục từ file tự chọn và Sao lưu JSON (từ bản 1.3.4, chỉ ADMIN)
 **Cài đặt → Dữ liệu & sao lưu**: **Khôi phục từ file…** — chọn file sao lưu `.zip` (ở USB / ổ khác) hoặc file `manifest.json` trong một thư mục dữ liệu JSON; app hiển thị đơn vị và phiên bản dữ liệu, hỏi lý do rồi khôi phục (tự sao lưu an toàn trước). Bản sao lưu của **máy khác cùng đơn vị** (khi thay máy) được phép sau khi xác nhận; khác đơn vị thì không. **Sao lưu JSON ra thư mục…** — xuất bản chụp (`manifest.json`, `tables/`, `snapshot-info.json`) ra thư mục trống để lưu lâu dài; muốn quay lại thì dùng **Khôi phục từ file…** chọn `manifest.json` đó.
+
+### Mã đơn giá và đơn giá cố định theo đơn vị (từ bản 1.5.0)
+Menu **Mã đơn giá** (sau "Đơn giá"), tổ chức cha–con: **Đơn vị → Mã đơn giá → Dòng giá theo tuyến**.
+1. **Tạo mã:** ở đơn vị cần dùng bấm **+ Tạo mã** (mã dạng `DG-DH-2026`, tên, ghi chú).
+2. **Thêm dòng giá:** **Thêm dòng giá cố định** (tuyến + đơn giá đ/tấn chưa VAT + hiệu lực từ ngày) hoặc **Chọn đơn giá có sẵn…** (sao chép các đơn giá đang dùng vào mã). Dòng mới ở trạng thái **Nháp** → bấm **Áp dụng** (dòng cũ cùng mã và cùng tuyến tự đóng như phiên bản giá thường).
+3. **Áp dụng cho hợp đồng:** nút **Gán cho hợp đồng…** hoặc ô **Mã đơn giá áp dụng** trong màn Hợp đồng. Từ đó các kỳ tính của hợp đồng dùng dòng giá của mã (theo tuyến và ngày hiệu lực).
+**Quy trình cũ giữ nguyên:** hợp đồng không chọn mã vẫn dùng giá chung / giá riêng hợp đồng như trước; tuyến mà mã chưa có dòng giá cũng quay về giá cũ. Màn **Đơn giá** và **Căn cứ giá hợp đồng** không đổi. Tuyến dùng đơn giá cố định không nhận dầu (như trước).

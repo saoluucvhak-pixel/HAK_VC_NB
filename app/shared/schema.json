@@ -321,6 +321,7 @@
     [
      "route_code",
      "contract_id",
+     "price_code",
      "effective_from"
     ]
    ],
@@ -333,6 +334,10 @@
     "contract_id": [
      "HOP_DONG",
      "contract_id"
+    ],
+    "price_code": [
+     "MA_DON_GIA",
+     "price_code"
     ]
    },
    "partition": null,
@@ -439,6 +444,82 @@
      "required": false
     },
     {
+     "name": "price_code",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
+  "MA_DON_GIA": {
+   "group": "Danh mục",
+   "description": "Mã đơn giá (CHA): nhóm các dòng đơn giá (CON = PRICE_HISTORY.price_code) theo đơn vị; gán cho hợp đồng qua HOP_DONG.price_code",
+   "pk": "price_code",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {
+    "unit_code": [
+     "DON_VI",
+     "unit_code"
+    ]
+   },
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "price_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "unit_code",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "price_name",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "status",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "ACTIVE",
+      "CLOSED"
+     ]
+    },
+    {
+     "name": "note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
      "name": "created_at",
      "type": "DATETIME",
      "required": true
@@ -483,6 +564,10 @@
     "carrier_unit_code": [
      "DON_VI",
      "unit_code"
+    ],
+    "price_code": [
+     "MA_DON_GIA",
+     "price_code"
     ]
    },
    "partition": null,
@@ -565,6 +650,11 @@
     },
     {
      "name": "note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "price_code",
      "type": "TEXT",
      "required": false
     },

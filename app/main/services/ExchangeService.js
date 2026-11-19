@@ -26,7 +26,7 @@ const sameContent = (a, b) => canon(content(a)) === canon(content(b));
 const vnNum = (n) => Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 const stampOf = (r) => r.updated_at || r.created_at || '';
 const CORE_TICKET = ['ticket_no', 'weigh1_date', 'weigh1_time', 'weigh2_date', 'weigh2_time', 'plate_no', 'weight1_kg', 'weight2_kg', 'net_kg', 'route_code', 'owner_unit_code'];
-const CATALOG_ORDER = ['DON_VI', 'XE', 'TUYEN_VC', 'HOP_DONG', 'HOP_DONG_XE', 'PRICE_HISTORY'];
+const CATALOG_ORDER = ['DON_VI', 'XE', 'TUYEN_VC', 'MA_DON_GIA', 'HOP_DONG', 'HOP_DONG_XE', 'PRICE_HISTORY'];
 const DATA_ORDER = ['PHIEU_CAN', 'GIAO_NHAN_DAU', 'KY_TINH', 'TRANSPORT_CALCULATION', 'TRANSPORT_DETAIL', 'FUEL_DETAIL', 'BKVC_LINE'];
 const TYPE_TEXT = { DANH_MUC: 'Danh mục', PHIEU_CAN: 'Phiếu cân', KY_TINH: 'Kỳ tính' };
 
@@ -43,7 +43,7 @@ class ExchangeService {
     if (packageType === 'DANH_MUC') {
       const party = (c) => !targetUnitCode || c.carrier_unit_code === targetUnitCode || c.customer_unit_code === targetUnitCode;
       const cons = s.all('HOP_DONG').filter(party); const cids = new Set(cons.map((c) => c.contract_id));
-      Object.assign(tables, { DON_VI: s.all('DON_VI'), XE: s.all('XE'), TUYEN_VC: s.all('TUYEN_VC'), HOP_DONG: cons,
+      Object.assign(tables, { DON_VI: s.all('DON_VI'), XE: s.all('XE'), TUYEN_VC: s.all('TUYEN_VC'), MA_DON_GIA: s.all('MA_DON_GIA'), HOP_DONG: cons,
         HOP_DONG_XE: s.all('HOP_DONG_XE').filter((v) => cids.has(v.contract_id)),
         PRICE_HISTORY: s.all('PRICE_HISTORY').filter((p) => p.status !== 'DRAFT' && (!p.contract_id || cids.has(p.contract_id))) });
       reminderIds = targetUnitCode ? s.find('SYNC_REMINDER', (r) => r.status === 'OPEN' && JSON.parse(r.targets_json).includes(targetUnitCode)).map((r) => r.reminder_id) : [];

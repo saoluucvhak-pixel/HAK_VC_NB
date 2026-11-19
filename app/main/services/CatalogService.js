@@ -21,7 +21,7 @@ const { remindTx } = require('./SyncReminderService');
 const ROUTE_FIELDS = ['route_code', 'route_name', 'distance_km', 'trip_distance_km', 'from_place', 'to_place', 'uom', 'catalog_unit_code', 'note'];
 const ROUTE_CALC_FIELDS = ['distance_km', 'trip_distance_km', 'uom'];
 const PRICE_FIELDS = ['route_code', 'contract_id', 'effective_from', 'base_price_excl_vat', 'base_price_source', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fuel_norm_l_per_km',
-  'avg_load_ton', 'avg_volume_m3', 'source_note', 'price_method', 'fixed_price'];
+  'avg_load_ton', 'avg_volume_m3', 'source_note', 'price_method', 'fixed_price', 'price_code'];
 const snake = (k) => k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
 const toSnake = (o = {}) => Object.fromEntries(Object.entries(o).map(([k, v]) => [snake(k), v]));
 const canUnlock = (u) => u && (u.role === 'ADMIN' || u.canUnlock);
@@ -135,15 +135,16 @@ class CatalogService {
   }
 
   // ─────────────────────────── GIÁ ───────────────────────────
-  _activePrice(routeCode, contractId, date) {
+  _activePrice(routeCode, contractId, date, priceCode = '') {
     const d = date || new Date().toISOString().slice(0, 10);
-    return this.store.find('PRICE_HISTORY', (p) => p.route_code === routeCode && (p.contract_id || '') === (contractId || '') && p.status !== 'DRAFT'
+    return this.store.find('PRICE_HISTORY', (p) => p.route_code === routeCode && (p.price_code || '') === (priceCode || '') && (p.contract_id || '') === (contractId || '') && p.status !== 'DRAFT'
       && p.effective_from <= d && (!p.effective_to || p.effective_to >= d)).sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0] || null;
   }
 
-  listPrices({ routeCode = '', contractId, status = '' } = {}) {
+  listPrices({ routeCode = '', contractId, status = '', priceCode = '' } = {}) {
     const cfg = this._cfg();
-    const items = this.store.find('PRICE_HISTORY', (p) => (!routeCode || p.route_code === routeCode) && (contractId === undefined || (p.contract_id || '') === contractId) && (!status || p.status === status))
+    // dòng giá thuộc MÃ ĐƠN GIÁ chỉ hiện khi hỏi đúng mã đó — danh sách giá chung / giá riêng hợp đồng giữ nguyên như cũ
+    const items = this.store.find('PRICE_HISTORY', (p) => (p.price_code || '') === (priceCode || '') && (!routeCode || p.route_code === routeCode) && (contractId === undefined || (p.contract_id || '') === contractId) && (!status || p.status === status))
       .sort((a, b) => a.route_code.localeCompare(b.route_code, 'vi', { numeric: true }) || (a.contract_id || '').localeCompare(b.contract_id || '') || a.version_no - b.version_no)
       .map((p) => { const r = this.store.get('TUYEN_VC', p.route_code); return { ...p, contractPrice: r ? E.computeContractPrice(r, p, cfg).contractPrice : null }; });
     return { items, total: items.length };
@@ -155,6 +156,11 @@ class CatalogService {
     if (!route) bad.push(`Tuyến ${p.route_code} không có trong danh mục`);
     else if (!route.is_active) bad.push(`Tuyến ${p.route_code} đang ngừng dùng`);
     if (p.contract_id && !this.store.get('HOP_DONG', p.contract_id)) bad.push(`Hợp đồng ${p.contract_id} không có`);
+    if (p.price_code) {
+      const pc = this.store.get('MA_DON_GIA', p.price_code);
+      if (!pc) bad.push(`Mã đơn giá ${p.price_code} không có`); else if (pc.status !== 'ACTIVE') bad.push(`Mã đơn giá ${p.price_code} đã đóng — không thêm dòng giá`);
+      if (p.contract_id) bad.push('Dòng giá thuộc mã đơn giá không gắn riêng một hợp đồng (hợp đồng chọn mã đơn giá ở màn Hợp đồng)');
+    }
     if (!isDate(p.effective_from)) bad.push('Ngày hiệu lực phải dạng yyyy-MM-dd');
     if (p.price_method === 'CO_DINH') {
       // đơn giá cố định (bản 1.2.3): chỉ cần đơn giá đ/tấn; không dùng định mức, giá dầu, KL_TB
@@ -181,6 +187,7 @@ class CatalogService {
     } else if (p.price_method === 'THEO_DAU') p.fixed_price = '';
     if (typeof p.route_code === 'string') p.route_code = p.route_code.trim().toUpperCase();
     p.contract_id = p.contract_id || '';
+    if ('price_code' in p) p.price_code = String(p.price_code || '').trim().toUpperCase();
     return p;
   }
 
@@ -189,21 +196,21 @@ class CatalogService {
     const p = this._normPrice(record); const route = this.store.get('TUYEN_VC', p.route_code);
     this._validatePrice({ effective_from: '2000-01-01', ...p }, route, { forSave: false });
     const a = E.computeContractPrice(route, p, this._cfg());
-    const cur = this._activePrice(p.route_code, p.contract_id, p.effective_from);
+    const cur = this._activePrice(p.route_code, p.contract_id, p.effective_from, p.price_code);
     return { ...a, current: cur ? { priceId: cur.price_id, contractPrice: E.computeContractPrice(route, cur, this._cfg()).contractPrice } : null };
   }
 
   async createPriceVersion({ record, user }) {
     const p = this._normPrice(record); const route = this.store.get('TUYEN_VC', p.route_code);
     this._validatePrice(p, route);
-    const same = this.store.find('PRICE_HISTORY', (x) => x.route_code === p.route_code && (x.contract_id || '') === p.contract_id);
+    const same = this.store.find('PRICE_HISTORY', (x) => x.route_code === p.route_code && (x.contract_id || '') === p.contract_id && (x.price_code || '') === (p.price_code || ''));
     const lastActive = same.filter((x) => x.status !== 'DRAFT').sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0];
     if (lastActive && p.effective_from <= lastActive.effective_from) {
       throw businessError('E_PRICE_DATE_OVERLAP', `Ngày hiệu lực ${p.effective_from} phải sau phiên bản đang dùng ${lastActive.price_id} (từ ${lastActive.effective_from})`);
     }
     const version = same.reduce((m, x) => Math.max(m, x.version_no), 0) + 1;
     const rec = { base_price_excl_vat: '', base_price_source: '', price_per_km: '', avg_volume_m3: '', source_note: '', price_method: 'THEO_DAU', fixed_price: '', ...p,
-      price_id: `PR-${p.route_code}${p.contract_id ? `-${p.contract_id}` : ''}-v${version}`, version_no: version, effective_to: '', status: 'DRAFT', is_used: false };
+      price_id: `PR-${p.route_code}${p.contract_id ? `-${p.contract_id}` : ''}${p.price_code ? `-${p.price_code}` : ''}-v${version}`, version_no: version, effective_to: '', status: 'DRAFT', is_used: false };
     const out = await this.store.transaction((tx) => {
       const r = tx.insert('PRICE_HISTORY', rec);
       tx.audit('PRICE_CREATE', 'PRICE_HISTORY', r.price_id, null, r);
@@ -216,7 +223,7 @@ class CatalogService {
     const old = this.store.get('PRICE_HISTORY', priceId);
     if (!old) throw new AppError('NOT_FOUND', `Không có phiên bản giá ${priceId}`);
     if (old.status !== 'DRAFT' || old.is_used) throw businessError('E_PRICE_USED', `Phiên bản ${priceId} đã kích hoạt/đã dùng — không sửa, hãy tạo phiên bản mới`);
-    const p = this._normPrice(record); delete p.route_code; delete p.contract_id;
+    const p = this._normPrice(record); delete p.route_code; delete p.contract_id; delete p.price_code;
     const next = { ...old, ...p }; const route = this.store.get('TUYEN_VC', old.route_code);
     this._validatePrice(next, route);
     const out = await this.store.transaction((tx) => {
@@ -231,7 +238,7 @@ class CatalogService {
     const d = this.store.get('PRICE_HISTORY', priceId);
     if (!d) throw new AppError('NOT_FOUND', `Không có phiên bản giá ${priceId}`);
     if (d.status !== 'DRAFT') throw businessError('E_PRICE_USED', `Phiên bản ${priceId} không ở trạng thái nháp`);
-    const prev = this.store.find('PRICE_HISTORY', (x) => x.price_id !== priceId && x.route_code === d.route_code && (x.contract_id || '') === (d.contract_id || '') && x.status !== 'DRAFT'
+    const prev = this.store.find('PRICE_HISTORY', (x) => x.price_id !== priceId && x.route_code === d.route_code && (x.contract_id || '') === (d.contract_id || '') && (x.price_code || '') === (d.price_code || '') && x.status !== 'DRAFT'
       && (!x.effective_to || x.effective_to >= d.effective_from));
     for (const x of prev) {
       if (x.effective_from >= d.effective_from) throw businessError('E_PRICE_DATE_OVERLAP', `Phiên bản ${x.price_id} bắt đầu ${x.effective_from} — không sớm hơn ${d.effective_from}`);
@@ -254,6 +261,94 @@ class CatalogService {
         summary: `Áp dụng giá mới ${priceId} cho tuyến ${d.route_code}${d.contract_id ? ` (HĐ ${d.contract_id})` : ''} từ ${d.effective_from}: ${d.price_method === 'CO_DINH' ? `ĐƠN GIÁ CỐ ĐỊNH ${d.fixed_price} đ/tấn` : `đơn giá mới ${d.new_price}, dầu ${d.fuel_price_excl_vat}, ĐM ${d.fuel_norm_l_per_km}, KL_TB ${d.avg_load_ton}`}` });
       return { activated: after, closed, affectedPeriods: drafts, warnings: w ? [w] : [] };
     }, { user: user.username });
+  }
+
+  // ─────────────────────── MÃ ĐƠN GIÁ (cha) → DÒNG GIÁ (con) ───────────────────────
+  // Cha: Đơn vị (DON_VI) → Mã đơn giá (MA_DON_GIA). Con: dòng giá = PRICE_HISTORY có price_code (tuyến + đơn giá, hiệu lực). Hợp đồng chọn mã ở HOP_DONG.price_code.
+  // Hợp đồng không chọn mã → giá chung / giá riêng hợp đồng chạy NGUYÊN NHƯ CŨ (xem engine/period.js selectPriceVersion).
+
+  _codeView(c) {
+    const lines = this.store.find('PRICE_HISTORY', (p) => p.price_code === c.price_code);
+    const unit = this.store.get('DON_VI', c.unit_code);
+    const contracts = this.store.find('HOP_DONG', (h) => h.price_code === c.price_code);
+    return { ...c, unitName: unit ? unit.unit_name : c.unit_code, lineCount: lines.length, activeLines: lines.filter((p) => p.status === 'ACTIVE').length, draftLines: lines.filter((p) => p.status === 'DRAFT').length,
+      contracts: contracts.map((h) => ({ contractId: h.contract_id, contractCode: h.contract_code })), used: lines.some((p) => p.is_used) };
+  }
+
+  /** Cây cha–con: đơn vị → các mã đơn giá. Đơn vị không có mã vẫn hiện (để tạo mã đầu tiên). */
+  listPriceCodes({ unitCode = '', includeClosed = true } = {}) {
+    const codes = this.store.all('MA_DON_GIA').filter((c) => (!unitCode || c.unit_code === unitCode) && (includeClosed || c.status === 'ACTIVE')).map((c) => this._codeView(c))
+      .sort((a, b) => a.price_code.localeCompare(b.price_code, 'vi', { numeric: true }));
+    const units = this.store.all('DON_VI').filter((u) => !unitCode || u.unit_code === unitCode).sort((a, b) => (a.sign_priority - b.sign_priority) || a.unit_code.localeCompare(b.unit_code))
+      .map((u) => ({ unitCode: u.unit_code, unitName: u.unit_name, codes: codes.filter((c) => c.unit_code === u.unit_code) }));
+    return { units, items: codes, total: codes.length };
+  }
+
+  getPriceCode({ priceCode }) {
+    const c = this.store.get('MA_DON_GIA', priceCode); if (!c) throw new AppError('NOT_FOUND', `Không có mã đơn giá ${priceCode}`);
+    const cfg = this._cfg();
+    const lines = this.store.find('PRICE_HISTORY', (p) => p.price_code === priceCode)
+      .sort((a, b) => a.route_code.localeCompare(b.route_code, 'vi', { numeric: true }) || a.version_no - b.version_no)
+      .map((p) => { const r = this.store.get('TUYEN_VC', p.route_code); return { ...p, routeName: r ? r.route_name : '', uom: r ? r.uom : '', contractPrice: r && p.price_method !== 'CO_DINH' ? E.computeContractPrice(r, p, cfg).contractPrice : null }; });
+    return { record: this._codeView(c), lines };
+  }
+
+  async savePriceCode({ record = {}, rowVersion, create = false, reason = '', user }) {
+    const r = toSnake(record); const code = String(r.price_code || '').trim().toUpperCase();
+    const bad = [];
+    if (!/^[A-Z0-9][A-Z0-9._-]{1,23}$/.test(code)) bad.push('Mã đơn giá 2–24 ký tự: chữ HOA, số, . _ - (vd DG-DH-2026)');
+    const name = String(r.price_name || '').trim(); if (!name) bad.push('Thiếu tên mã đơn giá');
+    const unitCode = String(r.unit_code || '').trim().toUpperCase();
+    if (!this.store.get('DON_VI', unitCode)) bad.push(`Đơn vị ${unitCode || '(chưa chọn)'} không có trong danh mục`);
+    if (bad.length) throw new AppError('VALIDATION_FAILED', bad.join('; '), { errors: bad });
+    const note = String(r.note || '').trim();
+    if (create) {
+      if (this.store.get('MA_DON_GIA', code)) throw new AppError('DUPLICATE', `Mã đơn giá ${code} đã có — chọn mã khác hoặc mở mã đó để sửa`);
+      return this.store.transaction((tx) => {
+        const rec = tx.insert('MA_DON_GIA', { price_code: code, unit_code: unitCode, price_name: name, status: 'ACTIVE', note });
+        tx.audit('PRICE_CODE_CREATE', 'MA_DON_GIA', code, null, rec);
+        const w = remindTx(tx, this.store, { entity: 'MA_DON_GIA', entityId: code, action: 'CREATE', summary: `Tạo mã đơn giá ${code} (${name}) cho đơn vị ${unitCode}` });
+        return { record: this._codeView(rec), warnings: w ? [w] : [] };
+      }, { user: user.username });
+    }
+    const old = this.store.get('MA_DON_GIA', code); if (!old) throw new AppError('NOT_FOUND', `Không có mã đơn giá ${code}`);
+    if (rowVersion === undefined) throw new AppError('VALIDATION_FAILED', 'Sửa mã đơn giá phải gửi rowVersion');
+    if (old.unit_code !== unitCode) {
+      const used = this.store.find('PRICE_HISTORY', (p) => p.price_code === code).length + this.store.find('HOP_DONG', (h) => h.price_code === code).length;
+      if (used) throw new AppError('VALIDATION_FAILED', 'Mã đã có dòng giá hoặc đã gán cho hợp đồng — không đổi đơn vị (tạo mã mới cho đơn vị khác)');
+    }
+    return this.store.transaction((tx) => {
+      const { before, after } = tx.update('MA_DON_GIA', code, { unit_code: unitCode, price_name: name, note }, { expectedRowVersion: rowVersion });
+      tx.audit('PRICE_CODE_UPDATE', 'MA_DON_GIA', code, before, after, { reason });
+      return { record: this._codeView(after), warnings: [] };
+    }, { user: user.username });
+  }
+
+  /** Đóng / mở lại mã đơn giá. Đóng: không thêm dòng giá, không gán cho hợp đồng mới; hợp đồng đang dùng mã vẫn tính bình thường (lịch sử). */
+  async setPriceCodeActive({ priceCode, active, rowVersion, reason = '', user }) {
+    const c = this.store.get('MA_DON_GIA', priceCode); if (!c) throw new AppError('NOT_FOUND', `Không có mã đơn giá ${priceCode}`);
+    return this.store.transaction((tx) => {
+      const { before, after } = tx.update('MA_DON_GIA', priceCode, { status: active ? 'ACTIVE' : 'CLOSED' }, { expectedRowVersion: rowVersion });
+      tx.audit(active ? 'PRICE_CODE_OPEN' : 'PRICE_CODE_CLOSE', 'MA_DON_GIA', priceCode, before, after, { reason });
+      return { record: this._codeView(after) };
+    }, { user: user.username });
+  }
+
+  /**
+   * Thêm DÒNG GIÁ vào mã (con): nhập trực tiếp {routeCode, fixedPrice, effectiveFrom…} hoặc CHỌN MỘT ĐƠN GIÁ CÓ SẴN (fromPriceId) để sao chép vào mã.
+   * Mặc định đơn giá CỐ ĐỊNH (đ/tấn, không tính dầu). Dòng mới ở trạng thái NHÁP → "Áp dụng" bằng activatePrice như mọi phiên bản giá.
+   */
+  async addCodeLine({ priceCode, record = {}, fromPriceId = '', user }) {
+    const c = this.store.get('MA_DON_GIA', priceCode); if (!c) throw new AppError('NOT_FOUND', `Không có mã đơn giá ${priceCode}`);
+    let base = {};
+    if (fromPriceId) {
+      const src = this.store.get('PRICE_HISTORY', fromPriceId); if (!src) throw new AppError('NOT_FOUND', `Không có đơn giá ${fromPriceId}`);
+      for (const k of PRICE_FIELDS) if (k !== 'price_code' && k !== 'contract_id' && k !== 'effective_from') base[k] = src[k];
+      base.source_note = base.source_note || `Sao chép từ ${fromPriceId}`;
+    }
+    const rec = { price_method: 'CO_DINH', ...base, ...toSnake(record), price_code: priceCode, contract_id: '' };
+    if (!rec.effective_from) throw new AppError('VALIDATION_FAILED', 'Nhập ngày hiệu lực');
+    return this.createPriceVersion({ record: rec, user });
   }
 }
 

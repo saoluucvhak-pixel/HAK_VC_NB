@@ -33,20 +33,24 @@ function sqliteAvailable() { try { Db(); return true; } catch { return false; } 
 const q = (id) => `"${id}"`;
 const SQL_TYPE = { TEXT: 'TEXT', ENUM: 'TEXT', DATE: 'TEXT', TIME: 'TEXT', DATETIME: 'TEXT', JSON: 'TEXT', INT: 'INTEGER', NUM: 'REAL', BOOL: 'INTEGER' };
 
-/** DDL sinh từ shared/schema.json bằng MỘT hàm (không có tệp .sql viết tay để khỏi lệch). */
-function buildDdl() {
+/** Định nghĩa một cột (dùng cho CREATE TABLE và ALTER TABLE ADD COLUMN) — sinh từ shared/schema.json. */
+function columnDdl(c) {
+  let chk = '';
+  const n = q(c.name);
+  if (c.type === 'INT') chk = ` CHECK (${n} IS NULL OR ${n} = '' OR typeof(${n}) = 'integer')`;
+  else if (c.type === 'NUM') chk = ` CHECK (${n} IS NULL OR ${n} = '' OR typeof(${n}) IN ('real','integer'))`;
+  else if (c.type === 'BOOL') chk = ` CHECK (${n} IS NULL OR ${n} = '' OR ${n} IN (0,1))`;
+  else if (c.type === 'ENUM') chk = ` CHECK (${n} IS NULL OR ${n} = '' OR ${n} IN (${c.enum.map((v) => `'${v.replace(/'/g, "''")}'`).join(',')}))`;
+  return `${n} ${SQL_TYPE[c.type]}${chk}`;
+}
+function tableDdl(name) {
+  const def = SCHEMA.tables[name];
+  return `CREATE TABLE ${q(name)} (\n${def.columns.map((c) => `  ${columnDdl(c)}`).join(',\n')},\n  PRIMARY KEY (${q(def.pk)})\n)`;
+}
+/** Mọi chỉ mục (duy nhất, duy nhất một phần, truy vấn) — tách riêng để đồng bộ lại khi đổi định nghĩa. */
+function indexDdl() {
   const out = [];
   for (const [name, def] of Object.entries(SCHEMA.tables)) {
-    const cols = def.columns.map((c) => {
-      let chk = '';
-      const n = q(c.name);
-      if (c.type === 'INT') chk = ` CHECK (${n} IS NULL OR ${n} = '' OR typeof(${n}) = 'integer')`;
-      else if (c.type === 'NUM') chk = ` CHECK (${n} IS NULL OR ${n} = '' OR typeof(${n}) IN ('real','integer'))`;
-      else if (c.type === 'BOOL') chk = ` CHECK (${n} IS NULL OR ${n} = '' OR ${n} IN (0,1))`;
-      else if (c.type === 'ENUM') chk = ` CHECK (${n} IS NULL OR ${n} = '' OR ${n} IN (${c.enum.map((v) => `'${v.replace(/'/g, "''")}'`).join(',')}))`;
-      return `  ${n} ${SQL_TYPE[c.type]}${chk}`;
-    });
-    out.push(`CREATE TABLE ${q(name)} (\n${cols.join(',\n')},\n  PRIMARY KEY (${q(def.pk)})\n)`);
     def.unique.forEach((cs, i) => out.push(`CREATE UNIQUE INDEX ${q(`ux_${name}_${i}`)} ON ${q(name)} (${cs.map(q).join(', ')})`));
     def.partialUnique.forEach((pu, i) => {
       const cs = pu.split(' WHERE ')[0].split('+');
@@ -59,14 +63,46 @@ function buildDdl() {
     TRANSPORT_DETAIL: [['period_id', 'is_current'], ['ticket_id', 'is_current']], FUEL_DETAIL: [['period_id', 'is_current'], ['receipt_id', 'is_current']],
     TRANSPORT_CALCULATION: [['period_id', 'is_current']], BKVC_LINE: [['period_id', 'is_current']], KY_TINH: [['contract_id', 'status']],
     HOP_DONG_XE: [['contract_id', 'plate_no']], AUDIT_LOG: [['entity', 'entity_id'], ['ts']], IMPORT_BATCH: [['file_sha256', 'import_type', 'status']],
+    PRICE_HISTORY: [['price_code']],
   };
   for (const [t, list] of Object.entries(idx)) {
     const have = new Set(SCHEMA.tables[t].columns.map((c) => c.name));
     list.forEach((cs, i) => { if (cs.every((c) => have.has(c))) out.push(`CREATE INDEX ${q(`ix_${t}_${i}`)} ON ${q(t)} (${cs.map(q).join(', ')})`); });
   }
-  out.push('CREATE TABLE "_meta" ("key" TEXT PRIMARY KEY, "value" TEXT NOT NULL)');
-  out.push(REQUEST_DDL);
   return out;
+}
+/** DDL sinh từ shared/schema.json bằng MỘT hàm (không có tệp .sql viết tay để khỏi lệch). */
+function buildDdl() {
+  return [...Object.keys(SCHEMA.tables).map(tableDdl), ...indexDdl(), 'CREATE TABLE "_meta" ("key" TEXT PRIMARY KEY, "value" TEXT NOT NULL)', REQUEST_DDL];
+}
+
+/**
+ * Đồng bộ cấu trúc kho SQLITE ĐÃ CÓ với shared/schema.json (chỉ THÊM, không bao giờ xóa / đổi kiểu): bảng mới → tạo; cột mới → ALTER TABLE ADD COLUMN;
+ * chỉ mục đổi định nghĩa → dựng lại (nhận biết bằng chữ ký lưu ở _meta). Một giao dịch; lỗi → ROLLBACK, kho nguyên trạng.
+ * Trả danh sách thay đổi ([] nếu đã khớp).
+ */
+function syncSchema(db) {
+  const changes = [];
+  db.exec('BEGIN');
+  try {
+    const have = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((r) => r.name));
+    for (const [name, def] of Object.entries(SCHEMA.tables)) {
+      if (!have.has(name)) { db.exec(tableDdl(name)); changes.push(`+bảng ${name}`); continue; }
+      // cột mới: dòng cũ đọc ra '' (đúng quy ước kho JSON: cột thiếu = '') nhờ DEFAULT ''
+      const cols = new Set(db.prepare(`PRAGMA table_info(${q(name)})`).all().map((r) => r.name));
+      for (const c of def.columns) if (!cols.has(c.name)) { db.exec(`ALTER TABLE ${q(name)} ADD COLUMN ${columnDdl(c)} DEFAULT ''`); changes.push(`+cột ${name}.${c.name}`); }
+    }
+    const stmts = indexDdl(); const sig = crypto.createHash('sha256').update(stmts.join('\n')).digest('hex');
+    const row = db.prepare('SELECT "value" FROM "_meta" WHERE "key"=?').get('index_sig');
+    if (!row || row.value !== sig) {
+      for (const r of db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND (name LIKE 'ux\\_%' ESCAPE '\\' OR name LIKE 'ix\\_%' ESCAPE '\\')").all()) db.exec(`DROP INDEX ${q(r.name)}`);
+      for (const st of stmts) db.exec(st);
+      db.prepare('INSERT OR REPLACE INTO "_meta" ("key","value") VALUES (?,?)').run('index_sig', sig);
+      if (row) changes.push('~chỉ mục'); // lần đầu chưa có chữ ký: chỉ ghi nhận, không tính là thay đổi cấu trúc
+    }
+    db.exec('COMMIT');
+  } catch (e) { try { db.exec('ROLLBACK'); } catch { /* không có giao dịch */ } throw new AppError('STORAGE_ERROR', `Không cập nhật được cấu trúc kho SQLite: ${e.message}`); }
+  return changes;
 }
 
 /** Bảng chống bấm hai lần bền vững (Q5): (nhóm, clientRequestId) → kết quả đã trả. Không thuộc schema dữ liệu nên không vào gói .dgvc. */
@@ -120,6 +156,7 @@ class SqliteStore extends JsonStore {
       }
       const { files, ...persist } = manifest; void files;
       db.prepare('INSERT INTO "_meta" ("key","value") VALUES (?,?)').run('manifest', JSON.stringify({ ...persist, storage: 'sqlite' }));
+      db.prepare('INSERT OR REPLACE INTO "_meta" ("key","value") VALUES (?,?)').run('index_sig', crypto.createHash('sha256').update(indexDdl().join('\n')).digest('hex'));
       db.exec(`PRAGMA user_version=${STORAGE_USER_VERSION}`); db.exec('COMMIT');
     } catch (e) { try { db.exec('ROLLBACK'); } catch { /* chưa mở */ } throw new AppError('STORAGE_ERROR', `Không dựng được kho SQLite: ${e.message}`); } finally { try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch { /* bỏ qua */ } db.close(); }
     return dbPath;
@@ -138,6 +175,7 @@ class SqliteStore extends JsonStore {
       const manifest = { app: 'DGVC', schemaVersion: SCHEMA.schemaVersion, installId: installId || `INS-${crypto.randomBytes(5).toString('hex').toUpperCase()}`,
         installCode, unitCode, createdAt: nowIso(), appVersion, dataVersion: 0, lastBackupAt: null, sequences: {}, storage: 'sqlite' };
       db.prepare('INSERT INTO "_meta" ("key","value") VALUES (?,?)').run('manifest', JSON.stringify(manifest));
+      db.prepare('INSERT OR REPLACE INTO "_meta" ("key","value") VALUES (?,?)').run('index_sig', crypto.createHash('sha256').update(indexDdl().join('\n')).digest('hex'));
       db.exec(`PRAGMA user_version=${STORAGE_USER_VERSION}`);
       db.exec('COMMIT');
     } catch (e) { try { db.exec('ROLLBACK'); } catch { /* chưa mở giao dịch */ } throw new AppError('STORAGE_ERROR', `Không tạo được kho SQLite: ${e.message}`); } finally { db.close(); }
@@ -155,6 +193,7 @@ class SqliteStore extends JsonStore {
       db.exec(REQUEST_DDL);
       const uv = db.prepare('PRAGMA user_version').get().user_version;
       if (uv > STORAGE_USER_VERSION) throw new AppError('INTEGRITY_ERROR', `Kho SQLite cấu trúc v${uv}, APP chỉ hỗ trợ đến v${STORAGE_USER_VERSION} — hãy cập nhật APP`);
+      this.schemaChanges = syncSchema(db); // kho tạo bằng bản app cũ: thêm bảng / cột / chỉ mục mới của bản này
       const chk = db.prepare('PRAGMA quick_check').all();
       if (chk.length !== 1 || chk[0].quick_check !== 'ok') throw new AppError('INTEGRITY_ERROR', 'Kho SQLite hỏng (quick_check) — đề nghị khôi phục bản sao lưu', { files: chk });
       const mrow = db.prepare('SELECT "value" FROM "_meta" WHERE "key"=?').get('manifest');
@@ -217,4 +256,4 @@ class SqliteStore extends JsonStore {
   stats() { return { files: 1, rows: Object.fromEntries(Object.keys(this.data).map((t) => [t, this.data[t].length])) }; }
 }
 
-module.exports = { SqliteStore, buildDdl, sqliteAvailable, DB_FILE, STORAGE_USER_VERSION };
+module.exports = { SqliteStore, buildDdl, syncSchema, sqliteAvailable, DB_FILE, STORAGE_USER_VERSION };

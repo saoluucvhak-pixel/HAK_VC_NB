@@ -244,7 +244,7 @@
   // ───────── điều hướng ─────────
   const NAV = [
     ['dashboard', '1', 'Tổng quan'], ['guide', '', 'Hướng dẫn & quy trình'], ['tickets', '2', 'Phiếu cân'], ['fuel', '3', 'Giao nhận dầu'], ['routes', '4', 'Danh mục tuyến'], ['contracts', '', 'Hợp đồng vận chuyển'],
-    ['prices', '5', 'Đơn giá'], ['basis', '', 'Căn cứ giá hợp đồng'], ['calc', '6', 'Tính giá vận chuyển'], ['bkvc', '7', 'Bảng xác nhận KL'], ['bkct', '8', 'Chi tiết vận chuyển'], ['validation', '', 'Kiểm tra dữ liệu'],
+    ['prices', '5', 'Đơn giá'], ['pricecodes', '', 'Mã đơn giá'], ['basis', '', 'Căn cứ giá hợp đồng'], ['calc', '6', 'Tính giá vận chuyển'], ['bkvc', '7', 'Bảng xác nhận KL'], ['bkct', '8', 'Chi tiết vận chuyển'], ['validation', '', 'Kiểm tra dữ liệu'],
     ['reports', '9', 'Báo cáo'], ['exchange', '', 'Trao đổi dữ liệu'], ['reconcile', '', 'Đối chiếu dữ liệu'], ['sync', '', 'Nhắc sửa danh mục'], ['audit', '10', 'Lịch sử thao tác'], ['settings', '11', 'Cài đặt'],
   ];
   D.go = (view, params = {}) => { state.view = view; state.params = params; render(); };
