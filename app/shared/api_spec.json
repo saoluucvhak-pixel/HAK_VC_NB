@@ -4476,7 +4476,7 @@
   {
    "action": "users.resetPassword",
    "group": "Quản trị",
-   "desc": "ADMIN xóa mật khẩu của user và cấp MÃ KÍCH HOẠT mới (trả một lần) → user đặt lại mật khẩu bằng mã (must_change_password)",
+   "desc": "ADMIN xóa mật khẩu của user và cấp MÃ KÍCH HOẠT mới (trả một lần) → user đặt lại mật khẩu bằng mã (must_change_password). Không đặt lại ADMIN cuối cùng đăng nhập được (E_LAST_ADMIN)",
    "roles": [
     "ADMIN"
    ],
@@ -4537,7 +4537,7 @@
   {
    "action": "users.save",
    "group": "Quản trị",
-   "desc": "Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này); người dùng mới nhận MÃ KÍCH HOẠT một lần",
+   "desc": "Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này); người dùng mới nhận MÃ KÍCH HOẠT một lần. create=true: tên đã có → DUPLICATE (không ghi đè); create=false: sửa, bắt buộc rowVersion. Không ngừng dùng / hạ vai trò ADMIN cuối cùng đăng nhập được (E_LAST_ADMIN)",
    "roles": [
     "ADMIN"
    ],
@@ -4553,7 +4553,13 @@
      "rowVersion",
      "integer",
      false,
-     ""
+     "bắt buộc khi create=false"
+    ],
+    [
+     "create",
+     "boolean",
+     false,
+     "true = thêm mới; false = sửa; bỏ trống = tự nhận biết (tương thích cũ)"
     ]
    ],
    "output": "{record, created, setupCode?, setupCodeExpiresAt?}",

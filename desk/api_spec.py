@@ -295,10 +295,10 @@ ep('dashboard.summary', 'Báo cáo', 'Dashboard', ALL,
 ep('audit.list', 'Quản trị', 'Lịch sử thao tác', ALL,
    [('entity', 'string', False, ''), ('entityId', 'string', False, ''), ('userEmail', 'string', False, ''), ('action', 'string', False, ''),
     ('dateFrom', 'date', False, ''), ('dateTo', 'date', False, '')] + PAGING, '{items, total}', reads=['AUDIT_LOG'], scope='KE_TOAN/XEM: thao tác trên HĐ mình được xem')
-ep('users.resetPassword', 'Quản trị', 'ADMIN xóa mật khẩu của user và cấp MÃ KÍCH HOẠT mới (trả một lần) → user đặt lại mật khẩu bằng mã (must_change_password)', ADM,
+ep('users.resetPassword', 'Quản trị', 'ADMIN xóa mật khẩu của user và cấp MÃ KÍCH HOẠT mới (trả một lần) → user đặt lại mật khẩu bằng mã (must_change_password). Không đặt lại ADMIN cuối cùng đăng nhập được (E_LAST_ADMIN)', ADM,
    [('username', 'string', True, ''), ('reason', 'string', True, '')], '{ok, setupCode, setupCodeExpiresAt}', ['NOT_FOUND', 'BUSINESS_RULE:E_LAST_ADMIN'], ['USERS'], ['USERS'], 'RESET_PASSWORD', True)
 ep('users.list', 'Quản trị', 'Danh sách người dùng', ADM, [('unitCode', 'string', False, '')], '{items}', reads=['USERS'])
-ep('users.save', 'Quản trị', 'Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này); người dùng mới nhận MÃ KÍCH HOẠT một lần', ADM, [('record', 'object', True, ''), ('rowVersion', 'integer', False, '')],
+ep('users.save', 'Quản trị', 'Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này); người dùng mới nhận MÃ KÍCH HOẠT một lần. create=true: tên đã có → DUPLICATE (không ghi đè); create=false: sửa, bắt buộc rowVersion. Không ngừng dùng / hạ vai trò ADMIN cuối cùng đăng nhập được (E_LAST_ADMIN)', ADM, [('record', 'object', True, ''), ('rowVersion', 'integer', False, 'bắt buộc khi create=false'), ('create', 'boolean', False, 'true = thêm mới; false = sửa; bỏ trống = tự nhận biết (tương thích cũ)')],
    '{record, created, setupCode?, setupCodeExpiresAt?}', ['VALIDATION_FAILED', 'DUPLICATE', 'BUSINESS_RULE:E_LAST_ADMIN'], ['USERS'], ['USERS'], 'USER_SAVE', True)
 ep('config.list', 'Quản trị', 'Tham số cấu hình', ALL, [], '{items}', reads=['CONFIG'])
 ep('config.save', 'Quản trị', 'Sửa tham số (làm tròn, VAT, người ký…) — áp dụng cho kỳ tính SAU; kỳ cũ giữ snapshot', ADM,
