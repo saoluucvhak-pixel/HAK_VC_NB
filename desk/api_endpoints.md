@@ -1203,7 +1203,7 @@ Khôi phục từ 1 bản sao lưu: tự sao lưu hiện trạng trước, thay 
 
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
-| `backupPath` | string | ✔ |  |
+| `file` | string | ✔ | đường dẫn .zip hoặc manifest.json |
 | `reason` | string | ✔ |  |
 
 - **Trả về:** `{restoredDataVersion, safetyBackupPath}`

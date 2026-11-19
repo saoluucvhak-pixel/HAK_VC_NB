@@ -29,7 +29,7 @@ Bản HAKQN: dialog.openFile → exchange.previewPackage(filePath) → exchange.
 
 **6.7. Sửa dữ liệu sau khi tính** — `tickets.update` / `fuel.update` trả `affectedPeriods`; kỳ `NHAP` → `needs_recalc` (xác nhận bị chặn `E_NEEDS_RECALC` đến khi tính lại). Kỳ đã xác nhận/khóa phải `periods.reopen` / `periods.unlock` trước (ADMIN hoặc `can_unlock`, có lý do); nếu kỳ đã gửi đi → xuất lại gói KY_TINH (`calc_version` mới thay bản cũ ở bên nhận).
 
-**6.8. Sao lưu, khôi phục** — tự động hằng ngày; `data.backupNow`; `data.listBackups` → `data.restore(backupPath, reason)`.
+**6.8. Sao lưu, khôi phục** — tự động hằng ngày; `data.backupNow`; `data.listBackups` → `data.restore(file, reason[, allowOtherInstall])`.
 
 ## 7. "XEM CHI TIẾT TÍNH" (`calc.trace`)
 
