@@ -18,7 +18,7 @@
    ],
    "scope": "",
    "input": [],
-   "output": "{initialized, dataFolder, installId, installCode, unitCode, schemaVersion, usersNeedPassword:[username]}",
+   "output": "{initialized, dataFolder, installId, installCode, unitCode, schemaVersion, usersNeedPassword:[username], firstAdminOpen, singleUserName}",
    "errors": [],
    "reads": [],
    "writes": [],
@@ -124,7 +124,7 @@
   {
    "action": "auth.setFirstPassword",
    "group": "Đăng nhập",
-   "desc": "User chưa có mật khẩu (dữ liệu mẫu / ADMIN vừa tạo) đặt mật khẩu lần đầu",
+   "desc": "User chưa có mật khẩu đặt mật khẩu lần đầu bằng MÃ KÍCH HOẠT dùng một lần do ADMIN cấp (hạn SETUP_CODE_HOURS giờ); ngoại lệ bản cài mới: ADMIN đầu tiên chưa cần mã",
    "roles": [
     "(chưa đăng nhập)"
    ],
@@ -141,11 +141,19 @@
      "string",
      true,
      "≥ 8 ký tự, có chữ và số"
+    ],
+    [
+     "setupCode",
+     "string",
+     false,
+     "mã kích hoạt 8 ký tự; service kiểm — bắt buộc trừ ADMIN đầu tiên của bản cài mới"
     ]
    ],
    "output": "{ok}",
    "errors": [
     "VALIDATION_FAILED",
+    "AUTH_FAILED",
+    "ACCOUNT_LOCKED",
     "BUSINESS_RULE:E_PASSWORD_ALREADY_SET"
    ],
    "reads": [
@@ -4418,7 +4426,7 @@
   {
    "action": "users.resetPassword",
    "group": "Quản trị",
-   "desc": "ADMIN xóa mật khẩu của user → user tự đặt lại khi đăng nhập (must_change_password)",
+   "desc": "ADMIN xóa mật khẩu của user và cấp MÃ KÍCH HOẠT mới (trả một lần) → user đặt lại mật khẩu bằng mã (must_change_password)",
    "roles": [
     "ADMIN"
    ],
@@ -4437,7 +4445,7 @@
      ""
     ]
    ],
-   "output": "{ok}",
+   "output": "{ok, setupCode, setupCodeExpiresAt}",
    "errors": [
     "NOT_FOUND",
     "BUSINESS_RULE:E_LAST_ADMIN"
@@ -4479,7 +4487,7 @@
   {
    "action": "users.save",
    "group": "Quản trị",
-   "desc": "Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này)",
+   "desc": "Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này); người dùng mới nhận MÃ KÍCH HOẠT một lần",
    "roles": [
     "ADMIN"
    ],
@@ -4498,7 +4506,7 @@
      ""
     ]
    ],
-   "output": "{record}",
+   "output": "{record, created, setupCode?, setupCodeExpiresAt?}",
    "errors": [
     "VALIDATION_FAILED",
     "DUPLICATE",
