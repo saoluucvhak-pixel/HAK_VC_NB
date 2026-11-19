@@ -174,7 +174,7 @@
       };
       sel.addEventListener('change', load);
       const page = D.page('Đơn giá', '5 · Phiên bản đơn giá theo tuyến', [D.writer() ? h('button', { class: 'btn primary', onclick: create }, 'Tạo phiên bản giá mới') : null],
-        h('div', { class: 'card' }, h('label', { class: 'field wide' }, h('span', {}, 'Tuyến'), sel), syncNote(), h('p', { class: 'small muted', style: { margin: '4px 0 0' } }, 'Đây là giá theo tuyến (giá chung hoặc theo hợp đồng). Muốn đặt giá cố định riêng cho một công ty đối tác: vào mục "Mã đơn giá".')), out);
+        h('div', { class: 'card' }, h('label', { class: 'field wide' }, h('span', {}, 'Tuyến'), sel), syncNote(), h('p', { class: 'small muted', style: { margin: '4px 0 0' } }, D.tag('mute', 'Cách cũ'), ' Giá chung / giá riêng hợp đồng (cách cũ) — giá theo hình thức (cố định / theo giá dầu) quản lý ở mục "Mã đơn giá". Hợp đồng không gán mã vẫn tính bằng giá ở màn này; không đổi hành vi.')), out);
       await load();
       return page;
     },

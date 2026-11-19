@@ -312,7 +312,7 @@ Sau khi lưu trữ:
 
 ### Giá 3 tầng: Hình thức → Mã đơn giá → Dòng giá theo tuyến (từ bản 1.7.0)
 Menu **Mã đơn giá** (sau "Đơn giá"). Cây bên trái chia **2 hình thức giá của hệ thống**: **Đơn giá cố định** và **Đơn giá theo giá dầu**; mỗi mã thuộc một hình thức và một công ty đối tác.
-1. **Tạo mã:** bấm **+ Mã đơn giá cố định** hoặc **+ Mã đơn giá theo giá dầu** (chọn hình thức), rồi chọn đơn vị, nhập mã (dạng `DG-DH-2026`), tên, ghi chú. Hình thức **không đổi được** khi mã đã có dòng giá hoặc đã gán hợp đồng. Mã tạo từ bản 1.5.0 tự đọc là *Đơn giá cố định*.
+1. **Tạo mã:** bấm **+ Mã đơn giá cố định** hoặc **+ Mã đơn giá theo giá dầu**; hộp thoại có hai thẻ chọn hình thức (dùng phím mũi tên để đổi), rồi chọn đơn vị, nhập mã (dạng `DG-DH-2026`), tên, ghi chú. Hình thức **không đổi được** khi mã đã có dòng giá hoặc đã gán hợp đồng. Mã tạo từ bản 1.5.0 tự đọc là *Đơn giá cố định*.
 2. **Thêm dòng giá (mỗi dòng một tuyến):**
    - Mã cố định: tuyến, **Cự ly** (chỉ hiển thị), **Đơn giá cố định**, **Ngày cập nhật**.
    - Mã theo giá dầu: tuyến, **Cự ly** (chỉ hiển thị), **Đơn giá ký hợp đồng**, ĐG dầu, định mức dầu (lít/km), KL trung bình, **Ngày cập nhật**.

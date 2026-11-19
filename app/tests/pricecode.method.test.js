@@ -113,3 +113,65 @@ test('ngày cập nhật của dòng trong mã: điền lùi ≤ bản đang dù
   assert.equal(old.status, 'CLOSED'); assert.ok(old.effective_to && old.effective_to >= '2026-05-31' && old.effective_to < '2026-06-01'.replace('06-01', '06-02'));
   assert.equal(s.store.get('PRICE_HISTORY', next.record.price_id).status, 'ACTIVE');
 });
+
+// ── B4: gói trao đổi mang cột mới sang bản cài khác; gói cũ (mã không có price_method) nhập vào → CO_DINH, không lỗi ──
+test('B4: gói DANH_MUC có mã THEO_DAU/CO_DINH nhập sang bản cài khác đọc lại đúng hình thức; mã cũ không có price_method → CO_DINH', async () => {
+  const fs = require('node:fs'); const zlib = require('node:zlib'); const os = require('node:os'); const path = require('node:path');
+  const { ExchangeService } = require('../main/services/ExchangeService');
+  const a = await setup(); const b = await install('DH', { installId: 'may-nhan-b' });
+  await a.mkCode('DG-TD', { priceMethod: 'THEO_DAU' }); await a.mkCode('DG-CD');
+  const ln = await a.cat.addCodeLine({ priceCode: 'DG-TD', record: THEO_DAU, user: KETOAN });
+  await a.cat.activatePrice({ priceId: ln.record.price_id, rowVersion: ln.record.row_version, user: KETOAN });
+  await a.store.transaction((tx) => { tx.insert('MA_DON_GIA', { price_code: 'DG-OLD', unit_code: a.unit, price_name: 'Mã kiểu 1.5.0', status: 'ACTIVE', note: '' }); }, { user: 'test' }); // không có cột price_method
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-b4-')), 'dm.dgvcx');
+  const pkg = await new ExchangeService(a.store).exportPackage({ packageType: 'DANH_MUC', targetPath: out, user: { username: 'ketoan' } });
+  const body = JSON.parse(zlib.gunzipSync(fs.readFileSync(pkg.file)).toString('utf8'));
+  const rows = Object.fromEntries(body.tables.MA_DON_GIA.map((r) => [r.price_code, r]));
+  assert.equal(rows['DG-TD'].price_method, 'THEO_DAU'); assert.ok(!rows['DG-OLD'].price_method, 'gói mô phỏng bản cũ: mã không có hình thức');
+  const ex = new ExchangeService(b.store); const pv = ex.previewPackage({ filePath: pkg.file, user: { username: 'ketoan' } });
+  assert.ok(pv.canImport, JSON.stringify(pv.rejected || pv));
+  await ex.importPackage({ previewId: pv.previewId, user: { username: 'ketoan' } });
+  const cb = new CatalogService(b.store);
+  assert.equal(cb.getPriceCode({ priceCode: 'DG-TD' }).record.priceMethod, 'THEO_DAU');
+  assert.equal(cb.getPriceCode({ priceCode: 'DG-CD' }).record.priceMethod, 'CO_DINH');
+  assert.equal(cb.getPriceCode({ priceCode: 'DG-OLD' }).record.priceMethod, 'CO_DINH');
+  assert.equal(b.store.find('PRICE_HISTORY', (p) => p.price_code === 'DG-TD')[0].price_method, 'THEO_DAU');
+});
+
+// ── B5: nâng cấp SQLite có DB sẵn (MA_DON_GIA chưa có price_method) ──
+test('B5: SQLite kho bản cũ (chưa có cột price_method; có 1 mã + dòng cố định + kỳ đã tính) → mở bằng bản mới: thêm cột, dữ liệu nguyên vẹn, mã đọc ra CO_DINH, kỳ tính lại ra cùng số', async () => {
+  const { sqliteAvailable } = require('../main/repo/SqliteStore'); if (!sqliteAvailable()) return;
+  const { DatabaseSync } = require('node:sqlite'); const path = require('node:path');
+  const { newStore } = require('../main/repo/createStore');
+  const c = await install('HAKQN', { kind: 'sqlite' }); const cat = new CatalogService(c.store); const md = new MasterDataService(c.store);
+  const unit = c.store.get('HOP_DONG', c.contractId).customer_unit_code;
+  await c.store.transaction((tx) => { tx.insert('MA_DON_GIA', { price_code: 'DG-CD-OLD', unit_code: unit, price_name: 'Mã 1.5.0', status: 'ACTIVE', note: '' }); }, { user: 'test' }); // đúng như bản 1.5.0: không có cột hình thức
+  const l = await cat.addCodeLine({ priceCode: 'DG-CD-OLD', record: { routeCode: 'VC.007', effectiveFrom: '2026-01-01', fixedPrice: 150000 }, user: KETOAN });
+  await cat.activatePrice({ priceId: l.record.price_id, rowVersion: l.record.row_version, user: KETOAN });
+  await md.saveContract({ record: { contractId: c.contractId, priceCode: 'DG-CD-OLD' }, rowVersion: c.store.get('HOP_DONG', c.contractId).row_version, user: KETOAN });
+  await c.store.transaction((tx) => { for (const r of tx.all('GIAO_NHAN_DAU')) tx.update('GIAO_NHAN_DAU', r.receipt_id, { is_deleted: true }); }, { user: 'test' });
+  const W2 = { dateFrom: '2026-09-18', dateTo: '2026-09-23', routeCode: 'VC.007', reportDate: '2026-09-24' };
+  const k1 = await c.periods.calculate({ contractId: c.contractId, ...W2, clientRequestId: rid(), user: KETOAN });
+  const price1 = k1.results[0].transportPrice; assert.equal(price1, 150000);
+  const fp = c.store.fingerprint().sha256; const dir = c.dir; c.store.close();
+  const db = new DatabaseSync(path.join(dir, 'dgvc.sqlite'));
+  db.exec('ALTER TABLE "MA_DON_GIA" DROP COLUMN "price_method"'); // giả lập kho 1.5.0/1.6.0
+  db.exec("DELETE FROM \"_meta\" WHERE \"key\"='index_sig'"); db.close();
+  const s2 = newStore(dir, {}, 'sqlite').open();
+  assert.ok(s2.schemaChanges.some((x) => x.includes('MA_DON_GIA.price_method')), JSON.stringify(s2.schemaChanges));
+  assert.equal(new CatalogService(s2).getPriceCode({ priceCode: 'DG-CD-OLD' }).record.priceMethod, 'CO_DINH');
+  assert.equal(s2.get('MA_DON_GIA', 'DG-CD-OLD').price_method || '', '');
+  assert.equal(s2.fingerprint().sha256, fp, 'dữ liệu cũ nguyên vẹn sau khi thêm cột');
+  s2.close(); const s3 = newStore(dir, {}, 'sqlite').open(); assert.deepEqual(s3.schemaChanges, [], 'mở lần hai không còn gì để đổi');
+  const { PeriodService } = require('../main/services/PeriodService');
+  const again = await new PeriodService(s3).calculate({ contractId: c.contractId, ...W2, periodId: k1.period.period_id, clientRequestId: rid(), user: KETOAN });
+  assert.equal(again.results[0].transportPrice, price1, 'kỳ cũ tính lại ra cùng số sau nâng cấp'); assert.equal(again.results[0].priceMethod, 'CO_DINH');
+  s3.close();
+});
+
+// ── B8: tạo mã đơn giá phát nhắc "sửa giống ở các nhà máy còn lại" như các danh mục khác ──
+test('B8: tạo mã đơn giá trả cảnh báo nhắc sửa giống nhà máy khác', async () => {
+  const s = await setup();
+  const r = await s.mkCode('DG-NHAC', { priceMethod: 'THEO_DAU' });
+  assert.ok(Array.isArray(r.warnings) && r.warnings.length >= 1 && /nhà máy|giống/i.test(r.warnings[0].message), JSON.stringify(r.warnings));
+});
