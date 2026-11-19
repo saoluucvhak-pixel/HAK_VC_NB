@@ -15,6 +15,7 @@ const crypto = require('node:crypto');
 const { AppError, businessError } = require('../../shared/errors');
 const { markTx } = require('./SyncReminderService');
 const { SCHEMA } = require('../repo/JsonStore');
+const { fuelContentKey } = require('../import/fuelKey');
 
 const APP_VERSION = require('../../package.json').version;
 const canon = (v) => (Array.isArray(v) ? `[${v.map(canon).join(',')}]`
@@ -239,6 +240,12 @@ class ExchangeService {
       const keep = new Set(plan.filter((x) => x.table === 'KY_TINH' && ['NEW', 'REPLACE', 'CONFLICT'].includes(x.action)).map((x) => x.id));
       const dep = new Set(plan.filter((x) => x.table === 'KY_TINH' && x.action === 'CONFLICT').map((x) => x.id)); // phụ thuộc lựa chọn ở kỳ
       const rPeriods = new Map(); for (const d of T.FUEL_DETAIL || []) { if (!rPeriods.has(d.receipt_id)) rPeriods.set(d.receipt_id, new Set()); rPeriods.get(d.receipt_id).add(d.period_id); }
+      // Dòng dầu của gói cùng nội dung với dòng ĐANG CÓ ở máy này (khác receipt_id, vd nhập tay) → nghi trùng. Ghép 1-1 theo hợp đồng + khóa nội dung;
+      // không ghép dòng đã nằm trong gói, đã xóa, hay đã dùng trong kỳ xác nhận/khóa (tránh đụng ràng buộc dùng một lần).
+      const inPkg = new Set((T.GIAO_NHAN_DAU || []).map((r) => r.receipt_id));
+      const usedLocal = new Set(s.find('FUEL_DETAIL', (d) => d.is_current && ['CONFIRMED', 'LOCKED'].includes(d.usage_state)).map((d) => d.receipt_id));
+      const pool = new Map();
+      for (const l of s.find('GIAO_NHAN_DAU', (x) => !x.is_deleted && !inPkg.has(x.receipt_id) && !usedLocal.has(x.receipt_id))) { const k = `${l.contract_id}|${fuelContentKey(l)}`; if (!pool.has(k)) pool.set(k, []); pool.get(k).push(l); }
       for (const t of ['GIAO_NHAN_DAU', 'TRANSPORT_CALCULATION', 'TRANSPORT_DETAIL', 'FUEL_DETAIL', 'BKVC_LINE']) {
         for (const r of T[t] || []) {
           const id = r[pkOf(t)];
@@ -246,6 +253,15 @@ class ExchangeService {
           const l = s.get(t, id);
           const periodsOf = t === 'GIAO_NHAN_DAU' ? [...(rPeriods.get(id) || [])] : [r.period_id];
           const onlyIf = periodsOf.length && periodsOf.every((x) => dep.has(x)) ? periodsOf : null;
+          if (t === 'GIAO_NHAN_DAU' && !l) {
+            const cand = (pool.get(`${r.contract_id}|${fuelContentKey(r)}`) || []); const m = cand.shift();
+            if (m) {
+              add(t, id, 'CONFLICT', r, { default: 'SKIP', kind: 'POSSIBLE_DUPLICATE', localId: m.receipt_id, ...(onlyIf ? { onlyIf } : {}),
+                note: `Dòng dầu ngày ${r.receive_date}, xe ${r.plate_no}, ${r.qty_liter} lít đã có ở máy này (mã ${m.receipt_id}) — có thể là cùng một lần giao. Bỏ qua: kỳ trong gói dùng dòng đã có; Vẫn nhập: ghi thêm dòng của gói (có thể bị tính dầu 2 lần).`,
+                changes: [{ field: 'Mã dòng dầu', local: m.receipt_id, incoming: id }, { field: 'Số lít', local: m.qty_liter, incoming: r.qty_liter }] });
+              continue;
+            }
+          }
           add(t, id, !l ? 'NEW' : (t === 'GIAO_NHAN_DAU' ? sameContent({ ...l, import_batch_id: '' }, { ...r, import_batch_id: '' }) : sameContent(l, r)) ? 'SAME' : 'UPDATE', r, onlyIf ? { onlyIf } : {});
         }
       }
@@ -289,12 +305,22 @@ class ExchangeService {
           tx.audit('SUPERSEDE_PERIOD', 'KY_TINH', oid, { status: before.status }, { status: 'HUY', by: x.row.period_code }, { reason: 'nhận gói kỳ thay thế' });
         }
       }
+      const remap = new Map(); // dòng dầu của gói bị bỏ qua (nghi trùng) → dòng đã có ở máy này
       for (const t of order) {
         for (const x of byTable(t)) {
           if (x.onlyIf && x.onlyIf.every((pid) => skipPeriods.has(pid))) { inc(t, 'KEEP'); continue; }
+          if (x.kind === 'POSSIBLE_DUPLICATE') {
+            const choice = decisions[`${t}:${x.id}`] || x.default || 'SKIP';
+            if (choice === 'KEEP') { tx.insert(t, sanitize(t, x.row, h, st.pkg.contentSha256)); inc(t, 'NEW'); }
+            else {
+              const l = tx.get('GIAO_NHAN_DAU', x.localId); if (!l || l.is_deleted) throw businessError('E_PREVIEW_STALE', `Dòng dầu ${x.localId} đã thay đổi kể từ lúc xem trước — hãy xem trước lại gói`);
+              remap.set(x.id, x.localId); inc(t, 'SKIP_DUP'); tx.audit('FUEL_DUP_REMAP', 'GIAO_NHAN_DAU', x.localId, null, { incomingReceiptId: x.id, from: h.sourceUnitCode }, { reason: 'dòng dầu trong gói trùng nội dung với dòng đã có — kỳ trong gói dùng dòng đã có' }); }
+            continue;
+          }
           const choice = x.action === 'CONFLICT' ? (decisions[`${t}:${x.id}`] || x.default || 'KEEP') : null;
           const act = x.action === 'CONFLICT' ? (choice === 'TAKE' ? (x.supersedes ? 'NEW' : 'UPDATE') : 'KEEP') : x.action;
           const row = sanitize(t, x.row, h, st.pkg.contentSha256);
+          if (t === 'FUEL_DETAIL' && remap.has(row.receipt_id)) row.receipt_id = remap.get(row.receipt_id);
           if (act === 'NEW') { tx.insert(t, row); inc(t, 'NEW'); }
           else if (act === 'UPDATE' || act === 'REPLACE') {
             const pk = SCHEMA.tables[t].pk; const patch = { ...row }; delete patch[pk];

@@ -151,9 +151,10 @@
               h('span', { class: 'small muted' }, 'Phiếu đã có tự bỏ qua; phiếu thuộc kỳ đã chốt sẽ hiện ở Đối chiếu dữ liệu.')) : null) : null,
           pv.ticketsOnly ? h('div', { class: 'card small' }, h('b', {}, 'Chỉ nhập phiếu cân'), ' trong gói — bỏ qua kỳ tính, dầu, danh mục.') : null,
           pv.conflicts.length ? h('div', { class: 'card' }, h('h2', {}, `Xung đột (${pv.conflicts.length}) — chọn giữ bản này hay lấy bản đến`), pv.conflicts.map((c) => {
-            const sup = c.kind === 'SUPERSEDE';
-            const sel = h('select', { onchange: (e) => { decisions[`${c.table}:${c.id}`] = e.target.value; } }, h('option', { value: 'KEEP' }, sup ? 'Giữ kỳ cũ (không nhận kỳ này)' : 'Giữ bản này'), h('option', { value: 'TAKE' }, sup ? 'Thay kỳ cũ bằng kỳ này' : 'Lấy bản đến'));
-            const label = sup ? `Kỳ tính mới thay kỳ ${(c.supersedeCodes || []).join(', ')} —` : c.table === 'KY_TINH' ? 'Kỳ tính' : c.table;
+            const sup = c.kind === 'SUPERSEDE'; const dup = c.kind === 'POSSIBLE_DUPLICATE'; // nghi trùng dòng dầu: SKIP (mặc định) / KEEP
+            const sel = dup ? h('select', { 'aria-label': 'Xử lý dòng dầu nghi trùng', onchange: (e) => { decisions[`${c.table}:${c.id}`] = e.target.value; } }, h('option', { value: 'SKIP' }, 'Bỏ qua (đã có ở máy này)'), h('option', { value: 'KEEP' }, 'Vẫn nhập (ghi thêm)'))
+              : h('select', { onchange: (e) => { decisions[`${c.table}:${c.id}`] = e.target.value; } }, h('option', { value: 'KEEP' }, sup ? 'Giữ kỳ cũ (không nhận kỳ này)' : 'Giữ bản này'), h('option', { value: 'TAKE' }, sup ? 'Thay kỳ cũ bằng kỳ này' : 'Lấy bản đến'));
+            const label = dup ? 'Dòng dầu nghi trùng —' : sup ? `Kỳ tính mới thay kỳ ${(c.supersedeCodes || []).join(', ')} —` : c.table === 'KY_TINH' ? 'Kỳ tính' : c.table;
             return h('div', { style: { borderBottom: '1px dashed var(--line)', padding: '10px 0' } },
               h('div', { class: 'row' }, h('b', { class: 'grow' }, `${label} `, h('span', { class: 'mono' }, c.id)), h('span', { class: 'small muted' }, 'Chọn:'), sel),
               c.note ? h('div', { class: 'small muted', style: { margin: '4px 0' } }, c.note) : null,
