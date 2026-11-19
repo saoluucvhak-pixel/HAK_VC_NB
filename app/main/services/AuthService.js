@@ -4,6 +4,11 @@
  *  - Mật khẩu băm scrypt (N=16384, r=8, p=1, salt 16 byte). Không lưu / không log mật khẩu gốc.
  *  - Tài khoản mới / dữ liệu mẫu KHÔNG có mật khẩu → lần đầu đăng nhập phải đặt (≥ 8 ký tự, có chữ và số).
  *  - Sai LOGIN_MAX_FAILED lần liên tiếp → khóa LOGIN_LOCK_MINUTES phút.
+ *  - ĐẶT MẬT KHẨU LẦN ĐẦU (1.6.1): cần MÃ KÍCH HOẠT dùng một lần (8 ký tự, hạn SETUP_CODE_HOURS giờ, mặc định 24) do ADMIN cấp khi tạo
+ *    người dùng / đặt lại mật khẩu. Mã chỉ trả về đúng một lần, DB chỉ lưu băm scrypt (không audit/log mã gốc). Sai mã tính vào
+ *    LOGIN_MAX_FAILED / LOGIN_LOCK_MINUTES như đăng nhập. NGOẠI LỆ bản cài mới: khi chưa có ADMIN đang hoạt động nào có mật khẩu
+ *    (dữ liệu mẫu / cài mới tinh) thì MỘT tài khoản ADMIN được đặt mật khẩu không cần mã; ngay khi đã có 1 ADMIN có mật khẩu,
+ *    mọi tài khoản còn lại bắt buộc dùng mã (firstAdminOpen()).
  *  - Phiên: token ngẫu nhiên chỉ trong bộ nhớ; không thao tác SESSION_IDLE_MINUTES → hết phiên.
  */
 const crypto = require('node:crypto');
@@ -14,6 +19,9 @@ const ALGO = 'scrypt:16384:8:1';
 const cfgNum = (store, k, d) => { const r = store.all('CONFIG').find((c) => c.config_key === k); const v = Number(r && r.config_value); return Number.isFinite(v) && v > 0 ? v : d; };
 const hash = (pw, salt) => crypto.scryptSync(pw, Buffer.from(salt, 'hex'), SCRYPT.keylen, { N: SCRYPT.N, r: SCRYPT.r, p: SCRYPT.p }).toString('hex');
 const isoPlus = (ms) => new Date(Date.now() + ms).toISOString();
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // bỏ 0 O 1 I L cho khỏi nhầm
+const newSetupCode = () => Array.from({ length: 8 }, () => CODE_ALPHABET[crypto.randomInt(CODE_ALPHABET.length)]).join('');
+const NO_CODE = { setup_code_hash: '', setup_code_salt: '', setup_code_expires_at: '' };
 const publicUser = (u) => ({ username: u.username, fullName: u.full_name, unitCode: u.unit_code, role: u.role, canUnlock: !!u.can_unlock,
   isActive: !!u.is_active, hasPassword: !!u.password_hash, mustChangePassword: !!u.must_change_password, lockedUntil: u.locked_until || '', lastLoginAt: u.last_login_at || '' });
 
@@ -31,6 +39,23 @@ class AuthService {
     return u || null;
   }
   _idleMs() { return cfgNum(this.store, 'SESSION_IDLE_MINUTES', 60) * 60000; }
+
+  /** Chưa có ADMIN đang hoạt động nào có mật khẩu → bản cài mới: ADMIN đầu tiên được đặt mật khẩu không cần mã. */
+  firstAdminOpen() { return !this.store.find('USERS', (u) => u.role === 'ADMIN' && u.is_active && u.password_hash).length; }
+
+  /** SINGLE_USER_MODE = TRUE và chỉ có 1 tài khoản đang hoạt động → tên để điền sẵn ở màn đăng nhập (vẫn bắt nhập mật khẩu). */
+  singleUserName() {
+    const on = String((this.store.all('CONFIG').find((c) => c.config_key === 'SINGLE_USER_MODE') || {}).config_value || '').toUpperCase() === 'TRUE';
+    const act = this.store.find('USERS', (u) => u.is_active);
+    return on && act.length === 1 ? act[0].username : '';
+  }
+
+  /** Sinh mã kích hoạt: trả { code, patch } — patch chỉ chứa băm + hạn. */
+  _issueSetupCode() {
+    const code = newSetupCode(); const salt = crypto.randomBytes(16).toString('hex'); const hours = cfgNum(this.store, 'SETUP_CODE_HOURS', 24);
+    const expires = new Date(this.now() + hours * 3600000).toISOString();
+    return { code, expires, patch: { setup_code_hash: hash(code, salt), setup_code_salt: salt, setup_code_expires_at: expires } };
+  }
 
   usersNeedPassword() { return this.store.find('USERS', (u) => u.is_active && !u.password_hash).map((u) => u.username); }
 
@@ -53,11 +78,27 @@ class AuthService {
     return this._newSession(this._user(u.username));
   }
 
-  async setFirstPassword({ username, newPassword }) {
+  async setFirstPassword({ username, newPassword, setupCode }) {
     const u = this._user(username);
     if (!u || !u.is_active) throw new AppError('NOT_FOUND', 'Không có tài khoản');
     if (u.password_hash) throw new AppError('FORBIDDEN', 'Tài khoản đã có mật khẩu — dùng đổi mật khẩu');
+    if (u.locked_until && Date.parse(u.locked_until) > this.now()) {
+      throw new AppError('ACCOUNT_LOCKED', `Tài khoản đang bị khóa đến ${new Date(Date.parse(u.locked_until)).toLocaleTimeString('vi-VN')} do nhập sai mã nhiều lần`, { lockedUntil: u.locked_until });
+    }
+    if (!(u.role === 'ADMIN' && this.firstAdminOpen())) await this._checkSetupCode(u, setupCode); // ngoại lệ bản cài mới: ADMIN đầu tiên không cần mã
     return this._setPassword(u, newPassword, 'SET_FIRST_PASSWORD');
+  }
+
+  async _checkSetupCode(u, code) {
+    const given = String(code || '').trim().toUpperCase();
+    const valid = !!(u.setup_code_hash && u.setup_code_salt && given && Date.parse(u.setup_code_expires_at) > this.now()
+      && crypto.timingSafeEqual(Buffer.from(hash(given, u.setup_code_salt), 'hex'), Buffer.from(u.setup_code_hash, 'hex')));
+    if (valid) return;
+    const max = cfgNum(this.store, 'LOGIN_MAX_FAILED', 5); const n = (u.failed_attempts || 0) + 1;
+    const patch = n >= max ? { failed_attempts: 0, locked_until: new Date(this.now() + cfgNum(this.store, 'LOGIN_LOCK_MINUTES', 15) * 60000).toISOString() } : { failed_attempts: n };
+    await this.store.transaction((tx) => { tx.update('USERS', u.username, patch); if (patch.locked_until) tx.audit('ACCOUNT_LOCKED', 'USERS', u.username); }, { user: u.username });
+    if (patch.locked_until) throw new AppError('ACCOUNT_LOCKED', `Nhập sai mã kích hoạt ${max} lần — tài khoản bị khóa ${cfgNum(this.store, 'LOGIN_LOCK_MINUTES', 15)} phút`, { lockedUntil: patch.locked_until });
+    throw new AppError('AUTH_FAILED', `Mã kích hoạt không đúng hoặc đã hết hạn — nhờ ADMIN cấp lại (còn ${max - n} lần thử)`);
   }
 
   async changePassword({ token, oldPassword, newPassword }) {
@@ -70,7 +111,7 @@ class AuthService {
     checkStrength(pw);
     const salt = crypto.randomBytes(16).toString('hex');
     await this.store.transaction((tx) => {
-      tx.update('USERS', u.username, { password_hash: hash(pw, salt), password_salt: salt, password_algo: ALGO, must_change_password: false, failed_attempts: 0, locked_until: '', last_login_at: tx.now });
+      tx.update('USERS', u.username, { password_hash: hash(pw, salt), password_salt: salt, password_algo: ALGO, must_change_password: false, failed_attempts: 0, locked_until: '', last_login_at: tx.now, ...NO_CODE });
       tx.audit(action, 'USERS', u.username);
     }, { user: u.username });
     return this._newSession(this._user(u.username));
@@ -111,20 +152,22 @@ class AuthService {
       const admins = this.store.find('USERS', (u) => u.role === 'ADMIN' && u.is_active && u.username !== username);
       if (!admins.length) throw new AppError('VALIDATION_FAILED', 'Phải còn ít nhất 1 ADMIN đang hoạt động');
     }
+    const issued = old ? null : this._issueSetupCode(); // tài khoản mới: cấp mã kích hoạt (mã gốc chỉ trả một lần, không lưu)
     const out = await this.store.transaction((tx) => {
       if (old) { const { before, after } = tx.update('USERS', username, patch, { expectedRowVersion: rowVersion }); tx.audit('UPDATE', 'USERS', username, pick(before, patch), patch); return after; }
-      const r = tx.insert('USERS', { username, ...patch, password_hash: '', password_salt: '', password_algo: '', must_change_password: true, failed_attempts: 0, locked_until: '', last_login_at: '' });
+      const r = tx.insert('USERS', { username, ...patch, password_hash: '', password_salt: '', password_algo: '', must_change_password: true, failed_attempts: 0, locked_until: '', last_login_at: '', ...issued.patch });
       tx.audit('CREATE', 'USERS', username, null, publicUser(r)); return r;
     }, { user: user.username });
     if (!out.is_active) for (const [t, s] of this.sessions) if (s.user.username === username) this.sessions.delete(t);
-    return { record: publicUser(out), created: !old };
+    return { record: publicUser(out), created: !old, ...(issued ? { setupCode: issued.code, setupCodeExpiresAt: issued.expires } : {}) };
   }
 
   async resetPassword({ username, user }) {
     const u = this._user(username); if (!u) throw new AppError('NOT_FOUND', `Không có tài khoản ${username}`);
-    await this.store.transaction((tx) => { tx.update('USERS', u.username, { password_hash: '', password_salt: '', password_algo: '', must_change_password: true, failed_attempts: 0, locked_until: '' }); tx.audit('RESET_PASSWORD', 'USERS', u.username); }, { user: user.username });
+    const issued = this._issueSetupCode();
+    await this.store.transaction((tx) => { tx.update('USERS', u.username, { password_hash: '', password_salt: '', password_algo: '', must_change_password: true, failed_attempts: 0, locked_until: '', ...issued.patch }); tx.audit('RESET_PASSWORD', 'USERS', u.username); }, { user: user.username });
     for (const [t, s] of this.sessions) if (s.user.username === u.username) this.sessions.delete(t);
-    return { username: u.username, mustSetPassword: true };
+    return { username: u.username, mustSetPassword: true, setupCode: issued.code, setupCodeExpiresAt: issued.expires };
   }
 }
 const pick = (o, p) => Object.fromEntries(Object.keys(p).map((k) => [k, o[k]]));

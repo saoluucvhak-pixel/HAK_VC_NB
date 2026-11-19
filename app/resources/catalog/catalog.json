@@ -1517,6 +1517,22 @@
     "updated_by": "seed@import"
    },
    {
+    "config_key": "SETUP_CODE_HOURS",
+    "config_value": "24",
+    "value_type": "NUM",
+    "description": "hạn (giờ) của mã kích hoạt đặt mật khẩu lần đầu",
+    "updated_at": "2026-11-19T09:00:00+07:00",
+    "updated_by": "seed@import"
+   },
+   {
+    "config_key": "SINGLE_USER_MODE",
+    "config_value": "FALSE",
+    "value_type": "BOOL",
+    "description": "TRUE: bản cài 1 người dùng — điền sẵn tên đăng nhập (vẫn nhập mật khẩu)",
+    "updated_at": "2026-11-19T09:00:00+07:00",
+    "updated_by": "seed@import"
+   },
+   {
     "config_key": "LOGIN_LOCK_MINUTES",
     "config_value": "15",
     "value_type": "NUM",
