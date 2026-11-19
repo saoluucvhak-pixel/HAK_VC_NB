@@ -347,3 +347,6 @@ Kết quả tái lập bằng script độc lập: **khớp 100%** với QR_DGVC
 | `buildFormulaTrace(calc)` | B | | JSON các bước như §6 |
 
 Mỗi hàm là **hàm thuần** (không đọc file, không phụ thuộc giao diện) → unit test chạy trực tiếp bằng Node (vitest).
+
+## Chọn phiên bản giá khi có Mã đơn giá (bản 1.5.0)
+Thứ tự ưu tiên khi tính một tuyến của hợp đồng: (1) dòng giá của **mã đơn giá gán cho hợp đồng** (hiệu lực theo ngày); (2) giá riêng của hợp đồng; (3) giá chung. Dòng giá thuộc một mã **không** bị coi là giá chung / giá riêng. Hợp đồng không gán mã, và mọi dòng giá cũ, chọn giá đúng như các bản trước. Quy tắc "kỳ vắt hai phiên bản giá → chặn" và "tuyến đơn giá cố định không nhận dầu" áp dụng như nhau cho dòng giá của mã.

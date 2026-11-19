@@ -403,7 +403,7 @@ class ImportService {
     // tuyến đang dùng đơn giá cố định tại ngày nhận dầu → tuyến cố định không nhận dầu (chốt 07/10/2026): cảnh báo ngay khi import
     if (rec.route_code && rec.receive_date && ctx.routes.has(rec.route_code)) {
       if (!ctx.prices) ctx.prices = this.store.all('PRICE_HISTORY');
-      const sel = selectPriceVersion(ctx.prices, rec.route_code, contractId, rec.receive_date, rec.receive_date, { priceVersionDate: 'PERIOD_END' });
+      const sel = selectPriceVersion(ctx.prices, rec.route_code, contractId, rec.receive_date, rec.receive_date, { priceVersionDate: 'PERIOD_END' }, (this.store.get('HOP_DONG', contractId) || {}).price_code || '');
       if (sel.price && sel.price.price_method === 'CO_DINH') iss.push(issue('W_FUEL_FIXED_ROUTE', { rowNo, routeCode: rec.route_code, priceId: sel.price.price_id }));
     }
     Object.assign(rec, { receipt_id: '', flags_ack: false, flags_ack_note: '', is_deleted: false });

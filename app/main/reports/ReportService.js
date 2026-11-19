@@ -301,11 +301,13 @@ class ReportService {
     const d = asOf || today();
     const contract = contractId ? s.get('HOP_DONG', contractId) : null;
     if (contractId && !contract) throw new AppError('NOT_FOUND', `Không có hợp đồng ${contractId}`);
-    const pick = (rc, cid) => s.find('PRICE_HISTORY', (x) => x.route_code === rc && (x.contract_id || '') === cid && x.status !== 'DRAFT'
+    const pick = (rc, cid) => s.find('PRICE_HISTORY', (x) => x.route_code === rc && !x.price_code && (x.contract_id || '') === cid && x.status !== 'DRAFT'
       && x.effective_from <= d && (!x.effective_to || x.effective_to >= d)).sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0];
+    const code = contract && contract.price_code ? contract.price_code : '';
+    const pickCode = (rc) => (code ? s.find('PRICE_HISTORY', (x) => x.route_code === rc && x.price_code === code && x.status !== 'DRAFT' && x.effective_from <= d && (!x.effective_to || x.effective_to >= d)).sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0] : null);
     const rows = [];
     for (const r of s.all('TUYEN_VC').filter((x) => x.is_active && (!routeCode || x.route_code === routeCode)).sort((a, b) => a.route_code.localeCompare(b.route_code, 'vi', { numeric: true }))) {
-      const own = contractId ? pick(r.route_code, contractId) : null; const pr = own || pick(r.route_code, '');
+      const own = contractId ? (pickCode(r.route_code) || pick(r.route_code, contractId)) : null; const pr = own || pick(r.route_code, '');
       if (!pr) continue;
       const a = E.computeContractPrice(r, pr, cfg);
       rows.push({ stt: rows.length + 1, routeCode: r.route_code, routeName: r.route_name, distanceKm: r.distance_km, tripDistanceKm: a.tripDistanceKm, uom: r.uom === 'M3' ? 'M3' : 'Tấn',
@@ -464,7 +466,7 @@ class ReportService {
     const tot = { trips: 0, km: 0, ton: 0, fuel: 0, norm: 0 };
     for (const g of list) {
       const r = routes.get(g.route_code);
-      const sel = g.route_code ? E.selectPriceVersion(prices, g.route_code, g.contractId, g.date, g.date, cfg) : {};
+      const sel = g.route_code ? E.selectPriceVersion(prices, g.route_code, g.contractId, g.date, g.date, cfg, (contracts.get(g.contractId) || {}).price_code || '') : {};
       const norm = sel.price ? Number(sel.price.fuel_norm_l_per_km) || 0 : 0;
       const km = r ? (Number(r.trip_distance_km) || 0) * g.trips : 0;
       // dầu nhận, kho, km khai báo: ghi 1 lần mỗi ngày (dòng đầu của ngày)

@@ -19,12 +19,12 @@ const UNIT_FIELDS = ['unit_code', 'unit_name', 'short_name', 'unit_type', 'name_
   'factory_name', 'email', 'phone', 'doc_display_name', 'sign_priority', 'accountant_name', 'fuel_prefix', 'note'];
 const VEH_FIELDS = ['plate_no', 'owner_unit_code', 'fuel_code', 'note'];
 const CONTRACT_FIELDS = ['contract_id', 'contract_code', 'contract_no', 'customer_unit_code', 'carrier_unit_code', 'effective_from', 'effective_to', 'report_title', 'service_desc',
-  'carrier_print_name', 'customer_print_name', 'sign_place', 'customer_signers_json', 'carrier_signers_json', 'note'];
+  'carrier_print_name', 'customer_print_name', 'sign_place', 'customer_signers_json', 'carrier_signers_json', 'note', 'price_code'];
 
 class MasterDataService {
   constructor(store) { this.store = store; }
 
-  async _save(table, pkField, fields, record, { rowVersion, create, validate, defaults = {}, label, reason = '', user }) {
+  async _save(table, pkField, fields, record, { rowVersion, create, validate, defaults = {}, label, reason = '', user, onUpdate = null }) {
     const inp = trimAll(toSnake(record));
     for (const k of Object.keys(inp)) if (!fields.includes(k)) delete inp[k];
     const id = inp[pkField];
@@ -43,12 +43,13 @@ class MasterDataService {
       return { record: r, created: true, warnings };
     }
     if (rowVersion === undefined) throw new AppError('VALIDATION_FAILED', `Sửa ${label.toLowerCase()} phải gửi rowVersion`);
-    const patch = {}; for (const k of fields) if (k in inp && k !== pkField && inp[k] !== old[k]) patch[k] = inp[k];
+    const patch = {}; for (const k of fields) if (k in inp && k !== pkField && inp[k] !== old[k] && !(inp[k] === '' && (old[k] === undefined || old[k] === null))) patch[k] = inp[k]; // '' so với cột chưa có (dữ liệu cũ) không phải thay đổi
     if (!Object.keys(patch).length) return { record: old, created: false, warnings };
     validate({ ...old, ...patch }, old);
     const r = await this.store.transaction((tx) => {
       const { before, after } = tx.update(table, id, patch, { expectedRowVersion: rowVersion });
       tx.audit('UPDATE', table, id, Object.fromEntries(Object.keys(patch).map((k) => [k, before[k]])), patch, { reason });
+      if (onUpdate) onUpdate(tx, before, after, patch);
       const w = remindTx(tx, this.store, { entity: table, entityId: id, action: 'UPDATE', summary: `Sửa ${label.toLowerCase()} ${id}: ${diffSummary(before, patch)}` }); if (w) warnings.push(w);
       return after;
     }, { user: user.username });
@@ -193,10 +194,13 @@ class MasterDataService {
       if (rec.contractCode !== undefined) rec.contractCode = String(rec.contractCode).trim().toUpperCase();
     }
     if (create && !rec.contractId && rec.contractCode) rec.contractId = `HD-${String(rec.contractCode).trim().toUpperCase()}`;
+    if (rec.priceCode !== undefined) rec.priceCode = String(rec.priceCode || '').trim().toUpperCase();
     for (const k of ['carrierSignersJson', 'customerSignersJson']) if (Array.isArray(rec[k])) rec[k] = JSON.stringify(rec[k]);
     return this._save('HOP_DONG', 'contract_id', CONTRACT_FIELDS, rec, { rowVersion, create, reason, user, label: 'Hợp đồng',
       defaults: { report_title: 'BẢNG XÁC NHẬN KHỐI LƯỢNG VẬN CHUYỂN DĂM', service_desc: '', carrier_print_name: '', customer_print_name: '', sign_place: '',
-        customer_signers_json: '[]', carrier_signers_json: '[]', contract_no: '', effective_to: '', note: '' },
+        customer_signers_json: '[]', carrier_signers_json: '[]', contract_no: '', effective_to: '', note: '', price_code: '' },
+      // đổi MÃ ĐƠN GIÁ của hợp đồng → các kỳ NHÁP của hợp đồng phải tính lại (kỳ đã xác nhận / khóa giữ nguyên số đã chốt)
+      onUpdate: (tx, before, after, patch) => { if ('price_code' in patch && (before.price_code || '') !== (after.price_code || '')) for (const p of tx.all('KY_TINH').filter((k) => k.contract_id === after.contract_id && k.status === 'NHAP')) tx.update('KY_TINH', p.period_id, { needs_recalc: true }); },
       validate: (c) => {
         const bad = [];
         if (!c.contract_code) bad.push('Thiếu mã hợp đồng');
@@ -205,6 +209,14 @@ class MasterDataService {
         if (c.carrier_unit_code === c.customer_unit_code) bad.push('Bên vận chuyển phải khác bên thuê');
         if (!isDate(c.effective_from)) bad.push('Ngày hiệu lực từ: yyyy-MM-dd');
         if (c.effective_to && (!isDate(c.effective_to) || c.effective_to < c.effective_from)) bad.push('Ngày hết hiệu lực phải sau ngày bắt đầu');
+        if (c.price_code) {
+          const pc = this.store.get('MA_DON_GIA', c.price_code); const prev = this.store.get('HOP_DONG', c.contract_id);
+          if (!pc) bad.push(`Mã đơn giá ${c.price_code} không có`);
+          else {
+            if (pc.unit_code !== c.customer_unit_code && pc.unit_code !== c.carrier_unit_code) bad.push(`Mã đơn giá ${c.price_code} thuộc đơn vị ${pc.unit_code} — không phải bên thuê / bên vận chuyển của hợp đồng`);
+            if (pc.status !== 'ACTIVE' && !(prev && prev.price_code === c.price_code)) bad.push(`Mã đơn giá ${c.price_code} đã đóng — không gán cho hợp đồng`);
+          }
+        }
         const dup = this.store.find('HOP_DONG', (x) => x.contract_code === c.contract_code && x.contract_id !== c.contract_id);
         if (dup.length) bad.push(`Mã hợp đồng ${c.contract_code} đã dùng`);
         for (const k of ['carrier_signers_json', 'customer_signers_json']) { try { const v = JSON.parse(c[k] || '[]'); if (!Array.isArray(v)) throw 0; } catch { bad.push(`${k} phải là danh sách [{title, name}]`); } }

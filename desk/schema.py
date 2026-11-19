@@ -58,7 +58,7 @@ TABLES = [
         ("note", "TEXT", False, "", ""),
      ], True),
     ("PRICE_HISTORY", "Danh mục", "Phiên bản đơn giá theo tuyến (phần giá của TBL_DATA) — không ghi đè",
-     "price_id", ["route_code+contract_id+effective_from"], {"route_code": "TUYEN_VC.route_code", "contract_id": "HOP_DONG.contract_id"}, [
+     "price_id", ["route_code+contract_id+price_code+effective_from"], {"route_code": "TUYEN_VC.route_code", "contract_id": "HOP_DONG.contract_id", "price_code": "MA_DON_GIA.price_code"}, [
         ("price_id", "TEXT", True, "PK", ""),
         ("route_code", "TEXT", True, "FK TUYEN_VC", "TBL_DATA[Mã quãng đường]"),
         ("contract_id", "TEXT", False, "FK HOP_DONG. Trống = giá chung mọi hợp đồng; có giá trị = giá riêng của hợp đồng (BL-64)", ""),
@@ -78,6 +78,15 @@ TABLES = [
         ("source_note", "TEXT", False, "nguồn/căn cứ đổi giá", ""),
         ("price_method", "TEXT", False, "THEO_DAU (trống = mặc định: ĐG HĐ + chênh lệch dầu) | CO_DINH (đơn giá cố định đ/tấn, không tính dầu) — bản 1.2.3", ""),
         ("fixed_price", "NUM", False, "> 0 khi price_method = CO_DINH — đơn giá vận chuyển cố định đ/tấn, chưa VAT", ""),
+        ("price_code", "TEXT", False, "FK MA_DON_GIA — dòng giá (CON) thuộc mã đơn giá; trống = giá chung / giá riêng hợp đồng như cũ. Dòng thuộc mã không gắn contract_id (bản 1.5.0)", ""),
+     ], True),
+    ("MA_DON_GIA", "Danh mục", "Mã đơn giá (CHA): nhóm các dòng giá (CON = PRICE_HISTORY.price_code) theo đơn vị; hợp đồng chọn mã ở HOP_DONG.price_code (bản 1.5.0)", "price_code", [],
+     {"unit_code": "DON_VI.unit_code"}, [
+        ("price_code", "TEXT", True, "PK — 2–24 ký tự chữ HOA / số / . _ -", ""),
+        ("unit_code", "TEXT", True, "FK DON_VI — đơn vị (cha)", ""),
+        ("price_name", "TEXT", True, "tên mã đơn giá", ""),
+        ("status", "ENUM:ACTIVE|CLOSED", True, "CLOSED: không thêm dòng giá, không gán hợp đồng mới; hợp đồng đang dùng vẫn tính", ""),
+        ("note", "TEXT", False, "", ""),
      ], True),
     ("HOP_DONG", "Danh mục", "Hợp đồng vận chuyển 2 bên (bên vận chuyển lập tính toán)", "contract_id", ["contract_code"],
      {"customer_unit_code": "DON_VI.unit_code", "carrier_unit_code": "DON_VI.unit_code"}, [
@@ -97,6 +106,7 @@ TABLES = [
         ("carrier_signers_json", "JSON", False, "như trên, cho bên vận chuyển", "BKVC!A27:E33"),
         ("is_active", "BOOL", True, "bật/tắt", ""),
         ("note", "TEXT", False, "", ""),
+        ("price_code", "TEXT", False, "FK MA_DON_GIA — mã đơn giá hợp đồng áp dụng; trống = giá chung / giá riêng hợp đồng như cũ (bản 1.5.0)", ""),
      ], True),
     ("HOP_DONG_XE", "Danh mục", "Phạm vi xe của hợp đồng", "id", ["contract_id+plate_no+effective_from"],
      {"contract_id": "HOP_DONG.contract_id", "plate_no": "XE.plate_no"}, [

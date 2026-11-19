@@ -1018,6 +1018,12 @@
      "enum(DRAFT|ACTIVE|CLOSED)",
      false,
      ""
+    ],
+    [
+     "priceCode",
+     "string",
+     false,
+     "chỉ dòng giá của mã này; bỏ trống = giá chung / giá riêng hợp đồng (không gồm dòng thuộc mã)"
     ]
    ],
    "output": "{items:[PRICE_HISTORY + contractPrice tính sẵn]}",
@@ -1028,6 +1034,219 @@
    "writes": [],
    "audit": null,
    "lock": false
+  },
+  {
+   "action": "pricecodes.list",
+   "group": "Đơn giá",
+   "desc": "Cây cha–con: Đơn vị → Mã đơn giá (kèm số dòng giá, số hợp đồng đang dùng)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "unitCode",
+     "string",
+     false,
+     "lọc theo đơn vị"
+    ],
+    [
+     "includeClosed",
+     "boolean",
+     false,
+     "mặc định true"
+    ]
+   ],
+   "output": "{units:[{unitCode, unitName, codes:[MA_DON_GIA + lineCount, activeLines, contracts]}], items, total}",
+   "errors": [],
+   "reads": [
+    "MA_DON_GIA",
+    "PRICE_HISTORY",
+    "HOP_DONG",
+    "DON_VI"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "pricecodes.get",
+   "group": "Đơn giá",
+   "desc": "Chi tiết một mã đơn giá: thông tin (cha) + các dòng giá theo tuyến (con)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "priceCode",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{record, lines:[PRICE_HISTORY + routeName, uom, contractPrice]}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "MA_DON_GIA",
+    "PRICE_HISTORY",
+    "TUYEN_VC"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "pricecodes.save",
+   "group": "Đơn giá",
+   "desc": "Tạo / sửa mã đơn giá (cha): mã, đơn vị, tên, ghi chú. Sửa phải gửi rowVersion",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "record",
+     "object",
+     true,
+     "{priceCode, unitCode, priceName, note}"
+    ],
+    [
+     "create",
+     "boolean",
+     false,
+     "true = tạo mã mới"
+    ],
+    [
+     "rowVersion",
+     "integer",
+     false,
+     "bắt buộc khi sửa"
+    ],
+    [
+     "reason",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "DUPLICATE",
+    "CONFLICT_VERSION"
+   ],
+   "reads": [
+    "MA_DON_GIA",
+    "DON_VI"
+   ],
+   "writes": [
+    "MA_DON_GIA"
+   ],
+   "audit": "PRICE_CODE_CREATE/UPDATE",
+   "lock": true
+  },
+  {
+   "action": "pricecodes.setActive",
+   "group": "Đơn giá",
+   "desc": "Đóng / mở lại mã đơn giá (đóng: không thêm dòng, không gán hợp đồng mới; hợp đồng đang dùng vẫn tính)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "priceCode",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "active",
+     "boolean",
+     true,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     true,
+     "row_version đang có ở client — sai → CONFLICT_VERSION; thiếu → VALIDATION_FAILED (Router chặn)"
+    ],
+    [
+     "reason",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{record}",
+   "errors": [
+    "NOT_FOUND",
+    "CONFLICT_VERSION"
+   ],
+   "reads": [
+    "MA_DON_GIA"
+   ],
+   "writes": [
+    "MA_DON_GIA"
+   ],
+   "audit": "PRICE_CODE_OPEN/CLOSE",
+   "lock": true
+  },
+  {
+   "action": "pricecodes.addLine",
+   "group": "Đơn giá",
+   "desc": "Thêm dòng giá (con) vào mã: nhập tuyến + đơn giá cố định + hiệu lực, hoặc chọn một đơn giá có sẵn (fromPriceId) để sao chép; dòng mới NHÁP → prices.activate",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "priceCode",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "record",
+     "object",
+     false,
+     "{routeCode, effectiveFrom, fixedPrice?, priceMethod?, …}"
+    ],
+    [
+     "fromPriceId",
+     "string",
+     false,
+     "sao chép từ một phiên bản giá có sẵn"
+    ]
+   ],
+   "output": "{record, contractPrice}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "BUSINESS_RULE:E_PRICE_DATE_OVERLAP",
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "MA_DON_GIA",
+    "PRICE_HISTORY",
+    "TUYEN_VC"
+   ],
+   "writes": [
+    "PRICE_HISTORY"
+   ],
+   "audit": "PRICE_CREATE",
+   "lock": true
   },
   {
    "action": "prices.preview",

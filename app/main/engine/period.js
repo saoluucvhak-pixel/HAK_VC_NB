@@ -20,12 +20,17 @@ const USED = new Set(['CONFIRMED', 'LOCKED']);
 const inRange = (d, from, to) => d >= from && d <= to;
 const effectiveAt = (row, d) => row.effective_from <= d && (!row.effective_to || row.effective_to >= d);
 
-function selectPriceVersion(prices, routeCode, contractId, dateFrom, dateTo, cfg) {
+/**
+ * Chọn phiên bản giá. Thứ tự ưu tiên: (1) dòng giá của MÃ ĐƠN GIÁ gán cho hợp đồng (priceCode) → (2) giá riêng của hợp đồng → (3) giá chung.
+ * Hợp đồng KHÔNG gán mã đơn giá (priceCode rỗng) và mọi dòng giá cũ (price_code rỗng) chạy đúng như trước đây — dòng giá thuộc một mã bị loại khỏi (2) và (3).
+ */
+function selectPriceVersion(prices, routeCode, contractId, dateFrom, dateTo, cfg, priceCode = '') {
   const usable = prices.filter((p) => p.route_code === routeCode && p.status !== 'DRAFT');
   const pick = (d) => {
-    const own = usable.filter((p) => p.contract_id === contractId && effectiveAt(p, d));
-    const gen = usable.filter((p) => !p.contract_id && effectiveAt(p, d));
-    const list = own.length ? own : gen;
+    const coded = priceCode ? usable.filter((p) => p.price_code === priceCode && effectiveAt(p, d)) : [];
+    const own = usable.filter((p) => !p.price_code && p.contract_id === contractId && effectiveAt(p, d));
+    const gen = usable.filter((p) => !p.price_code && !p.contract_id && effectiveAt(p, d));
+    const list = coded.length ? coded : own.length ? own : gen;
     return list.sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0] || null;
   };
   const date = cfg.priceVersionDate === 'PERIOD_START' ? dateFrom : dateTo;
@@ -206,7 +211,7 @@ function calculatePeriod(input) {
   for (const [routeCode, ts] of [...byRoute.entries()].sort()) {
     const route = routeByCode.get(routeCode);
     const rIssues = [];
-    const sel = selectPriceVersion(prices, routeCode, contract.contract_id, p.dateFrom, p.dateTo, input.cfg);
+    const sel = selectPriceVersion(prices, routeCode, contract.contract_id, p.dateFrom, p.dateTo, input.cfg, contract.price_code || '');
     const fixed = !sel.issue && F.isFixedPrice(sel.price);
     if (sel.issue) rIssues.push(sel.issue);
     else rIssues.push(...(fixed ? validateFixedPrice(route, sel.price) : validatePriceAndRoute(route, sel.price)));
