@@ -1509,6 +1509,14 @@
     "updated_by": "seed@import"
    },
    {
+    "config_key": "BACKUP_MIRROR_KEEP",
+    "config_value": "60",
+    "value_type": "NUM",
+    "description": "số bản sao lưu giữ lại ở thư mục ngoài (USB / Google Drive); 0 = không xóa",
+    "updated_at": "2026-11-19T09:00:00+07:00",
+    "updated_by": "seed@import"
+   },
+   {
     "config_key": "LOGIN_MAX_FAILED",
     "config_value": "5",
     "value_type": "NUM",
