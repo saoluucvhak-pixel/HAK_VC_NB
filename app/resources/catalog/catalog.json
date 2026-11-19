@@ -1509,11 +1509,35 @@
     "updated_by": "seed@import"
    },
    {
+    "config_key": "BACKUP_MIRROR_KEEP",
+    "config_value": "60",
+    "value_type": "NUM",
+    "description": "số bản sao lưu giữ lại ở thư mục ngoài (USB / Google Drive); 0 = không xóa",
+    "updated_at": "2026-11-19T09:00:00+07:00",
+    "updated_by": "seed@import"
+   },
+   {
     "config_key": "LOGIN_MAX_FAILED",
     "config_value": "5",
     "value_type": "NUM",
     "description": "sai mật khẩu tối đa trước khi khóa",
     "updated_at": "2026-09-24T22:10:00+07:00",
+    "updated_by": "seed@import"
+   },
+   {
+    "config_key": "SETUP_CODE_HOURS",
+    "config_value": "24",
+    "value_type": "NUM",
+    "description": "hạn (giờ) của mã kích hoạt đặt mật khẩu lần đầu",
+    "updated_at": "2026-11-19T09:00:00+07:00",
+    "updated_by": "seed@import"
+   },
+   {
+    "config_key": "SINGLE_USER_MODE",
+    "config_value": "FALSE",
+    "value_type": "BOOL",
+    "description": "TRUE: bản cài 1 người dùng — điền sẵn tên đăng nhập (vẫn nhập mật khẩu)",
+    "updated_at": "2026-11-19T09:00:00+07:00",
     "updated_by": "seed@import"
    },
    {

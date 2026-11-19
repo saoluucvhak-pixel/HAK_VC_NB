@@ -297,6 +297,11 @@
      "required": false
     },
     {
+     "name": "catalog_date",
+     "type": "TEXT",
+     "required": false
+    },
+    {
      "name": "created_at",
      "type": "DATETIME",
      "required": true
@@ -528,6 +533,15 @@
      "name": "note",
      "type": "TEXT",
      "required": false
+    },
+    {
+     "name": "price_method",
+     "type": "ENUM",
+     "required": false,
+     "enum": [
+      "CO_DINH",
+      "THEO_DAU"
+     ]
     },
     {
      "name": "created_at",
@@ -2225,6 +2239,21 @@
     {
      "name": "locked_until",
      "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "setup_code_hash",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "setup_code_salt",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "setup_code_expires_at",
+     "type": "TEXT",
      "required": false
     },
     {

@@ -180,7 +180,7 @@ Hai máy cài cùng một đơn vị sinh mã kỳ giống nhau (KY-DH-000001…
 
 **Đơn giá** (quản lý theo phiên bản):
 - **Tạo phiên bản mới:** màn hình xem trước ĐG HĐ ngay khi gõ số.
-- **Đơn giá cước / tấn (chưa VAT) — dùng tính:** giá cước 1 tấn đã gồm dầu theo định mức (cột "Đơn giá mới" của Excel). Chỉ số này vào công thức: ĐG 1 chuyến = Đơn giá cước × KL TB → trừ tiền dầu định mức → ĐG HĐ.
+- **Đơn giá ký hợp đồng dự kiến / tấn (chưa VAT) — dùng tính** (trước đây "Đơn giá cước"): giá cước 1 tấn đã gồm dầu theo định mức (cột "Đơn giá mới" của Excel). Chỉ số này vào công thức: ĐG 1 chuyến = Đơn giá cước × KL TB → trừ tiền dầu định mức → ĐG HĐ.
 - **Đơn giá tham khảo (chưa VAT) + Nguồn đơn giá tham khảo:** chỉ để đối chiếu, **không dùng tính**. Có nhập đơn giá tham khảo thì bắt buộc ghi nguồn (file · bảng · cột · ngày, hoặc số phụ lục hợp đồng). Danh mục đi kèm bộ cài ghi sẵn nguồn: *File Excel Dongiavanchuyen_24.09 · bảng TBL_DATA · cột "Đơn Giá (chưa VAT)" · ngày cập nhật …*. Bảng danh sách đơn giá có cột **Nguồn tham khảo**.
 - **Kích hoạt:** bản giá cũ tự đóng vào ngày trước ngày áp dụng giá mới. Phần mềm không cho đổi giá của những ngày đã nằm trong kỳ đã xác nhận.
 
@@ -257,10 +257,10 @@ Bấm vào 1 hợp đồng trong danh sách. Dòng đầu cửa sổ cho biết 
 ![Sửa hợp đồng đã dùng](man_hinh_giao_dien_moi/31-sua-hop-dong-da-dung.png)
 
 ## 5. Sao lưu — khôi phục (Cài đặt → Dữ liệu & sao lưu)
-- **Tự động:** 1 bản mỗi ngày (giữ 30 bản), 1 bản mỗi tháng (giữ 24 bản). Có thêm **bản an toàn** trước khi khôi phục, nhập gói hoặc đổi thư mục.
-- **Sao lưu ra USB / Google Drive:** bật và chọn thư mục. Mỗi bản sao lưu được chép thêm sang `…\DGVC_BACKUP\<đơn vị>`.
+- **Tự động:** 1 bản mỗi ngày (giữ 30 bản); 1 bản cho **mỗi tháng** (giữ 24 bản) — tạo ngay lần đầu mở app trong tháng, không cần đúng ngày mùng 1. Có thêm **bản an toàn** trước khi khôi phục, nhập gói hoặc đổi thư mục.
+- **Sao lưu ra USB / Google Drive:** bật và chọn thư mục. Mỗi bản sao lưu được chép thêm sang `…\DGVC_BACKUP\<đơn vị>`; app đọc lại kiểm SHA-256, sai thì báo lỗi (không để file hỏng) và màn Sao lưu hiện **cảnh báo vàng** nếu lần chép gần nhất lỗi. Giữ tối đa `BACKUP_MIRROR_KEEP` bản ở thư mục ngoài (mặc định 60; 0 = không xóa).
 - **Sao lưu ngay:** bấm trước khi làm việc lớn.
-- **Khôi phục:** chọn bản → ghi lý do. Phần mềm kiểm SHA-256 và tự sao lưu hiện trạng trước khi khôi phục.
+- **Khôi phục:** chọn bản → ghi lý do. Phần mềm kiểm SHA-256 và tự sao lưu hiện trạng trước khi khôi phục; nếu khôi phục lỗi giữa chừng, dữ liệu trước đó được trả lại nguyên vẹn.
 - **Đổi thư mục dữ liệu** (vd sang ổ D:): phần mềm chép toàn bộ sang thư mục mới; thư mục cũ vẫn giữ nguyên.
 
 ### Lưu trữ theo năm (từ bản 1.2.5)
@@ -279,9 +279,9 @@ Sau khi lưu trữ:
 ![Lưu trữ theo năm](man_hinh_giao_dien_moi/34-luu-tru-xem-truoc.png)
 
 ## 6. Người dùng (ADMIN: Cài đặt → Người dùng)
-- **Thêm người dùng:** email, vai trò **Kế toán** / **Chỉ xem** / **ADMIN**, đơn vị, quyền mở khóa kỳ. Người dùng mới tự đặt mật khẩu ở lần đăng nhập đầu tiên.
+- **Thêm người dùng:** email, vai trò **Kế toán** / **Chỉ xem** / **ADMIN**, đơn vị, quyền mở khóa kỳ. Sau khi lưu, app hiện **mã kích hoạt 8 ký tự (chỉ hiện một lần, hạn 24 giờ)** — bấm **Sao chép** và gửi cho người dùng; họ nhập mã ở màn *Đặt mật khẩu lần đầu*. Sai mã quá 5 lần → khóa 15 phút. Ngoại lệ: **ADMIN đầu tiên của bản cài mới** đặt mật khẩu không cần mã.
 - **Nhập sai mật khẩu 5 lần:** tài khoản bị khóa 15 phút.
-- **Quên mật khẩu:** ADMIN bấm **Đặt lại mật khẩu**.
+- **Quên mật khẩu / tài khoản chưa có mật khẩu:** ADMIN bấm **Đặt lại mật khẩu** → nhận mã kích hoạt mới (mã cũ vô hiệu). Hai ADMIN sửa cùng một người dùng cùng lúc: người lưu sau nhận thông báo xung đột phiên bản, mở lại để lấy bản mới.
 - **Không thao tác 60 phút:** phần mềm tự đăng xuất.
 
 ## 7. Gỡ cài đặt / cài lại / chuyển máy
@@ -310,9 +310,19 @@ Sau khi lưu trữ:
 ### Khôi phục từ file tự chọn và Sao lưu JSON (từ bản 1.3.4, chỉ ADMIN)
 **Cài đặt → Dữ liệu & sao lưu**: **Khôi phục từ file…** — chọn file sao lưu `.zip` (ở USB / ổ khác) hoặc file `manifest.json` trong một thư mục dữ liệu JSON; app hiển thị đơn vị và phiên bản dữ liệu, hỏi lý do rồi khôi phục (tự sao lưu an toàn trước). Bản sao lưu của **máy khác cùng đơn vị** (khi thay máy) được phép sau khi xác nhận; khác đơn vị thì không. **Sao lưu JSON ra thư mục…** — xuất bản chụp (`manifest.json`, `tables/`, `snapshot-info.json`) ra thư mục trống để lưu lâu dài; muốn quay lại thì dùng **Khôi phục từ file…** chọn `manifest.json` đó.
 
-### Mã đơn giá và đơn giá cố định theo đơn vị (từ bản 1.5.0)
-Menu **Mã đơn giá** (sau "Đơn giá"), tổ chức cha–con: **Đơn vị → Mã đơn giá → Dòng giá theo tuyến**.
-1. **Tạo mã:** ở đơn vị cần dùng bấm **+ Tạo mã** (mã dạng `DG-DH-2026`, tên, ghi chú).
-2. **Thêm dòng giá:** **Thêm dòng giá cố định** (tuyến + đơn giá đ/tấn chưa VAT + hiệu lực từ ngày) hoặc **Chọn đơn giá có sẵn…** (sao chép các đơn giá đang dùng vào mã). Dòng mới ở trạng thái **Nháp** → bấm **Áp dụng** (dòng cũ cùng mã và cùng tuyến tự đóng như phiên bản giá thường).
-3. **Áp dụng cho hợp đồng:** nút **Gán cho hợp đồng…** hoặc ô **Mã đơn giá áp dụng** trong màn Hợp đồng. Từ đó các kỳ tính của hợp đồng dùng dòng giá của mã (theo tuyến và ngày hiệu lực).
+### Giá 3 tầng: Hình thức → Mã đơn giá → Dòng giá theo tuyến (từ bản 1.7.0)
+Menu **Mã đơn giá** (sau "Đơn giá"). Cây bên trái chia **2 hình thức giá của hệ thống**: **Đơn giá cố định** và **Đơn giá theo giá dầu**; mỗi mã thuộc một hình thức và một công ty đối tác.
+1. **Tạo mã:** bấm **+ Mã đơn giá cố định** hoặc **+ Mã đơn giá theo giá dầu**; hộp thoại có hai thẻ chọn hình thức (dùng phím mũi tên để đổi), rồi chọn đơn vị, nhập mã (dạng `DG-DH-2026`), tên, ghi chú. Hình thức **không đổi được** khi mã đã có dòng giá hoặc đã gán hợp đồng. Mã tạo từ bản 1.5.0 tự đọc là *Đơn giá cố định*.
+2. **Thêm dòng giá (mỗi dòng một tuyến):**
+   - Mã cố định: tuyến, **Cự ly** (chỉ hiển thị), **Đơn giá cố định**, **Ngày cập nhật**.
+   - Mã theo giá dầu: tuyến, **Cự ly** (chỉ hiển thị), **Đơn giá ký hợp đồng dự kiến**, ĐG dầu, định mức dầu (lít/km), KL trung bình, **Ngày cập nhật**.
+   - **Cự ly nhập một chỗ duy nhất ở Danh mục tuyến**; dòng giá chỉ hiển thị lại. Định mức/hệ số nằm ở dòng giá theo giá dầu.
+   - **Ngày cập nhật** là ngày hiệu lực: với cùng tuyến trong mã, bản mới nhất không sau ngày tính có hiệu lực, bản cũ tự đóng. Không điền lùi ngày vào khoảng đã có bản đang dùng (báo `E_PRICE_DATE_OVERLAP`).
+   - **Chọn đơn giá có sẵn…** sao chép các đơn giá đang dùng đúng hình thức vào mã. Dòng mới ở trạng thái **Nháp** → bấm **Áp dụng**.
+3. **Áp dụng cho hợp đồng:** nút **Gán cho hợp đồng…** hoặc ô **Mã đơn giá áp dụng** trong màn Hợp đồng. Từ đó các kỳ tính của hợp đồng dùng dòng giá của mã (theo tuyến và ngày hiệu lực). Mã theo giá dầu tính ra đúng số như tuyến giá dầu thường cùng tham số.
+**Từ bản 1.8.1 — menu và màn Hợp đồng:** menu chia **nhóm** (Bắt đầu · Danh mục · Nhập liệu · Tính & chốt · Kết xuất · Trao đổi & đối chiếu · Hệ thống); bấm tên nhóm để thu gọn / mở, app nhớ lựa chọn. **Công ty & đối tác** và **Xe** nằm trong nhóm Danh mục. Màn **Hợp đồng**: chọn hợp đồng ở danh sách bên trái, bên phải có các thẻ *Thông tin · Xe của hợp đồng · Mã đơn giá · Kỳ tính*.
+
+**Từ bản 1.8.0:** mã đơn giá **chỉ gán / đổi / bỏ ở màn Mã đơn giá** (nút *Gán cho hợp đồng…*); màn **Hợp đồng** chỉ xem mã đang áp dụng, mã của đối tác và **nguồn giá từng tuyến** (theo mã / giá riêng hợp đồng / giá chung). **Giao nhận dầu** chỉ cần cho hợp đồng có tuyến theo giá dầu. Mã tuyến mới được app **gợi ý** (VC.nnn kế tiếp, sửa được), và Danh mục tuyến có cột **Ngày cập nhật**.
+
+Thuật ngữ trên giao diện: **"Đơn giá ký hợp đồng dự kiến"** là ô nhập trong danh mục (gồm dầu theo định mức); **"ĐG ký HĐ"** là đơn giá ký hợp đồng tính ra (chưa gồm nhiên liệu). Hai hình thức: **Đơn giá cố định** và **Đơn giá theo giá dầu**.
 **Quy trình cũ giữ nguyên:** hợp đồng không chọn mã vẫn dùng giá chung / giá riêng hợp đồng như trước; tuyến mà mã chưa có dòng giá cũng quay về giá cũ. Màn **Đơn giá** và **Căn cứ giá hợp đồng** không đổi. Tuyến dùng đơn giá cố định không nhận dầu (như trước).

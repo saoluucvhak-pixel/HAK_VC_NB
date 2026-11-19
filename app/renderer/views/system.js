@@ -6,7 +6,7 @@
 
   // ───────── Sửa xe (Cài đặt → Đơn vị & xe) ─────────
   async function vehicleEdit(x, reminder) {
-    const back = () => D.go('settings', { tab: 'units' });
+    const back = () => D.go('vehicles'); // sửa xe chỉ mở được từ màn Xe
     const u = await D.api('vehicles.usage', { plateNo: x.plate_no });
     const used = [u.tickets ? `${D.vn(u.tickets)} phiếu cân` : '', u.fuelRows ? `${D.vn(u.fuelRows)} dòng dầu` : '', u.contracts.length ? `hợp đồng ${u.contracts.join(', ')}` : '', u.periodLines ? 'kết quả kỳ tính' : ''].filter(Boolean);
     const f = D.form([{ key: 'plateNo', label: 'Biển số', readonly: true }, { key: 'ownerUnitCode', label: 'Chủ xe (nhóm xe)', type: 'select', options: D.unitOptions() },
@@ -151,9 +151,10 @@
               h('span', { class: 'small muted' }, 'Phiếu đã có tự bỏ qua; phiếu thuộc kỳ đã chốt sẽ hiện ở Đối chiếu dữ liệu.')) : null) : null,
           pv.ticketsOnly ? h('div', { class: 'card small' }, h('b', {}, 'Chỉ nhập phiếu cân'), ' trong gói — bỏ qua kỳ tính, dầu, danh mục.') : null,
           pv.conflicts.length ? h('div', { class: 'card' }, h('h2', {}, `Xung đột (${pv.conflicts.length}) — chọn giữ bản này hay lấy bản đến`), pv.conflicts.map((c) => {
-            const sup = c.kind === 'SUPERSEDE';
-            const sel = h('select', { onchange: (e) => { decisions[`${c.table}:${c.id}`] = e.target.value; } }, h('option', { value: 'KEEP' }, sup ? 'Giữ kỳ cũ (không nhận kỳ này)' : 'Giữ bản này'), h('option', { value: 'TAKE' }, sup ? 'Thay kỳ cũ bằng kỳ này' : 'Lấy bản đến'));
-            const label = sup ? `Kỳ tính mới thay kỳ ${(c.supersedeCodes || []).join(', ')} —` : c.table === 'KY_TINH' ? 'Kỳ tính' : c.table;
+            const sup = c.kind === 'SUPERSEDE'; const dup = c.kind === 'POSSIBLE_DUPLICATE'; // nghi trùng dòng dầu: SKIP (mặc định) / KEEP
+            const sel = dup ? h('select', { 'aria-label': 'Xử lý dòng dầu nghi trùng', onchange: (e) => { decisions[`${c.table}:${c.id}`] = e.target.value; } }, h('option', { value: 'SKIP' }, 'Bỏ qua (đã có ở máy này)'), h('option', { value: 'KEEP' }, 'Vẫn nhập (ghi thêm)'))
+              : h('select', { onchange: (e) => { decisions[`${c.table}:${c.id}`] = e.target.value; } }, h('option', { value: 'KEEP' }, sup ? 'Giữ kỳ cũ (không nhận kỳ này)' : 'Giữ bản này'), h('option', { value: 'TAKE' }, sup ? 'Thay kỳ cũ bằng kỳ này' : 'Lấy bản đến'));
+            const label = dup ? 'Dòng dầu nghi trùng —' : sup ? `Kỳ tính mới thay kỳ ${(c.supersedeCodes || []).join(', ')} —` : c.table === 'KY_TINH' ? 'Kỳ tính' : c.table;
             return h('div', { style: { borderBottom: '1px dashed var(--line)', padding: '10px 0' } },
               h('div', { class: 'row' }, h('b', { class: 'grow' }, `${label} `, h('span', { class: 'mono' }, c.id)), h('span', { class: 'small muted' }, 'Chọn:'), sel),
               c.note ? h('div', { class: 'small muted', style: { margin: '4px 0' } }, c.note) : null,
@@ -208,8 +209,9 @@
   // ───────── Cài đặt ─────────
   D.views.settings = {
     async render(p) {
-      const tab = p.tab || 'backup'; const admin = D.can('ADMIN');
-      const tabs = h('div', { class: 'tabs', role: 'tablist' }, [['backup', 'Dữ liệu & sao lưu'], ['params', 'Tham số tính'], ['units', 'Công ty & xe'], ['users', 'Người dùng'], ['info', 'Thông tin']].map(([k, t]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => D.go('settings', { tab: k }) }, t)));
+      const tab = p.tab || 'backup'; const admin = D.can('ADMIN'); const only = p.only || ''; // only: 'units' | 'vehicles' — màn riêng tách từ tab cũ "Công ty & xe"
+      if (tab === 'units' && !only) { setTimeout(() => D.go('units')); return h('div'); } // đường dẫn cũ D.go('settings', { tab: 'units' }) vẫn chạy
+      const tabs = h('div', { class: 'tabs', role: 'tablist' }, [['backup', 'Dữ liệu & sao lưu'], ['params', 'Tham số tính'], ['users', 'Người dùng'], ['info', 'Thông tin']].map(([k, t]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => D.go('settings', { tab: k }) }, t)));
       const body = h('div');
       if (tab === 'backup') {
         const b = await D.api(admin ? 'data.listBackups' : 'data.listBackups', {}, { quiet: true }).catch(() => ({ items: [], warning: null }));
@@ -221,6 +223,7 @@
             admin ? h('button', { class: 'btn', onclick: () => restoreFromFile() }, 'Khôi phục từ file…') : null),
           h('p', { class: 'small muted' }, 'Dữ liệu chính lưu trong kho SQLite và máy luôn tự sao lưu hằng ngày. Sao lưu JSON là bản phụ để gửi máy khác. Khôi phục từ file: chọn bản sao lưu SQL (.zip) hoặc bản JSON (.zip / manifest.json) — cả hai đều được.')),
         h('div', { class: 'card' }, h('h2', {}, 'Sao lưu ra ngoài (USB / Google Drive)'), h('p', { class: 'small mono' }, cfg.BACKUP_MIRROR_FOLDER || '(chưa chọn)'), h('p', { class: 'small' }, `Đang ${cfg.BACKUP_MIRROR_ENABLED === 'TRUE' ? 'BẬT' : 'TẮT'}`),
+          b.lastMirror && !b.lastMirror.ok ? h('p', { role: 'alert', class: 'warn-line' }, h('span', { class: 'tag warn' }, 'Cảnh báo'), ` Lần chép ra ngoài gần nhất bị lỗi: ${b.lastMirror.message}`) : null,
           admin ? h('div', { class: 'btns' }, h('button', { class: 'btn', onclick: async () => { const f = await D.pickFolder('Chọn USB / thư mục Google Drive'); if (!f) return; await D.api('config.save', { key: 'BACKUP_MIRROR_FOLDER', value: f }); await D.api('config.save', { key: 'BACKUP_MIRROR_ENABLED', value: 'TRUE' }); await D.refreshBoot(); D.go('settings', { tab: 'backup' }); } }, 'Chọn thư mục…'),
             h('button', { class: 'btn', onclick: async () => { await D.api('config.save', { key: 'BACKUP_MIRROR_ENABLED', value: cfg.BACKUP_MIRROR_ENABLED === 'TRUE' ? 'FALSE' : 'TRUE' }); await D.refreshBoot(); D.go('settings', { tab: 'backup' }); } }, cfg.BACKUP_MIRROR_ENABLED === 'TRUE' ? 'Tắt' : 'Bật')) : null,
           h('div', { class: 'sep' }), h('h2', {}, 'Thư mục dữ liệu'), h('p', { class: 'small mono' }, D.state.boot.install.dataFolder),
@@ -245,19 +248,19 @@
         const uv = (x) => ({ unitCode: x.unit_code, unitName: x.unit_name, docDisplayName: x.doc_display_name, shortName: x.short_name, unitType: x.unit_type, taxCode: x.tax_code, address: x.address, phone: x.phone, email: x.email, legalRepSalutation: x.legal_rep_salutation, legalRepName: x.legal_rep_name, legalRepTitle: x.legal_rep_title,
           bankName: x.bank_name, bankAccount: x.bank_account, signPriority: x.sign_priority, accountantName: x.accountant_name, factoryName: x.factory_name, nameAliases: x.name_aliases });
         const reminder = (r) => { for (const w of r.warnings || []) D.toast(w.message, 'info', 9000); };
-        const editUnit = (x, title) => D.formModal({ title, fields: UF.map((f) => (f.key === 'unitCode' ? { ...f, readonly: true } : f)), values: uv(x), wide: true, submit: async (val) => { reminder(await D.api('units.save', { record: val, rowVersion: x.row_version })); await D.refreshBoot(); D.go('settings', { tab: 'units' }); } });
+        const editUnit = (x, title) => D.formModal({ title, fields: UF.map((f) => (f.key === 'unitCode' ? { ...f, readonly: true } : f)), values: uv(x), wide: true, submit: async (val) => { reminder(await D.api('units.save', { record: val, rowVersion: x.row_version })); await D.refreshBoot(); D.go(only || 'units'); } });
         // quan hệ của đối tác với công ty mình, suy ra từ hợp đồng
         const rel = (code) => { const a = cs.items.some((c) => c.carrier_unit_code === me && c.customer_unit_code === code); const b2 = cs.items.some((c) => c.customer_unit_code === me && c.carrier_unit_code === code); return a && b2 ? 'Bên thuê + bên vận chuyển' : a ? 'Bên thuê vận chuyển' : b2 ? 'Bên vận chuyển cho mình' : 'Chưa có hợp đồng'; };
         const kv = (k, val) => h('div', { class: 'kv' }, h('span', { class: 'small muted' }, k), h('b', {}, val || '—'));
         body.append(h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Công ty vận chuyển (công ty dùng phần mềm này)'), D.writer() && mine ? h('button', { class: 'btn', onclick: () => editUnit(mine, `Công ty ${mine.unit_code}`) }, 'Sửa thông tin công ty') : null),
           mine ? h('div', { class: 'card company-card' }, h('div', { class: 'company-grid' }, kv('Mã', mine.unit_code), kv('Tên công ty', mine.unit_name), kv('Tên trên chứng từ', mine.doc_display_name), kv('MST', mine.tax_code), kv('Địa chỉ', mine.address), kv('Điện thoại', mine.phone), kv('Email', mine.email),
             kv('Người đại diện', [mine.legal_rep_salutation, mine.legal_rep_name].filter(Boolean).join(' ') + (mine.legal_rep_title ? ` — ${mine.legal_rep_title}` : '')), kv('Ngân hàng', mine.bank_name), kv('Số tài khoản', mine.bank_account), kv('Kế toán ký BKVC', mine.accountant_name))) : h('p', { class: 'muted' }, `Chưa có công ty ${me} trong danh mục.`),
-          h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Công ty đối tác'), D.writer() ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm công ty đối tác', fields: UF, values: { unitType: 'CONG_TY', signPriority: 50 }, wide: true, submit: async (x) => { reminder(await D.api('units.save', { create: true, record: x })); await D.refreshBoot(); D.go('settings', { tab: 'units' }); } }) }, 'Thêm đối tác') : null),
+          h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Công ty đối tác'), D.writer() ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm công ty đối tác', fields: UF, values: { unitType: 'CONG_TY', signPriority: 50 }, wide: true, submit: async (x) => { reminder(await D.api('units.save', { create: true, record: x })); await D.refreshBoot(); D.go(only || 'units'); } }) }, 'Thêm đối tác') : null),
           h('p', { class: 'small muted' }, 'Danh mục các công ty làm việc với bạn: bên thuê vận chuyển, bên giao dầu, chủ xe… Bấm vào một dòng để sửa.'),
           h('div', { class: 'card flush' }, D.table({ rows: partners, onRow: D.writer() ? (x) => editUnit(x, `Đối tác ${x.unit_code}`) : null,
             columns: [{ key: 'unit_code', label: 'Mã' }, { key: 'unit_name', label: 'Tên' }, { key: 'x', label: 'Quan hệ', render: (r) => rel(r.unit_code) }, { key: 'tax_code', label: 'MST' }, { key: 'phone', label: 'Điện thoại' }, { key: 'address', label: 'Địa chỉ' }], empty: 'Chưa có công ty đối tác' })),
           h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Xe'), D.writer() ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm xe', fields: [{ key: 'plateNo', label: 'Biển số', required: true, hint: 'vd 92H-00057' }, { key: 'ownerUnitCode', label: 'Chủ xe', type: 'select', options: D.unitOptions() }, { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' }], values: { ownerUnitCode: D.state.boot.install.unitCode },
-            submit: async (x) => { reminder(await D.api('vehicles.save', { create: true, record: x })); D.go('settings', { tab: 'units' }); } }) }, 'Thêm xe') : null),
+            submit: async (x) => { reminder(await D.api('vehicles.save', { create: true, record: x })); D.go(only || 'units'); } }) }, 'Thêm xe') : null),
           h('div', { class: 'card flush' }, D.table({ rows: v.items, onRow: D.writer() ? (x) => vehicleEdit(x, reminder) : null,
             columns: [{ key: 'plate_no', label: 'Biển số' }, { key: 'owner_unit_code', label: 'Chủ xe' }, { key: 'fuel_code', label: 'Mã xe dầu' }, { key: 'note', label: 'Ghi chú' }, { key: 'is_active', label: 'Đang dùng', fmt: 'bool' }] })),
           D.writer() ? h('p', { class: 'small muted' }, 'Bấm vào 1 xe để sửa chủ xe, mã xe dầu, ghi chú, sửa biển số nhập nhầm, ngừng dùng hoặc xóa xe nhập nhầm.') : null);
@@ -266,10 +269,15 @@
           const d = await D.api('users.list');
           const UF = [{ key: 'username', label: 'Tên đăng nhập (email)', required: true }, { key: 'fullName', label: 'Họ tên' }, { key: 'role', label: 'Vai trò', type: 'select', options: [['KE_TOAN', 'Kế toán'], ['XEM', 'Chỉ xem'], ['ADMIN', 'ADMIN']] },
             { key: 'unitCode', label: 'Đơn vị', type: 'select', options: D.unitOptions(true) }, { key: 'canUnlock', label: 'Được mở khóa kỳ', type: 'check' }, { key: 'isActive', label: 'Đang hoạt động', type: 'check' }];
-          body.append(h('div', { class: 'head' }, h('span', { class: 'grow' }), h('button', { class: 'btn primary', onclick: () => D.formModal({ title: 'Thêm người dùng', fields: UF, values: { role: 'KE_TOAN', unitCode: D.state.boot.install.unitCode, isActive: true }, submit: async (x) => { await D.api('users.save', { record: x }); D.toast('Đã thêm — người dùng tự đặt mật khẩu lần đầu đăng nhập', 'ok'); D.go('settings', { tab: 'users' }); } }) }, 'Thêm người dùng')),
+          // hiện MÃ KÍCH HOẠT đúng một lần (server không lưu mã gốc)
+          const showCode = (username, r) => D.modal({ title: `Mã kích hoạt của ${username}`, body: h('div', {}, h('p', {}, 'Gửi mã này cho người dùng để đặt mật khẩu lần đầu:'),
+            h('p', { class: 'mono', style: { fontSize: '28px', letterSpacing: '4px', margin: '8px 0' } }, r.setupCode),
+            h('p', { class: 'small muted' }, `Hết hạn: ${new Date(r.setupCodeExpiresAt).toLocaleString('vi-VN')}. Mã chỉ hiện một lần — đóng hộp thoại là không xem lại được (cần mã mới thì bấm "Đặt lại mật khẩu").`)),
+            actions: [{ label: 'Sao chép', run: async () => { try { await navigator.clipboard.writeText(r.setupCode); D.toast('Đã sao chép mã', 'ok'); } catch { D.toast('Không sao chép được — hãy chép tay mã trên màn hình', 'err'); } return false; } }, { label: 'Đã ghi lại mã', primary: true, run: () => true }] });
+          body.append(h('div', { class: 'head' }, h('span', { class: 'grow' }), h('button', { class: 'btn primary', onclick: () => D.formModal({ title: 'Thêm người dùng', fields: UF, values: { role: 'KE_TOAN', unitCode: D.state.boot.install.unitCode, isActive: true }, submit: async (x) => { const r = await D.api('users.save', { record: x }); D.toast('Đã thêm người dùng — cấp mã kích hoạt cho họ', 'ok'); showCode(x.username, r); D.go('settings', { tab: 'users' }); } }) }, 'Thêm người dùng')),
             h('div', { class: 'card flush' }, D.table({ rows: d.items, onRow: (x) => D.modal({ title: x.username, body: D.form(UF.map((f) => (f.key === 'username' ? { ...f, readonly: true } : f)), x), actions: [
-              { label: 'Đặt lại mật khẩu', run: async () => { await D.api('users.resetPassword', { username: x.username }); D.toast('Người dùng sẽ đặt mật khẩu mới ở lần đăng nhập tới', 'ok'); } },
-              { label: 'Lưu', primary: true, run: async () => { const f = document.querySelector('.modal .form'); await D.api('users.save', { record: f.values ? f.values() : {} }); D.go('settings', { tab: 'users' }); } }] }),
+              { label: 'Đặt lại mật khẩu', run: async () => { const r = await D.api('users.resetPassword', { username: x.username }); D.toast('Đã đặt lại — cấp mã kích hoạt cho người dùng', 'ok'); showCode(x.username, r); D.go('settings', { tab: 'users' }); return true; } }, // đóng hộp sửa (rowVersion đã đổi) và nạp lại danh sách
+              { label: 'Lưu', primary: true, run: async () => { const f = document.querySelector('.modal .form'); await D.api('users.save', { record: f.values ? f.values() : {}, rowVersion: x.rowVersion }); D.go('settings', { tab: 'users' }); } }] }), // khóa lạc quan: người sửa sau nhận lỗi xung đột phiên bản
             columns: [{ key: 'username', label: 'Tên đăng nhập' }, { key: 'fullName', label: 'Họ tên' }, { key: 'role', label: 'Vai trò' }, { key: 'unitCode', label: 'Đơn vị' }, { key: 'canUnlock', label: 'Mở khóa', fmt: 'bool' },
               { key: 'hasPassword', label: 'Đã đặt mật khẩu', fmt: 'bool' }, { key: 'isActive', label: 'Hoạt động', fmt: 'bool' }, { key: 'lastLoginAt', label: 'Đăng nhập gần nhất', fmt: 'datetime' }] })));
         }
@@ -278,7 +286,15 @@
         body.append(h('div', { class: 'card' }, h('table', { class: 't' }, h('tbody', {}, [['Phiên bản APP', i.appVersion], ['Bản cài', `${i.unitCode} · ${i.unitName}`], ['Mã bản cài', i.installId], ['Thư mục dữ liệu', i.dataFolder], ['schemaVersion', i.schemaVersion], ['dataVersion', i.dataVersion],
           ['Số file dữ liệu', hl ? hl.files : '']].map(([k, v]) => h('tr', {}, h('td', {}, k), h('td', { class: 'mono' }, v)))))));
       }
+      if (only) { // tách khỏi Cài đặt: giữ đúng các khối của phần được chọn (khối nào bắt đầu bằng .head → thuộc 'Xe' nếu tiêu đề là "Xe", ngược lại thuộc Công ty & đối tác)
+        let sec = 'units';
+        for (const n of [...body.children]) { if (n.classList && n.classList.contains('head')) { const h2 = n.querySelector('h2'); sec = h2 && h2.textContent.trim() === 'Xe' ? 'vehicles' : 'units'; } if (sec !== only) n.remove(); }
+        return only === 'units' ? D.page('Công ty & đối tác', 'Danh mục · Công ty vận chuyển và công ty đối tác', [], body) : D.page('Xe', 'Danh mục · Xe vận chuyển', [], body);
+      }
       return D.page('Cài đặt', '11 · Cài đặt', [], tabs, body);
     },
   };
+  // Màn riêng (menu Danh mục): cùng nội dung cũ của tab Cài đặt › Công ty & xe, tách làm 2
+  D.views.units = { render: (p) => D.views.settings.render({ ...p, tab: 'units', only: 'units' }) };
+  D.views.vehicles = { render: (p) => D.views.settings.render({ ...p, tab: 'units', only: 'vehicles' }) };
 })();

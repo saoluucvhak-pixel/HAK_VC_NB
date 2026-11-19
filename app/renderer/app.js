@@ -251,10 +251,18 @@
 
   // ───────── điều hướng ─────────
   const NAV = [
-    ['dashboard', '1', 'Tổng quan'], ['guide', '', 'Hướng dẫn & quy trình'], ['tickets', '2', 'Phiếu cân'], ['fuel', '3', 'Giao nhận dầu'], ['routes', '4', 'Danh mục tuyến'], ['contracts', '', 'Hợp đồng vận chuyển'],
-    ['prices', '5', 'Đơn giá'], ['pricecodes', '', 'Mã đơn giá'], ['basis', '', 'Căn cứ giá hợp đồng'], ['calc', '6', 'Tính giá vận chuyển'], ['bkvc', '7', 'Bảng xác nhận KL'], ['bkct', '8', 'Chi tiết vận chuyển'], ['validation', '', 'Kiểm tra dữ liệu'],
+    ['dashboard', '1', 'Tổng quan'], ['guide', '', 'Hướng dẫn & quy trình'], ['tickets', '2', 'Phiếu cân'], ['routes', '4', 'Danh mục tuyến'], ['contracts', '', 'Hợp đồng vận chuyển'],
+    ['prices', '5', 'Đơn giá'], ['pricecodes', '', 'Mã đơn giá'], ['basis', '', 'Căn cứ giá hợp đồng'], ['fuel', '3', 'Giao nhận dầu'], ['calc', '6', 'Tính giá vận chuyển'], ['bkvc', '7', 'Bảng xác nhận KL'], ['bkct', '8', 'Chi tiết vận chuyển'], ['validation', '', 'Kiểm tra dữ liệu'],
     ['reports', '9', 'Báo cáo'], ['exchange', '', 'Trao đổi dữ liệu'], ['reconcile', '', 'Đối chiếu dữ liệu'], ['sync', '', 'Nhắc sửa danh mục'], ['audit', '10', 'Lịch sử thao tác'], ['settings', '11', 'Cài đặt'],
+    ['units', '', 'Công ty & đối tác'], ['vehicles', '', 'Xe'],
   ];
+  // Menu nhóm (1.8.x): id màn và số phím tắt giữ nguyên. Thứ tự nhóm theo luồng làm việc: Danh mục (gồm Hợp đồng) → Nhập liệu (Giao nhận dầu) → Tính & chốt.
+  // Tên nhóm "Bắt đầu" / "Kết xuất" (không trùng nhãn mục "Tổng quan" / "Báo cáo").
+  const NAV_GROUPS = [['start', 'Bắt đầu', ['dashboard', 'guide']], ['master', 'Danh mục', ['units', 'vehicles', 'routes', 'contracts', 'prices', 'pricecodes', 'basis']], ['input', 'Nhập liệu', ['tickets', 'fuel']],
+    ['calc', 'Tính & chốt', ['calc', 'validation', 'bkvc', 'bkct']], ['out', 'Kết xuất', ['reports']], ['xchg', 'Trao đổi & đối chiếu', ['exchange', 'reconcile', 'sync']], ['sys', 'Hệ thống', ['audit', 'settings']]];
+  const navClosedGet = () => { try { const o = JSON.parse(localStorage.getItem('dgvc.navClosed') || '{}'); return o && typeof o === 'object' ? o : {}; } catch { return {}; } };
+  const navClosedSet = (o) => { try { localStorage.setItem('dgvc.navClosed', JSON.stringify(o)); } catch { /* không có localStorage: vẫn dùng được, chỉ không nhớ */ } };
+
   D.go = (view, params = {}) => { state.view = view; state.params = params; render(); };
 
   /**
@@ -303,8 +311,15 @@
     const side = h('aside', { class: 'side' },
       h('div', { class: 'brand' }, h('div', { class: 'logo', 'aria-hidden': 'true' }, 'VC'), h('div', {}, 'Đơn giá vận chuyển', h('div', { class: 'sub' }, 'dăm gỗ · HAK Group'))),
       h('div', { class: 'install' }, h('b', {}, `Bản cài · ${b.install.unitCode}`), b.install.unitName),
-      h('nav', { 'aria-label': 'Menu chính' }, h('ul', { class: 'nav' }, NAV.filter(([v]) => v !== 'audit' || true).map(([v, n, t]) => h('li', {}, h('button', { 'aria-current': view === v ? 'page' : null, onclick: () => D.go(v) },
-        h('span', { class: 'n' }, n), t, v === 'sync' && sync.total ? h('span', { class: 'badge', 'aria-label': `${sync.total} nhắc` }, sync.total) : null, v === 'reconcile' && rc.problems ? h('span', { class: 'badge', 'aria-label': `${rc.problems} vấn đề cần xử lý` }, rc.problems) : null))))),
+      h('nav', { 'aria-label': 'Menu chính' }, h('ul', { class: 'nav' }, NAV_GROUPS.map(([gid, glabel, items]) => {
+        const closed = navClosedGet(); const open = !closed[gid] || items.includes(view); // tự mở nhóm chứa màn hiện tại
+        const ul = h('ul', { class: 'nav-items', id: `nav-g-${gid}` }, items.map((v) => { const [, n, tt] = NAV.find(([x]) => x === v); return h('li', {}, h('button', { 'aria-current': view === v ? 'page' : null, onclick: () => D.go(v) },
+          h('span', { class: 'n' }, n), tt, v === 'sync' && sync.total ? h('span', { class: 'badge', 'aria-label': `${sync.total} nhắc` }, sync.total) : null, v === 'reconcile' && rc.problems ? h('span', { class: 'badge', 'aria-label': `${rc.problems} vấn đề cần xử lý` }, rc.problems) : null)); }));
+        ul.hidden = !open;
+        const head = h('button', { class: 'nav-group-h', 'aria-expanded': String(open), 'aria-controls': `nav-g-${gid}`, onclick: () => {
+          const now = ul.hidden; ul.hidden = !now; head.setAttribute('aria-expanded', String(now)); const o = navClosedGet(); if (now) delete o[gid]; else o[gid] = true; navClosedSet(o); } }, h('span', { class: 'chev', 'aria-hidden': 'true' }, '▾'), glabel);
+        return h('li', { class: 'nav-group' }, head, ul);
+      }))),
       h('div', { class: 'me' }, h('div', {}, b.user.fullName || b.user.username), h('div', {}, `${b.user.role} · dữ liệu: `, h('span', { class: 'mono' }, b.install.dataFolder)),
         h('button', { class: 'theme-btn', 'aria-label': 'Đổi giao diện sáng/tối', onclick: (e) => { D.cycleTheme(); e.currentTarget.textContent = `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`; } }, `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`),
         h('button', { onclick: async () => { await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); state.token = ''; state.boot = null; D.go('login'); } }, 'Đăng xuất')));

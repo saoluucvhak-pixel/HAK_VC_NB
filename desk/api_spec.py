@@ -19,7 +19,7 @@ def ep(action, group, desc, roles, inp, out, errors=(), reads=(), writes=(), aud
 
 # ------------------------------------------------------------ Hệ thống
 ep('setup.status', 'Khởi tạo', 'Lần mở đầu: đã có thư mục dữ liệu chưa, bản cài của đơn vị nào, còn user chưa đặt mật khẩu không', PUBLIC, [],
-   '{initialized, dataFolder, installId, installCode, unitCode, schemaVersion, usersNeedPassword:[username]}')
+   '{initialized, dataFolder, installId, installCode, unitCode, schemaVersion, usersNeedPassword:[username], firstAdminOpen, singleUserName}')
 ep('setup.init', 'Khởi tạo', 'Tạo thư mục dữ liệu mới (chọn đơn vị của bản cài, ADMIN đầu tiên) hoặc mở thư mục có sẵn / nhận gói DANH_MUC ban đầu', PUBLIC,
    [('mode', 'enum(NEW|OPEN_EXISTING)', True, ''), ('dataFolder', 'string', True, 'đường dẫn đã chọn bằng dialog.openFolder'),
     ('unitCode', 'string', False, 'bắt buộc khi NEW'), ('admin', 'object', False, '{username, fullName, password} khi NEW'),
@@ -29,9 +29,9 @@ ep('auth.login', 'Đăng nhập', 'Đăng nhập tài khoản nội bộ → ses
    [('username', 'string', True, ''), ('password', 'string', True, '')],
    '{sessionToken, user:{username, fullName, role, unitCode, canUnlock}, mustChangePassword}',
    ['AUTH_FAILED', 'ACCOUNT_LOCKED', 'PASSWORD_NOT_SET'], ['USERS'], ['USERS'], 'LOGIN', True)
-ep('auth.setFirstPassword', 'Đăng nhập', 'User chưa có mật khẩu (dữ liệu mẫu / ADMIN vừa tạo) đặt mật khẩu lần đầu', PUBLIC,
-   [('username', 'string', True, ''), ('newPassword', 'string', True, '≥ 8 ký tự, có chữ và số')], '{ok}',
-   ['VALIDATION_FAILED', 'BUSINESS_RULE:E_PASSWORD_ALREADY_SET'], ['USERS'], ['USERS'], 'SET_PASSWORD', True)
+ep('auth.setFirstPassword', 'Đăng nhập', 'User chưa có mật khẩu đặt mật khẩu lần đầu bằng MÃ KÍCH HOẠT dùng một lần do ADMIN cấp (hạn SETUP_CODE_HOURS giờ); ngoại lệ bản cài mới: ADMIN đầu tiên chưa cần mã', PUBLIC,
+   [('username', 'string', True, ''), ('newPassword', 'string', True, '≥ 8 ký tự, có chữ và số'), ('setupCode', 'string', False, 'mã kích hoạt 8 ký tự; service kiểm — bắt buộc trừ ADMIN đầu tiên của bản cài mới')], '{ok}',
+   ['VALIDATION_FAILED', 'AUTH_FAILED', 'ACCOUNT_LOCKED', 'BUSINESS_RULE:E_PASSWORD_ALREADY_SET'], ['USERS'], ['USERS'], 'SET_PASSWORD', True)
 ep('auth.changePassword', 'Đăng nhập', 'Đổi mật khẩu', ALL, [('oldPassword', 'string', True, ''), ('newPassword', 'string', True, '')], '{ok}',
    ['AUTH_FAILED', 'VALIDATION_FAILED'], ['USERS'], ['USERS'], 'CHANGE_PASSWORD', True)
 ep('auth.logout', 'Đăng nhập', 'Đăng xuất (hủy session)', ALL, [], '{ok}', audit='LOGOUT')
@@ -58,6 +58,7 @@ for ent, sheet, key, label in [('units', 'DON_VI', 'unitCode', 'đơn vị'), ('
     ep(f'{ent}.setActive', 'Danh mục', f'Ngừng / dùng lại {label} (không xóa cứng)', EDIT if ent != 'units' else ADM,
        [(key, 'string', True, ''), ('active', 'boolean', True, ''), ROWV], '{record}',
        ['NOT_FOUND', 'CONFLICT_VERSION', 'BUSINESS_RULE:E_IN_USE'], [sheet], [sheet], 'SET_ACTIVE', True)
+ep('routes.nextCode', 'Danh mục', 'Mã tuyến gợi ý kế tiếp (VC. + số lớn nhất + 1, 3 chữ số). Chỉ gợi ý — sửa được trước khi lưu; trùng mã khi lưu → DUPLICATE (không ghi đè). Ngày cập nhật của tuyến (catalogDate) mặc định ngày hệ thống, điền tay được', EDIT, [], '{routeCode}', reads=['TUYEN_VC'])
 ep('vehicles.resolvePlate', 'Danh mục', 'Chuẩn hóa mã xe bất kỳ (`DH_92H00192`, `92H00195`) → biển số chuẩn', ALL,
    [('codes', 'array<string>', True, '')], '{results:[{input, plateNo|null, ownerUnitCode}]}', reads=['XE'])
 ep('vehicles.usage', 'Danh mục', 'Xe đang dùng ở đâu: phiếu cân, dòng dầu, kỳ tính, hợp đồng — biết có sửa biển số / xóa được không', ALL,
@@ -75,16 +76,16 @@ ep('vehicles.delete', 'Danh mục', 'Xóa xe nhập nhầm — chỉ khi chưa d
 ep('prices.list', 'Đơn giá', 'Lịch sử phiên bản giá theo tuyến (+ hợp đồng)', ALL,
    [('routeCode', 'string', False, ''), ('contractId', 'string', False, 'trống = giá chung'), ('status', 'enum(DRAFT|ACTIVE|CLOSED)', False, ''), ('priceCode', 'string', False, 'chỉ dòng giá của mã này; bỏ trống = giá chung / giá riêng hợp đồng (không gồm dòng thuộc mã)')],
    '{items:[PRICE_HISTORY + contractPrice tính sẵn]}', reads=['PRICE_HISTORY'])
-ep('pricecodes.list', 'Đơn giá', 'Cây cha–con: Đơn vị → Mã đơn giá (kèm số dòng giá, số hợp đồng đang dùng)', ALL,
-   [('unitCode', 'string', False, 'lọc theo đơn vị'), ('includeClosed', 'boolean', False, 'mặc định true')], '{units:[{unitCode, unitName, codes:[MA_DON_GIA + lineCount, activeLines, contracts]}], items, total}', reads=['MA_DON_GIA', 'PRICE_HISTORY', 'HOP_DONG', 'DON_VI'])
+ep('pricecodes.list', 'Đơn giá', 'Cây Hình thức giá → Mã đơn giá (kèm số dòng giá, số hợp đồng đang dùng); vẫn trả cây theo Đơn vị', ALL,
+   [('unitCode', 'string', False, 'lọc theo đơn vị'), ('includeClosed', 'boolean', False, 'mặc định true')], '{methods:[{method:CO_DINH|THEO_DAU, label, codes}], units:[{unitCode, unitName, codes:[MA_DON_GIA + priceMethod, lineCount, activeLines, contracts]}], items, total}', reads=['MA_DON_GIA', 'PRICE_HISTORY', 'HOP_DONG', 'DON_VI'])
 ep('pricecodes.get', 'Đơn giá', 'Chi tiết một mã đơn giá: thông tin (cha) + các dòng giá theo tuyến (con)', ALL,
    [('priceCode', 'string', True, '')], '{record, lines:[PRICE_HISTORY + routeName, uom, contractPrice]}', ['NOT_FOUND'], ['MA_DON_GIA', 'PRICE_HISTORY', 'TUYEN_VC'])
-ep('pricecodes.save', 'Đơn giá', 'Tạo / sửa mã đơn giá (cha): mã, đơn vị, tên, ghi chú. Sửa phải gửi rowVersion', EDIT,
-   [('record', 'object', True, '{priceCode, unitCode, priceName, note}'), ('create', 'boolean', False, 'true = tạo mã mới'), ('rowVersion', 'integer', False, 'bắt buộc khi sửa'), ('reason', 'string', False, '')], '{record}',
+ep('pricecodes.save', 'Đơn giá', 'Tạo / sửa mã đơn giá (cha): mã, đơn vị, hình thức giá (mặc định CO_DINH; không đổi khi mã đã có dòng/hợp đồng), tên, ghi chú. Sửa phải gửi rowVersion', EDIT,
+   [('record', 'object', True, '{priceCode, unitCode, priceName, priceMethod?, note}'), ('create', 'boolean', False, 'true = tạo mã mới'), ('rowVersion', 'integer', False, 'bắt buộc khi sửa'), ('reason', 'string', False, '')], '{record}',
    ['VALIDATION_FAILED', 'DUPLICATE', 'CONFLICT_VERSION'], ['MA_DON_GIA', 'DON_VI'], ['MA_DON_GIA'], 'PRICE_CODE_CREATE/UPDATE', True)
 ep('pricecodes.setActive', 'Đơn giá', 'Đóng / mở lại mã đơn giá (đóng: không thêm dòng, không gán hợp đồng mới; hợp đồng đang dùng vẫn tính)', EDIT,
    [('priceCode', 'string', True, ''), ('active', 'boolean', True, ''), ROWV, ('reason', 'string', False, '')], '{record}', ['NOT_FOUND', 'CONFLICT_VERSION'], ['MA_DON_GIA'], ['MA_DON_GIA'], 'PRICE_CODE_OPEN/CLOSE', True)
-ep('pricecodes.addLine', 'Đơn giá', 'Thêm dòng giá (con) vào mã: nhập tuyến + đơn giá cố định + hiệu lực, hoặc chọn một đơn giá có sẵn (fromPriceId) để sao chép; dòng mới NHÁP → prices.activate', EDIT,
+ep('pricecodes.addLine', 'Đơn giá', 'Thêm dòng giá (con) vào mã (hình thức dòng = hình thức của mã, trái hình thức → VALIDATION_FAILED): nhập tuyến + đơn giá cố định (hoặc đơn giá ký hợp đồng + giá dầu + định mức nếu mã theo giá dầu) + hiệu lực, hoặc chọn một đơn giá có sẵn (fromPriceId) để sao chép; dòng mới NHÁP → prices.activate', EDIT,
    [('priceCode', 'string', True, ''), ('record', 'object', False, '{routeCode, effectiveFrom, fixedPrice?, priceMethod?, …}'), ('fromPriceId', 'string', False, 'sao chép từ một phiên bản giá có sẵn')], '{record, contractPrice}',
    ['VALIDATION_FAILED', 'BUSINESS_RULE:E_PRICE_DATE_OVERLAP', 'NOT_FOUND'], ['MA_DON_GIA', 'PRICE_HISTORY', 'TUYEN_VC'], ['PRICE_HISTORY'], 'PRICE_CREATE', True)
 ep('prices.preview', 'Đơn giá', 'Tính Tầng A (ĐG 1 chuyến → ĐG_HĐ) cho 1 bộ tham số, không lưu — dùng khi nhập giá mới', ALL,
@@ -118,6 +119,8 @@ ep('archive.reopen', 'Dữ liệu', 'Mở lại năm lưu trữ gần nhất: đ
    [('year', 'integer', True, ''), ('reason', 'string', True, '')], '{year, counts}', ['VALIDATION_FAILED', 'NOT_FOUND'], ['PHIEU_CAN'], ['PHIEU_CAN', 'GIAO_NHAN_DAU', 'KY_TINH', 'AUDIT_LOG'], 'REOPEN_YEAR', True)
 ep('archive.restoreFile', 'Dữ liệu', 'Nạp lại thư mục lưu trữ năm từ file zip lưu trữ (máy mới / sau khôi phục)', ADM,
    [('file', 'string', True, '')], '{year, ok}', ['NOT_FOUND', 'VALIDATION_FAILED', 'INTEGRITY_ERROR'])
+ep('contracts.routeSources', 'Hợp đồng', 'Từng tuyến đang có giá của hợp đồng kèm NGUỒN GIÁ hôm nay (theo thứ tự ưu tiên của bộ chọn giá): CODE (dòng của mã đơn giá gán cho hợp đồng) | CONTRACT (giá riêng hợp đồng) | GENERAL (giá chung, cách cũ). Chỉ đọc', ALL, [('contractId', 'string', True, '')],
+   '{items:[{routeCode, routeName, source, priceCode, priceMethod, priceId}]}', ['NOT_FOUND'], ['HOP_DONG', 'TUYEN_VC', 'PRICE_HISTORY'])
 ep('contracts.usage', 'Hợp đồng', 'Hợp đồng đang dùng ở đâu (kỳ tính, dòng dầu, lô import, giá riêng, phạm vi xe) — biết có sửa mã / hai bên, xóa được không', ALL,
    [('contractId', 'string', True, '')], '{periods, fuelRows, importBatches, prices, vehicles, blockers, canEditParties, canDelete}', ['NOT_FOUND'], ['HOP_DONG', 'KY_TINH', 'GIAO_NHAN_DAU', 'IMPORT_BATCH', 'PRICE_HISTORY', 'HOP_DONG_XE'])
 ep('contracts.delete', 'Hợp đồng', 'Xóa hợp đồng nhập nhầm — chỉ khi chưa có kỳ tính / dòng dầu; xóa kèm phạm vi xe và giá riêng chưa dùng. Đã dùng thì Ngừng dùng', EDIT,
@@ -234,10 +237,11 @@ ep('periods.get', 'Tính giá', 'Chi tiết kỳ: kết quả hiện hành, BKVC
 for act, desc, frm, to, aud, extra in [
         ('confirm', 'Xác nhận kỳ: NHAP → DA_XAC_NHAN; usage_state = CONFIRMED; PRICE_HISTORY.is_used = TRUE', 'NHAP', 'DA_XAC_NHAN', 'CONFIRM', []),
         ('lock', 'Khóa kỳ: DA_XAC_NHAN → DA_KHOA; usage_state = LOCKED', 'DA_XAC_NHAN', 'DA_KHOA', 'LOCK', []),
-        ('unlock', 'Mở khóa: DA_KHOA → DA_XAC_NHAN (cần can_unlock + lý do)', 'DA_KHOA', 'DA_XAC_NHAN', 'UNLOCK', [('reason', 'string', True, 'bắt buộc')]),
-        ('reopen', 'Trả về nháp để sửa/tính lại: DA_XAC_NHAN → NHAP (cần can_unlock + lý do)', 'DA_XAC_NHAN', 'NHAP', 'REOPEN', [('reason', 'string', True, '')]),
+        ('unlock', 'Mở khóa: DA_KHOA → DA_XAC_NHAN (cần lý do). ADMIN, hoặc KE_TOAN chỉ dùng được khi tài khoản có quyền mở khóa (can_unlock)', 'DA_KHOA', 'DA_XAC_NHAN', 'UNLOCK', [('reason', 'string', True, 'bắt buộc')]),
+        ('reopen', 'Trả về nháp để sửa/tính lại: DA_XAC_NHAN → NHAP (cần lý do). ADMIN, hoặc KE_TOAN chỉ dùng được khi tài khoản có quyền mở khóa (can_unlock)', 'DA_XAC_NHAN', 'NHAP', 'REOPEN', [('reason', 'string', True, '')]),
         ('cancel', 'Hủy kỳ nháp: NHAP → HUY; usage_state = RELEASED', 'NHAP', 'HUY', 'CANCEL', [('reason', 'string', True, '')])]:
-    ep(f'periods.{act}', 'Tính giá', desc, (ADM if act in ('unlock', 'reopen') else EDIT), [('periodId', 'string', True, ''), ROWV] + extra,
+    # unlock / reopen: router + dịch vụ cho ADMIN hoặc KE_TOAN có can_unlock (kiểm ở PeriodService._transition)
+    ep(f'periods.{act}', 'Tính giá', desc, EDIT, [('periodId', 'string', True, ''), ROWV] + extra,
        '{period}', ['BUSINESS_RULE:E_PERIOD_STATUS', 'CONFLICT_VERSION', 'FORBIDDEN'] + (['BUSINESS_RULE:E_NEEDS_RECALC'] if act == 'confirm' else []),
        ['KY_TINH'], ['KY_TINH', 'TRANSPORT_DETAIL', 'FUEL_DETAIL', 'CALC_RUN'] + (['PRICE_HISTORY'] if act == 'confirm' else []), aud, True,
        'bên VC của HĐ' + ('; hoặc user can_unlock' if act in ('unlock', 'reopen') else ''))
@@ -291,11 +295,11 @@ ep('dashboard.summary', 'Báo cáo', 'Dashboard', ALL,
 ep('audit.list', 'Quản trị', 'Lịch sử thao tác', ALL,
    [('entity', 'string', False, ''), ('entityId', 'string', False, ''), ('userEmail', 'string', False, ''), ('action', 'string', False, ''),
     ('dateFrom', 'date', False, ''), ('dateTo', 'date', False, '')] + PAGING, '{items, total}', reads=['AUDIT_LOG'], scope='KE_TOAN/XEM: thao tác trên HĐ mình được xem')
-ep('users.resetPassword', 'Quản trị', 'ADMIN xóa mật khẩu của user → user tự đặt lại khi đăng nhập (must_change_password)', ADM,
-   [('username', 'string', True, ''), ('reason', 'string', True, '')], '{ok}', ['NOT_FOUND', 'BUSINESS_RULE:E_LAST_ADMIN'], ['USERS'], ['USERS'], 'RESET_PASSWORD', True)
+ep('users.resetPassword', 'Quản trị', 'ADMIN xóa mật khẩu của user và cấp MÃ KÍCH HOẠT mới (trả một lần) → user đặt lại mật khẩu bằng mã (must_change_password)', ADM,
+   [('username', 'string', True, ''), ('reason', 'string', True, '')], '{ok, setupCode, setupCodeExpiresAt}', ['NOT_FOUND', 'BUSINESS_RULE:E_LAST_ADMIN'], ['USERS'], ['USERS'], 'RESET_PASSWORD', True)
 ep('users.list', 'Quản trị', 'Danh sách người dùng', ADM, [('unitCode', 'string', False, '')], '{items}', reads=['USERS'])
-ep('users.save', 'Quản trị', 'Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này)', ADM, [('record', 'object', True, ''), ('rowVersion', 'integer', False, '')],
-   '{record}', ['VALIDATION_FAILED', 'DUPLICATE', 'BUSINESS_RULE:E_LAST_ADMIN'], ['USERS'], ['USERS'], 'USER_SAVE', True)
+ep('users.save', 'Quản trị', 'Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này); người dùng mới nhận MÃ KÍCH HOẠT một lần', ADM, [('record', 'object', True, ''), ('rowVersion', 'integer', False, '')],
+   '{record, created, setupCode?, setupCodeExpiresAt?}', ['VALIDATION_FAILED', 'DUPLICATE', 'BUSINESS_RULE:E_LAST_ADMIN'], ['USERS'], ['USERS'], 'USER_SAVE', True)
 ep('config.list', 'Quản trị', 'Tham số cấu hình', ALL, [], '{items}', reads=['CONFIG'])
 ep('config.save', 'Quản trị', 'Sửa tham số (làm tròn, VAT, người ký…) — áp dụng cho kỳ tính SAU; kỳ cũ giữ snapshot', ADM,
    [('key', 'string', True, ''), ('value', 'string', True, ''), ('reason', 'string', True, '')], '{item}', ['VALIDATION_FAILED'], ['CONFIG'], ['CONFIG'], 'CONFIG_UPDATE', True)

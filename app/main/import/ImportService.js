@@ -11,6 +11,7 @@ const { issue } = require('../engine/issues');
 const { selectPriceVersion } = require('../engine/period');
 const { AppError, businessError } = require('../../shared/errors');
 const { buildCoverage, CLOSED, draftFinder } = require('../services/periodCoverage');
+const { fuelContentKey } = require('./fuelKey');
 
 const CORE_TICKET = ['ticket_no', 'weigh1_date', 'weigh1_time', 'weigh2_date', 'weigh2_time', 'plate_no', 'weight1_kg', 'weight2_kg', 'net_kg', 'route_code'];
 const DESC_TICKET = ['row_no', 'origin', 'customer', 'ldd', 'weigh_type', 'transport_unit_name'];
@@ -412,7 +413,7 @@ class ImportService {
 
   _fuelDupes(rows, ctx, contractId) {
     // Trùng với dữ liệu đã có (cùng HĐ, ngày, xe, lít, giá, ngày mua, bên giao) → DUPLICATE (ghép 1-1, nên 2 dòng giống hệt hợp lệ vẫn giữ đủ)
-    const key = (r) => [r.receive_date, r.plate_no, r.qty_liter, r.fuel_price_excl_vat, r.purchase_date, r.giver_unit_code, r.route_code].join('|');
+    const key = fuelContentKey;
     const pool = new Map();
     for (const r of ctx.receipts.filter((x) => x.contract_id === contractId)) pool.set(key(r), (pool.get(key(r)) || 0) + 1);
     for (const r of rows) {
