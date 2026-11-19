@@ -782,6 +782,25 @@
    "lock": true
   },
   {
+   "action": "routes.nextCode",
+   "group": "Danh mục",
+   "desc": "Mã tuyến gợi ý kế tiếp (VC. + số lớn nhất + 1, 3 chữ số). Chỉ gợi ý — sửa được trước khi lưu; trùng mã khi lưu → DUPLICATE (không ghi đè). Ngày cập nhật của tuyến (catalogDate) mặc định ngày hệ thống, điền tay được",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{routeCode}",
+   "errors": [],
+   "reads": [
+    "TUYEN_VC"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
    "action": "vehicles.resolvePlate",
    "group": "Danh mục",
    "desc": "Chuẩn hóa mã xe bất kỳ (`DH_92H00192`, `92H00195`) → biển số chuẩn",
@@ -1676,6 +1695,37 @@
     "INTEGRITY_ERROR"
    ],
    "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "contracts.routeSources",
+   "group": "Hợp đồng",
+   "desc": "Từng tuyến đang có giá của hợp đồng kèm NGUỒN GIÁ hôm nay (theo thứ tự ưu tiên của bộ chọn giá): CODE (dòng của mã đơn giá gán cho hợp đồng) | CONTRACT (giá riêng hợp đồng) | GENERAL (giá chung, cách cũ). Chỉ đọc",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{items:[{routeCode, routeName, source, priceCode, priceMethod, priceId}]}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "HOP_DONG",
+    "TUYEN_VC",
+    "PRICE_HISTORY"
+   ],
    "writes": [],
    "audit": null,
    "lock": false

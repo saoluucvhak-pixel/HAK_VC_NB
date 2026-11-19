@@ -181,9 +181,12 @@
       const out = h('div', { class: 'card flush' });
       const isCarrier = () => (D.state.boot.contracts.find((c) => c.contract_id === f.values().contractId) || {}).role === 'CARRIER';
       const acts = h('div', { class: 'btns' });
+      const fixedNote = h('div', { role: 'status' }); // hợp đồng toàn tuyến cố định → không cần nhập dầu (vẫn nhập được)
       const load = async () => {
         const v = f.values(); if (!v.contractId) return;
         const d = await D.api('fuel.list', v);
+        const rs = await D.api('contracts.routeSources', { contractId: v.contractId }, { quiet: true }).catch(() => ({ items: [] }));
+        fixedNote.replaceChildren(...(rs.items.length && rs.items.every((x) => x.priceMethod === 'CO_DINH') ? [h('p', { class: 'small', style: { margin: '8px 0 0' } }, D.tag('info', 'Đơn giá cố định'), ' Hợp đồng toàn tuyến cố định — không cần nhập dầu (vẫn nhập được nếu có). Dầu chỉ dùng cho tuyến theo giá dầu.')] : []));
         acts.innerHTML = '';
         if (D.writer() && isCarrier()) acts.append(h('button', { class: 'btn', onclick: () => manualFuel(v.contractId, load) }, 'Nhập tay'), h('button', { class: 'btn', onclick: () => D.importTemplate({ importType: 'GIAO_NHAN_DAU', contractId: v.contractId }) }, 'Tải file mẫu'), h('button', { class: 'btn primary', onclick: () => D.importWizard({ importType: 'GIAO_NHAN_DAU', contractId: v.contractId, onDone: load }) }, 'Import từ Excel'));
         out.innerHTML = '';
@@ -197,7 +200,7 @@
       };
       f.inputs.contractId.addEventListener('change', load);
       const page = D.page('Giao nhận dầu', '3 · Bảng kê dầu theo hợp đồng', [acts], h('div', { class: 'card' }, h('div', { class: 'filters' }, f, h('button', { class: 'btn primary', onclick: load }, 'Lọc')),
-        h('p', { class: 'small muted', style: { margin: '8px 0 0' } }, 'Đơn giá dầu của kỳ = trung bình cộng các dòng; dầu trong bảng kê tính hết vào kỳ (kể cả dòng nhận trước ngày bắt đầu).')), out);
+        h('p', { class: 'small muted', style: { margin: '8px 0 0' } }, 'Đơn giá dầu của kỳ = trung bình cộng các dòng; dầu trong bảng kê tính hết vào kỳ (kể cả dòng nhận trước ngày bắt đầu).'), fixedNote), out);
       await load();
       return page;
     },

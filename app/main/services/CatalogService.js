@@ -21,7 +21,8 @@ const MIXED_WARNING = 'Mã có cả dòng cố định và theo giá dầu (tạ
 const lineMethod = (p) => (p.price_method === 'CO_DINH' ? 'CO_DINH' : 'THEO_DAU'); // dòng giá cũ cột rỗng = theo giá dầu
 const { remindTx } = require('./SyncReminderService');
 
-const ROUTE_FIELDS = ['route_code', 'route_name', 'distance_km', 'trip_distance_km', 'from_place', 'to_place', 'uom', 'catalog_unit_code', 'note'];
+const ROUTE_FIELDS = ['route_code', 'route_name', 'distance_km', 'trip_distance_km', 'from_place', 'to_place', 'uom', 'catalog_unit_code', 'note', 'catalog_date'];
+const localToday = () => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 const ROUTE_CALC_FIELDS = ['distance_km', 'trip_distance_km', 'uom'];
 const PRICE_FIELDS = ['route_code', 'contract_id', 'effective_from', 'base_price_excl_vat', 'base_price_source', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fuel_norm_l_per_km',
   'avg_load_ton', 'avg_volume_m3', 'source_note', 'price_method', 'fixed_price', 'price_code'];
@@ -56,7 +57,7 @@ class CatalogService {
     const k = q.trim().toLowerCase();
     const items = this.store.find('TUYEN_VC', (r) => (includeInactive || r.is_active) && (!k || `${r.route_code} ${r.route_name} ${r.from_place || ''} ${r.to_place || ''}`.toLowerCase().includes(k)))
       .sort((a, b) => a.route_code.localeCompare(b.route_code, 'vi', { numeric: true }))
-      .map((r) => ({ ...r, usedInPeriods: this._periodsUsingRoute(r.route_code).length, activePrice: this._activePrice(r.route_code, '', null) }));
+      .map((r) => ({ ...r, catalogDate: r.catalog_date || String(r.updated_at || r.created_at || '').slice(0, 10), usedInPeriods: this._periodsUsingRoute(r.route_code).length, activePrice: this._activePrice(r.route_code, '', null) }));
     return { items, total: items.length };
   }
 
@@ -71,12 +72,19 @@ class CatalogService {
     if (bad.length) throw new AppError('VALIDATION_FAILED', bad.join('; '), { errors: bad });
   }
 
+  /** Mã tuyến gợi ý kế tiếp: VC. + (số lớn nhất dạng VC.nnn + 1), 3 chữ số. Chỉ gợi ý — sửa được trước khi lưu; trùng mã khi lưu → DUPLICATE (không ghi đè). */
+  nextRouteCode() {
+    let max = 0; for (const r of this.store.all('TUYEN_VC')) { const m = /^VC\.(\d+)$/.exec(r.route_code || ''); if (m) max = Math.max(max, Number(m[1])); }
+    return { routeCode: `VC.${String(max + 1).padStart(3, '0')}` };
+  }
+
   async saveRoute({ record, rowVersion, reason = '', create = false, user }) {
     const inp = toSnake(record);
     for (const k of Object.keys(inp)) if (!ROUTE_FIELDS.includes(k)) delete inp[k];
     for (const k of ['route_code', 'uom']) if (typeof inp[k] === 'string') inp[k] = inp[k].trim().toUpperCase();
     for (const k of ['route_name', 'from_place', 'to_place', 'note']) if (typeof inp[k] === 'string') inp[k] = inp[k].replace(/\s+/g, ' ').trim();
     for (const k of ['distance_km', 'trip_distance_km']) if (k in inp) inp[k] = numOrEmpty(inp[k]);
+    if ('catalog_date' in inp) { inp.catalog_date = String(inp.catalog_date || '').trim(); if (inp.catalog_date && !isDate(inp.catalog_date)) throw new AppError('VALIDATION_FAILED', 'Ngày cập nhật phải dạng yyyy-MM-dd'); }
     const old = inp.route_code ? this.store.get('TUYEN_VC', inp.route_code) : null;
     const warnings = [];
     if (create && old) throw new AppError('DUPLICATE', `Mã tuyến ${inp.route_code} đã có (${old.route_name}) — chọn mã khác hoặc mở tuyến đó để sửa`);
@@ -84,6 +92,7 @@ class CatalogService {
 
     if (!old) { // ── thêm tuyến mới
       const rec = { uom: 'TAN', from_place: '', to_place: '', catalog_unit_code: this.store.unitCode, note: '', ...inp, is_active: true };
+      if (!rec.catalog_date) rec.catalog_date = localToday(); // ngày cập nhật mặc định = ngày hệ thống
       if (rec.trip_distance_km === '' || rec.trip_distance_km === undefined) rec.trip_distance_km = rec.distance_km * 2; // chuyến = đi + về
       this._validateRoute(rec);
       const dup = this.store.find('TUYEN_VC', (r) => r.route_name.toLowerCase() === rec.route_name.toLowerCase() && r.uom === rec.uom && r.is_active);
@@ -119,7 +128,8 @@ class CatalogService {
     }
     const drafts = periods.filter((p) => p.status === 'NHAP').map((p) => p.period_id);
     const out = await this.store.transaction((tx) => {
-      const { before, after } = tx.update('TUYEN_VC', old.route_code, patch, { expectedRowVersion: rowVersion });
+      // có sửa nội dung → ngày cập nhật = ngày chỉnh sửa gần nhất (điền tay thì giữ ngày đã điền); ngày tự gán không đưa vào bản vá của nhật ký
+      const { before, after } = tx.update('TUYEN_VC', old.route_code, patch.catalog_date ? patch : { ...patch, catalog_date: localToday() }, { expectedRowVersion: rowVersion });
       for (const pid of drafts) tx.update('KY_TINH', pid, { needs_recalc: true });
       tx.audit('UPDATE', 'TUYEN_VC', old.route_code, Object.fromEntries(Object.keys(patch).map((k) => [k, before[k]])), patch, { reason });
       const w = remindTx(tx, this.store, { entity: 'TUYEN_VC', entityId: old.route_code, action: 'UPDATE',
@@ -290,6 +300,23 @@ class CatalogService {
         summary: `Áp dụng giá mới ${priceId} cho tuyến ${d.route_code}${d.contract_id ? ` (HĐ ${d.contract_id})` : ''} từ ${d.effective_from}: ${d.price_method === 'CO_DINH' ? `ĐƠN GIÁ CỐ ĐỊNH ${d.fixed_price} đ/tấn` : `đơn giá mới ${d.new_price}, dầu ${d.fuel_price_excl_vat}, ĐM ${d.fuel_norm_l_per_km}, KL_TB ${d.avg_load_ton}`}` });
       return { activated: after, closed, affectedPeriods: drafts, warnings: w ? [w] : [] };
     }, { user: user.username });
+  }
+
+  /**
+   * Hợp đồng: từng tuyến đang có giá kèm NGUỒN GIÁ tại ngày hôm nay — chọn bằng chính selectPriceVersion của engine (mã gán cho hợp đồng > giá riêng hợp đồng > giá chung).
+   * source: CODE (dòng của mã) | CONTRACT (giá riêng hợp đồng) | GENERAL (giá chung, cách cũ). CHỈ ĐỌC — không đổi cách tính giá.
+   */
+  contractRouteSources({ contractId }) {
+    const c = this.store.get('HOP_DONG', contractId); if (!c) throw new AppError('NOT_FOUND', `Không có hợp đồng ${contractId}`);
+    const prices = this.store.all('PRICE_HISTORY'); const cfg = this._cfg(); const code = c.price_code || ''; const today = localToday();
+    const items = [];
+    for (const r of this.store.all('TUYEN_VC').filter((x) => x.is_active).sort((a, b) => a.route_code.localeCompare(b.route_code, 'vi', { numeric: true }))) {
+      const sel = E.selectPriceVersion(prices, r.route_code, contractId, today, today, cfg, code);
+      if (!sel.price) continue; // tuyến chưa có giá hiệu lực: không có nguồn để nêu
+      const p = sel.price; const source = code && p.price_code === code ? 'CODE' : p.contract_id ? 'CONTRACT' : 'GENERAL';
+      items.push({ routeCode: r.route_code, routeName: r.route_name, source, priceCode: p.price_code || '', priceMethod: lineMethod(p), priceId: p.price_id });
+    }
+    return { items };
   }
 
   // ─────────────────────── MÃ ĐƠN GIÁ (cha) → DÒNG GIÁ (con) ───────────────────────

@@ -120,7 +120,8 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | `vehicles.save` | Thêm / sửa xe | A/K | 🔒 XE | CREATE/UPDATE |
 | `vehicles.setActive` | Ngừng / dùng lại xe (không xóa cứng) | A/K | 🔒 XE | SET_ACTIVE |
 | `routes.list` | Danh sách tuyến | A/K/X |  |  |
-| `routes.save` | Thêm / sửa tuyến | A/K | 🔒 TUYEN_VC | CREATE/UPDATE |
+| `routes.nextCode` | Mã tuyến gợi ý kế tiếp (VC.nnn) — chỉ gợi ý, trùng khi lưu → DUPLICATE | A/K |  |  |
+| `routes.save` | Thêm / sửa tuyến (kèm `catalogDate` — ngày cập nhật) | A/K | 🔒 TUYEN_VC | CREATE/UPDATE |
 | `routes.setActive` | Ngừng / dùng lại tuyến (không xóa cứng) | A/K | 🔒 TUYEN_VC | SET_ACTIVE |
 | `vehicles.resolvePlate` | Chuẩn hóa mã xe bất kỳ (`DH_92H00192`, `92H00195`) → biển số chuẩn | A/K/X |  |  |
 
@@ -149,6 +150,7 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | `contracts.vehicles` | Phạm vi xe của một hợp đồng (HOP_DONG_XE) | A/K/X |  |  |
 | `contracts.setActive` | Ngừng / dùng lại hợp đồng (không xóa) — `rowVersion` bắt buộc | A/K | 🔒 HOP_DONG | UPDATE |
 | `contracts.suggestVehicles` | Gợi ý phạm vi xe = xe bên VC + xe của các HĐ mà bên VC là bên thuê | A/K |  |  |
+| `contracts.routeSources` | Từng tuyến của hợp đồng kèm nguồn giá (CODE / CONTRACT / GENERAL) — chỉ đọc | A/K/X |  |  |
 | `contracts.resolveSigners` | Người ký 2 bên theo sign_priority (hoặc giá trị ghi đè) | A/K/X |  |  |
 
 ### 4.7. Phiếu cân

@@ -297,6 +297,11 @@
      "required": false
     },
     {
+     "name": "catalog_date",
+     "type": "TEXT",
+     "required": false
+    },
+    {
      "name": "created_at",
      "type": "DATETIME",
      "required": true

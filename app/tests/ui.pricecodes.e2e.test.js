@@ -58,10 +58,22 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     // kỳ tính dùng giá cố định của mã (tuyến cố định không nhận dầu → không có dầu trong kỳ)
     const k = await ctx.svc.periods.calculate({ contractId, dateFrom: '2026-09-18', dateTo: '2026-09-23', routeCode: 'VC.007', reportDate: '2026-09-24', clientRequestId: rid(), user: KETOAN });
     assert.equal(k.results[0].transportPrice, 150000); assert.equal(k.results[0].priceMethod, 'CO_DINH');
-    // hợp đồng: ô "Mã đơn giá áp dụng" hiện đúng và bỏ chọn được
+    const otherUnit = ctx.store.all('DON_VI').find((u) => u.unit_code !== unit && u.unit_code !== ct().carrier_unit_code && u.unit_code !== ctx.store.unitCode);
+    await ctx.svc.catalog.savePriceCode({ create: true, record: { priceCode: 'DG-KHAC-DT', unitCode: otherUnit.unit_code, priceName: 'Mã đối tác khác' }, user: KETOAN });
+    // P5/Task 5/B1: màn Hợp đồng chỉ XEM mã đơn giá + nguồn giá từng tuyến; không còn ô sửa mã; lưu hợp đồng không đụng mã; đổi/bỏ mã ở Mã đơn giá
     await nav('Hợp đồng vận chuyển'); await page.locator('tbody tr', { hasText: 'HAKQN-QS' }).first().click();
-    const cm = page.locator('.modal', { hasText: 'Hợp đồng HAKQN-QS' }); const sel = cm.getByLabel('Mã đơn giá áp dụng'); assert.equal(await sel.inputValue(), 'DG-UI-01');
-    await sel.selectOption(''); await cm.getByRole('button', { name: 'Lưu hợp đồng' }).click(); await toast(/Đã lưu hợp đồng/); assert.equal(ct().price_code || '', '');
+    const cm = page.locator('.modal', { hasText: 'Hợp đồng HAKQN-QS' });
+    assert.equal(await cm.getByLabel('Mã đơn giá áp dụng').count(), 0, 'không còn ô chọn mã ở màn Hợp đồng');
+    await cm.getByText('DG-UI-01 — Đơn giá cố định').waitFor();
+    const srow = cm.locator('tr', { hasText: 'VC.007' }); await srow.getByText(/theo mã DG-UI-01 \(đơn giá cố định\)/).waitFor();
+    await cm.locator('tr', { hasText: 'VC.009' }).getByText(/dùng giá chung \(cách cũ\)/).waitFor();
+    await cm.getByText(/Mã đơn giá của đối tác/).waitFor(); assert.equal(await cm.getByText('DG-KHAC-DT').count(), 0, 'không thấy mã của đối tác khác');
+    await cm.getByLabel('Ghi chú').fill('sửa ghi chú — không đụng mã giá'); await cm.getByRole('button', { name: 'Lưu hợp đồng' }).click(); await toast(/Đã lưu hợp đồng/);
+    assert.equal(ct().price_code, 'DG-UI-01', 'lưu hợp đồng không làm mất mã đơn giá');
+    await page.locator('tbody tr', { hasText: 'HAKQN-QS' }).first().click(); await page.locator('.modal', { hasText: 'Hợp đồng HAKQN-QS' }).getByRole('button', { name: 'Đổi ở Mã đơn giá →' }).click();
+    await page.locator('.pc-detail').getByText(/DG-UI-01/).first().waitFor();
+    await page.locator('.pc-detail').getByRole('button', { name: /Bỏ mã khỏi hợp đồng HAKQN-QS/ }).click(); await page.locator('.modal').getByRole('button', { name: 'Đồng ý' }).click(); await toast(/Đã bỏ mã khỏi hợp đồng/);
+    assert.equal(ct().price_code || '', '');
     // mã THEO GIÁ DẦU: tạo bằng thẻ thứ hai, dòng giá có "Đơn giá ký hợp đồng", giá dầu, định mức, tải trọng; cự ly chỉ hiển thị
     await nav('Mã đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: '+ Mã đơn giá theo giá dầu' }).click();
     const m2 = page.locator('.modal', { hasText: 'Tạo mã đơn giá' }); assert.equal(await m2.getByRole('radio', { name: /Đơn giá theo giá dầu/ }).isChecked(), true); await m2.getByLabel(/Đơn vị/).selectOption(unit);

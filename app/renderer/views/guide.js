@@ -9,7 +9,7 @@
   // ── 1. Quy trình hằng kỳ ──
   const STEPS = [
     ['Phiếu cân', 'tickets', ['Bấm ', b('Import từ Excel'), ' → chọn file trạm cân (hoặc file mẫu NL_VC). Xem trước → tích ', b('Chấp nhận các dòng cảnh báo'), ' → ', b('Xác nhận import'), '. Cần file mẫu: bấm ', b('Tải file mẫu'), '.']],
-    ['Giao nhận dầu', 'fuel', ['Chọn hợp đồng → ', b('Import từ Excel'), ' (bảng kê dầu) hoặc ', b('Nhập tay'), '. Mỗi hợp đồng chỉ có 1 bên giao dầu (cột Đơn vị).']],
+    ['Giao nhận dầu', 'fuel', ['Chỉ cần với hợp đồng có tuyến ', b('theo giá dầu'), ' (xem mục "Giá áp dụng" trong màn Hợp đồng; toàn tuyến cố định thì không cần nhập dầu). Chọn hợp đồng → ', b('Import từ Excel'), ' (bảng kê dầu) hoặc ', b('Nhập tay'), '. Mỗi hợp đồng chỉ có 1 bên giao dầu (cột Đơn vị).']],
     ['Tính giá vận chuyển', 'calc', ['Chọn hợp đồng, ', b('Từ ngày – Đến ngày'), ', tuyến, thuế suất GTGT → ', b('Xem trước'), ' → ', b('TÍNH GIÁ'), '. Kỳ được lưu ở trạng thái ', b('Nháp'), '. Bấm vào đơn giá để xem chi tiết tính (15 bước).']],
     ['Kiểm tra & xác nhận kỳ', 'calc', ['Đọc mục ', b('Kiểm tra trước khi xác nhận'), ' (lỗi / cảnh báo) → ', b('Xác nhận kỳ'), ' → (tùy chọn) ', b('Khóa kỳ'), '. Sau khi xác nhận, phiếu và dầu của kỳ không đưa vào kỳ khác được.']],
     ['Bảng xác nhận KL', 'bkvc', ['Xem trước A4 → ', b('In'), ' / ', b('Xuất Excel / PDF / CSV'), '. Có chứng từ kèm theo (bảng tính đơn giá, biên bản giao nhận dầu) và file hóa đơn MISA (bên vận chuyển).']],
