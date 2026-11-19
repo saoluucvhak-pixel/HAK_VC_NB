@@ -187,6 +187,7 @@ class AppContext {
         try { await this.svc.backup.backup({ kind: 'safety', note: 'truoc-doi-dinh-dang-1.2.5', user: { username: 'system' } }); this.compacted = await store.compact(); }
         catch (e) { this.compactError = e.message; }
       }
+      try { this.codeMethodBackfill = await this.svc.catalog.backfillCodeMethods({ user: { username: 'system' } }); } catch { /* không chặn mở kho */ } // 1.7.0: suy hình thức cho mã đơn giá cũ
       return this.migrateConfig();
     })().catch(() => null);
     return this.store;

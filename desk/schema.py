@@ -86,6 +86,7 @@ TABLES = [
         ("unit_code", "TEXT", True, "FK DON_VI — đơn vị (cha)", ""),
         ("price_name", "TEXT", True, "tên mã đơn giá", ""),
         ("status", "ENUM:ACTIVE|CLOSED", True, "CLOSED: không thêm dòng giá, không gán hợp đồng mới; hợp đồng đang dùng vẫn tính", ""),
+        ("price_method", "ENUM:CO_DINH|THEO_DAU", False, "Hình thức giá của mã: CO_DINH (đơn giá cố định) | THEO_DAU (theo giá dầu); trống (mã 1.5.0) = CO_DINH; không đổi khi mã đã có dòng/hợp đồng — bản 1.7.0", ""),
         ("note", "TEXT", False, "", ""),
      ], True),
     ("HOP_DONG", "Danh mục", "Hợp đồng vận chuyển 2 bên (bên vận chuyển lập tính toán)", "contract_id", ["contract_code"],

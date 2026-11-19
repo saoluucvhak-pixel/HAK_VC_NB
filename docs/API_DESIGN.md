@@ -129,9 +129,9 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | Action | Mô tả | Quyền | Ghi | Audit |
 |---|---|---|---|---|
 | `prices.list` | Lịch sử phiên bản giá theo tuyến (+ hợp đồng) | A/K/X |  |  |
-| `pricecodes.list` | Cây cha–con: Đơn vị → Mã đơn giá | A/K/X |  |  |
+| `pricecodes.list` | Cây Hình thức giá → Mã đơn giá (và theo Đơn vị) | A/K/X |  |  |
 | `pricecodes.get` | Chi tiết mã đơn giá: thông tin + dòng giá theo tuyến | A/K/X |  |  |
-| `pricecodes.save` | Tạo / sửa mã đơn giá (cha) | A/K | 🔒 MA_DON_GIA | PRICE_CODE_CREATE/UPDATE |
+| `pricecodes.save` | Tạo / sửa mã đơn giá (cha) kèm hình thức giá | A/K | 🔒 MA_DON_GIA | PRICE_CODE_CREATE/UPDATE |
 | `pricecodes.setActive` | Đóng / mở lại mã đơn giá | A/K | 🔒 MA_DON_GIA | PRICE_CODE_OPEN/CLOSE |
 | `pricecodes.addLine` | Thêm dòng giá (con) vào mã: nhập hoặc chọn đơn giá có sẵn; dòng mới NHÁP → `prices.activate` | A/K | 🔒 PRICE_HISTORY | PRICE_CREATE |
 | `prices.preview` | Tính Tầng A (ĐG 1 chuyến → ĐG_HĐ) cho 1 bộ tham số, không lưu — dùng khi nhập giá mới | A/K/X |  |  |

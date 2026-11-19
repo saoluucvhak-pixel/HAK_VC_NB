@@ -1,6 +1,6 @@
 # DGVC — Đơn giá vận chuyển dăm (HAK Group)
 
-Ứng dụng desktop (Electron, chạy offline) thay quy trình Excel + Power Query tính đơn giá vận chuyển dăm gỗ cho các nhà máy HAK Group. Một bộ cài dùng cho mọi nhà máy (chọn đơn vị lúc khởi tạo). Bản hiện tại: **1.6.1**.
+Ứng dụng desktop (Electron, chạy offline) thay quy trình Excel + Power Query tính đơn giá vận chuyển dăm gỗ cho các nhà máy HAK Group. Một bộ cài dùng cho mọi nhà máy (chọn đơn vị lúc khởi tạo). Bản hiện tại: **1.7.0**.
 
 - **Kho dữ liệu:** **SQLite là kho chính mặc định** (bản cài cũ tự nâng cấp từ JSON, có sao lưu + đối chiếu, giữ kho JSON cũ làm dự phòng). **JSON** chỉ là sao lưu phụ để gửi máy khác; khôi phục được từ cả bản SQL lẫn bản JSON. Chi tiết: `docs/PHAT_HANH_1.5.0.md`.
 - **Môi trường:** Node.js ≥ 22.12 (CI dùng Node 22), Electron 45, electron-builder 26, NSIS cho bộ cài Windows x64.

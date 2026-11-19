@@ -227,3 +227,9 @@ Các màn hình chưa vẽ (Phiếu cân, Giao nhận dầu – danh sách, Danh
 - Mỗi màn hình = 1 file `renderer/views/<màn>.js`; bảng và form dùng **cấu hình khai báo** (danh sách cột, định dạng, trường, kiểu, bắt buộc, `refTable`) sinh từ `api_spec.json` + schema để không viết tay từng bảng.
 - Chuỗi hiển thị lỗi lấy từ `errorCodes` (một nguồn), không viết cứng trong từng màn hình.
 - Import: **cắt khoảng trắng đầu/cuối** mọi ô chữ trước khi đối chiếu (phát hiện trong file `_DH.xlsx`: mã xe `' 92H-00057'`).
+
+## 8. Màn "Mã đơn giá" — giá 3 tầng (bản 1.7.0)
+
+- Cây trái: 2 nhóm **Đơn giá cố định** / **Đơn giá theo giá dầu** → mã (kèm mã đơn vị đối tác); mỗi nhóm có nút "+ Mã …" để tạo mã đúng hình thức.
+- Chi tiết mã: nút theo hình thức ("Thêm dòng giá cố định" / "Thêm dòng giá theo giá dầu"), bảng dòng giá có cột Cự ly (hiển thị, lấy từ Danh mục tuyến) và **Ngày cập nhật** (= ngày hiệu lực).
+- Nhãn thống nhất: "Đơn giá ký hợp đồng" / "ĐG ký HĐ" thay cho "Đơn giá hợp đồng" / "ĐG HĐ" ở mọi màn (không đổi tên cột dữ liệu, không đổi mẫu in BKVC; các bước giải trình do engine sinh vẫn giữ tên cũ).

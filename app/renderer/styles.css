@@ -195,3 +195,8 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .company-card { padding: 14px 18px; }
 .company-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 22px; }
 .company-grid .kv { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.pc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 0 0 12px; }
+.pc-card { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: start; border: 1px solid var(--border, rgba(0, 0, 0, .18)); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+.pc-card input { grid-row: span 2; margin-top: 3px; } .pc-card:has(input:checked) { border-color: var(--brand); background: var(--field-off-bg, rgba(0, 0, 0, .04)); }
+.pc-card:has(input:focus-visible) { outline: 3px solid var(--brand); outline-offset: 2px; } .pc-card:has(input:disabled) { opacity: .6; cursor: not-allowed; }
+.warn-line { color: var(--warn, #9a5b00); margin: 2px 0; }

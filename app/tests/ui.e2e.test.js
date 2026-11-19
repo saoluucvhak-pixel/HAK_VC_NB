@@ -139,7 +139,7 @@ test('Giao diện: đi hết luồng chính trên trình duyệt', { skip: !fs.e
     assert.equal(await page.getByText('Power Query').count(), 0, 'không còn diễn giải Power Query');
     await shot('can-cu-gia-hop-dong');
     await page.locator('tr', { hasText: 'VC.009' }).first().click();
-    await page.getByRole('dialog', { name: /Cách tính ĐG HĐ — VC.009/ }).getByText('= 64.000 đ').waitFor();
+    await page.getByRole('dialog', { name: /Cách tính ĐG ký HĐ — VC.009/ }).getByText('= 64.000 đ').waitFor();
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Xuất Excel (có công thức)' }).click();
     await toast(/Đã xuất XLSX/);
@@ -150,7 +150,7 @@ test('Giao diện: đi hết luồng chính trên trình duyệt', { skip: !fs.e
     const pdlg = page.getByRole('dialog', { name: /Phiên bản giá mới/ });
     await pdlg.getByRole('textbox', { name: /^Nguồn đơn giá tham khảo/ }).waitFor();
     assert.match(await pdlg.getByRole('textbox', { name: /^Nguồn đơn giá tham khảo/ }).inputValue(), /TBL_DATA/);
-    await pdlg.getByText('ĐG HĐ =').waitFor();
+    await pdlg.getByText('ĐG ký HĐ =').waitFor();
     await shot('don-gia-tham-khao');
     await page.keyboard.press('Escape');
     // ── thêm tuyến → nhắc sửa các nhà máy còn lại

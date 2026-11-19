@@ -93,7 +93,7 @@
           { key: 'routeCode', label: 'Mã tuyến' }, { key: 'routeName', label: 'Tuyến' }, { key: 'tripDistanceKm', label: 'Cự ly', fmt: 'int' }, { key: 'startDate', label: 'Ngày bắt đầu', fmt: 'date' },
           { key: 'endDate', label: 'Ngày kết thúc', fmt: 'date' }, { key: 'tripCount', label: 'Số chuyến', fmt: 'int' }, { key: 'totalTon', label: 'Tổng tấn', fmt: 'dec2' },
           { key: 'actualFuelLiter', label: 'Dầu thực nhận', fmt: 'auto' }, { key: 'standardFuelLiter', label: 'Dầu định mức', fmt: 'auto' }, { key: 'fuelDiffLiter', label: 'CL dầu', fmt: 'dec2' },
-          { key: 'fuelPrice', label: 'ĐG dầu', fmt: 'dec2' }, { key: 'contractPrice', label: 'ĐG HĐ / cố định', num: true, render: (r) => (r.priceMethod === 'CO_DINH' ? h('span', {}, D.vn(r.contractPrice), ' ', D.tag('info', 'cố định')) : D.vn(r.contractPrice)) }, { key: 'fuelAdjustPrice', label: 'ĐG CL Diesel', fmt: 'dec2' },
+          { key: 'fuelPrice', label: 'ĐG dầu', fmt: 'dec2' }, { key: 'contractPrice', label: 'ĐG ký HĐ / cố định', num: true, render: (r) => (r.priceMethod === 'CO_DINH' ? h('span', {}, D.vn(r.contractPrice), ' ', D.tag('info', 'cố định')) : D.vn(r.contractPrice)) }, { key: 'fuelAdjustPrice', label: 'ĐG CL Diesel', fmt: 'dec2' },
           { key: 'transportPrice', label: 'Đơn giá VC', num: true, render: (r) => h('button', { class: 'btn small', title: 'Xem chi tiết tính', onclick: (e) => { e.stopPropagation(); traceDrawer(r, saved); } }, h('span', { class: 'money' }, D.vn(r.transportPrice))) }],
         rows: r0, empty: 'Chưa có kết quả — kiểm tra lỗi bên dưới' })));
         const blocked = res.blocked || [];
@@ -162,7 +162,7 @@
       h('ol', { class: 'trace' }, steps.map((s) => h('li', {}, h('b', {}, s.label || s.name), h('div', { class: 'f' }, s.formula), h('div', { class: 'v' }, `${s.expr || ''} = `, h('b', {}, s.unit === '%' ? D.vn(s.value * 100, 2) : D.vnAuto(Math.round(s.value * 1e6) / 1e6)), ` ${s.unit || ''}`)))),
       r.calcId ? h('div', { class: 'btns' }, h('button', { class: 'btn', onclick: async () => { const t = await D.api('calc.tickets', { calcId: r.calcId }); D.modal({ title: `${t.total} phiếu cân cấu thành`, wide: true, body: D.table({ columns: TICKET_COLS, rows: t.items, footer: { ticket_no: `${t.total} phiếu`, net_kg: t.totals.kg } }) }); } }, 'Xem phiếu cân →'),
         h('button', { class: 'btn', onclick: async () => { const t = await D.api('calc.fuel', { calcId: r.calcId }); D.modal({ title: `${t.total} dòng dầu`, wide: true, body: D.table({ columns: FUEL_COLS, rows: t.items, footer: { receive_date: `${t.total} dòng`, qty_liter: t.totals.liters } }) }); } }, 'Xem dòng dầu →')) : null,
-      h('p', { class: 'small muted' }, trace && trace.priceMethod === 'CO_DINH' ? 'Đơn giá cố định: dùng nguyên đơn giá trong bảng giá; tiền tới đồng (HALF_UP).' : 'Làm tròn: ĐG HĐ tới nghìn, đơn giá VC tới trăm (HALF_EVEN như Power Query); tiền tới đồng (HALF_UP).'));
+      h('p', { class: 'small muted' }, trace && trace.priceMethod === 'CO_DINH' ? 'Đơn giá cố định: dùng nguyên đơn giá trong bảng giá; tiền tới đồng (HALF_UP).' : 'Làm tròn: ĐG ký HĐ tới nghìn, đơn giá VC tới trăm (HALF_EVEN như Power Query); tiền tới đồng (HALF_UP).'));
     D.modal({ title: 'Xem chi tiết tính', body, drawer: true });
   }
 

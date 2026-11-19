@@ -180,7 +180,7 @@ Hai máy cài cùng một đơn vị sinh mã kỳ giống nhau (KY-DH-000001…
 
 **Đơn giá** (quản lý theo phiên bản):
 - **Tạo phiên bản mới:** màn hình xem trước ĐG HĐ ngay khi gõ số.
-- **Đơn giá cước / tấn (chưa VAT) — dùng tính:** giá cước 1 tấn đã gồm dầu theo định mức (cột "Đơn giá mới" của Excel). Chỉ số này vào công thức: ĐG 1 chuyến = Đơn giá cước × KL TB → trừ tiền dầu định mức → ĐG HĐ.
+- **Đơn giá ký hợp đồng dự kiến / tấn (chưa VAT) — dùng tính** (trước đây "Đơn giá cước"): giá cước 1 tấn đã gồm dầu theo định mức (cột "Đơn giá mới" của Excel). Chỉ số này vào công thức: ĐG 1 chuyến = Đơn giá cước × KL TB → trừ tiền dầu định mức → ĐG HĐ.
 - **Đơn giá tham khảo (chưa VAT) + Nguồn đơn giá tham khảo:** chỉ để đối chiếu, **không dùng tính**. Có nhập đơn giá tham khảo thì bắt buộc ghi nguồn (file · bảng · cột · ngày, hoặc số phụ lục hợp đồng). Danh mục đi kèm bộ cài ghi sẵn nguồn: *File Excel Dongiavanchuyen_24.09 · bảng TBL_DATA · cột "Đơn Giá (chưa VAT)" · ngày cập nhật …*. Bảng danh sách đơn giá có cột **Nguồn tham khảo**.
 - **Kích hoạt:** bản giá cũ tự đóng vào ngày trước ngày áp dụng giá mới. Phần mềm không cho đổi giá của những ngày đã nằm trong kỳ đã xác nhận.
 
@@ -310,9 +310,15 @@ Sau khi lưu trữ:
 ### Khôi phục từ file tự chọn và Sao lưu JSON (từ bản 1.3.4, chỉ ADMIN)
 **Cài đặt → Dữ liệu & sao lưu**: **Khôi phục từ file…** — chọn file sao lưu `.zip` (ở USB / ổ khác) hoặc file `manifest.json` trong một thư mục dữ liệu JSON; app hiển thị đơn vị và phiên bản dữ liệu, hỏi lý do rồi khôi phục (tự sao lưu an toàn trước). Bản sao lưu của **máy khác cùng đơn vị** (khi thay máy) được phép sau khi xác nhận; khác đơn vị thì không. **Sao lưu JSON ra thư mục…** — xuất bản chụp (`manifest.json`, `tables/`, `snapshot-info.json`) ra thư mục trống để lưu lâu dài; muốn quay lại thì dùng **Khôi phục từ file…** chọn `manifest.json` đó.
 
-### Mã đơn giá và đơn giá cố định theo đơn vị (từ bản 1.5.0)
-Menu **Mã đơn giá** (sau "Đơn giá"), tổ chức cha–con: **Đơn vị → Mã đơn giá → Dòng giá theo tuyến**.
-1. **Tạo mã:** ở đơn vị cần dùng bấm **+ Tạo mã** (mã dạng `DG-DH-2026`, tên, ghi chú).
-2. **Thêm dòng giá:** **Thêm dòng giá cố định** (tuyến + đơn giá đ/tấn chưa VAT + hiệu lực từ ngày) hoặc **Chọn đơn giá có sẵn…** (sao chép các đơn giá đang dùng vào mã). Dòng mới ở trạng thái **Nháp** → bấm **Áp dụng** (dòng cũ cùng mã và cùng tuyến tự đóng như phiên bản giá thường).
-3. **Áp dụng cho hợp đồng:** nút **Gán cho hợp đồng…** hoặc ô **Mã đơn giá áp dụng** trong màn Hợp đồng. Từ đó các kỳ tính của hợp đồng dùng dòng giá của mã (theo tuyến và ngày hiệu lực).
+### Giá 3 tầng: Hình thức → Mã đơn giá → Dòng giá theo tuyến (từ bản 1.7.0)
+Menu **Mã đơn giá** (sau "Đơn giá"). Cây bên trái chia **2 hình thức giá của hệ thống**: **Đơn giá cố định** và **Đơn giá theo giá dầu**; mỗi mã thuộc một hình thức và một công ty đối tác.
+1. **Tạo mã:** bấm **+ Mã đơn giá cố định** hoặc **+ Mã đơn giá theo giá dầu**; hộp thoại có hai thẻ chọn hình thức (dùng phím mũi tên để đổi), rồi chọn đơn vị, nhập mã (dạng `DG-DH-2026`), tên, ghi chú. Hình thức **không đổi được** khi mã đã có dòng giá hoặc đã gán hợp đồng. Mã tạo từ bản 1.5.0 tự đọc là *Đơn giá cố định*.
+2. **Thêm dòng giá (mỗi dòng một tuyến):**
+   - Mã cố định: tuyến, **Cự ly** (chỉ hiển thị), **Đơn giá cố định**, **Ngày cập nhật**.
+   - Mã theo giá dầu: tuyến, **Cự ly** (chỉ hiển thị), **Đơn giá ký hợp đồng dự kiến**, ĐG dầu, định mức dầu (lít/km), KL trung bình, **Ngày cập nhật**.
+   - **Cự ly nhập một chỗ duy nhất ở Danh mục tuyến**; dòng giá chỉ hiển thị lại. Định mức/hệ số nằm ở dòng giá theo giá dầu.
+   - **Ngày cập nhật** là ngày hiệu lực: với cùng tuyến trong mã, bản mới nhất không sau ngày tính có hiệu lực, bản cũ tự đóng. Không điền lùi ngày vào khoảng đã có bản đang dùng (báo `E_PRICE_DATE_OVERLAP`).
+   - **Chọn đơn giá có sẵn…** sao chép các đơn giá đang dùng đúng hình thức vào mã. Dòng mới ở trạng thái **Nháp** → bấm **Áp dụng**.
+3. **Áp dụng cho hợp đồng:** nút **Gán cho hợp đồng…** hoặc ô **Mã đơn giá áp dụng** trong màn Hợp đồng. Từ đó các kỳ tính của hợp đồng dùng dòng giá của mã (theo tuyến và ngày hiệu lực). Mã theo giá dầu tính ra đúng số như tuyến giá dầu thường cùng tham số.
+Thuật ngữ trên giao diện: **"Đơn giá ký hợp đồng dự kiến"** là ô nhập trong danh mục (gồm dầu theo định mức); **"ĐG ký HĐ"** là đơn giá ký hợp đồng tính ra (chưa gồm nhiên liệu). Hai hình thức: **Đơn giá cố định** và **Đơn giá theo giá dầu**.
 **Quy trình cũ giữ nguyên:** hợp đồng không chọn mã vẫn dùng giá chung / giá riêng hợp đồng như trước; tuyến mà mã chưa có dòng giá cũng quay về giá cũ. Màn **Đơn giá** và **Căn cứ giá hợp đồng** không đổi. Tuyến dùng đơn giá cố định không nhận dầu (như trước).
