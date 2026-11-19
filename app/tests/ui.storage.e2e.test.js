@@ -41,7 +41,9 @@ test('Giao diện ĐH: thí điểm kho SQLite (chạy thử, chuyển, dùng b�
     await toast(/Đã import \d+ dòng/);
 
     await nav('Cài đặt');
-    const card = page.locator('.card', { hasText: 'Kho lưu trữ dữ liệu' });
+    const card = page.locator('details.storage-card');
+    assert.equal(await card.evaluate((e) => e.open), false, 'mặc định thu gọn');
+    await card.locator('summary').click();
     await card.getByText('JSON (mặc định)').waitFor();
     // chạy thử: không đổi gì
     await card.getByRole('button', { name: 'Chạy thử' }).click();
@@ -55,16 +57,16 @@ test('Giao diện ĐH: thí điểm kho SQLite (chạy thử, chuyển, dùng b�
     const m2 = page.locator('.modal', { hasText: 'Kết quả chuyển kho' });
     await m2.getByText('Đã chuyển và kiểm chứng').waitFor();
     await m2.locator('.foot').getByRole('button', { name: 'Đóng' }).click();
-    const card2 = page.locator('.card', { hasText: 'Kho lưu trữ dữ liệu' });
+    const card2 = page.locator('details.storage-card');
     await card2.getByText('SQLite', { exact: true }).waitFor(); await card2.getByRole('button', { name: 'Quay lại kho JSON' }).waitFor();
     assert.ok(fs.existsSync(path.join(srv.home, 'DGVC_DATA', 'dgvc.sqlite')));
     // ứng dụng vẫn dùng bình thường trên SQLite: Phiếu cân còn nguyên
     await nav('Phiếu cân'); await page.getByText(/77/).first().waitFor();
     // quay lại JSON (chưa có giao dịch nghiệp vụ mới)
     await nav('Cài đặt');
-    await page.locator('.card', { hasText: 'Kho lưu trữ dữ liệu' }).getByRole('button', { name: 'Quay lại kho JSON' }).click();
+    await page.locator('details.storage-card').getByRole('button', { name: 'Quay lại kho JSON' }).click();
     await page.locator('.modal', { hasText: 'Quay lại kho JSON' }).getByRole('button', { name: 'Đồng ý' }).click();
-    await page.locator('.card', { hasText: 'Kho lưu trữ dữ liệu' }).getByText('JSON (mặc định)').waitFor();
+    await page.locator('details.storage-card summary').click(); await page.locator('details.storage-card').getByText('JSON (mặc định)').waitFor();
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await srv.close(); }
 });

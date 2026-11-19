@@ -64,7 +64,8 @@
       let r; try { r = await D.api('storage.migrate', { dryRun }); } catch { return; }
       D.modal({ title: dryRun ? 'Kết quả chạy thử' : 'Kết quả chuyển kho', wide: true, body: result(r), actions: [{ label: 'Đóng', primary: true, run: async () => { if (!dryRun) await again(); return true; } }] });
     };
-    return h('div', { class: 'card storage-card' }, h('h2', {}, 'Kho lưu trữ dữ liệu (thí điểm SQLite)'),
+    // Mặc định THU GỌN: đây KHÔNG phải chức năng sao lưu mà là thí điểm đổi cách lưu dữ liệu (JSON → SQLite) — người dùng thường không cần mở
+    return h('details', { class: 'card storage-card', open: d.storage === 'sqlite' }, h('summary', { class: 'storage-sum' }, 'Nâng cao · Đổi cách lưu dữ liệu sang SQLite (thí điểm — không phải sao lưu, không cần dùng)'),
       h('p', {}, 'Đang dùng: ', D.tag(d.storage === 'sqlite' ? 'ok' : 'info', d.storage === 'sqlite' ? 'SQLite' : 'JSON (mặc định)'),
         d.migratedAt ? ` · chuyển lúc ${D.dt(d.migratedAt)}` : ''),
       d.blockedReason ? h('p', {}, D.tag('warn', 'Chưa chuyển được'), ` ${d.blockedReason}.`) : null,

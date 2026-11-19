@@ -15,3 +15,6 @@ Cơ sở: `main` tại `5ffeeea` (1.3.3). Phản hồi từ người dùng: màn
 ## Giới hạn
 - Chưa kiểm trên Windows thật (hộp thoại chọn file của Windows, đường dẫn tiếng Việt). Logic chọn file đã kiểm bằng dev-server (giả lập hộp thoại).
 - Khôi phục bản sao lưu SQLite vào kho JSON vẫn bị từ chối (cần "Xuất ngược ra JSON" trước) — không đổi.
+
+## Bổ sung: thẻ SQLite thu gọn mặc định
+Thẻ "Đổi cách lưu dữ liệu sang SQLite (thí điểm)" bị người dùng hiểu nhầm là chức năng sao lưu (và nút bị tắt khi thư mục dữ liệu nằm trong OneDrive). Nay nằm trong mục **Nâng cao** thu gọn, ghi rõ "không phải sao lưu, không cần dùng"; tự mở khi bản cài đã dùng SQLite. Sao lưu thật nằm ở thẻ **Sao lưu** phía trên.

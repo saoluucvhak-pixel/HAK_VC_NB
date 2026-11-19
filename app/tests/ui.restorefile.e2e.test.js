@@ -59,7 +59,7 @@ test('Giao diện ĐH: sao lưu JSON ra thư mục, thay đổi dữ liệu, kh�
     await page.getByRole('button', { name: 'Khôi phục từ file…' }).click(); await page.locator('.toast', { hasText: /File sao lưu hỏng|không toàn vẹn|Không có/ }).first().waitFor({ timeout: 20000 });
     assert.equal(live(), n0);
     // 5) thẻ kho lưu trữ: một thông báo, không lặp lại cùng một ý
-    await nav('Cài đặt'); const txt = await page.locator('.card', { hasText: 'Kho lưu trữ dữ liệu' }).innerText(); assert.equal((txt.match(/vùng đồng bộ/g) || []).length <= 1, true);
+    await nav('Cài đặt'); await page.locator('details.storage-card summary').click(); const txt = await page.locator('details.storage-card').innerText(); assert.equal((txt.match(/vùng đồng bộ/g) || []).length <= 1, true);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await srv.close(); }
 });
