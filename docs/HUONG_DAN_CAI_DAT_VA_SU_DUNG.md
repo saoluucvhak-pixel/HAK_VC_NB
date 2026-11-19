@@ -320,5 +320,7 @@ Menu **Mã đơn giá** (sau "Đơn giá"). Cây bên trái chia **2 hình thứ
    - **Ngày cập nhật** là ngày hiệu lực: với cùng tuyến trong mã, bản mới nhất không sau ngày tính có hiệu lực, bản cũ tự đóng. Không điền lùi ngày vào khoảng đã có bản đang dùng (báo `E_PRICE_DATE_OVERLAP`).
    - **Chọn đơn giá có sẵn…** sao chép các đơn giá đang dùng đúng hình thức vào mã. Dòng mới ở trạng thái **Nháp** → bấm **Áp dụng**.
 3. **Áp dụng cho hợp đồng:** nút **Gán cho hợp đồng…** hoặc ô **Mã đơn giá áp dụng** trong màn Hợp đồng. Từ đó các kỳ tính của hợp đồng dùng dòng giá của mã (theo tuyến và ngày hiệu lực). Mã theo giá dầu tính ra đúng số như tuyến giá dầu thường cùng tham số.
+**Từ bản 1.8.0:** mã đơn giá **chỉ gán / đổi / bỏ ở màn Mã đơn giá** (nút *Gán cho hợp đồng…*); màn **Hợp đồng** chỉ xem mã đang áp dụng, mã của đối tác và **nguồn giá từng tuyến** (theo mã / giá riêng hợp đồng / giá chung). **Giao nhận dầu** chỉ cần cho hợp đồng có tuyến theo giá dầu. Mã tuyến mới được app **gợi ý** (VC.nnn kế tiếp, sửa được), và Danh mục tuyến có cột **Ngày cập nhật**.
+
 Thuật ngữ trên giao diện: **"Đơn giá ký hợp đồng dự kiến"** là ô nhập trong danh mục (gồm dầu theo định mức); **"ĐG ký HĐ"** là đơn giá ký hợp đồng tính ra (chưa gồm nhiên liệu). Hai hình thức: **Đơn giá cố định** và **Đơn giá theo giá dầu**.
 **Quy trình cũ giữ nguyên:** hợp đồng không chọn mã vẫn dùng giá chung / giá riêng hợp đồng như trước; tuyến mà mã chưa có dòng giá cũng quay về giá cũ. Màn **Đơn giá** và **Căn cứ giá hợp đồng** không đổi. Tuyến dùng đơn giá cố định không nhận dầu (như trước).
