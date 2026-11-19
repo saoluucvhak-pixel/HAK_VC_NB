@@ -308,7 +308,7 @@
       }
 
       const add = () => D.formModal({ title: 'Thêm hợp đồng vận chuyển', fields: CF(true, true), wide: true, values: { carrierUnitCode: me, effectiveFrom: D.today() },
-        submit: async (v) => { const r = await D.api('contracts.save', { create: true, record: v }); showReminder(r); await D.refreshBoot(); await reload(); if (r.record && r.record.contract_id) await choose(r.record.contract_id, 'info'); } });
+        submit: async (v) => { const r = await D.api('contracts.save', { create: true, record: v }); showReminder(r); await D.refreshBoot(); await reload(); if (r.record && r.record.contract_id) setTimeout(() => choose(r.record.contract_id, 'info')); } }); // đóng hộp thoại ngay, dựng chi tiết sau (không giữ hộp mở trong lúc tải 6 API)
       for (const el of [fStatus, fRole]) el.addEventListener('change', drawList); fQ.addEventListener('input', drawList);
       const page = D.page('Hợp đồng vận chuyển', crumb(), [w ? h('button', { class: 'btn primary', onclick: add }, 'Thêm hợp đồng') : null], layout);
       await reload(sel); if (sel && !items.some((x) => x.contract_id === sel)) sel = ''; syncCrumb(); await drawDetail();
