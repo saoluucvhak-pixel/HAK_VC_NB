@@ -266,6 +266,12 @@ class AppContext {
     return { storage: 'json', dataVersion: this.store.dataVersion };
   }
 
+  /** Sao lưu JSON ra thư mục trống (kho JSON: bản chụp manifest.json + tables/; kho SQLite: xuất ngược có kiểm chứng). */
+  async exportJsonSnapshot({ dest, user = { username: 'system' } }) {
+    if (this.storageKind() === 'sqlite') return this.exportStorageToJson({ dest });
+    return this.svc.backup.exportJsonFolder({ dest, user });
+  }
+
   /** Xuất ngược SQLite → thư mục JSON mới (bản chụp nhất quán + kiểm chứng). Không đổi cấu hình. */
   async exportStorageToJson({ dest }) {
     if (this.storageKind() !== 'sqlite') throw new AppError('VALIDATION_FAILED', 'Bản cài đang dùng kho JSON');

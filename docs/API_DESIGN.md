@@ -235,7 +235,9 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 |---|---|---|---|---|
 | `data.backupNow` | Sao lưu ngay toàn bộ thư mục dữ liệu thành 1 file .zip (backups/manual) | A/K |  | BACKUP |
 | `data.listBackups` | Danh sách bản sao lưu (ngày / tháng / thủ công) | A |  |  |
-| `data.restore` | Khôi phục từ 1 bản sao lưu: tự sao lưu hiện trạng trước, thay thư mục tables/, mở lại APP | A |  | RESTORE |
+| `data.inspectBackup` | Xem trước 1 file sao lưu chọn từ bất kỳ đâu trước khi khôi phục (không đổi gì) | A |  |  |
+| `data.restore` | Khôi phục từ 1 bản sao lưu (trong danh sách hoặc chọn file `.zip` / `manifest.json`); bản của máy khác cùng đơn vị cần `allowOtherInstall` | A | 🔒 | RESTORE |
+| `data.exportJson` | Sao lưu JSON: xuất bản chụp ra thư mục trống (kho SQLite: xuất ngược có kiểm chứng) | A | 🔒 | EXPORT_JSON |
 | `data.changeFolder` | Chuyển thư mục dữ liệu sang vị trí khác (copy + kiểm SHA-256 + đổi cấu hình) | A |  | CHANGE_FOLDER |
 | `storage.info` | Kho lưu trữ đang dùng (json / sqlite), vùng đồng bộ, dấu chuyển, khả năng chuyển / quay lại | A |  |  |
 | `storage.migrate` | Chuyển kho JSON → SQLite (thí điểm; `dryRun` chỉ kiểm chứng) — sao lưu an toàn, kiểm chứng, đổi tên, đổi cấu hình | A | 🔒 | MIGRATE_STORAGE |
@@ -1284,7 +1286,7 @@ Khôi phục từ 1 bản sao lưu: tự sao lưu hiện trạng trước, thay 
 
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
-| `backupPath` | string | ✔ |  |
+| `file` | string | ✔ | đường dẫn .zip hoặc manifest.json |
 | `reason` | string | ✔ |  |
 
 - **Trả về:** `{restoredDataVersion, safetyBackupPath}`
@@ -1414,7 +1416,7 @@ Bản HAKQN: dialog.openFile → exchange.previewPackage(filePath) → exchange.
 
 **6.7. Sửa dữ liệu sau khi tính** — `tickets.update` / `fuel.update` trả `affectedPeriods`; kỳ `NHAP` → `needs_recalc` (xác nhận bị chặn `E_NEEDS_RECALC` đến khi tính lại). Kỳ đã xác nhận/khóa phải `periods.reopen` / `periods.unlock` trước (ADMIN hoặc `can_unlock`, có lý do); nếu kỳ đã gửi đi → xuất lại gói KY_TINH (`calc_version` mới thay bản cũ ở bên nhận).
 
-**6.8. Sao lưu, khôi phục** — tự động hằng ngày; `data.backupNow`; `data.listBackups` → `data.restore(backupPath, reason)`.
+**6.8. Sao lưu, khôi phục** — tự động hằng ngày; `data.backupNow`; `data.listBackups` → `data.restore(file, reason[, allowOtherInstall])`.
 
 ## 7. "XEM CHI TIẾT TÍNH" (`calc.trace`)
 

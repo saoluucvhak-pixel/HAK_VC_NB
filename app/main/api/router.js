@@ -147,6 +147,8 @@ const ROUTES = {
   'data.backupNow': [null, (ctx, p, s) => ctx.svc.backup.backup({ kind: 'manual', note: p.note || '', user: s.user })],
   'data.listBackups': [null, (ctx) => ctx.svc.backup.list()],
   'data.restore': [null, async (ctx, p, s) => { const r = await ctx.svc.backup.restore({ ...p, user: s.user }); ctx.replaceStore(r.store); return { restoredFrom: r.restoredFrom, safetyBackup: r.safetyBackup, dataVersion: r.dataVersion }; }],
+  'data.inspectBackup': [null, (ctx, p) => ctx.svc.backup.inspect(p)],
+  'data.exportJson': [null, (ctx, p, s) => ctx.exportJsonSnapshot({ dest: p.dest, user: s.user })],
   'data.changeFolder': [null, (ctx, p, s) => ctx.changeFolder({ ...p, user: s.user })],
   'storage.info': [null, (ctx) => ctx.storageInfo()],
   'storage.migrate': [null, async (ctx, p, s) => { const r = await ctx.migrateStorage({ dryRun: !!p.dryRun, user: s.user }); return { verified: r.verified, dryRun: r.dryRun, safetyBackup: r.safetyBackup, rows: r.report.verification.rows, closedPeriods: r.report.verification.closedPeriods, sourceUnchanged: r.report.sourceUnchanged, ...ctx.storageInfo() }; }],

@@ -148,7 +148,7 @@
   D.confirm = ({ title, message, okLabel = 'Đồng ý', reason = false, danger = false }) => new Promise((resolve) => {
     const inp = reason ? h('textarea', { rows: 3, 'aria-label': 'Lý do' }) : null;
     let done = false;
-    D.modal({ title, body: h('div', {}, h('p', {}, message), reason ? h('label', { class: 'field' }, h('span', {}, 'Lý do (bắt buộc)'), inp) : null),
+    D.modal({ title, body: h('div', {}, h('p', { style: { whiteSpace: 'pre-line' } }, message), reason ? h('label', { class: 'field' }, h('span', {}, 'Lý do (bắt buộc)'), inp) : null),
       actions: [{ label: 'Hủy', run: () => { done = true; resolve(null); } }, { label: okLabel, primary: !danger, danger, run: () => {
         if (reason && !inp.value.trim()) { D.toast('Phải nhập lý do', 'err'); return false; }
         done = true; resolve(reason ? inp.value.trim() : true); return true;

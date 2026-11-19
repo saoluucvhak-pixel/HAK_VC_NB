@@ -26,6 +26,28 @@
   }
 
   // ───────── Lưu trữ theo năm (bản 1.2.5) ─────────
+  /** Sao lưu JSON ra thư mục trống: manifest.json + tables/ + snapshot-info.json. */
+  async function backupJson() {
+    const f = await D.pickFolder('Chọn thư mục TRỐNG để sao lưu JSON (vd D:\\DGVC_JSON)'); if (!f) return;
+    let r; try { r = await D.api('data.exportJson', { dest: f }); } catch { return; }
+    D.toast(`Đã sao lưu JSON ra ${r.dest} (phiên bản dữ liệu ${r.dataVersion})`, 'ok', 9000);
+  }
+
+  /** Khôi phục từ MỘT FILE tự chọn (.zip sao lưu hoặc manifest.json của thư mục dữ liệu JSON): xem trước thông tin → xác nhận có lý do → khôi phục. */
+  async function restoreFromFile() {
+    const file = await D.pickFile({ title: 'Chọn file sao lưu (.zip) hoặc manifest.json của thư mục dữ liệu JSON', filters: [{ name: 'Sao lưu DGVC (.zip, manifest.json)', extensions: ['zip', 'json'] }] });
+    if (!file) return;
+    let i; try { i = await D.api('data.inspectBackup', { file }); } catch { return; }
+    if (!i.canRestore) { D.modal({ title: 'Không khôi phục được file này', body: h('div', {}, h('p', {}, i.problem), h('p', { class: 'small mono' }, file)), actions: [{ label: 'Đóng', primary: true, run: () => true }] }); return; }
+    const reason = await D.confirm({ title: 'Khôi phục từ file', danger: true, reason: true, okLabel: 'Khôi phục',
+      message: `File: ${file}\nĐơn vị ${i.unitCode} · phiên bản dữ liệu ${i.dataVersion}${i.createdAt ? ` · lập lúc ${D.dt(i.createdAt)}` : ''} · ${i.storageFormat === 'sqlite' ? 'kho SQLite' : 'kho JSON'}.\n`
+        + (i.needsOtherInstallConfirm ? 'Đây là bản sao lưu của MỘT MÁY KHÁC cùng đơn vị: khôi phục sẽ thay TOÀN BỘ dữ liệu và mã bản cài của máy này. ' : '')
+        + 'APP sao lưu an toàn hiện trạng trước khi thay.' });
+    if (!reason) return;
+    try { await D.api('data.restore', { file, reason, allowOtherInstall: !!i.needsOtherInstallConfirm }); } catch { return; }
+    D.toast('Đã khôi phục từ file', 'ok'); await D.refreshBoot(); D.go('dashboard');
+  }
+
   /** Kho lưu trữ (thí điểm SQLite) — chỉ ADMIN. Mặc định vẫn là kho JSON; chuyển là thao tác chủ động, có chạy thử, có đường lui. */
   async function storageCard() {
     const d = await D.api('storage.info', {}, { quiet: true }).catch(() => null);
@@ -42,12 +64,12 @@
       let r; try { r = await D.api('storage.migrate', { dryRun }); } catch { return; }
       D.modal({ title: dryRun ? 'Kết quả chạy thử' : 'Kết quả chuyển kho', wide: true, body: result(r), actions: [{ label: 'Đóng', primary: true, run: async () => { if (!dryRun) await again(); return true; } }] });
     };
-    return h('div', { class: 'card' }, h('h2', {}, 'Kho lưu trữ dữ liệu (thí điểm SQLite)'),
+    // Mặc định THU GỌN: đây KHÔNG phải chức năng sao lưu mà là thí điểm đổi cách lưu dữ liệu (JSON → SQLite) — người dùng thường không cần mở
+    return h('details', { class: 'card storage-card', open: d.storage === 'sqlite' }, h('summary', { class: 'storage-sum' }, 'Nâng cao · Đổi cách lưu dữ liệu sang SQLite (thí điểm — không phải sao lưu, không cần dùng)'),
       h('p', {}, 'Đang dùng: ', D.tag(d.storage === 'sqlite' ? 'ok' : 'info', d.storage === 'sqlite' ? 'SQLite' : 'JSON (mặc định)'),
         d.migratedAt ? ` · chuyển lúc ${D.dt(d.migratedAt)}` : ''),
-      d.syncFolder ? h('p', {}, D.tag('warn', 'Cảnh báo'), ` Thư mục dữ liệu nằm trong vùng đồng bộ / ổ mạng (${d.syncFolder}) — SQLite có thể bị trình đồng bộ khóa hoặc chụp giữa chừng. Nên dùng ổ cục bộ cố định.`) : null,
-      d.blockedReason ? h('p', { class: 'small' }, d.blockedReason) : null,
-      h('p', { class: 'small' }, d.storage === 'json'
+      d.blockedReason ? h('p', {}, D.tag('warn', 'Chưa chuyển được'), ` ${d.blockedReason}.`) : null,
+      h('p', {}, d.storage === 'json'
         ? 'Chức năng thí điểm: chỉ chuyển khi đã được hướng dẫn (xem docs/THI_DIEM_SQLITE_WINDOWS.md). Kho JSON vẫn là mặc định và vẫn dùng bình thường.'
         : d.canRevert ? 'Chưa có giao dịch mới nào sau khi chuyển: có thể quay lại kho JSON cũ (đang đóng băng, trùng khớp).'
           : 'Đã có giao dịch mới trên SQLite mà kho JSON cũ không có: muốn quay lại phải "Xuất ngược" ra thư mục JSON mới.'),
@@ -195,7 +217,10 @@
         const cfg = D.state.boot.config;
         body.append(h('div', { class: 'grid g2' }, h('div', { class: 'card' }, h('h2', {}, 'Sao lưu'), h('p', { class: 'small' }, 'Tự động: bản hằng ngày (giữ 30) và hằng tháng (giữ 24) trong thư mục dữ liệu; bản an toàn trước khi khôi phục / nhập gói / đổi thư mục.'),
           b.warning ? h('p', {}, h('span', { class: 'tag warn' }, 'Cảnh báo'), ` ${b.warning.message}`) : h('p', { class: 'small' }, `Lần sao lưu gần nhất: ${D.dt(b.lastBackupAt)}`),
-          h('div', { class: 'btns' }, h('button', { class: 'btn primary', onclick: async () => { const r = await D.api('data.backupNow', { note: 'thu cong' }); D.toast(`Đã sao lưu ${r.file}${r.mirrored ? (r.mirrored.ok ? ` · đã chép ra ${r.mirrored.path}` : ` · ${r.mirrored.message}`) : ''}`, r.mirrored && !r.mirrored.ok ? 'err' : 'ok', 9000); D.go('settings', { tab: 'backup' }); } }, 'Sao lưu ngay'))),
+          h('div', { class: 'btns' }, h('button', { class: 'btn primary', onclick: async () => { const r = await D.api('data.backupNow', { note: 'thu cong' }); D.toast(`Đã sao lưu ${r.file}${r.mirrored ? (r.mirrored.ok ? ` · đã chép ra ${r.mirrored.path}` : ` · ${r.mirrored.message}`) : ''}`, r.mirrored && !r.mirrored.ok ? 'err' : 'ok', 9000); D.go('settings', { tab: 'backup' }); } }, 'Sao lưu ngay'),
+            admin ? h('button', { class: 'btn', onclick: () => backupJson() }, 'Sao lưu JSON ra thư mục…') : null,
+            admin ? h('button', { class: 'btn', onclick: () => restoreFromFile() }, 'Khôi phục từ file…') : null),
+          h('p', { class: 'small muted' }, 'Khôi phục từ file: chọn file sao lưu .zip (ở USB / ổ khác) hoặc file manifest.json trong thư mục dữ liệu JSON. Sao lưu JSON: xuất bản chụp ra thư mục trống (đọc / lưu lâu dài).')),
         h('div', { class: 'card' }, h('h2', {}, 'Sao lưu ra ngoài (USB / Google Drive)'), h('p', { class: 'small mono' }, cfg.BACKUP_MIRROR_FOLDER || '(chưa chọn)'), h('p', { class: 'small' }, `Đang ${cfg.BACKUP_MIRROR_ENABLED === 'TRUE' ? 'BẬT' : 'TẮT'}`),
           admin ? h('div', { class: 'btns' }, h('button', { class: 'btn', onclick: async () => { const f = await D.pickFolder('Chọn USB / thư mục Google Drive'); if (!f) return; await D.api('config.save', { key: 'BACKUP_MIRROR_FOLDER', value: f }); await D.api('config.save', { key: 'BACKUP_MIRROR_ENABLED', value: 'TRUE' }); await D.refreshBoot(); D.go('settings', { tab: 'backup' }); } }, 'Chọn thư mục…'),
             h('button', { class: 'btn', onclick: async () => { await D.api('config.save', { key: 'BACKUP_MIRROR_ENABLED', value: cfg.BACKUP_MIRROR_ENABLED === 'TRUE' ? 'FALSE' : 'TRUE' }); await D.refreshBoot(); D.go('settings', { tab: 'backup' }); } }, cfg.BACKUP_MIRROR_ENABLED === 'TRUE' ? 'Tắt' : 'Bật')) : null,

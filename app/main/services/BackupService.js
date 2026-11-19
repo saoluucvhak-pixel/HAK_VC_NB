@@ -113,9 +113,29 @@ class BackupService {
   }
 
   /** Kiểm 1 file sao lưu (JSON hoặc SQLite): đúng định dạng, đủ file, SHA-256 khớp; SQLite thêm mở chỉ đọc + integrity_check + đối chiếu số dòng. */
+  /** Dựng "zip trong bộ nhớ" từ THƯ MỤC dữ liệu JSON (chọn file manifest.json): kiểm SHA-256 từng tệp rồi dùng chung luồng khôi phục. */
+  _zipFromJsonFolder(dir) {
+    const mp = path.join(dir, 'manifest.json'); let m;
+    try { m = JSON.parse(fs.readFileSync(mp, 'utf8')); } catch (e) { throw new AppError('INTEGRITY_ERROR', `manifest.json không đọc được: ${e.message}`); }
+    if (!m || m.app !== 'DGVC' || !m.files) throw new AppError('INTEGRITY_ERROR', 'Không phải manifest.json của thư mục dữ liệu DGVC');
+    const zip = new AdmZip(); zip.addFile('manifest.json', fs.readFileSync(mp));
+    for (const rel of Object.keys(m.files)) {
+      const p = path.join(dir, rel); if (!fs.existsSync(p)) throw new AppError('INTEGRITY_ERROR', `Thư mục dữ liệu thiếu tệp ${rel} — chép đủ thư mục (manifest.json + tables) rồi chọn lại`, { problems: [`${rel}: thiếu`] });
+      zip.addFile(rel.replace(/\\/g, '/'), fs.readFileSync(p));
+    }
+    zip.addFile('backup-info.json', Buffer.from(JSON.stringify({ app: 'DGVC', kind: 'folder', note: 'thư mục dữ liệu JSON', installId: m.installId, unitCode: m.unitCode, dataVersion: m.dataVersion, createdAt: m.lastBackupAt || '' })));
+    return zip;
+  }
+
   verify(file) {
     if (!fs.existsSync(file)) throw new AppError('NOT_FOUND', `Không có file ${file}`);
-    let zip; try { zip = new AdmZip(file); } catch (e) { throw new AppError('INTEGRITY_ERROR', `File sao lưu hỏng: ${e.message}`); }
+    let zip;
+    if (/\.json$/i.test(file)) {
+      if (path.basename(file).toLowerCase() !== 'manifest.json') throw new AppError('VALIDATION_FAILED', 'Chọn file sao lưu .zip, hoặc file manifest.json nằm trong thư mục dữ liệu JSON (cùng thư mục với tables/)');
+      zip = this._zipFromJsonFolder(path.dirname(file));
+    } else {
+      try { zip = new AdmZip(file); } catch (e) { throw new AppError('INTEGRITY_ERROR', `File sao lưu hỏng: ${e.message}`); }
+    }
     const dbBuf = zip.readFile('dgvc.db');
     if (dbBuf) return this._verifySqlite(zip, dbBuf);
     const mBuf = zip.readFile('manifest.json'); if (!mBuf) throw new AppError('INTEGRITY_ERROR', 'File sao lưu không có manifest.json');
@@ -150,11 +170,47 @@ class BackupService {
    *  kho SQLite × bản JSON CŨ (Q9): giải ra thư mục tạm, chạy trình di chuyển + kiểm chứng rồi thay dgvc.sqlite
    *  kho JSON × bản SQLite: từ chối (dùng công cụ xuất ngược trước)
    */
-  async restore({ file, reason = '', user }) {
+  /** Xem trước một file sao lưu (zip / manifest.json) TRƯỚC khi khôi phục: không đổi gì. */
+  inspect({ file }) {
+    const { manifest, storageFormat, zip } = this.verify(file);
+    let info = {}; try { info = JSON.parse(zip.readAsText('backup-info.json') || '{}'); } catch { /* thiếu info */ }
+    const sameInstall = manifest.installId === this.store.installId; const sameUnit = manifest.unitCode === this.store.unitCode;
+    const kindHere = this.store.storageKind;
+    const problem = !sameUnit ? `Sao lưu của đơn vị ${manifest.unitCode}, bản cài này là ${this.store.unitCode} — không khôi phục được`
+      : kindHere === 'json' && storageFormat === 'sqlite' ? 'Bản sao lưu này là của kho SQLite — không khôi phục vào kho JSON (xuất ngược SQLite → JSON trước)' : '';
+    return { file, storageFormat, unitCode: manifest.unitCode, installId: manifest.installId, dataVersion: manifest.dataVersion, createdAt: info.createdAt || '', kind: info.kind || '', note: info.note || '',
+      sameInstall, sameUnit, canRestore: !problem, problem, needsOtherInstallConfirm: sameUnit && !sameInstall };
+  }
+
+  /**
+   * Xuất BẢN CHỤP JSON ra thư mục mới (manifest.json + tables/** + snapshot-info.json). Dùng làm sao lưu đọc được bằng mắt / lưu trữ lâu dài;
+   * khôi phục bằng "Khôi phục từ file… → chọn manifest.json" hoặc "Dùng dữ liệu có sẵn". Chỉ kho JSON (kho SQLite dùng AppContext.exportStorageToJson).
+   */
+  async exportJsonFolder({ dest, user = { username: 'system' } }) {
+    if (this.store.storageKind !== 'json') throw new AppError('VALIDATION_FAILED', 'Kho đang là SQLite — dùng "Xuất ngược ra JSON"');
+    if (!dest) throw new AppError('VALIDATION_FAILED', 'Chọn thư mục đích');
+    if (fs.existsSync(dest) && fs.readdirSync(dest).length) throw new AppError('VALIDATION_FAILED', 'Thư mục đích phải trống');
+    await this.store.queue; // chờ giao dịch đang ghi xong → chụp nhất quán
+    const root = this.store.root; const mBuf = fs.readFileSync(path.join(root, 'manifest.json')); const m = JSON.parse(mBuf);
+    fs.mkdirSync(dest, { recursive: true });
+    for (const [rel, meta] of Object.entries(m.files)) {
+      const buf = fs.readFileSync(path.join(root, rel)); if (sha(buf) !== meta.sha256) throw new AppError('INTEGRITY_ERROR', `Tệp ${rel} sai SHA-256 — dừng xuất`);
+      const to = path.join(dest, rel); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.writeFileSync(to, buf);
+    }
+    fs.writeFileSync(path.join(dest, 'manifest.json'), mBuf);
+    const info = { app: 'DGVC', source: 'json', exportedAt: new Date().toISOString(), exportedBy: user.username, dataVersion: m.dataVersion, schemaVersion: m.schemaVersion, installId: m.installId, unitCode: m.unitCode,
+      appVersion: require('../../package.json').version, files: Object.keys(m.files).length, rows: this.store.stats().rows };
+    fs.writeFileSync(path.join(dest, 'snapshot-info.json'), JSON.stringify(info, null, 1));
+    await this.store.transaction((tx) => tx.audit('EXPORT_JSON', 'DATA', 'snapshot', null, { dest, dataVersion: m.dataVersion }), { user: user.username });
+    return { ok: true, dest, files: info.files, dataVersion: m.dataVersion, rows: info.rows };
+  }
+
+  async restore({ file, reason = '', user, allowOtherInstall = false }) {
     if (!reason) throw new AppError('VALIDATION_FAILED', 'Khôi phục phải nhập lý do');
     const { manifest, zip, storageFormat } = this.verify(file);
-    if (manifest.installId !== this.store.installId) {
-      throw new AppError('VALIDATION_FAILED', `Bản sao lưu của bản cài khác (${manifest.unitCode} · ${manifest.installId}) — không khôi phục vào bản cài ${this.store.unitCode}`);
+    if (manifest.unitCode !== this.store.unitCode) throw new AppError('VALIDATION_FAILED', `Bản sao lưu của đơn vị ${manifest.unitCode} — không khôi phục vào bản cài đơn vị ${this.store.unitCode}`);
+    if (manifest.installId !== this.store.installId && !allowOtherInstall) {
+      throw new AppError('VALIDATION_FAILED', `Bản sao lưu của một bản cài khác cùng đơn vị (${manifest.unitCode} · ${manifest.installId}) — cần xác nhận khôi phục từ máy khác (thay toàn bộ dữ liệu và mã bản cài)`, { code: 'E_OTHER_INSTALL', installId: manifest.installId });
     }
     const kind = this.store.storageKind;
     if (kind === 'json' && storageFormat === 'sqlite') throw new AppError('VALIDATION_FAILED', 'Bản sao lưu này là của kho SQLite — không khôi phục được vào kho JSON (dùng công cụ xuất ngược SQLite → JSON trước)');

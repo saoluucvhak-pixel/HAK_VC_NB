@@ -292,8 +292,14 @@ ep('config.save', 'Quản trị', 'Sửa tham số (làm tròn, VAT, người k�
 ep('data.backupNow', 'Dữ liệu', 'Sao lưu ngay toàn bộ thư mục dữ liệu thành 1 file .zip (backups/manual)', ADM + [K], [('note', 'string', False, '')],
    '{path, sizeBytes, sha256}', ['STORAGE_ERROR'], audit='BACKUP')
 ep('data.listBackups', 'Dữ liệu', 'Danh sách bản sao lưu (ngày / tháng / thủ công)', ADM, [], '{items:[{path, kind, createdAt, sizeBytes, dataVersion}]}')
-ep('data.restore', 'Dữ liệu', 'Khôi phục từ 1 bản sao lưu: tự sao lưu hiện trạng trước, thay thư mục tables/, mở lại APP', ADM,
-   [('backupPath', 'string', True, ''), ('reason', 'string', True, '')], '{restoredDataVersion, safetyBackupPath}', ['INTEGRITY_ERROR', 'STORAGE_ERROR'], audit='RESTORE')
+ep('data.inspectBackup', 'Dữ liệu', 'Xem trước 1 file sao lưu chọn từ bất kỳ đâu (.zip, hoặc manifest.json của thư mục dữ liệu JSON) trước khi khôi phục: đơn vị, mã bản cài, phiên bản dữ liệu, có khôi phục được không', ADM,
+   [('file', 'string', True, 'đường dẫn .zip hoặc manifest.json')], '{storageFormat, unitCode, installId, dataVersion, createdAt, sameInstall, sameUnit, canRestore, problem, needsOtherInstallConfirm}',
+   ['INTEGRITY_ERROR', 'NOT_FOUND', 'VALIDATION_FAILED'])
+ep('data.restore', 'Dữ liệu', 'Khôi phục từ 1 bản sao lưu (trong danh sách hoặc chọn file .zip / manifest.json): tự sao lưu hiện trạng trước, thay dữ liệu, mở lại APP. Bản của máy khác cùng đơn vị cần allowOtherInstall', ADM,
+   [('file', 'string', True, 'đường dẫn .zip hoặc manifest.json'), ('reason', 'string', True, ''), ('allowOtherInstall', 'boolean', False, 'xác nhận khôi phục bản sao lưu của máy khác cùng đơn vị (thay cả mã bản cài)')],
+   '{restoredFrom, safetyBackup, dataVersion}', ['INTEGRITY_ERROR', 'STORAGE_ERROR', 'VALIDATION_FAILED'], audit='RESTORE')
+ep('data.exportJson', 'Dữ liệu', 'Sao lưu JSON: xuất bản chụp ra thư mục TRỐNG (manifest.json + tables/ + snapshot-info.json; kho SQLite: xuất ngược có kiểm chứng). Khôi phục bằng "Khôi phục từ file → manifest.json"', ADM,
+   [('dest', 'string', True, 'thư mục đích trống')], '{ok, dest, dataVersion, rows}', ['VALIDATION_FAILED', 'INTEGRITY_ERROR'], audit='EXPORT_JSON')
 ep('data.changeFolder', 'Dữ liệu', 'Chuyển thư mục dữ liệu sang vị trí khác (copy + kiểm SHA-256 + đổi cấu hình)', ADM, [('newFolder', 'string', True, '')],
    '{dataFolder}', ['STORAGE_ERROR', 'DATA_LOCKED'], audit='CHANGE_FOLDER')
 ep('storage.info', 'Dữ liệu', 'Kho lưu trữ đang dùng (json | sqlite), vùng đồng bộ của thư mục dữ liệu, dấu chuyển, khả năng chuyển / quay lại', ADM, [],

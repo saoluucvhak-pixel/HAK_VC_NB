@@ -4396,35 +4396,95 @@
    "lock": false
   },
   {
-   "action": "data.restore",
+   "action": "data.inspectBackup",
    "group": "Dữ liệu",
-   "desc": "Khôi phục từ 1 bản sao lưu: tự sao lưu hiện trạng trước, thay thư mục tables/, mở lại APP",
+   "desc": "Xem trước 1 file sao lưu chọn từ bất kỳ đâu (.zip, hoặc manifest.json của thư mục dữ liệu JSON) trước khi khôi phục: đơn vị, mã bản cài, phiên bản dữ liệu, có khôi phục được không",
    "roles": [
     "ADMIN"
    ],
    "scope": "",
    "input": [
     [
-     "backupPath",
+     "file",
      "string",
      true,
-     ""
+     "đường dẫn .zip hoặc manifest.json"
+    ]
+   ],
+   "output": "{storageFormat, unitCode, installId, dataVersion, createdAt, sameInstall, sameUnit, canRestore, problem, needsOtherInstallConfirm}",
+   "errors": [
+    "INTEGRITY_ERROR",
+    "NOT_FOUND",
+    "VALIDATION_FAILED"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "data.restore",
+   "group": "Dữ liệu",
+   "desc": "Khôi phục từ 1 bản sao lưu (trong danh sách hoặc chọn file .zip / manifest.json): tự sao lưu hiện trạng trước, thay dữ liệu, mở lại APP. Bản của máy khác cùng đơn vị cần allowOtherInstall",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "file",
+     "string",
+     true,
+     "đường dẫn .zip hoặc manifest.json"
     ],
     [
      "reason",
      "string",
      true,
      ""
+    ],
+    [
+     "allowOtherInstall",
+     "boolean",
+     false,
+     "xác nhận khôi phục bản sao lưu của máy khác cùng đơn vị (thay cả mã bản cài)"
     ]
    ],
-   "output": "{restoredDataVersion, safetyBackupPath}",
+   "output": "{restoredFrom, safetyBackup, dataVersion}",
    "errors": [
     "INTEGRITY_ERROR",
-    "STORAGE_ERROR"
+    "STORAGE_ERROR",
+    "VALIDATION_FAILED"
    ],
    "reads": [],
    "writes": [],
    "audit": "RESTORE",
+   "lock": false
+  },
+  {
+   "action": "data.exportJson",
+   "group": "Dữ liệu",
+   "desc": "Sao lưu JSON: xuất bản chụp ra thư mục TRỐNG (manifest.json + tables/ + snapshot-info.json; kho SQLite: xuất ngược có kiểm chứng). Khôi phục bằng \"Khôi phục từ file → manifest.json\"",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "dest",
+     "string",
+     true,
+     "thư mục đích trống"
+    ]
+   ],
+   "output": "{ok, dest, dataVersion, rows}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "INTEGRITY_ERROR"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "EXPORT_JSON",
    "lock": false
   },
   {
