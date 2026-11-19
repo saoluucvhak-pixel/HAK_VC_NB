@@ -1,7 +1,7 @@
 {
   "name": "dgvc",
   "productName": "Đơn giá vận chuyển dăm",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "private": true,
   "description": "Phần mềm desktop tính đơn giá vận chuyển dăm — thay thế Excel + Power Query (HAK Group)",
   "main": "main/electron/main.js",
@@ -10,7 +10,7 @@
     "verify:seed": "node tools/verify-seed.js",
     "start": "electron .",
     "dev": "node tools/dev-server.js",
-    "test:electron": "xvfb-run -a node tests/electron.smoke.js && xvfb-run -a electron tests/electron.sqlite.main.js --no-sandbox",
+    "test:electron": "xvfb-run -a node tests/electron.smoke.js && xvfb-run -a electron tests/electron.sqlite.main.js --no-sandbox && xvfb-run -a node tests/electron.autoupgrade.js",
     "compare": "node tools/compare-excel.js",
     "build:catalog": "node tools/build-catalog.js",
     "dist": "electron-builder --win dir --x64 && makensis -V2 installer/dgvc.nsi",

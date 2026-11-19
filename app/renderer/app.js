@@ -157,6 +157,13 @@
 
   // ───────── form khai báo ─────────
   /** fields: [{key, label, type: text|number|date|select|textarea|check, options:[[v,t]], required, hint, full, readonly}] */
+  /** Tiền (đ): "150.000" / "150 000" / "150000" → 150000; "150,5" → 150,5; chữ lạ → NaN (để máy chủ báo lỗi, không đoán). Rỗng → ''. */
+  D.parseMoney = (v) => {
+    const s = String(v ?? '').trim().replace(/\s/g, ''); if (!s) return '';
+    if (/^\d{1,3}([.,]\d{3})+$/.test(s)) return Number(s.replace(/[.,]/g, ''));
+    if (/^\d+([.,]\d+)?$/.test(s)) return Number(s.replace(',', '.'));
+    return NaN;
+  };
   D.form = (fields, values = {}) => {
     const inputs = {};
     const el = h('div', { class: 'form' }, fields.map((f) => {
@@ -164,13 +171,14 @@
       if (f.type === 'select') inp = h('select', { disabled: f.readonly }, (typeof f.options === 'function' ? f.options() : f.options).map(([v, t]) => h('option', { value: v, selected: String(values[f.key] ?? '') === String(v) }, t)));
       else if (f.type === 'textarea') { inp = h('textarea', { rows: f.rows || 3, readonly: f.readonly }); inp.value = values[f.key] ?? ''; }
       else if (f.type === 'check') { inp = h('input', { type: 'checkbox', checked: !!values[f.key], disabled: f.readonly }); return h('label', { class: `check ${f.full ? 'field full' : ''}` }, inp, f.label); }
+      else if (f.money) inp = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', value: values[f.key] === '' || values[f.key] === undefined || values[f.key] === null ? '' : D.vnAuto(values[f.key]), readonly: f.readonly, placeholder: f.placeholder || 'vd 150.000' });
       else inp = h('input', { type: f.type || 'text', value: values[f.key] ?? '', step: f.step || (f.type === 'number' ? 'any' : null), readonly: f.readonly, placeholder: f.placeholder || '' });
       inputs[f.key] = inp;
       return h('label', { class: `field ${f.full ? 'full' : ''}` }, h('span', {}, f.label + (f.required ? ' *' : '')), inp, f.hint ? h('span', { class: 'hint' }, f.hint) : null);
     }).map((node, i) => { const f = fields[i]; if (f.type === 'check') inputs[f.key] = node.querySelector('input'); return node; }));
     el.values = () => Object.fromEntries(fields.map((f) => {
       const i = inputs[f.key]; if (f.type === 'check') return [f.key, i.checked];
-      const v = i.value; if (f.type === 'number') return [f.key, v === '' ? '' : Number(v)]; return [f.key, v];
+      const v = i.value; if (f.money) return [f.key, D.parseMoney(v)]; if (f.type === 'number') return [f.key, v === '' ? '' : Number(v)]; return [f.key, v];
     }));
     el.inputs = inputs;
     return el;

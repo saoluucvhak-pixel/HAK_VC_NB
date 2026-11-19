@@ -28,6 +28,15 @@ const canUnlock = (u) => u && (u.role === 'ADMIN' || u.canUnlock);
 const addDays = (d, n) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const isDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`));
 const numOrEmpty = (v) => (v === '' || v === null || v === undefined ? '' : Number(v));
+/** Tiền dạng chuỗi (gõ tay / API): "150.000" = 150000 (dấu ngăn cách nghìn kiểu Việt — Number("150.000") sẽ ra 150, sai 1.000 lần); "150,5" = 150,5; số thật giữ nguyên. */
+const moneyOrEmpty = (v) => {
+  if (typeof v !== 'string') return numOrEmpty(v);
+  const s = v.trim().replace(/\s/g, ''); if (!s) return '';
+  if (/^\d{1,3}([.,]\d{3})+$/.test(s)) return Number(s.replace(/[.,]/g, ''));
+  if (/^\d+([.,]\d+)?$/.test(s)) return Number(s.replace(',', '.'));
+  return NaN;
+};
+const MONEY_FIELDS = ['base_price_excl_vat', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fixed_price'];
 
 class CatalogService {
   constructor(store) { this.store = store; }
@@ -165,6 +174,8 @@ class CatalogService {
     if (p.price_method === 'CO_DINH') {
       // đơn giá cố định (bản 1.2.3): chỉ cần đơn giá đ/tấn; không dùng định mức, giá dầu, KL_TB
       if (!(p.fixed_price > 0)) bad.push('Đơn giá cố định (đ/tấn, chưa VAT) phải > 0');
+      else if (p.fixed_price < 1000) bad.push(`Đơn giá cố định ${p.fixed_price} đ/tấn quá nhỏ (< 1.000) — kiểm tra dấu chấm ngăn cách nghìn (vd nhập 150000 hoặc 150.000)`);
+      else if (p.fixed_price > 1e9) bad.push('Đơn giá cố định quá lớn (> 1.000.000.000 đ/tấn) — kiểm tra lại số nhập');
       if (route && route.uom === 'M3') bad.push('Tuyến tính theo M3 — đơn giá cố định chỉ áp cho tuyến tính theo tấn');
     } else {
       if (!(p.new_price > 0)) bad.push('Đơn giá mới phải > 0');
@@ -178,7 +189,7 @@ class CatalogService {
   _normPrice(record) {
     const p = toSnake(record);
     for (const k of Object.keys(p)) if (!PRICE_FIELDS.includes(k)) delete p[k];
-    for (const k of ['base_price_excl_vat', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fuel_norm_l_per_km', 'avg_load_ton', 'avg_volume_m3', 'fixed_price']) if (k in p) p[k] = numOrEmpty(p[k]);
+    for (const k of ['base_price_excl_vat', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fuel_norm_l_per_km', 'avg_load_ton', 'avg_volume_m3', 'fixed_price']) if (k in p) p[k] = MONEY_FIELDS.includes(k) ? moneyOrEmpty(p[k]) : numOrEmpty(p[k]);
     if ('price_method' in p) p.price_method = p.price_method === 'CO_DINH' ? 'CO_DINH' : 'THEO_DAU';
     if (p.price_method === 'CO_DINH') {
       // các cột bắt buộc của cách tính theo giá dầu không dùng → ghi 0 (bảng giá vẫn đủ cột, xem lại thấy rõ là không dùng)
@@ -297,7 +308,8 @@ class CatalogService {
     const r = toSnake(record); const code = String(r.price_code || '').trim().toUpperCase();
     const bad = [];
     if (!/^[A-Z0-9][A-Z0-9._-]{1,23}$/.test(code)) bad.push('Mã đơn giá 2–24 ký tự: chữ HOA, số, . _ - (vd DG-DH-2026)');
-    const name = String(r.price_name || '').trim(); if (!name) bad.push('Thiếu tên mã đơn giá');
+    const name = String(r.price_name || '').trim(); if (!name) bad.push('Thiếu tên mã đơn giá'); else if (name.length > 120) bad.push('Tên mã đơn giá tối đa 120 ký tự');
+    if (String(r.note || '').trim().length > 500) bad.push('Ghi chú tối đa 500 ký tự');
     const unitCode = String(r.unit_code || '').trim().toUpperCase();
     if (!this.store.get('DON_VI', unitCode)) bad.push(`Đơn vị ${unitCode || '(chưa chọn)'} không có trong danh mục`);
     if (bad.length) throw new AppError('VALIDATION_FAILED', bad.join('; '), { errors: bad });

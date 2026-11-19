@@ -87,14 +87,14 @@ test('Chọn đơn giá CÓ SẴN để đưa vào mã (sao chép), kiểm tra h
   await assert.rejects(s.mkCode('DG-X', { unitCode: 'KHONG-CO' }), /không có trong danh mục/);
   await assert.rejects(s.cat.savePriceCode({ record: { priceCode: 'DG-CHON', unitCode: s.unit, priceName: 'đổi' }, user: KETOAN }), /rowVersion/);
   await assert.rejects(s.cat.addCodeLine({ priceCode: 'DG-CHON', record: { routeCode: 'VC.007', fixedPrice: 0, effectiveFrom: '2027-02-01' }, user: KETOAN }), /phải > 0/);
-  await assert.rejects(s.cat.createPriceVersion({ record: { routeCode: 'VC.007', priceMethod: 'CO_DINH', fixedPrice: 1, effectiveFrom: '2027-02-01', contractId: s.contractId, priceCode: 'DG-CHON' }, user: KETOAN }), /không gắn riêng một hợp đồng/);
+  await assert.rejects(s.cat.createPriceVersion({ record: { routeCode: 'VC.007', priceMethod: 'CO_DINH', fixedPrice: 5000, effectiveFrom: '2027-02-01', contractId: s.contractId, priceCode: 'DG-CHON' }, user: KETOAN }), /không gắn riêng một hợp đồng/);
   // mã của đơn vị khác không gán được
   const other = s.store.all('DON_VI').find((u) => u.unit_code !== s.ct().customer_unit_code && u.unit_code !== s.ct().carrier_unit_code).unit_code;
   await s.mkCode('DG-KHAC', { unitCode: other }); await assert.rejects(s.assign('DG-KHAC'), /không phải bên thuê/);
   // kỳ nháp → đổi mã → needs_recalc; đóng mã → không thêm dòng / không gán hợp đồng mới
   const k = await s.calc(); await s.assign('DG-CHON'); assert.equal(s.store.get('KY_TINH', k.period.period_id).needs_recalc, true);
   const c = s.store.get('MA_DON_GIA', 'DG-CHON'); await s.cat.setPriceCodeActive({ priceCode: 'DG-CHON', active: false, rowVersion: c.row_version, user: KETOAN });
-  await assert.rejects(s.cat.addCodeLine({ priceCode: 'DG-CHON', record: { routeCode: 'VC.002', fixedPrice: 5, effectiveFrom: '2027-03-01' }, user: KETOAN }), /đã đóng/);
+  await assert.rejects(s.cat.addCodeLine({ priceCode: 'DG-CHON', record: { routeCode: 'VC.002', fixedPrice: 5000, effectiveFrom: '2027-03-01' }, user: KETOAN }), /đã đóng/);
   await s.assign(''); await assert.rejects(s.assign('DG-CHON'), /đã đóng/);
 });
 
