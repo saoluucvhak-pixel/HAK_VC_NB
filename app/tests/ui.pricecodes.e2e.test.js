@@ -35,16 +35,17 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     // màn Mã đơn giá
     await nav('Mã đơn giá'); await page.getByRole('heading', { name: 'Mã đơn giá' }).first().waitFor();
     const tree = page.locator('.pc-tree'); await tree.getByText('Chưa có mã đơn giá nào').waitFor();
-    await tree.locator('.pc-unit', { hasText: unit }).first().getByRole('button', { name: '+ Tạo mã' }).click().catch(async () => { await tree.getByText(/Đơn vị chưa có mã/).click(); await tree.locator('.pc-unit', { hasText: unit }).first().getByRole('button', { name: '+ Tạo mã' }).click(); });
-    const m = page.locator('.modal', { hasText: 'Tạo mã đơn giá' });
+    await tree.getByRole('heading', { name: 'Đơn giá cố định' }).waitFor(); await tree.getByRole('heading', { name: 'Đơn giá theo giá dầu' }).waitFor();
+    await tree.getByRole('button', { name: '+ Mã đơn giá cố định' }).click();
+    const m = page.locator('.modal', { hasText: 'Tạo mã đơn giá cố định' }); await m.getByLabel(/Đơn vị/).selectOption(unit);
     await m.getByLabel(/Mã đơn giá/).fill('DG-UI-01'); await m.getByLabel(/Tên mã đơn giá/).fill('Giá cố định thử UI'); await m.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã tạo mã DG-UI-01/);
     await page.locator('.pc-tree').getByRole('button', { name: /DG-UI-01/ }).waitFor();
     // thêm dòng giá cố định
     await page.locator('.pc-detail').getByRole('button', { name: 'Thêm dòng giá cố định' }).click();
     const lm = page.locator('.modal', { hasText: 'Thêm dòng giá cố định vào mã DG-UI-01' });
-    await lm.getByLabel('Tuyến').selectOption('VC.007'); await lm.getByLabel(/Đơn giá cố định/).fill('150.000'); // gõ dấu chấm ngăn cách nghìn kiểu Việt
-    await lm.getByLabel(/Hiệu lực từ ngày/).fill('2026-01-01'); await lm.getByRole('button', { name: 'Lưu' }).click();
-    await toast(/Đã thêm dòng giá/); const row = page.locator('.pc-detail tbody tr', { hasText: 'VC.007' }); await row.getByText('Cố định').waitFor(); await row.getByText('Nháp').waitFor();
+    await lm.getByRole('combobox', { name: /^Tuyến/ }).selectOption('VC.007'); await lm.getByLabel(/Đơn giá cố định/).fill('150.000'); // gõ dấu chấm ngăn cách nghìn kiểu Việt
+    await lm.getByLabel(/Ngày cập nhật/).fill('2026-01-01'); await lm.getByRole('button', { name: 'Lưu' }).click();
+    await toast(/Đã thêm dòng giá/); const row = page.locator('.pc-detail tbody tr', { hasText: 'VC.007' }); await row.getByText('Nháp').waitFor();
     await row.getByRole('button', { name: 'Áp dụng' }).click(); await toast(/Đã áp dụng/); await page.locator('.pc-detail tbody tr', { hasText: 'VC.007' }).getByText('Đang dùng').waitFor();
     // gán cho hợp đồng từ màn Mã đơn giá
     await page.locator('.pc-detail').getByRole('button', { name: 'Gán cho hợp đồng…' }).click();
@@ -57,11 +58,29 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     await nav('Hợp đồng vận chuyển'); await page.locator('tbody tr', { hasText: 'HAKQN-QS' }).first().click();
     const cm = page.locator('.modal', { hasText: 'Hợp đồng HAKQN-QS' }); const sel = cm.getByLabel('Mã đơn giá áp dụng'); assert.equal(await sel.inputValue(), 'DG-UI-01');
     await sel.selectOption(''); await cm.getByRole('button', { name: 'Lưu hợp đồng' }).click(); await toast(/Đã lưu hợp đồng/); assert.equal(ct().price_code || '', '');
-    // chọn đơn giá CÓ SẴN đưa vào mã
-    await nav('Mã đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: /DG-UI-01/ }).click();
+    // mã THEO GIÁ DẦU: tạo bằng thẻ thứ hai, dòng giá có "Đơn giá ký hợp đồng", giá dầu, định mức, tải trọng; cự ly chỉ hiển thị
+    await nav('Mã đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: '+ Mã đơn giá theo giá dầu' }).click();
+    const m2 = page.locator('.modal', { hasText: 'Tạo mã đơn giá theo giá dầu' }); await m2.getByLabel(/Đơn vị/).selectOption(unit);
+    await m2.getByLabel(/Mã đơn giá/).fill('DG-UI-02'); await m2.getByLabel(/Tên mã đơn giá/).fill('Giá theo dầu thử UI'); await m2.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã tạo mã DG-UI-02/);
+    await page.locator('.pc-detail').getByRole('button', { name: 'Thêm dòng giá cố định' }).waitFor({ state: 'detached' });
+    await page.locator('.pc-detail').getByRole('button', { name: 'Thêm dòng giá theo giá dầu' }).click();
+    const tm = page.locator('.modal', { hasText: 'Thêm dòng giá theo giá dầu vào mã DG-UI-02' });
+    await tm.getByRole('combobox', { name: /^Tuyến/ }).selectOption('VC.007'); assert.equal(await tm.getByLabel(/Cự ly chuyến/).inputValue(), '144'); assert.equal(await tm.getByLabel(/Cự ly chuyến/).getAttribute('readonly') !== null, true);
+    await tm.getByLabel(/Đơn giá ký hợp đồng/).fill('165.000'); await tm.getByLabel(/ĐG dầu chưa VAT/).fill('15.500'); await tm.getByLabel(/Định mức dầu/).fill('0.4'); await tm.getByLabel(/KL trung bình/).fill('18');
+    await tm.getByLabel(/Ngày cập nhật/).fill('2026-01-01'); await tm.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã thêm dòng giá/);
+    await page.locator('.pc-detail tbody tr', { hasText: 'VC.007' }).getByRole('button', { name: 'Áp dụng' }).click(); await toast(/Đã áp dụng/);
+    // chọn đơn giá CÓ SẴN đưa vào mã (mã theo giá dầu chỉ liệt kê giá theo giá dầu)
+    await nav('Mã đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: /DG-UI-02/ }).click();
     await page.locator('.pc-detail').getByRole('button', { name: 'Chọn đơn giá có sẵn…' }).click();
-    const pm = page.locator('.modal', { hasText: 'Chọn đơn giá có sẵn đưa vào mã DG-UI-01' }); await pm.locator('input[type=checkbox]').first().check(); await pm.locator('input[type=date]').fill('2027-01-01'); await pm.getByRole('button', { name: 'Đưa vào mã' }).click();
+    const pm = page.locator('.modal', { hasText: 'Chọn đơn giá có sẵn đưa vào mã DG-UI-02' }); await pm.locator('input[type=checkbox]').first().check(); await pm.locator('input[type=date]').fill('2027-01-01'); await pm.getByRole('button', { name: 'Đưa vào mã' }).click();
     await toast(/Đã đưa 1 dòng vào mã/);
+    // thuật ngữ: "Đơn giá ký hợp đồng"; không còn "Đơn giá hợp đồng" / "ĐG HĐ" ở các màn giá
+    for (const label of ['Đơn giá', 'Mã đơn giá', 'Căn cứ giá hợp đồng']) {
+      await nav(label); await page.waitForTimeout(400);
+      const txt = await page.locator('main').innerText(); assert.ok(!/Đơn giá hợp đồng|ĐG HĐ/.test(txt), `màn ${label} còn nhãn cũ`);
+    }
+    await nav('Mã đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: /DG-UI-02/ }).click(); await page.locator('.pc-detail').getByText(/ĐG ký HĐ|Đơn giá ký hợp đồng/).first().waitFor();
+    for (const w of [1366, 910]) { await page.setViewportSize({ width: w, height: 800 }); const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); assert.ok(over <= 1, `tràn ngang ${over}px ở ${w}px`); if (process.env.SHOT_DIR) await page.screenshot({ path: path.join(process.env.SHOT_DIR, `pricecodes-${w}.png`) }); }
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await srv.close(); }
 });
