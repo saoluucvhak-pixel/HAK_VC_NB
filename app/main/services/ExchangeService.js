@@ -246,8 +246,13 @@ class ExchangeService {
       // không ghép dòng đã nằm trong gói, đã xóa, hay đã dùng trong kỳ xác nhận/khóa (tránh đụng ràng buộc dùng một lần).
       const inPkg = new Set((T.GIAO_NHAN_DAU || []).map((r) => r.receipt_id));
       const usedLocal = new Set(s.find('FUEL_DETAIL', (d) => d.is_current && ['CONFIRMED', 'LOCKED'].includes(d.usage_state)).map((d) => d.receipt_id));
+      // rà soát 1.8.2: dòng của gói ĐÃ được "Bỏ qua" (ánh xạ sang dòng có sẵn) ở lần nhận trước → nhớ ánh xạ (AUDIT_LOG FUEL_DUP_REMAP);
+      // nhận lại gói / gói thay kỳ thì dùng lại ánh xạ, không thành NEW (trước đây sinh dòng dầu trùng)
+      const prevMap = new Map();
+      for (const a of s.find('AUDIT_LOG', (x) => x.action === 'FUEL_DUP_REMAP')) { try { const j = JSON.parse(a.after_json || '{}'); if (j.incomingReceiptId) prevMap.set(j.incomingReceiptId, a.entity_id); } catch { /* dòng nhật ký hỏng: bỏ qua */ } }
+      const mappedLocal = new Set([...prevMap.values()]);
       const pool = new Map();
-      for (const l of s.find('GIAO_NHAN_DAU', (x) => !x.is_deleted && !inPkg.has(x.receipt_id) && !usedLocal.has(x.receipt_id))) { const k = `${l.contract_id}|${fuelContentKey(l)}`; if (!pool.has(k)) pool.set(k, []); pool.get(k).push(l); }
+      for (const l of s.find('GIAO_NHAN_DAU', (x) => !x.is_deleted && !inPkg.has(x.receipt_id) && !usedLocal.has(x.receipt_id) && !mappedLocal.has(x.receipt_id))) { const k = `${l.contract_id}|${fuelContentKey(l)}`; if (!pool.has(k)) pool.set(k, []); pool.get(k).push(l); }
       for (const t of ['GIAO_NHAN_DAU', 'TRANSPORT_CALCULATION', 'TRANSPORT_DETAIL', 'FUEL_DETAIL', 'BKVC_LINE']) {
         for (const r of T[t] || []) {
           const id = r[pkOf(t)];
@@ -255,6 +260,10 @@ class ExchangeService {
           const l = s.get(t, id);
           const periodsOf = t === 'GIAO_NHAN_DAU' ? [...(rPeriods.get(id) || [])] : [r.period_id];
           const onlyIf = periodsOf.length && periodsOf.every((x) => dep.has(x)) ? periodsOf : null;
+          if (t === 'GIAO_NHAN_DAU' && !l && prevMap.has(id)) {
+            const m = s.get('GIAO_NHAN_DAU', prevMap.get(id));
+            if (m && !m.is_deleted) { add(t, id, 'SAME', r, { kind: 'MAPPED', localId: m.receipt_id, note: `đã ghép với dòng ${m.receipt_id} ở lần nhận trước`, ...(onlyIf ? { onlyIf } : {}) }); continue; }
+          }
           if (t === 'GIAO_NHAN_DAU' && !l) {
             const cand = (pool.get(`${r.contract_id}|${fuelContentKey(r)}`) || []); const m = cand.shift();
             if (m) {
@@ -283,9 +292,19 @@ class ExchangeService {
   // ─────────────────────────── NHẬP ───────────────────────────
   async importPackage({ previewId, decisions = {}, user }) {
     const st = this.staged.get(previewId); if (!st) throw new AppError('NOT_FOUND', 'Hết phiên xem trước — hãy xem trước lại gói');
+    // rà soát 1.8.2: bấm "Nhập" hai lần / hai yêu cầu cùng lúc → yêu cầu sau chờ và nhận CHUNG kết quả, không ghi lần hai
+    this._importing ||= new Map();
+    if (this._importing.has(previewId)) return this._importing.get(previewId);
+    const p = this._importPackage(st, { previewId, decisions, user }).finally(() => this._importing.delete(previewId));
+    this._importing.set(previewId, p);
+    return p;
+  }
+
+  async _importPackage(st, { previewId, decisions, user }) {
     if (st.sig !== this._sig(st.plan)) throw businessError('E_PREVIEW_STALE', 'Dữ liệu đã thay đổi kể từ lúc xem trước — hãy xem trước lại');
     if (st.plan.some((x) => x.action === 'REJECT')) throw businessError('E_PACKAGE_REJECTED', 'Gói có phần không nhận được — xem danh sách bị từ chối');
     const safety = this.backup ? await this.backup.backup({ kind: 'safety', note: 'truoc-nhap-goi', user }) : null;
+    if (st.sig !== this._sig(st.plan)) throw businessError('E_PREVIEW_STALE', 'Dữ liệu đã thay đổi trong lúc sao lưu an toàn — hãy xem trước lại'); // kiểm lại sau await
     const h = st.pkg.header; const s = this.store;
     const out = await s.transaction((tx) => {
       const counts = {};
@@ -311,6 +330,10 @@ class ExchangeService {
       for (const t of order) {
         for (const x of byTable(t)) {
           if (x.onlyIf && x.onlyIf.every((pid) => skipPeriods.has(pid))) { inc(t, 'KEEP'); continue; }
+          if (x.kind === 'MAPPED') { // đã ghép ở lần nhận trước → kỳ trong gói tiếp tục dùng dòng có sẵn
+            const l = tx.get('GIAO_NHAN_DAU', x.localId); if (!l || l.is_deleted) throw businessError('E_PREVIEW_STALE', `Dòng dầu ${x.localId} đã thay đổi kể từ lúc xem trước — hãy xem trước lại gói`);
+            remap.set(x.id, x.localId); inc(t, 'SAME'); continue;
+          }
           if (x.kind === 'POSSIBLE_DUPLICATE') {
             const choice = decisions[`${t}:${x.id}`] || x.default || 'SKIP';
             if (choice === 'KEEP') { tx.insert(t, sanitize(t, x.row, h, st.pkg.contentSha256)); inc(t, 'NEW'); }
@@ -344,7 +367,12 @@ class ExchangeService {
 
   /** Chữ ký các bản ghi cục bộ mà gói sẽ chạm tới — đổi = phải xem trước lại (sao lưu, nhật ký không tính). */
   _sig(plan) {
-    return sha(plan.map((x) => { const r = this.store.get(x.table, x.id); const old = (x.supersedes || []).map((id) => { const o = this.store.get('KY_TINH', id); return `${id}=${o ? canon(content(o)) : '-'}`; }).join(';'); return `${x.table}:${x.id}:${r ? canon(content(r)) : '-'}${old ? `|${old}` : ''}`; }).join('|'));
+    const one = (t, id) => { const o = this.store.get(t, id); return o ? canon(content(o)) : '-'; };
+    return sha(plan.map((x) => {
+      const extra = [...(x.supersedes || []).map((id) => `${id}=${one('KY_TINH', id)}`),
+        ...(x.localId ? [`L:${x.localId}=${one('GIAO_NHAN_DAU', x.localId)}`] : [])].join(';'); // gồm dòng dầu có sẵn được ghép (nghi trùng / đã ghép)
+      return `${x.table}:${x.id}:${one(x.table, x.id)}${extra ? `|${extra}` : ''}`;
+    }).join('|'));
   }
 
   list() { return { items: this.store.all('EXCHANGE_LOG').slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1)) }; }

@@ -5023,25 +5023,19 @@
    "scope": "",
    "input": [
     [
-     "exchangeId",
+     "previewId",
      "string",
      true,
-     ""
+     "mã phiên xem trước từ exchange.previewPackage — gọi lặp cùng previewId trả chung một kết quả"
     ],
     [
-     "resolve",
-     "array<{table, id, choice: LOCAL|INCOMING}>",
+     "decisions",
+     "object<\"BẢNG:mã\", KEEP|TAKE|SKIP>",
      false,
-     "cách xử lý từng xung đột"
-    ],
-    [
-     "clientRequestId",
-     "string",
-     true,
-     ""
+     "cách xử lý từng xung đột (mặc định theo default của xung đột)"
     ]
    ],
-   "output": "{counts, exchange}",
+   "output": "{exchangeId, counts, safetyBackup}",
    "errors": [
     "BUSINESS_RULE:E_PREVIEW_STALE",
     "BUSINESS_RULE:E_CONFLICT_UNRESOLVED",

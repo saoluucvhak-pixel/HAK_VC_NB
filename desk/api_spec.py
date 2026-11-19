@@ -341,8 +341,8 @@ ep('exchange.previewPackage', 'Trao đổi', 'Đọc gói, kiểm SHA-256 + sche
    ['INTEGRITY_ERROR', 'BUSINESS_RULE:E_PACKAGE_SCHEMA', 'BUSINESS_RULE:E_PACKAGE_OWN'],
    ['DON_VI', 'XE', 'TUYEN_VC', 'PRICE_HISTORY', 'HOP_DONG', 'HOP_DONG_XE', 'PHIEU_CAN', 'KY_TINH'], ['EXCHANGE_LOG'], 'IMPORT_PACKAGE_PREVIEW', True)
 ep('exchange.importPackage', 'Trao đổi', 'Nhập gói theo quy tắc gộp (§ Trao đổi); kỳ nhận về là IMPORTED — chỉ xem', EDIT,
-   [('exchangeId', 'string', True, ''), ('resolve', 'array<{table, id, choice: LOCAL|INCOMING}>', False, 'cách xử lý từng xung đột'), ('clientRequestId', 'string', True, '')],
-   '{counts, exchange}', ['BUSINESS_RULE:E_PREVIEW_STALE', 'BUSINESS_RULE:E_CONFLICT_UNRESOLVED', 'STORAGE_ERROR'],
+   [('previewId', 'string', True, 'mã phiên xem trước từ exchange.previewPackage — gọi lặp cùng previewId trả chung một kết quả'), ('decisions', 'object<"BẢNG:mã", KEEP|TAKE|SKIP>', False, 'cách xử lý từng xung đột (mặc định theo default của xung đột)')],
+   '{exchangeId, counts, safetyBackup}', ['BUSINESS_RULE:E_PREVIEW_STALE', 'BUSINESS_RULE:E_CONFLICT_UNRESOLVED', 'STORAGE_ERROR'],
    ['DON_VI', 'XE', 'TUYEN_VC', 'PRICE_HISTORY', 'HOP_DONG', 'HOP_DONG_XE', 'PHIEU_CAN', 'KY_TINH'],
    ['DON_VI', 'XE', 'TUYEN_VC', 'PRICE_HISTORY', 'HOP_DONG', 'HOP_DONG_XE', 'PHIEU_CAN', 'KY_TINH', 'TRANSPORT_CALCULATION', 'TRANSPORT_DETAIL', 'FUEL_DETAIL', 'BKVC_LINE', 'GIAO_NHAN_DAU', 'EXCHANGE_LOG'],
    'IMPORT_PACKAGE', True)
