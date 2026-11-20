@@ -4553,13 +4553,13 @@
      "rowVersion",
      "integer",
      false,
-     "bắt buộc khi create=false"
+     "bắt buộc khi sửa tài khoản đã có"
     ],
     [
      "create",
      "boolean",
      false,
-     "true = thêm mới; false = sửa; bỏ trống = tự nhận biết (tương thích cũ)"
+     "true = thêm mới (trùng tên → DUPLICATE); false = sửa; bỏ trống = tự nhận biết, sửa vẫn bắt buộc rowVersion"
     ]
    ],
    "output": "{record, created, setupCode?, setupCodeExpiresAt?}",

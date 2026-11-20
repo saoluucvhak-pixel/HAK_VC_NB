@@ -11,7 +11,7 @@ Bản sửa lỗi sau đợt rà soát toàn bộ `main` 1.8.1 bằng agent `dgv
 - **Màn Hợp đồng: lưu thẻ này làm mất phần chưa lưu ở thẻ kia.** Nay lưu Thông tin vẫn giữ phạm vi xe đang sửa, và ngược lại. Phần đó vẫn tính là chưa lưu, nên rời màn vẫn được hỏi.
 
 ## 🟠 Lỗi mức vừa đã sửa
-- **Thêm người dùng trùng tên** trước đây ghi đè tài khoản cũ. Nay báo `DUPLICATE`. Khi sửa người dùng thì bắt buộc gửi `rowVersion` (`users.save` có thêm cờ `create`).
+- **Thêm người dùng trùng tên** trước đây ghi đè tài khoản cũ. Nay báo `DUPLICATE`. Sửa tài khoản đã có thì luôn bắt buộc gửi `rowVersion` (`users.save` có thêm cờ `create`).
 - **Đặt lại mật khẩu** nay hỏi xác nhận trước, và cảnh báo riêng khi đó là tài khoản đang đăng nhập.
 - **Khôi phục sao lưu bị lỗi** không còn để app trỏ vào kho đã đóng. Kho cũ được mở lại cho cả app, phiên đăng nhập giữ nguyên. Với kho SQLite, mọi bước sau khi đóng kho đều trả lại bản cũ nếu lỗi.
 - **Đổi thư mục dữ liệu**:
@@ -44,8 +44,17 @@ Bản sửa lỗi sau đợt rà soát toàn bộ `main` 1.8.1 bằng agent `dgv
   - `exchange.fuel-dup` (thêm 2 ca)
   - `ui.fixes182.e2e`
   - `ui.roles182.e2e`
+  - `ui.buttons182.e2e` (lần rà thứ hai: lớp chống bấm đúp bản đầu khóa vĩnh viễn nút Lưu của hộp thoại và nút TÍNH GIÁ; đã sửa)
 - Mọi test mới đều **trượt trên code 1.8.1** và đạt sau khi sửa.
 - Test cũ phải sửa: `backup.fixes161` (xoay vòng thư mục ngoài nay theo loại; ví dụ cũ dùng bản thủ công nên đổi sang bản safety).
+
+## Rà lại lần hai (agent `dgvc-reviewer`)
+- 🔴 **Đã sửa:** lớp chống bấm đúp ở bản đầu đọc trạng thái `disabled` SAU khi handler chạy, nên khóa vĩnh viễn những nút tự khóa / mở lại (nút Lưu của hộp thoại, TÍNH GIÁ, Khởi tạo bản cài). Nay trạng thái được đọc TRƯỚC khi handler chạy.
+- 🟡 **Đã sửa:**
+  - `users.save` không gửi `create` vẫn bắt buộc `rowVersion` khi sửa tài khoản đã có.
+  - Đổi thư mục: nếu chép xong mà mở kho ở chỗ mới bị lỗi thì trả cấu hình về thư mục cũ và mở lại kho cũ.
+  - Thư mục ngoài giữ bản tháng đúng theo `BACKUP_MONTHLY_KEEP`.
+- **Còn lại, rủi ro thấp:** ADMIN cố ý khôi phục một bản sao lưu chụp **trước khi** có ai đặt mật khẩu thì ngoại lệ "ADMIN đầu tiên" mở lại. Chỉ ADMIN làm được, và phiên ADMIN vẫn được giữ. Đề xuất cho bản sau: lưu cờ `FIRST_ADMIN_DONE` ngoài kho dữ liệu (trong tệp cấu hình máy).
 
 ## Lưu ý nâng cấp
 - Không có cột hay bảng mới. Bản cài cũ chỉ cần cài đè.

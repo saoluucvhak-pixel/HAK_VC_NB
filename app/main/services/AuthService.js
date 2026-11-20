@@ -155,7 +155,7 @@ class AuthService {
     // rà soát 1.8.2: "Thêm người dùng" trùng tên trước đây SỬA LUÔN tài khoản cũ (mất vai trò / quyền mở khóa) mà vẫn báo "đã thêm"
     if (create && old) throw new AppError('DUPLICATE', `Tên đăng nhập ${username} đã có — mở tài khoản đó để sửa, hoặc chọn tên khác`);
     if (create === false && !old) throw new AppError('NOT_FOUND', `Không có tài khoản ${username}`);
-    if (old && create === false && !Number.isInteger(rowVersion)) throw new AppError('VALIDATION_FAILED', 'Sửa người dùng phải gửi rowVersion — tải lại danh sách rồi sửa lại', { field: 'rowVersion' });
+    if (old && create !== true && !Number.isInteger(rowVersion)) throw new AppError('VALIDATION_FAILED', 'Sửa người dùng phải gửi rowVersion — tải lại danh sách rồi sửa lại', { field: 'rowVersion' });
     const patch = { full_name: String(record.fullName || username).trim(), unit_code: record.unitCode || '', role, can_unlock: !!record.canUnlock,
       is_active: record.isActive === undefined ? true : !!record.isActive };
     if (old && old.role === 'ADMIN' && (patch.role !== 'ADMIN' || !patch.is_active)) {

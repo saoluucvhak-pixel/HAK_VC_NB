@@ -241,12 +241,16 @@ class AppContext {
     } catch (e) {
       // chép lỗi (đầy ổ, rút USB, quyền…) → bỏ bản chép dở, giữ cấu hình, MỞ LẠI kho cũ rồi báo lỗi
       try { if (existed) { for (const x of fs.readdirSync(newFolder)) fs.rmSync(path.join(newFolder, x), { recursive: true, force: true }); } else fs.rmSync(newFolder, { recursive: true, force: true }); } catch { /* cố hết sức */ }
-      this.open();
+      try { this.open(); } catch (e2) { throw new AppError('STORAGE_ERROR', `Không chép được sang ${newFolder} (${e.message}) và không mở lại được thư mục cũ ${old}: ${e2.message} — khởi động lại phần mềm`); }
       try { await this.store.transaction((tx) => tx.audit('CHANGE_FOLDER_FAILED', 'DATA', 'dataFolder', null, { dataFolder: newFolder, error: e.message }), { user: user.username }); } catch { /* chỉ nhật ký */ }
       throw new AppError('STORAGE_ERROR', `Không chép được dữ liệu sang ${newFolder}: ${e.message} — vẫn dùng thư mục cũ ${old}`);
     }
-    this.writeConfig({ ...this.readConfig(), dataFolder: newFolder, previousDataFolder: old });
-    this.open();
+    const cfg0 = this.readConfig();
+    this.writeConfig({ ...cfg0, dataFolder: newFolder, previousDataFolder: old });
+    try { this.open(); } catch (e) { // mở ở chỗ mới lỗi (khóa .lock, tệp hỏng…) → trả cấu hình về thư mục cũ và mở lại
+      this.writeConfig(cfg0); try { this.open(); } catch { /* ném lỗi gốc bên dưới */ }
+      throw new AppError('STORAGE_ERROR', `Đã chép sang ${newFolder} nhưng không mở được kho ở đó: ${e.message} — vẫn dùng thư mục cũ ${old}`);
+    }
     return { dataFolder: newFolder, previousDataFolder: old, note: 'Thư mục cũ vẫn giữ nguyên — xóa tay khi đã kiểm tra xong' };
   }
 

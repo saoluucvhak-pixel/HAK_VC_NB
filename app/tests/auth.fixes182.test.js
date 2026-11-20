@@ -66,3 +66,10 @@ test('Qua Router (AppContext thật): users.save create=true trùng tên → DUP
   assert.equal((await r.handle('setup.status')).data.firstAdminOpen, false);
   ctx.close();
 });
+
+test('users.save không gửi create: sửa tài khoản đã có vẫn bắt buộc rowVersion; tạo mới vẫn được', async () => {
+  const s = await setup();
+  const n = await s.auth.saveUser({ record: { username: 'ketoan.y', role: 'KE_TOAN', unitCode: 'DH' }, user: A }); assert.equal(n.created, true);
+  await assert.rejects(s.auth.saveUser({ record: { username: 'ketoan.y', role: 'XEM' }, user: A }), (e) => e.code === 'VALIDATION_FAILED');
+  assert.equal(s.store.get('USERS', 'ketoan.y').role, 'KE_TOAN', 'không bị ghi đè');
+});

@@ -76,8 +76,9 @@
       else if (k === 'onclick' && tag === 'button') { // rà soát 1.8.2: nút có xử lý bất đồng bộ → khóa tới khi xong (chống bấm đúp gửi 2 lệnh)
         el.addEventListener('click', (e) => {
           if (el.dataset.busy) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+          const was = el.disabled; // đọc TRƯỚC khi chạy handler: nhiều handler tự khóa nút (e.target.disabled = true) rồi tự mở lại trong finally
           const r = v(e);
-          if (r && typeof r.then === 'function') { el.dataset.busy = '1'; const was = el.disabled; el.disabled = true; el.setAttribute('aria-busy', 'true');
+          if (r && typeof r.then === 'function') { el.dataset.busy = '1'; el.disabled = true; el.setAttribute('aria-busy', 'true');
             Promise.resolve(r).catch(() => {}).finally(() => { delete el.dataset.busy; el.removeAttribute('aria-busy'); if (el.isConnected) el.disabled = was; }); }
         });
       }

@@ -93,7 +93,7 @@ class BackupService {
    */
   _rotateMirror(dir) {
     const keep = Number(this._cfg('BACKUP_MIRROR_KEEP', 60)); if (!(keep > 0)) return;
-    const limit = { daily: keep, safety: keep, monthly: Math.max(keep, Number(this._cfg('BACKUP_MONTHLY_KEEP', 24)) || 0) };
+    const limit = { daily: keep, safety: keep, monthly: Number(this._cfg('BACKUP_MONTHLY_KEEP', 24)) || 24 };
     const kindOf = (f) => (/_(daily|monthly|manual|safety)(?:_|\.zip$)/.exec(f) || [])[1] || '';
     const files = fs.readdirSync(dir).filter((f) => f.endsWith('.zip')).sort();
     for (const [kind, n] of Object.entries(limit)) {

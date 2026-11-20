@@ -53,6 +53,11 @@ for (const kind of ['json', 'sqlite']) {
     assert.equal(s.ctx.store.root, old); assert.equal(s.ctx.readConfig().dataFolder, old, 'cấu hình giữ thư mục cũ');
     assert.equal(fs.existsSync(path.join(s.home, 'MOI')), false, 'bản chép dở đã dọn');
     await canWrite(s.call, 'sau-chep-loi');
+    // chép xong nhưng mở kho ở chỗ mới lỗi → trả cấu hình về thư mục cũ, kho cũ mở lại
+    const op = s.ctx.open.bind(s.ctx); let k = 0; s.ctx.open = (...x) => { k += 1; if (k === 1) throw new Error('giả lập: không mở được kho mới'); return op(...x); };
+    let bo; try { bo = await s.call('data.changeFolder', { newFolder: path.join(s.home, 'MOI3') }); } finally { s.ctx.open = op; }
+    assert.equal(bo.ok, false); assert.match(bo.error.message, /vẫn dùng thư mục cũ/);
+    assert.equal(s.ctx.readConfig().dataFolder, old, 'cấu hình trả về thư mục cũ'); await canWrite(s.call, 'sau-mo-moi-loi');
     const ok = await s.call('data.changeFolder', { newFolder: path.join(s.home, 'MOI2') }); assert.equal(ok.ok, true, JSON.stringify(ok.error));
     assert.ok(s.ctx.store.all('AUDIT_LOG').some((a) => a.action === 'CHANGE_FOLDER'), 'nhật ký đổi thư mục nằm ở kho mới');
     s.ctx.close();
