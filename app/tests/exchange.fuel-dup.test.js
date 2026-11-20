@@ -73,3 +73,35 @@ test('Chọn KEEP (vẫn nhập) → dòng dầu của gói được ghi thêm, 
   const mine = s.fuelOf(s.q.store); assert.equal(mine.length, src.length + 1, 'cả dòng nhập tay lẫn dòng của gói');
   assert.ok(s.q.store.get('GIAO_NHAN_DAU', d.id)); assert.ok(!s.q.store.all('AUDIT_LOG').some((a) => a.action === 'FUEL_DUP_REMAP'));
 });
+
+test('Rà soát 1.8.2: nhận LẠI gói sau khi đã "Bỏ qua" dòng X → vẫn 1 dòng X (không NEW); gói tính lại kỳ (REPLACE) dùng lại ánh xạ', async () => {
+  const s = await scene(); const src = s.fuelOf(s.a.store); const x = src[0];
+  await s.typed([x]);
+  const pv1 = s.ex.previewPackage({ filePath: s.file, user: U }); await s.ex.importPackage({ previewId: pv1.previewId, user: U });
+  const pv2 = s.ex.previewPackage({ filePath: s.file, user: U });
+  assert.equal(pv2.summary.GIAO_NHAN_DAU.NEW, 0, 'nhận lại: không có dòng dầu NEW'); assert.equal(dupConflicts(pv2).length, 0);
+  await s.ex.importPackage({ previewId: pv2.previewId, user: U });
+  assert.equal(s.fuelOf(s.q.store).filter((r) => fuelContentKey(r) === fuelContentKey(x)).length, 1, 'vẫn chỉ 1 dòng X');
+  // máy gửi tính lại kỳ (lần tính 2) → gói thay kỳ: dòng X vẫn ánh xạ sang GD-TAY-1, không thêm dòng
+  await s.a.periods.reopen({ periodId: s.pid, reason: 'tính lại', user: { username: 'a', role: 'ADMIN' }, rowVersion: s.a.store.get('KY_TINH', s.pid).row_version });
+  await s.a.periods.calculate({ periodId: s.pid, contractId: s.a.contractId, ...W, reportDate: '2026-09-25', clientRequestId: rid(), user: KETOAN });
+  await s.a.periods.confirm({ periodId: s.pid, user: KETOAN, rowVersion: s.a.store.get('KY_TINH', s.pid).row_version });
+  const f2 = path.join(OUT, `A2-${Date.now()}.dgvc`); await new ExchangeService(s.a.store).exportPackage({ packageType: 'KY_TINH', periodIds: [s.pid], targetPath: f2, user: U });
+  const pv3 = s.ex.previewPackage({ filePath: f2, user: U });
+  assert.equal(pv3.summary.KY_TINH.REPLACE, 1, JSON.stringify(pv3.summary.KY_TINH)); assert.equal(pv3.summary.GIAO_NHAN_DAU.NEW, 0);
+  await s.ex.importPackage({ previewId: pv3.previewId, user: U });
+  assert.equal(s.fuelOf(s.q.store).filter((r) => fuelContentKey(r) === fuelContentKey(x)).length, 1);
+  const fd = s.q.store.find('FUEL_DETAIL', (d) => d.period_id === s.pid && d.is_current);
+  assert.ok(fd.some((d) => d.receipt_id === 'GD-TAY-1')); for (const d of fd) assert.ok(s.q.store.get('GIAO_NHAN_DAU', d.receipt_id));
+});
+
+test('Rà soát 1.8.2: sửa dòng có sẵn được ghép sau khi xem trước → phải xem trước lại; bấm Nhập 2 lần cùng lúc → chung 1 kết quả', async () => {
+  const s = await scene(); const x = s.fuelOf(s.a.store)[0]; await s.typed([x]);
+  const pv = s.ex.previewPackage({ filePath: s.file, user: U });
+  await s.q.store.transaction((tx) => tx.update('GIAO_NHAN_DAU', 'GD-TAY-1', { qty_liter: x.qty_liter + 999 }), { user: 't' });
+  await assert.rejects(s.ex.importPackage({ previewId: pv.previewId, user: U }), (e) => e.details && e.details.code === 'E_PREVIEW_STALE');
+  await s.q.store.transaction((tx) => tx.update('GIAO_NHAN_DAU', 'GD-TAY-1', { qty_liter: x.qty_liter }), { user: 't' });
+  const pv2 = s.ex.previewPackage({ filePath: s.file, user: U });
+  const [r1, r2] = await Promise.all([s.ex.importPackage({ previewId: pv2.previewId, user: U }), s.ex.importPackage({ previewId: pv2.previewId, user: U })]);
+  assert.equal(r1.exchangeId, r2.exchangeId); assert.equal(s.q.store.all('EXCHANGE_LOG').filter((l) => l.direction === 'IMPORT').length, 1);
+});

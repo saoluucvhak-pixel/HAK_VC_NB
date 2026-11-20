@@ -227,14 +227,30 @@ class AppContext {
   async changeFolder({ newFolder, user }) {
     if (!newFolder) throw new AppError('VALIDATION_FAILED', 'Chọn thư mục mới');
     if (fs.existsSync(newFolder) && fs.readdirSync(newFolder).length) throw new AppError('VALIDATION_FAILED', 'Thư mục mới phải trống');
-    await this.svc.backup.backup({ kind: 'safety', note: 'truoc-doi-thu-muc', user });
     const old = this.store.root;
+    // rà soát 1.8.2: thư mục mới nằm TRONG thư mục cũ (hoặc ngược lại) → chép đệ quy vào chính nó
+    const a = path.resolve(old); const b = path.resolve(newFolder); const inside = (x, y) => x === y || x.startsWith(y.endsWith(path.sep) ? y : y + path.sep);
+    if (inside(a, b) || inside(b, a)) throw new AppError('VALIDATION_FAILED', 'Thư mục mới không được nằm trong thư mục dữ liệu hiện tại (hoặc chứa nó) — chọn một thư mục riêng, vd D:\\DGVC_DATA');
+    await this.svc.backup.backup({ kind: 'safety', note: 'truoc-doi-thu-muc', user });
+    const existed = fs.existsSync(newFolder);
     await this.store.transaction((tx) => tx.audit('CHANGE_FOLDER', 'DATA', 'dataFolder', { dataFolder: old }, { dataFolder: newFolder }), { user: user.username });
     this.store.close();
-    fs.mkdirSync(newFolder, { recursive: true });
-    for (const e of fs.readdirSync(old)) if (e !== '.lock' && !/\.sqlite-(wal|shm)$/.test(e)) fs.cpSync(path.join(old, e), path.join(newFolder, e), { recursive: true }); // SQLite: đã đóng + checkpoint nên chép tệp .sqlite là nhất quán
-    this.writeConfig({ ...this.readConfig(), dataFolder: newFolder, previousDataFolder: old });
-    this.open();
+    try {
+      fs.mkdirSync(newFolder, { recursive: true });
+      for (const e of fs.readdirSync(old)) if (e !== '.lock' && !/\.sqlite-(wal|shm)$/.test(e)) fs.cpSync(path.join(old, e), path.join(newFolder, e), { recursive: true }); // SQLite: đã đóng + checkpoint nên chép tệp .sqlite là nhất quán
+    } catch (e) {
+      // chép lỗi (đầy ổ, rút USB, quyền…) → bỏ bản chép dở, giữ cấu hình, MỞ LẠI kho cũ rồi báo lỗi
+      try { if (existed) { for (const x of fs.readdirSync(newFolder)) fs.rmSync(path.join(newFolder, x), { recursive: true, force: true }); } else fs.rmSync(newFolder, { recursive: true, force: true }); } catch { /* cố hết sức */ }
+      try { this.open(); } catch (e2) { throw new AppError('STORAGE_ERROR', `Không chép được sang ${newFolder} (${e.message}) và không mở lại được thư mục cũ ${old}: ${e2.message} — khởi động lại phần mềm`); }
+      try { await this.store.transaction((tx) => tx.audit('CHANGE_FOLDER_FAILED', 'DATA', 'dataFolder', null, { dataFolder: newFolder, error: e.message }), { user: user.username }); } catch { /* chỉ nhật ký */ }
+      throw new AppError('STORAGE_ERROR', `Không chép được dữ liệu sang ${newFolder}: ${e.message} — vẫn dùng thư mục cũ ${old}`);
+    }
+    const cfg0 = this.readConfig();
+    this.writeConfig({ ...cfg0, dataFolder: newFolder, previousDataFolder: old });
+    try { this.open(); } catch (e) { // mở ở chỗ mới lỗi (khóa .lock, tệp hỏng…) → trả cấu hình về thư mục cũ và mở lại
+      this.writeConfig(cfg0); try { this.open(); } catch { /* ném lỗi gốc bên dưới */ }
+      throw new AppError('STORAGE_ERROR', `Đã chép sang ${newFolder} nhưng không mở được kho ở đó: ${e.message} — vẫn dùng thư mục cũ ${old}`);
+    }
     return { dataFolder: newFolder, previousDataFolder: old, note: 'Thư mục cũ vẫn giữ nguyên — xóa tay khi đã kiểm tra xong' };
   }
 

@@ -4476,7 +4476,7 @@
   {
    "action": "users.resetPassword",
    "group": "Quản trị",
-   "desc": "ADMIN xóa mật khẩu của user và cấp MÃ KÍCH HOẠT mới (trả một lần) → user đặt lại mật khẩu bằng mã (must_change_password)",
+   "desc": "ADMIN xóa mật khẩu của user và cấp MÃ KÍCH HOẠT mới (trả một lần) → user đặt lại mật khẩu bằng mã (must_change_password). Không đặt lại ADMIN cuối cùng đăng nhập được (E_LAST_ADMIN)",
    "roles": [
     "ADMIN"
    ],
@@ -4537,7 +4537,7 @@
   {
    "action": "users.save",
    "group": "Quản trị",
-   "desc": "Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này); người dùng mới nhận MÃ KÍCH HOẠT một lần",
+   "desc": "Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này); người dùng mới nhận MÃ KÍCH HOẠT một lần. create=true: tên đã có → DUPLICATE (không ghi đè); create=false: sửa, bắt buộc rowVersion. Không ngừng dùng / hạ vai trò ADMIN cuối cùng đăng nhập được (E_LAST_ADMIN)",
    "roles": [
     "ADMIN"
    ],
@@ -4553,7 +4553,13 @@
      "rowVersion",
      "integer",
      false,
-     ""
+     "bắt buộc khi sửa tài khoản đã có"
+    ],
+    [
+     "create",
+     "boolean",
+     false,
+     "true = thêm mới (trùng tên → DUPLICATE); false = sửa; bỏ trống = tự nhận biết, sửa vẫn bắt buộc rowVersion"
     ]
    ],
    "output": "{record, created, setupCode?, setupCodeExpiresAt?}",
@@ -5017,25 +5023,19 @@
    "scope": "",
    "input": [
     [
-     "exchangeId",
+     "previewId",
      "string",
      true,
-     ""
+     "mã phiên xem trước từ exchange.previewPackage — gọi lặp cùng previewId trả chung một kết quả"
     ],
     [
-     "resolve",
-     "array<{table, id, choice: LOCAL|INCOMING}>",
+     "decisions",
+     "object<\"BẢNG:mã\", KEEP|TAKE|SKIP>",
      false,
-     "cách xử lý từng xung đột"
-    ],
-    [
-     "clientRequestId",
-     "string",
-     true,
-     ""
+     "cách xử lý từng xung đột (mặc định theo default của xung đột)"
     ]
    ],
-   "output": "{counts, exchange}",
+   "output": "{exchangeId, counts, safetyBackup}",
    "errors": [
     "BUSINESS_RULE:E_PREVIEW_STALE",
     "BUSINESS_RULE:E_CONFLICT_UNRESOLVED",

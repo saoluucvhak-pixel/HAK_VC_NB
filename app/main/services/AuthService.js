@@ -12,7 +12,7 @@
  *  - Phiên: token ngẫu nhiên chỉ trong bộ nhớ; không thao tác SESSION_IDLE_MINUTES → hết phiên.
  */
 const crypto = require('node:crypto');
-const { AppError } = require('../../shared/errors');
+const { AppError, businessError } = require('../../shared/errors');
 
 const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 };
 const ALGO = 'scrypt:16384:8:1';
@@ -40,8 +40,14 @@ class AuthService {
   }
   _idleMs() { return cfgNum(this.store, 'SESSION_IDLE_MINUTES', 60) * 60000; }
 
-  /** Chưa có ADMIN đang hoạt động nào có mật khẩu → bản cài mới: ADMIN đầu tiên được đặt mật khẩu không cần mã. */
-  firstAdminOpen() { return !this.store.find('USERS', (u) => u.role === 'ADMIN' && u.is_active && u.password_hash).length; }
+  /**
+   * Bản cài MỚI TINH: chưa tài khoản nào (mọi vai trò, kể cả đã ngừng dùng) từng có mật khẩu, từng đăng nhập hay được cấp mã kích hoạt
+   * → ADMIN đầu tiên được đặt mật khẩu không cần mã. Rà soát 1.8.2: trước đây chỉ xét "ADMIN đang hoạt động có mật khẩu", nên khi ADMIN duy nhất
+   * bị đặt lại mật khẩu / ngừng dùng / hạ vai trò thì ngoại lệ mở lại và ai cũng chiếm được tài khoản ADMIN chưa đặt mật khẩu.
+   */
+  firstAdminOpen() { return !this.store.find('USERS', (u) => u.password_hash || u.setup_code_hash || u.last_login_at).length; }
+  /** Số ADMIN đang hoạt động CÓ mật khẩu (đăng nhập được), trừ tài khoản `except`. */
+  _loginAdmins(except = '') { return this.store.find('USERS', (u) => u.role === 'ADMIN' && u.is_active && u.password_hash && u.username !== except).length; }
 
   /** SINGLE_USER_MODE = TRUE và chỉ có 1 tài khoản đang hoạt động → tên để điền sẵn ở màn đăng nhập (vẫn bắt nhập mật khẩu). */
   singleUserName() {
@@ -85,7 +91,7 @@ class AuthService {
     if (u.locked_until && Date.parse(u.locked_until) > this.now()) {
       throw new AppError('ACCOUNT_LOCKED', `Tài khoản đang bị khóa đến ${new Date(Date.parse(u.locked_until)).toLocaleTimeString('vi-VN')} do nhập sai mã nhiều lần`, { lockedUntil: u.locked_until });
     }
-    if (!(u.role === 'ADMIN' && this.firstAdminOpen())) await this._checkSetupCode(u, setupCode); // ngoại lệ bản cài mới: ADMIN đầu tiên không cần mã
+    if (!(u.role === 'ADMIN' && !u.setup_code_hash && this.firstAdminOpen())) await this._checkSetupCode(u, setupCode); // ngoại lệ bản cài mới: ADMIN đầu tiên (chưa được cấp mã) không cần mã
     return this._setPassword(u, newPassword, 'SET_FIRST_PASSWORD');
   }
 
@@ -139,18 +145,23 @@ class AuthService {
   // ── quản lý người dùng (ADMIN) ──
   listUsers() { return { items: this.store.all('USERS').map(publicUser).sort((a, b) => a.username.localeCompare(b.username)) }; }
 
-  async saveUser({ record, rowVersion, user }) {
+  async saveUser({ record, rowVersion, create, user }) {
     const username = String(record.username || '').trim().toLowerCase();
     if (!/^[a-z0-9._@-]{3,64}$/.test(username)) throw new AppError('VALIDATION_FAILED', 'Tên đăng nhập 3–64 ký tự: chữ thường, số, . _ @ -');
     const role = record.role || 'KE_TOAN';
     if (!['ADMIN', 'KE_TOAN', 'XEM'].includes(role)) throw new AppError('VALIDATION_FAILED', 'Vai trò phải là ADMIN / KE_TOAN / XEM');
     if (record.unitCode && !this.store.get('DON_VI', record.unitCode)) throw new AppError('VALIDATION_FAILED', `Không có đơn vị ${record.unitCode}`);
     const old = this.store.get('USERS', username);
+    // rà soát 1.8.2: "Thêm người dùng" trùng tên trước đây SỬA LUÔN tài khoản cũ (mất vai trò / quyền mở khóa) mà vẫn báo "đã thêm"
+    if (create && old) throw new AppError('DUPLICATE', `Tên đăng nhập ${username} đã có — mở tài khoản đó để sửa, hoặc chọn tên khác`);
+    if (create === false && !old) throw new AppError('NOT_FOUND', `Không có tài khoản ${username}`);
+    if (old && create !== true && !Number.isInteger(rowVersion)) throw new AppError('VALIDATION_FAILED', 'Sửa người dùng phải gửi rowVersion — tải lại danh sách rồi sửa lại', { field: 'rowVersion' });
     const patch = { full_name: String(record.fullName || username).trim(), unit_code: record.unitCode || '', role, can_unlock: !!record.canUnlock,
       is_active: record.isActive === undefined ? true : !!record.isActive };
     if (old && old.role === 'ADMIN' && (patch.role !== 'ADMIN' || !patch.is_active)) {
       const admins = this.store.find('USERS', (u) => u.role === 'ADMIN' && u.is_active && u.username !== username);
       if (!admins.length) throw new AppError('VALIDATION_FAILED', 'Phải còn ít nhất 1 ADMIN đang hoạt động');
+      if (old.password_hash && !this._loginAdmins(username)) throw businessError('E_LAST_ADMIN', 'Đây là ADMIN cuối cùng đăng nhập được — không ngừng dùng / hạ vai trò (đặt mật khẩu cho ADMIN khác trước)');
     }
     const issued = old ? null : this._issueSetupCode(); // tài khoản mới: cấp mã kích hoạt (mã gốc chỉ trả một lần, không lưu)
     const out = await this.store.transaction((tx) => {
@@ -164,6 +175,9 @@ class AuthService {
 
   async resetPassword({ username, user }) {
     const u = this._user(username); if (!u) throw new AppError('NOT_FOUND', `Không có tài khoản ${username}`);
+    if (u.role === 'ADMIN' && u.is_active && u.password_hash && !this._loginAdmins(u.username)) {
+      throw businessError('E_LAST_ADMIN', 'Đây là ADMIN cuối cùng đăng nhập được — không đặt lại mật khẩu (sẽ không còn ai vào được phần quản trị). Dùng "Đổi mật khẩu" hoặc đặt mật khẩu cho ADMIN khác trước');
+    }
     const issued = this._issueSetupCode();
     await this.store.transaction((tx) => { tx.update('USERS', u.username, { password_hash: '', password_salt: '', password_algo: '', must_change_password: true, failed_attempts: 0, locked_until: '', ...issued.patch }); tx.audit('RESET_PASSWORD', 'USERS', u.username); }, { user: user.username });
     for (const [t, s] of this.sessions) if (s.user.username === u.username) this.sessions.delete(t);

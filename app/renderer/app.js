@@ -26,7 +26,7 @@
     archBanner.dataset.y = ys.join(',');
     archBanner.innerHTML = '';
     archBanner.append(h('span', {}, `Đang xem dữ liệu năm lưu trữ ${ys.join(', ')} — chỉ xem, không sửa được. `),
-      h('button', { class: 'btn small', onclick: async () => { await D.api('archive.unmount', {}); D.render && D.render(); } }, 'Thôi xem'));
+      h('button', { class: 'btn small', onclick: async () => { if (D.canLeave && !(await D.canLeave())) return; await D.api('archive.unmount', {}); D.render && D.render(); } }, 'Thôi xem'));
   };
   D.api = async function api(action, payload, { quiet = false } = {}) {
     let res;
@@ -73,6 +73,15 @@
     for (const [k, v] of Object.entries(attrs || {})) {
       if (v === null || v === undefined || v === false) continue;
       if (k === 'class') el.className = v; else if (k === 'text') el.textContent = v; else if (k === 'html') el.innerHTML = v;
+      else if (k === 'onclick' && tag === 'button') { // rà soát 1.8.2: nút có xử lý bất đồng bộ → khóa tới khi xong (chống bấm đúp gửi 2 lệnh)
+        el.addEventListener('click', (e) => {
+          if (el.dataset.busy) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+          const was = el.disabled; // đọc TRƯỚC khi chạy handler: nhiều handler tự khóa nút (e.target.disabled = true) rồi tự mở lại trong finally
+          const r = v(e);
+          if (r && typeof r.then === 'function') { el.dataset.busy = '1'; el.disabled = true; el.setAttribute('aria-busy', 'true');
+            Promise.resolve(r).catch(() => {}).finally(() => { delete el.dataset.busy; el.removeAttribute('aria-busy'); if (el.isConnected) el.disabled = was; }); }
+        });
+      }
       else if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
       else el.setAttribute(k, v === true ? '' : v);
     }
@@ -266,8 +275,12 @@
   // D.leaveGuard: màn đang mở có thể đặt hàm () => true | Promise<bool> — rời màn khi còn thay đổi chưa lưu thì hỏi trước (vd Hợp đồng).
   // Không hỏi khi về đăng nhập / khởi tạo (hết phiên, đăng xuất). Mỗi lần chuyển màn thật thì gỡ guard; màn mới tự đặt lại nếu cần.
   D.leaveGuard = null;
+  /** Hỏi guard của màn đang mở (nếu có) — dùng trước các thao tác dựng lại màn hiện tại không qua D.go (vd "Thôi xem" năm lưu trữ). */
+  D.canLeave = async () => { const g = D.leaveGuard; if (!g) return true; const ok = await g(); if (ok) D.leaveGuard = null; return !!ok; };
   D.go = (view, params = {}) => {
     const g = D.leaveGuard; const go = () => { D.leaveGuard = null; state.view = view; state.params = params; render(); };
+    // về đăng nhập / khởi tạo (hết phiên, đăng xuất): gỡ mọi hộp thoại còn mở — trước đây lớp phủ nằm đè lên màn đăng nhập (rà soát 1.8.2)
+    if (['login', 'setup'].includes(view)) for (const ov of document.querySelectorAll('.overlay')) ov.remove();
     if (!g || ['login', 'setup'].includes(view)) { go(); return; }
     const ok = g(); if (ok === true) { go(); return; }
     Promise.resolve(ok).then((yes) => { if (yes) go(); });
@@ -352,7 +365,20 @@
   D.unitOptions = (blank = false) => [...(blank ? [['', '—']] : []), ...state.boot.units.map((u) => [u.unit_code, `${u.unit_code} · ${u.unit_name}`])];
 
   document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'Enter') { const b = document.querySelector('[data-hotkey="primary"]'); if (b) { e.preventDefault(); b.click(); } }
+    if (!(e.ctrlKey && e.key === 'Enter')) return;
+    // rà soát 1.8.2: trước đây bấm nút [data-hotkey=primary] ĐẦU TIÊN của cả trang — kể cả nút đang ẩn (thẻ khác) hoặc nằm dưới hộp thoại đang mở.
+    const usable = (b) => b && !b.disabled && b.offsetParent !== null;
+    const top = [...document.querySelectorAll('.overlay')].pop();
+    let b = null;
+    if (top) { // có hộp thoại: chỉ nút chính CỦA hộp trên cùng (hộp xác nhận nguy hiểm không có nút chính → không làm gì)
+      b = [...top.querySelectorAll('[data-hotkey="primary"], .foot button.primary')].find(usable) || null;
+    } else {
+      const cands = [...document.querySelectorAll('[data-hotkey="primary"]')].filter(usable);
+      // ưu tiên nút cùng thẻ / khung / form với ô đang gõ; không đoán được thì chỉ bấm khi trên màn có đúng MỘT nút chính đang hiện
+      const a = document.activeElement;
+      b = (a && cands.find((x) => { const n = x.closest('[role=tabpanel], .card, form'); return n && n.contains(a); })) || (cands.length === 1 ? cands[0] : null);
+    }
+    if (b) { e.preventDefault(); b.click(); }
   });
 
   window.addEventListener('DOMContentLoaded', async () => {

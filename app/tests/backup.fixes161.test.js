@@ -57,11 +57,14 @@ for (const kind of ['json', 'sqlite']) {
     assert.equal(fs.readFileSync(good.mirrored.path).length, fs.readFileSync(good.file).length); assert.equal(m.bs.list().lastMirror.ok, true);
     // xoay vòng thư mục ngoài
     await m.setCfg('BACKUP_MIRROR_KEEP', 2);
-    for (let i = 1; i <= 3; i += 1) { m.clock.set(new Date(2026, 8, 15, 10, i, 0)); await m.bs.backup({ kind: 'manual', note: `r${i}` }); }
-    assert.equal(fs.readdirSync(dir).filter((f) => f.endsWith('.zip')).length, 2, 'giữ tối đa 2 bản ở thư mục ngoài');
+    // 1.8.2: xoay vòng THEO LOẠI — bản thủ công (manual) ở thư mục ngoài không bao giờ tự xóa
+    const zips = (k) => fs.readdirSync(dir).filter((f) => f.endsWith('.zip') && f.includes(`_${k}`));
+    for (let i = 1; i <= 3; i += 1) { m.clock.set(new Date(2026, 8, 15, 10, i, 0)); await m.bs.backup({ kind: 'safety', note: `r${i}` }); }
+    assert.equal(zips('safety').length, 2, 'giữ tối đa 2 bản safety ở thư mục ngoài');
+    assert.ok(zips('manual').some((f) => f.includes('_tot')), 'bản thủ công không bị xoay vòng xóa');
     await m.setCfg('BACKUP_MIRROR_KEEP', 0);
-    for (let i = 4; i <= 6; i += 1) { m.clock.set(new Date(2026, 8, 15, 10, i, 0)); await m.bs.backup({ kind: 'manual', note: `r${i}` }); }
-    assert.equal(fs.readdirSync(dir).filter((f) => f.endsWith('.zip')).length, 5, '0 = không xóa'); m.ctx.store.close();
+    for (let i = 4; i <= 6; i += 1) { m.clock.set(new Date(2026, 8, 15, 10, i, 0)); await m.bs.backup({ kind: 'safety', note: `r${i}` }); }
+    assert.equal(zips('safety').length, 5, '0 = không xóa'); m.ctx.store.close();
   });
 }
 
