@@ -88,9 +88,11 @@ class ExchangeService {
 
     const contentSha256 = sha(canon(tables));
     const counts = Object.fromEntries(Object.entries(tables).map(([k, v]) => [k, v.length]));
+    const asJson = Boolean(targetPath && targetPath.toLowerCase().endsWith('.json'));
     return s.transaction((tx) => {
       header.createdAt = tx.now;
-      const buf = zlib.gzipSync(Buffer.from(JSON.stringify({ header, contentSha256, tables })));
+      const pkgObj = { header, contentSha256, tables };
+      const buf = asJson ? Buffer.from(JSON.stringify(pkgObj, null, 2), 'utf8') : zlib.gzipSync(Buffer.from(JSON.stringify(pkgObj)));
       const file = targetPath || path.join(s.root, 'exports', defaultName(header));
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, buf);
@@ -106,7 +108,16 @@ class ExchangeService {
   // ─────────────────────────── ĐỌC + XEM TRƯỚC ───────────────────────────
   read(filePath) {
     let pkg;
-    try { pkg = JSON.parse(zlib.gunzipSync(fs.readFileSync(filePath))); } catch (e) { throw new AppError('INTEGRITY_ERROR', `Không đọc được gói ${path.basename(filePath)}: ${e.message}`); }
+    const raw = fs.readFileSync(filePath);
+    try {
+      pkg = JSON.parse(zlib.gunzipSync(raw));
+    } catch {
+      try {
+        pkg = JSON.parse(raw.toString('utf8'));
+      } catch (e) {
+        throw new AppError('INTEGRITY_ERROR', `Không đọc được gói ${path.basename(filePath)}: ${e.message}`);
+      }
+    }
     const h = pkg && pkg.header;
     if (!h || h.format !== 'DGVC-PKG') throw new AppError('INTEGRITY_ERROR', 'Không phải gói DGVC');
     if (h.schemaVersion !== SCHEMA.schemaVersion) throw new AppError('INTEGRITY_ERROR', `Gói schemaVersion ${h.schemaVersion}, APP cần ${SCHEMA.schemaVersion} — cập nhật APP cho cùng phiên bản`);

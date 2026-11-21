@@ -38,7 +38,12 @@ const dmy = (s) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : 
 const num = (v) => (typeof v === 'number' ? v : v === '' || v == null ? null : Number(v));
 
 class ReconcileService {
-  constructor(store, { importService, exchange } = {}) { this.store = store; this.importService = importService; this.exchange = exchange; }
+  constructor(store, { importService, exchange, subcontract } = {}) {
+    this.store = store;
+    this.importService = importService;
+    this.exchange = exchange;
+    this.subcontract = subcontract;
+  }
 
   // ─────────────────────────── kiểm tra nội bộ ───────────────────────────
   audit({ dateFrom = '', dateTo = '', includeWaiting = false } = {}) {
@@ -102,27 +107,112 @@ class ReconcileService {
     if (!filePath || !fs.existsSync(filePath)) throw new AppError('VALIDATION_FAILED', 'Chọn file cần đối chiếu');
     const ext = path.extname(filePath).toLowerCase();
     if (ext === '.dgvc') {
-      const pkg = this.exchange.read(filePath); const h = pkg.header;
-      const list = (pkg.tables.PHIEU_CAN || []).filter((t) => !t.is_deleted);
-      const fuelRows = (pkg.tables.GIAO_NHAN_DAU || []).filter((f) => !f.is_deleted);
-      if (!list.length && !fuelRows.length) throw new AppError('VALIDATION_FAILED', 'Gói không có phiếu cân — chọn gói Phiếu cân hoặc gói Kỳ tính');
+      const pkg = this.exchange ? this.exchange.read(filePath) : JSON.parse(require('node:zlib').gunzipSync(fs.readFileSync(filePath)));
+      const h = pkg.header || {};
+      const list = (pkg.tables.PHIEU_CAN || pkg.tables.tickets || []).filter((t) => !t.is_deleted);
+      const fuelRows = (pkg.tables.GIAO_NHAN_DAU || pkg.tables.fuel || []).filter((f) => !f.is_deleted);
+      if (!list.length && !fuelRows.length) throw new AppError('VALIDATION_FAILED', 'Gói không có phiếu cân hoặc dầu');
       const kind = { DANH_MUC: 'gói Danh mục', PHIEU_CAN: 'gói Phiếu cân', KY_TINH: 'gói Kỳ tính' }[h.packageType] || 'gói';
-      return { fileName: path.basename(filePath), sourceText: `${kind} của ${h.sourceUnitCode} (${h.createdBy}, ${String(h.createdAt).slice(0, 10)})`, sourceUnit: h.sourceUnitCode, tickets: list, fuelRows, unreadable: [] };
+      return { fileName: path.basename(filePath), sourceText: `${kind} của ${h.sourceUnitCode || 'đối tác'} (${h.createdBy || ''}, ${String(h.createdAt || '').slice(0, 10)})`, sourceUnit: h.sourceUnitCode || '', tickets: list, fuelRows, unreadable: [] };
     }
-    if (!['.xlsx', '.xlsm', '.xls'].includes(ext)) throw new AppError('VALIDATION_FAILED', 'Chỉ đối chiếu được gói .dgvc hoặc file Excel phiếu cân');
+    if (ext === '.json') {
+      const raw = fs.readFileSync(filePath);
+      let data;
+      try {
+        data = JSON.parse(require('node:zlib').gunzipSync(raw));
+      } catch {
+        try {
+          data = JSON.parse(raw.toString('utf8'));
+        } catch (e) {
+          throw new AppError('VALIDATION_FAILED', `Không đọc được file JSON ${path.basename(filePath)}: ${e.message}`);
+        }
+      }
+      let list = [];
+      let fuelRows = [];
+      let srcUnit = '';
+      let srcText = `file JSON: ${path.basename(filePath)}`;
+      if (data.tables) {
+        list = (data.tables.PHIEU_CAN || data.tables.tickets || []).filter((t) => !t.is_deleted);
+        fuelRows = (data.tables.GIAO_NHAN_DAU || data.tables.fuel || []).filter((f) => !f.is_deleted);
+        if (data.header) {
+          srcUnit = data.header.sourceUnitCode || '';
+          srcText = `Gói ${data.header.packageType || 'dữ liệu'} của ${srcUnit || 'đối tác'}`;
+        }
+      } else if (Array.isArray(data)) {
+        list = data;
+      } else {
+        list = data.tickets || data.PHIEU_CAN || [];
+        fuelRows = data.fuel || data.fuelRows || data.GIAO_NHAN_DAU || [];
+        srcUnit = data.partnerName || data.sourceUnit || '';
+        if (data.batchName) srcText = `${data.batchName} (${srcUnit || 'Đơn vị thuê'})`;
+      }
+      const normTickets = list.filter((t) => !t.is_deleted).map((t, idx) => ({
+        ticket_no: String(t.ticket_no ?? t.ticketNo ?? `PH-${idx + 1}`).trim(),
+        weigh1_date: String(t.weigh1_date ?? t.date ?? t.weighDate ?? '').slice(0, 10),
+        weigh1_time: String(t.weigh1_time ?? t.time ?? t.weighTime ?? '').slice(0, 8),
+        weigh2_date: String(t.weigh2_date ?? t.weigh2Date ?? '').slice(0, 10),
+        weigh2_time: String(t.weigh2_time ?? t.weigh2Time ?? '').slice(0, 8),
+        plate_no: String(t.plate_no ?? t.plateNo ?? '').trim().toUpperCase(),
+        weight1_kg: t.weight1_kg != null ? num(t.weight1_kg) : null,
+        weight2_kg: t.weight2_kg != null ? num(t.weight2_kg) : null,
+        net_kg: num(t.net_kg ?? t.netKg ?? t.weightKg ?? 0) || 0,
+        route_code: String(t.route_code ?? t.routeCode ?? '').trim(),
+        owner_unit_code: String(t.owner_unit_code ?? t.owner ?? '').trim(),
+        _rowNo: t._rowNo || idx + 1
+      })).filter((t) => t.ticket_no && t.plate_no);
+
+      const normFuel = fuelRows.filter((f) => !f.is_deleted).map((f, idx) => ({
+        receipt_no: String(f.receipt_no ?? f.receiptNo ?? `D-${idx + 1}`).trim(),
+        receipt_date: String(f.receipt_date ?? f.issue_date ?? f.date ?? '').slice(0, 10),
+        plate_no: String(f.plate_no ?? f.plateNo ?? '').trim().toUpperCase(),
+        qty_liter: num(f.qty_liter ?? f.qtyLiter ?? f.liter ?? f.liters ?? 0) || 0,
+        note: String(f.note ?? '').trim()
+      })).filter((f) => f.plate_no);
+
+      return { fileName: path.basename(filePath), sourceText: srcText, sourceUnit: srcUnit, tickets: normTickets, fuelRows: normFuel, unreadable: [] };
+    }
+    if (!['.xlsx', '.xlsm', '.xls'].includes(ext)) throw new AppError('VALIDATION_FAILED', 'Chỉ đối chiếu được file .json, gói .dgvc hoặc file Excel phiếu cân');
     const r = await this.importService.readTickets({ filePath });
     const ok = (x) => x.record.ticket_no && x.record.weigh1_date && x.record.plate_no && typeof x.record.net_kg === 'number' && x.record.net_kg > 0;
     return { fileName: r.fileName, sourceText: `file Excel, sheet "${r.sheet}"`, sourceUnit: '', tickets: r.rows.filter(ok).map((x) => ({ ...x.record, _rowNo: x.rowNo })), fuelRows: [],
       unreadable: r.rows.filter((x) => !ok(x)).map((x) => ({ rowNo: x.rowNo, ticketNo: x.record.ticket_no, note: x.errors.join('; ') })) };
   }
 
-  async compare({ filePath, dateFrom = '', dateTo = '', allPlates = false, contractId = '' }) {
-    const th = await this._theirs(filePath);
-    const fDate = (f) => f.receipt_date || f.issue_date || '';
+  async compare({ filePath, batchId, periodId = '', contractId = '', dateFrom = '', dateTo = '', allPlates = false, rentUnitPrice, fuelUnitPrice, deductFuel = true }) {
+    let resolvedFilePath = filePath;
+    let resolvedRentPrice = rentUnitPrice != null ? Number(rentUnitPrice) : 0;
+    let resolvedFuelPrice = fuelUnitPrice != null ? Number(fuelUnitPrice) : 0;
+    let resolvedDeductFuel = deductFuel !== false;
+    let batch = null;
+
+    if (batchId && this.subcontract) {
+      batch = this.subcontract.getBatch({ batchId });
+      if (batch) {
+        resolvedFilePath = batch.filePath;
+        if (!periodId && batch.periodId) periodId = batch.periodId;
+        if (rentUnitPrice == null && batch.rentUnitPrice != null) resolvedRentPrice = Number(batch.rentUnitPrice);
+        if (fuelUnitPrice == null && batch.fuelUnitPrice != null) resolvedFuelPrice = Number(batch.fuelUnitPrice);
+        if (deductFuel == null && batch.deductFuel != null) resolvedDeductFuel = Boolean(batch.deductFuel);
+      }
+    }
+
+    let period = null;
+    if (periodId) {
+      period = this.store.get('KY_TINH', periodId);
+      if (period) {
+        if (!contractId) contractId = period.contract_id;
+        if (!dateFrom && period.date_from) dateFrom = period.date_from;
+        if (!dateTo && period.date_to) dateTo = period.date_to;
+      }
+    }
+
+    const th = await this._theirs(resolvedFilePath);
+    const fDate = (f) => f.receipt_date || f.receive_date || f.issue_date || f.date || '';
     const dates = [...th.tickets.map((t) => t.weigh1_date), ...(th.fuelRows || []).map(fDate)].filter(Boolean).sort();
     const from = dateFrom || dates[0] || ''; const to = dateTo || dates[dates.length - 1] || '';
     const contractPlates = contractId ? new Set(this.store.find('HOP_DONG_XE', (v) => v.contract_id === contractId).map((v) => v.plate_no)) : null;
-    const theirs = th.tickets.filter((t) => (!from || t.weigh1_date >= from) && (!to || t.weigh1_date <= to) && (!contractPlates || contractPlates.has(t.plate_no)));
+    const filterTheirsByContract = contractId && !batchId && !batch;
+    const theirs = th.tickets.filter((t) => (!from || t.weigh1_date >= from) && (!to || t.weigh1_date <= to) && (!filterTheirsByContract || !contractPlates || contractPlates.has(t.plate_no)));
     const plates = new Set(theirs.map((t) => t.plate_no));
     const key = (t) => `${t.ticket_no}|${t.weigh1_date}|${t.plate_no}`;
     const mine = this.store.all('PHIEU_CAN').filter((t) => !t.is_deleted && (!from || t.weigh1_date >= from) && (!to || t.weigh1_date <= to) && (!contractPlates || contractPlates.has(t.plate_no)) && (allPlates || plates.has(t.plate_no)));
@@ -169,7 +259,7 @@ class ReconcileService {
     // Đối chiếu Dầu nhận (GIAO_NHAN_DAU) giữa bên mình và bên mình thuê / bên thuê mình
     const theirFuel = (th.fuelRows || []).filter((f) => {
       const d = fDate(f);
-      return (!from || d >= from) && (!to || d <= to) && (!contractPlates || contractPlates.has(f.plate_no));
+      return (!from || d >= from) && (!to || d <= to) && (!filterTheirsByContract || !contractPlates || contractPlates.has(f.plate_no));
     });
     const fuelPlates = new Set([...plates, ...theirFuel.map((f) => f.plate_no)]);
     const mineFuel = this.store.all('GIAO_NHAN_DAU').filter((f) => {
@@ -223,9 +313,108 @@ class ReconcileService {
       rows: fRows
     };
 
-    return { source: { fileName: th.fileName, sourceText: th.sourceText, sourceUnit: th.sourceUnit, rows: th.tickets.length, fuelRows: theirFuel.length, unreadable: th.unreadable, duplicates: dupTheirs.map((t) => ({ ticketNo: t.ticket_no, date: t.weigh1_date, plateNo: t.plate_no })) },
-      dateFrom: from, dateTo: to, allPlates, contractId, plates: [...plates].sort(), summary, totals, rows, byPlate: plateRows, fuelCompare,
-      matched: summary.KHOP.count, problems: rows.length - summary.KHOP.count };
+    // ─────────────────────────── TIÊU CHÍ 3: ĐƠN GIÁ, THÀNH TIỀN & THỰC TRẢ ───────────────────────────
+    const rentPrice = resolvedRentPrice;
+    const fuelPrice = resolvedFuelPrice;
+    const fByPlateMap = new Map((fuelCompare.byPlate || []).map((x) => [x.plateNo, x]));
+
+    for (const x of plateRows) {
+      const fItem = fByPlateMap.get(x.plateNo) || { mineRows: 0, theirRows: 0, mineLiter: 0, theirLiter: 0, diffLiter: 0 };
+      x.mineFuelRows = fItem.mineRows;
+      x.theirFuelRows = fItem.theirRows;
+      x.mineFuelLiter = fItem.mineLiter;
+      x.theirFuelLiter = fItem.theirLiter;
+      x.diffFuelLiter = fItem.diffLiter;
+
+      x.mineTon = Math.round((x.mineKg / 1000) * 100) / 100;
+      x.theirTon = Math.round((x.theirKg / 1000) * 100) / 100;
+      x.diffTon = Math.round(((x.theirKg - x.mineKg) / 1000) * 100) / 100;
+
+      x.rentUnitPrice = rentPrice;
+      x.fuelUnitPrice = fuelPrice;
+
+      x.mineRentAmount = Math.round((x.mineKg / 1000) * rentPrice);
+      x.theirRentAmount = Math.round((x.theirKg / 1000) * rentPrice);
+      x.diffRentAmount = x.theirRentAmount - x.mineRentAmount;
+
+      x.mineFuelAmount = Math.round(x.mineFuelLiter * fuelPrice);
+      x.theirFuelAmount = Math.round(x.theirFuelLiter * fuelPrice);
+      x.diffFuelAmount = x.theirFuelAmount - x.mineFuelAmount;
+
+      x.mineDeductFuel = resolvedDeductFuel ? x.mineFuelAmount : 0;
+      x.theirDeductFuel = resolvedDeductFuel ? x.theirFuelAmount : 0;
+
+      x.minePayable = x.mineRentAmount - x.mineDeductFuel;
+      x.theirPayable = x.theirRentAmount - x.theirDeductFuel;
+      x.diffPayable = x.theirPayable - x.minePayable;
+
+      // Đánh giá trạng thái đối chiếu 3 tiêu chuẩn
+      const hasDiffKg = Math.abs(x.diffKg || 0) > 0.001;
+      const hasDiffFuel = Math.abs(x.diffFuelLiter || 0) > 0.001;
+
+      if (x.mineTrips === 0 && x.theirTrips > 0) {
+        x.matchStatus = 'MISSING_MINE';
+        x.matchText = '⚠ Thiếu bên mình';
+      } else if (x.theirTrips === 0 && x.mineTrips > 0) {
+        x.matchStatus = 'MISSING_THEIRS';
+        x.matchText = '⚠ Thiếu bên kia';
+      } else if (hasDiffKg && hasDiffFuel) {
+        x.matchStatus = 'DIFF_BOTH';
+        x.matchText = '⚠ Lệch Cân & Dầu';
+      } else if (hasDiffKg) {
+        x.matchStatus = 'DIFF_WEIGHT';
+        x.matchText = '⚠ Lệch Cân';
+      } else if (hasDiffFuel) {
+        x.matchStatus = 'DIFF_FUEL';
+        x.matchText = '⚠ Lệch Dầu';
+      } else {
+        x.matchStatus = 'MATCH';
+        x.matchText = '✔ Khớp 100%';
+      }
+
+      // Doanh thu cước khách hàng (nếu gắn vào kỳ tính công ty)
+      if (periodId) {
+        const lines = this.store.find('BKVC_LINE', (c) => c.period_id === periodId && c.plate_no === x.plateNo && c.is_current !== false);
+        const custAmt = lines.reduce((sum, c) => sum + (c.amount || 0), 0);
+        x.customerRevenue = custAmt;
+        x.profitMargin = custAmt ? custAmt - x.theirRentAmount : null;
+      } else {
+        x.customerRevenue = null;
+        x.profitMargin = null;
+      }
+    }
+
+    totals.rentUnitPrice = rentPrice;
+    totals.fuelUnitPrice = fuelPrice;
+    totals.deductFuel = resolvedDeductFuel;
+    totals.mineTon = Math.round((totals.mineKg / 1000) * 100) / 100;
+    totals.theirTon = Math.round((totals.theirKg / 1000) * 100) / 100;
+    totals.diffTon = Math.round(((totals.theirKg - totals.mineKg) / 1000) * 100) / 100;
+
+    totals.mineRentAmount = plateRows.reduce((a, r) => a + r.mineRentAmount, 0);
+    totals.theirRentAmount = plateRows.reduce((a, r) => a + r.theirRentAmount, 0);
+    totals.diffRentAmount = totals.theirRentAmount - totals.mineRentAmount;
+
+    totals.mineFuelAmount = plateRows.reduce((a, r) => a + r.mineFuelAmount, 0);
+    totals.theirFuelAmount = plateRows.reduce((a, r) => a + r.theirFuelAmount, 0);
+    totals.diffFuelAmount = totals.theirFuelAmount - totals.mineFuelAmount;
+
+    totals.minePayable = totals.mineRentAmount - (resolvedDeductFuel ? totals.mineFuelAmount : 0);
+    totals.theirPayable = totals.theirRentAmount - (resolvedDeductFuel ? totals.theirFuelAmount : 0);
+    totals.diffPayable = totals.theirPayable - totals.minePayable;
+
+    if (periodId) {
+      totals.customerRevenue = plateRows.reduce((a, r) => a + (r.customerRevenue || 0), 0);
+      totals.profitMargin = totals.customerRevenue ? totals.customerRevenue - totals.theirRentAmount : null;
+    }
+
+    return {
+      source: { fileName: th.fileName, sourceText: th.sourceText, sourceUnit: th.sourceUnit, rows: th.tickets.length, fuelRows: theirFuel.length, unreadable: th.unreadable, duplicates: dupTheirs.map((t) => ({ ticketNo: t.ticket_no, date: t.weigh1_date, plateNo: t.plate_no })) },
+      batch: batch ? { batchId: batch.batchId, batchName: batch.batchName, partnerName: batch.partnerName } : null,
+      period: period ? { periodId: period.period_id, periodCode: period.period_code } : null,
+      dateFrom: from, dateTo: to, allPlates, contractId, periodId, plates: [...plates].sort(), summary, totals, rows, byPlate: plateRows, fuelCompare,
+      matched: summary.KHOP.count, problems: rows.length - summary.KHOP.count
+    };
   }
 
   // ─────────────────────────── xuất Excel ───────────────────────────
@@ -249,15 +438,35 @@ class ReconcileService {
       const sub = `( ${d.source.fileName} — ${d.source.sourceText} · phiếu cân từ ngày ${dmy(d.dateFrom)} đến ngày ${dmy(d.dateTo)} )`;
       const sumRows = Object.values(d.summary).map((x) => ({ ...x }));
       sumRows.push({ label: 'TỔNG (phiếu của từng bên)', count: null, mineKg: d.totals.mineKg, theirKg: d.totals.theirKg, _b: true, mineTrips: d.totals.mineTrips, theirTrips: d.totals.theirTrips });
-      return { company, title: 'BẢNG ĐỐI CHIẾU PHIẾU CÂN', subtitle: sub, sheets: [
+      const sheets = [
         { name: 'Tong hop', title: 'TỔNG HỢP', columns: [C('Kết quả', 'label'), C('Số phiếu', 'count', 'int'), C('Chuyến bên mình', 'mineTrips', 'int'), C('Chuyến bên kia', 'theirTrips', 'int'), C('KG bên mình', 'mineKg', 'int'), C('KG bên kia', 'theirKg', 'int')], rows: sumRows },
-        { name: 'Theo xe', title: 'ĐỐI CHIẾU THEO XE', columns: [C('Biển số', 'plateNo'), C('Chuyến bên mình', 'mineTrips', 'int'), C('Chuyến bên kia', 'theirTrips', 'int'), C('Chênh chuyến', 'diffTrips', 'int'),
-          C('KG bên mình', 'mineKg', 'int'), C('KG bên kia', 'theirKg', 'int'), C('Chênh KG', 'diffKg', 'int'), C('Số dòng lệch', 'issues', 'int')], rows: d.byPlate,
-          totalsRow: { plateNo: 'TỔNG CỘNG', mineTrips: d.totals.mineTrips, theirTrips: d.totals.theirTrips, diffTrips: d.totals.theirTrips - d.totals.mineTrips, mineKg: d.totals.mineKg, theirKg: d.totals.theirKg, diffKg: d.totals.theirKg - d.totals.mineKg } },
-        { name: 'Chi tiet', title: 'CHI TIẾT TỪNG PHIẾU', columns: [C('STT', 'stt', 'int'), C('Kết quả', 'kindText'), C('Ngày cân 1', 'date', 'date'), C('Giờ cân 1', 'time'), C('Biển số', 'plateNo'), C('Số phiếu bên mình', 'ticketNo'), C('Số phiếu bên kia', 'theirTicketNo'),
+        { name: 'Theo xe', title: 'ĐỐI CHIẾU 3 TIÊU CHUẨN THEO XE', columns: [
+          C('Biển số', 'plateNo'),
+          C('Chuyến (mình)', 'mineTrips', 'int'), C('Chuyến (bên kia)', 'theirTrips', 'int'), C('Chênh chuyến', 'diffTrips', 'int'),
+          C('Tấn (mình)', 'mineTon', 'num'), C('Tấn (bên kia)', 'theirTon', 'num'), C('Chênh KG', 'diffKg', 'int'),
+          C('Lần dầu (mình)', 'mineFuelRows', 'int'), C('Lần dầu (bên kia)', 'theirFuelRows', 'int'),
+          C('Lít dầu (mình)', 'mineFuelLiter', 'num'), C('Lít dầu (bên kia)', 'theirFuelLiter', 'num'), C('Chênh lít', 'diffFuelLiter', 'num'),
+          C('Đơn giá thuê', 'rentUnitPrice', 'int'), C('Tiền cước (bên kia)', 'theirRentAmount', 'int'),
+          C('Tiền dầu bù trừ', 'theirDeductFuel', 'int'), C('Thực trả bên thuê', 'theirPayable', 'int'),
+          C('Tình trạng', 'matchText')
+        ], rows: d.byPlate,
+          totalsRow: {
+            plateNo: 'TỔNG CỘNG',
+            mineTrips: d.totals.mineTrips, theirTrips: d.totals.theirTrips, diffTrips: d.totals.theirTrips - d.totals.mineTrips,
+            mineTon: d.totals.mineTon, theirTon: d.totals.theirTon, diffKg: d.totals.theirKg - d.totals.mineKg,
+            mineFuelLiter: d.fuelCompare.totals.mineLiter, theirFuelLiter: d.fuelCompare.totals.theirLiter, diffFuelLiter: d.fuelCompare.totals.theirLiter - d.fuelCompare.totals.mineLiter,
+            theirRentAmount: d.totals.theirRentAmount, theirDeductFuel: d.totals.theirFuelAmount, theirPayable: d.totals.theirPayable, matchText: ''
+          }
+        },
+        { name: 'Chi tiet', title: 'CHI TIẾT TỪNG PHIẾU CÂN', columns: [C('STT', 'stt', 'int'), C('Kết quả', 'kindText'), C('Ngày cân 1', 'date', 'date'), C('Giờ cân 1', 'time'), C('Biển số', 'plateNo'), C('Số phiếu bên mình', 'ticketNo'), C('Số phiếu bên kia', 'theirTicketNo'),
           C('KG bên mình', 'mineKg', 'int'), C('KG bên kia', 'theirKg', 'int'), C('Chênh KG', 'diffKg', 'int'), C('Chi tiết lệch', 'fields'), C('Kỳ (bên mình)', 'periodCode'), C('Trạng thái kỳ', 'periodStatus'), C('Dòng file', 'theirRowNo')],
           rows: d.rows.map((r, i) => ({ stt: i + 1, ...r, fields: r.fields || '' })) },
-      ] };
+      ];
+      if (d.fuelCompare && d.fuelCompare.rows && d.fuelCompare.rows.length && d.fuelCompare.hasTheirFuel) {
+        sheets.push({ name: 'Chi tiet dau nhan', title: 'CHI TIẾT DẦU NHẬN', columns: [C('STT', 'stt', 'int'), C('Kết quả', 'kindText'), C('Ngày nhận', 'date', 'date'), C('Biển số', 'plateNo'), C('Lít (bên mình)', 'mineLiter', 'num'), C('Lít (bên kia)', 'theirLiter', 'num'), C('Chênh lệch (L)', 'diffLiter', 'num'), C('Ghi chú', 'fields')],
+          rows: d.fuelCompare.rows.map((r, i) => ({ stt: i + 1, ...r })) });
+      }
+      return { company, title: 'BẢNG ĐỐI CHIẾU THUÊ VẬN CHUYỂN TOÀN DIỆN (3 TIÊU CHUẨN)', subtitle: sub, sheets };
     }
     throw new AppError('VALIDATION_FAILED', `Loại đối chiếu không hợp lệ: ${kind}`);
   }

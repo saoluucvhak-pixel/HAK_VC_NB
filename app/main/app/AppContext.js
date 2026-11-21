@@ -27,6 +27,7 @@ const { BackupService } = require('../services/BackupService');
 const { ArchiveService } = require('../services/ArchiveService');
 const { ExchangeService } = require('../services/ExchangeService');
 const { ReconcileService } = require('../services/ReconcileService');
+const { SubcontractService } = require('../services/SubcontractService');
 const { VehicleKmService } = require('../services/VehicleKmService');
 const { ReportService } = require('../reports/ReportService');
 
@@ -242,7 +243,8 @@ class AppContext {
       query: new QueryService(store), sync: new SyncReminderService(store), backup,
       exchange: new ExchangeService(store, { backup }), reports: new ReportService(store, { pdfRenderer: this.pdfRenderer }),
     };
-    this.svc.reconcile = new ReconcileService(store, { importService, exchange: this.svc.exchange });
+    this.svc.subcontract = new SubcontractService(store, { exchange: this.svc.exchange, importService });
+    this.svc.reconcile = new ReconcileService(store, { importService, exchange: this.svc.exchange, subcontract: this.svc.subcontract });
     this.svc.vehicleKm = new VehicleKmService(store);
     this.svc.archive = new ArchiveService(store, { backup });
     if (sessions) this.svc.auth.sessions = sessions; // giữ phiên đăng nhập khi mở lại kho (sau khôi phục)

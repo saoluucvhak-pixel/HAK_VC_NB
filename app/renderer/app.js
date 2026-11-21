@@ -268,14 +268,13 @@
   // ───────── điều hướng ─────────
   const NAV = [
     ['dashboard', '1', 'Tổng quan'], ['guide', '', 'Hướng dẫn & quy trình'], ['tickets', '2', 'Phiếu cân'], ['routes', '4', 'Danh mục tuyến'], ['contracts', '', 'Hợp đồng vận chuyển'],
-    ['pricecodes', '5', 'DM Đơn giá'], ['basis', '', 'Báo cáo giá hợp đồng'], ['fuel', '3', 'Giao nhận dầu'], ['calc', '6', 'Tính giá vận chuyển'], ['bkvc', '7', 'Bảng xác nhận KL'], ['bkct', '8', 'Chi tiết vận chuyển'], ['validation', '', 'Kiểm tra dữ liệu'],
-    ['reports', '9', 'Báo cáo'], ['exchange', '', 'Trao đổi dữ liệu'], ['reconcile', '', 'Đối chiếu dữ liệu'], ['sync', '', 'Nhắc sửa danh mục'], ['audit', '10', 'Lịch sử thao tác'], ['settings', '11', 'Cài đặt'],
+    ['pricecodes', '5', 'DM Đơn giá'], ['basis', '', 'Báo cáo giá hợp đồng'], ['fuel', '3', 'Giao nhận dầu'], ['subcontract', '', 'Nhập dữ liệu thuê VC'], ['calc', '6', 'Tính giá vận chuyển'], ['bkvc', '7', 'Bảng xác nhận KL'], ['bkct', '8', 'Chi tiết vận chuyển'], ['validation', '', 'Kiểm tra dữ liệu'],
+    ['reports', '9', 'Báo cáo'], ['export_partner', '', 'Xuất dữ liệu VC gửi đối tác'], ['exchange', '', 'Trao đổi dữ liệu'], ['reconcile', '', 'Đối chiếu dữ liệu'], ['sync', '', 'Nhắc sửa danh mục'], ['audit', '10', 'Lịch sử thao tác'], ['settings', '11', 'Cài đặt'],
     ['units', '', 'Công ty & đối tác'], ['vehicles', '', 'Xe vận chuyển'],
   ];
-  // Menu nhóm (1.8.x): id màn và số phím tắt giữ nguyên. Thứ tự nhóm theo luồng làm việc: Danh mục (gồm Hợp đồng, DM Đơn giá) → Nhập liệu (Giao nhận dầu) → Tính & chốt.
-  // "DM Đơn giá" hợp nhất bảng cha (Mã đơn giá) và bảng con (Đơn giá theo tuyến), bỏ menu trùng lặp.
-  const NAV_GROUPS = [['start', 'Bắt đầu', ['dashboard', 'guide']], ['master', 'Danh mục', ['units', 'vehicles', 'routes', 'contracts', 'pricecodes']], ['input', 'Nhập liệu', ['tickets', 'fuel']],
-    ['calc', 'Tính & chốt', ['calc', 'validation', 'bkvc', 'bkct']], ['out', 'Kết xuất', ['reports', 'basis']], ['xchg', 'Trao đổi & đối chiếu', ['exchange', 'reconcile', 'sync']], ['sys', 'Hệ thống', ['audit', 'settings']]];
+  // Menu nhóm (1.8.x): id màn và số phím tắt giữ nguyên. Thứ tự nhóm theo luồng làm việc: Danh mục → Nhập liệu (gồm Thuê vận chuyển) → Tính & chốt → Kết xuất (gồm Xuất dữ liệu gửi đối tác) → Đối chiếu dữ liệu.
+  const NAV_GROUPS = [['start', 'Bắt đầu', ['dashboard', 'guide']], ['master', 'Danh mục', ['units', 'vehicles', 'routes', 'contracts', 'pricecodes']], ['input', 'Nhập liệu', ['tickets', 'fuel', 'subcontract']],
+    ['calc', 'Tính & chốt', ['calc', 'validation', 'bkvc', 'bkct']], ['out', 'Kết xuất', ['reports', 'basis', 'export_partner']], ['xchg', 'Đối chiếu & đồng bộ', ['reconcile', 'sync']], ['sys', 'Hệ thống', ['audit', 'settings']]];
   const navClosedGet = () => { try { const o = JSON.parse(localStorage.getItem('dgvc.navClosed') || '{}'); return o && typeof o === 'object' ? o : {}; } catch { return {}; } };
   const navClosedSet = (o) => { try { localStorage.setItem('dgvc.navClosed', JSON.stringify(o)); } catch { /* không có localStorage: vẫn dùng được, chỉ không nhớ */ } };
 
@@ -286,6 +285,11 @@
   D.canLeave = async () => { const g = D.leaveGuard; if (!g) return true; const ok = await g(); if (ok) D.leaveGuard = null; return !!ok; };
   D.go = (view, params = {}) => {
     if (view === 'prices') view = 'pricecodes';
+    if (view === 'exchange') {
+      if (params && params.tab === 'import') view = 'subcontract';
+      else if (params && params.tab === 'export') view = 'export_partner';
+      else view = 'reconcile';
+    }
     const g = D.leaveGuard; const go = () => { D.leaveGuard = null; state.view = view; state.params = params; render(); };
     // về đăng nhập / khởi tạo (hết phiên, đăng xuất): gỡ mọi hộp thoại còn mở — trước đây lớp phủ nằm đè lên màn đăng nhập (rà soát 1.8.2)
     if (['login', 'setup'].includes(view)) for (const ov of document.querySelectorAll('.overlay')) ov.remove();

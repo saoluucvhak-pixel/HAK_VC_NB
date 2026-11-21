@@ -12,7 +12,7 @@ const ExcelJS = require('exceljs');
 const { start } = require('../tools/dev-server');
 const { FILE } = require('./install');
 
-const CHROME = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
+const CHROME = process.env.CHROMIUM_PATH || (fs.existsSync('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe') ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '/opt/pw-browsers/chromium');
 const SHOTS = process.env.DGVC_SHOTS || '';
 const HEAD = ['Số phiếu', 'Ngày cân 1', 'Giờ cân 1', 'Ngày cân 2', 'Giờ cân 2', 'Biển số', 'Cân lần 1', 'Cân lần 2', 'KL hàng (KG)', 'Mã tuyến'];
 async function ticketFile(file, rows) {

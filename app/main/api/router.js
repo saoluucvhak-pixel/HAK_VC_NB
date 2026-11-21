@@ -165,6 +165,12 @@ const ROUTES = {
   'storage.migrate': [null, async (ctx, p, s) => { const r = await ctx.migrateStorage({ dryRun: !!p.dryRun, user: s.user }); return { verified: r.verified, dryRun: r.dryRun, safetyBackup: r.safetyBackup, rows: r.report.verification.rows, closedPeriods: r.report.verification.closedPeriods, sourceUnchanged: r.report.sourceUnchanged, ...ctx.storageInfo() }; }],
   'storage.revert': [null, async (ctx, p, s) => { await ctx.revertStorage({ user: s.user }); return ctx.storageInfo(); }],
   'storage.exportJson': [null, (ctx, p) => ctx.exportStorageToJson({ dest: p.dest })],
+  // thuê vận chuyển (subcontract)
+  'subcontract.preview': [null, (ctx, p) => ctx.svc.subcontract.previewBatch(p)],
+  'subcontract.importBatch': [null, (ctx, p, s) => ctx.svc.subcontract.importBatch({ ...p, user: s.user })],
+  'subcontract.list': [null, (ctx, p) => ctx.svc.subcontract.list(p)],
+  'subcontract.get': [null, (ctx, p) => ctx.svc.subcontract.getBatch(p)],
+  'subcontract.delete': [AK, (ctx, p, s) => ctx.svc.subcontract.deleteBatch({ ...p, user: s.user })],
   // trao đổi
   'exchange.exportPackage': [null, (ctx, p, s) => ctx.svc.exchange.exportPackage({ ...p, user: s.user })],
   'exchange.previewPackage': [null, (ctx, p, s) => ctx.svc.exchange.previewPackage({ ...p, user: s.user })],

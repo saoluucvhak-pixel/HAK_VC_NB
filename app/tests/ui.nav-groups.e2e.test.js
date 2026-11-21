@@ -31,9 +31,9 @@ test('Giao diện HAKQN: menu nhóm + Hợp đồng cha–con', { skip: !fs.exis
     const b = await imp.preview({ importType: 'GIAO_NHAN_DAU', contractId, filePath: FILE.HAKQN, user: 'k' }); await imp.confirm({ batchId: b.batchId, acceptWarnings: true, clientRequestId: rid(), user: 'k' });
     await ctx.svc.periods.calculate({ contractId, dateFrom: '2026-09-18', dateTo: '2026-09-23', routeCode: 'VC.007', reportDate: '2026-09-24', clientRequestId: rid(), user: KETOAN });
 
-    // nhóm: nút có aria-expanded; mặc định mở hết; mọi mục cũ còn trong menu; số phím tắt giữ nguyên
-    for (const g of ['Bắt đầu', 'Danh mục', 'Nhập liệu', 'Tính & chốt', 'Kết xuất', 'Trao đổi & đối chiếu', 'Hệ thống']) assert.equal(await group(g).getAttribute('aria-expanded'), 'true', g);
-    for (const label of ['Tổng quan', 'Hướng dẫn & quy trình', 'Phiếu cân', 'Giao nhận dầu', 'Danh mục tuyến', 'Hợp đồng vận chuyển', 'DM Đơn giá', 'Báo cáo giá hợp đồng', 'Tính giá vận chuyển', 'Bảng xác nhận KL', 'Chi tiết vận chuyển', 'Kiểm tra dữ liệu', 'Báo cáo', 'Trao đổi dữ liệu', 'Đối chiếu dữ liệu', 'Nhắc sửa danh mục', 'Lịch sử thao tác', 'Cài đặt', 'Công ty & đối tác', 'Xe vận chuyển']) {
+    // nhóm: nút có aria-expanded; mặc định mở hết; mọi mục còn trong menu; số phím tắt giữ nguyên
+    for (const g of ['Bắt đầu', 'Danh mục', 'Nhập liệu', 'Tính & chốt', 'Kết xuất', 'Đối chiếu & đồng bộ', 'Hệ thống']) assert.equal(await group(g).getAttribute('aria-expanded'), 'true', g);
+    for (const label of ['Tổng quan', 'Hướng dẫn & quy trình', 'Phiếu cân', 'Giao nhận dầu', 'Nhập dữ liệu thuê VC', 'Danh mục tuyến', 'Hợp đồng vận chuyển', 'DM Đơn giá', 'Báo cáo giá hợp đồng', 'Tính giá vận chuyển', 'Bảng xác nhận KL', 'Chi tiết vận chuyển', 'Kiểm tra dữ liệu', 'Báo cáo', 'Xuất dữ liệu VC gửi đối tác', 'Đối chiếu dữ liệu', 'Nhắc sửa danh mục', 'Lịch sử thao tác', 'Cài đặt', 'Công ty & đối tác', 'Xe vận chuyển']) {
       assert.ok(await item(label).count() >= 1, `mục menu ${label}`); }
     const hot = async (label) => (await page.locator('nav .nav-items button', { hasText: label }).first().locator('.n').innerText()).trim();
     assert.deepEqual([await hot('Tổng quan'), await hot('Phiếu cân'), await hot('Giao nhận dầu'), await hot('Danh mục tuyến'), await hot('DM Đơn giá'), await hot('Tính giá vận chuyển'), await hot('Cài đặt')], ['1', '2', '3', '4', '5', '6', '11']);
