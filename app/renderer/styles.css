@@ -1,6 +1,6 @@
 /* DGVC — Tích hợp HAK Enterprise Design System V10.4 (tokens/luxe.css: Navy + Champagne + Warm Ivory, hỗ trợ sáng/tối & classic/luxe) */
 :root {
-  --sb-w: 268px;
+  --sb-w: 295px;
   --brand-2: var(--brand2, #2d5388);
   --brand-dark: var(--brandH, #142b4b);
   --brand-deep: var(--brandA, #0e203a);
@@ -55,13 +55,14 @@ a { color: var(--brand-text); }
   background: var(--hero); border: 1px solid rgba(214, 178, 106, .35); box-shadow: 0 4px 12px rgba(0, 0, 0, .25); }
 .install { margin: 4px 14px 10px; padding: 10px 12px; background: rgba(255, 255, 255, .06); border: 1px solid var(--sbLine, rgba(255, 255, 255, .08)); border-radius: 10px; font-size: .8rem; word-break: break-word; }
 .install b { display: block; color: var(--champL, #fff); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; }
-.nav { list-style: none; margin: 0; padding: 4px 12px; flex: 1; }
-.nav li button { width: 100%; text-align: left; background: none; border: 0; color: var(--sb-text); padding: 9px 12px; margin: 2px 0; border-radius: 10px; cursor: pointer;
-  display: flex; gap: 10px; align-items: center; font-weight: 500; transition: all .15s; }
+.nav { list-style: none; margin: 0; padding: 4px 8px; flex: 1; }
+.nav li button { width: 100%; text-align: left; background: none; border: 0; color: var(--sb-text); padding: 7px 10px; margin: 2px 0; border-radius: 8px; cursor: pointer;
+  display: flex; gap: 8px; align-items: center; font-weight: 500; font-size: 13.5px; white-space: nowrap; transition: all .15s; }
 .nav li button:hover { background: rgba(255, 255, 255, .07); color: #fff; }
 .nav li button[aria-current="page"] { background: linear-gradient(90deg, rgba(212, 176, 106, .22), rgba(212, 176, 106, .06)); color: #fff; box-shadow: inset 3px 0 0 var(--champ, var(--brand-2)); }
-.nav .n { width: 22px; text-align: center; font-family: var(--mono); font-size: 12px; opacity: .55; }
-.nav .badge { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, .14); color: #fff; font-size: .72rem; text-align: center; font-weight: 600; }
+.nav .n { width: 20px; text-align: center; font-family: var(--mono); font-size: 12px; opacity: .55; flex: none; }
+.nav .nav-txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.nav .badge { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, .14); color: #fff; font-size: .72rem; text-align: center; font-weight: 600; flex: none; }
 .side .me { border-top: 1px solid rgba(255, 255, 255, .08); padding: 14px 18px 18px; font-size: .8rem; color: var(--sb-text); }
 .side .me > div:first-child { color: #fff; font-weight: 600; }
 .side .me button { background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .14); color: #fff; border-radius: 8px; padding: 4px 10px; cursor: pointer; margin-top: 8px; }
@@ -227,8 +228,8 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .pc-card:has(input:focus-visible) { outline: 3px solid var(--brand); outline-offset: 2px; } .pc-card:has(input:disabled) { opacity: .6; cursor: not-allowed; }
 .warn-line { color: var(--warn, #9a5b00); margin: 2px 0; }
 .nav .nav-group { margin: 6px 0 2px; } .nav-items { list-style: none; margin: 0; padding: 0; } .nav-items[hidden] { display: none; }
-.nav li button.nav-group-h { display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin: 0; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .75; }
-.nav li button.nav-group-h:hover { opacity: 1; } .nav-group-h .chev { display: inline-block; transition: transform .15s; } .nav-group-h[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+.nav li button.nav-group-h { display: flex; align-items: center; gap: 6px; padding: 6px 8px; margin: 0; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; opacity: .75; }
+.nav li button.nav-group-h:hover { opacity: 1; } .nav-group-h .chev { display: inline-block; transition: transform .15s; flex: none; } .nav-group-h[aria-expanded="false"] .chev { transform: rotate(-90deg); }
 .nav li button:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 2px; }
 .ct-layout { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 14px; align-items: start; } .ct-list { position: sticky; top: 8px; }
 .ct-filters { display: grid; gap: 6px; margin-bottom: 8px; } .ct-items { max-height: 70vh; overflow: auto; } .ct-back { display: none; }

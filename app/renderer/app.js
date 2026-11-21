@@ -346,8 +346,8 @@
       h('div', { class: 'install' }, h('b', {}, `Bản cài · ${b.install.unitCode}`), b.install.unitName),
       h('nav', { 'aria-label': 'Menu chính' }, h('ul', { class: 'nav' }, NAV_GROUPS.map(([gid, glabel, items]) => {
         const closed = navClosedGet(); const open = !closed[gid] || items.includes(view); // tự mở nhóm chứa màn hiện tại
-        const ul = h('ul', { class: 'nav-items', id: `nav-g-${gid}` }, items.map((v) => { const [, n, tt] = NAV.find(([x]) => x === v); return h('li', {}, h('button', { 'aria-current': view === v ? 'page' : null, onclick: () => D.go(v) },
-          h('span', { class: 'n' }, n), tt, v === 'sync' && sync.total ? h('span', { class: 'badge', 'aria-label': `${sync.total} nhắc` }, sync.total) : null, v === 'reconcile' && rc.problems ? h('span', { class: 'badge', 'aria-label': `${rc.problems} vấn đề cần xử lý` }, rc.problems) : null)); }));
+        const ul = h('ul', { class: 'nav-items', id: `nav-g-${gid}` }, items.map((v) => { const [, n, tt] = NAV.find(([x]) => x === v); return h('li', {}, h('button', { 'aria-current': view === v ? 'page' : null, onclick: () => D.go(v), title: tt },
+          h('span', { class: 'n' }, n), h('span', { class: 'nav-txt' }, tt), v === 'sync' && sync.total ? h('span', { class: 'badge', 'aria-label': `${sync.total} nhắc` }, sync.total) : null, v === 'reconcile' && rc.problems ? h('span', { class: 'badge', 'aria-label': `${rc.problems} vấn đề cần xử lý` }, rc.problems) : null)); }));
         ul.hidden = !open;
         const head = h('button', { class: 'nav-group-h', 'aria-expanded': String(open), 'aria-controls': `nav-g-${gid}`, onclick: () => {
           const now = ul.hidden; ul.hidden = !now; head.setAttribute('aria-expanded', String(now)); const o = navClosedGet(); if (now) delete o[gid]; else o[gid] = true; navClosedSet(o); } }, h('span', { class: 'chev', 'aria-hidden': 'true' }, '▾'), glabel);
