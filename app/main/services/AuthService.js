@@ -32,7 +32,27 @@ function checkStrength(pw) {
 }
 
 class AuthService {
-  constructor(store, { now = () => Date.now() } = {}) { this.store = store; this.sessions = new Map(); this.now = now; }
+  constructor(store, { now = () => Date.now(), machineState = null } = {}) {
+    this.store = store;
+    this.sessions = new Map();
+    this.now = now;
+    this.machineState = machineState;
+  }
+
+  _getMachineState() {
+    if (!this.machineState) return {};
+    if (typeof this.machineState.get === 'function') return this.machineState.get() || {};
+    return this.machineState;
+  }
+
+  _setMachineState(patch) {
+    if (!this.machineState) return;
+    if (typeof this.machineState.set === 'function') {
+      this.machineState.set(patch);
+    } else if (typeof this.machineState === 'object') {
+      Object.assign(this.machineState, patch);
+    }
+  }
 
   _user(username) {
     const u = this.store.get('USERS', String(username || '').trim().toLowerCase());
@@ -42,10 +62,15 @@ class AuthService {
 
   /**
    * Bản cài MỚI TINH: chưa tài khoản nào (mọi vai trò, kể cả đã ngừng dùng) từng có mật khẩu, từng đăng nhập hay được cấp mã kích hoạt
-   * → ADMIN đầu tiên được đặt mật khẩu không cần mã. Rà soát 1.8.2: trước đây chỉ xét "ADMIN đang hoạt động có mật khẩu", nên khi ADMIN duy nhất
-   * bị đặt lại mật khẩu / ngừng dùng / hạ vai trò thì ngoại lệ mở lại và ai cũng chiếm được tài khoản ADMIN chưa đặt mật khẩu.
+   * VÀ máy này chưa từng hoàn thành thiết lập admin (firstAdminCompleted trong machine-state)
+   * → ADMIN đầu tiên được đặt mật khẩu không cần mã.
+   * Khắc phục 1.8.3: khi khôi phục bản sao lưu cũ (chưa có pass), cờ máy firstAdminCompleted vẫn giữ nguyên nên không bị mở lại ngoại lệ.
    */
-  firstAdminOpen() { return !this.store.find('USERS', (u) => u.password_hash || u.setup_code_hash || u.last_login_at).length; }
+  firstAdminOpen() {
+    const ms = this._getMachineState();
+    if (ms && ms.firstAdminCompleted) return false;
+    return !this.store.find('USERS', (u) => u.password_hash || u.setup_code_hash || u.last_login_at).length;
+  }
   /** Số ADMIN đang hoạt động CÓ mật khẩu (đăng nhập được), trừ tài khoản `except`. */
   _loginAdmins(except = '') { return this.store.find('USERS', (u) => u.role === 'ADMIN' && u.is_active && u.password_hash && u.username !== except).length; }
 
@@ -120,6 +145,9 @@ class AuthService {
       tx.update('USERS', u.username, { password_hash: hash(pw, salt), password_salt: salt, password_algo: ALGO, must_change_password: false, failed_attempts: 0, locked_until: '', last_login_at: tx.now, ...NO_CODE });
       tx.audit(action, 'USERS', u.username);
     }, { user: u.username });
+    if (u.role === 'ADMIN') {
+      this._setMachineState({ firstAdminCompleted: true, completedAt: new Date(this.now()).toISOString() });
+    }
     return this._newSession(this._user(u.username));
   }
 

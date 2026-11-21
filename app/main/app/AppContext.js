@@ -68,6 +68,31 @@ class AppContext {
     fs.mkdirSync(path.dirname(this.configFile), { recursive: true });
     const tmp = `${this.configFile}.tmp`; fs.writeFileSync(tmp, JSON.stringify(c, null, 1)); fs.renameSync(tmp, this.configFile);
   }
+
+  machineStateFilePath() {
+    return this.machineStateFile || (this.configFile ? path.join(path.dirname(this.configFile), 'machine-state.json') : '');
+  }
+
+  readMachineState() {
+    try {
+      const f = this.machineStateFilePath();
+      if (!f || !fs.existsSync(f)) return {};
+      return JSON.parse(fs.readFileSync(f, 'utf8'));
+    } catch { return {}; }
+  }
+
+  writeMachineState(patch) {
+    try {
+      const f = this.machineStateFilePath();
+      if (!f) return;
+      fs.mkdirSync(path.dirname(f), { recursive: true });
+      const current = this.readMachineState();
+      const updated = { ...current, ...patch };
+      const tmp = `${f}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(updated, null, 1));
+      fs.renameSync(tmp, f);
+    } catch { /* không chặn */ }
+  }
   /** Thông tin kho cho màn hình Cài đặt: loại kho, vùng đồng bộ, dấu chuyển, khả năng chuyển / quay lại. */
   storageInfo() {
     const kind = this.storageKind(); const folder = this.readConfig().dataFolder || '';
@@ -207,8 +232,12 @@ class AppContext {
     this.store = store;
     const importService = new ImportService(store);
     const backup = new BackupService(store, { reopen: (root) => newStore(root, {}, store.storageKind).open() });
+    const machineState = {
+      get: () => this.readMachineState(),
+      set: (patch) => this.writeMachineState(patch),
+    };
     this.svc = {
-      auth: new AuthService(store), import: importService, templates: new ImportTemplates(store), periods: new PeriodService(store), tickets: new TicketService(store),
+      auth: new AuthService(store, { machineState }), import: importService, templates: new ImportTemplates(store), periods: new PeriodService(store), tickets: new TicketService(store),
       catalog: new CatalogService(store), master: new MasterDataService(store), records: new RecordService(store, { importService }),
       query: new QueryService(store), sync: new SyncReminderService(store), backup,
       exchange: new ExchangeService(store, { backup }), reports: new ReportService(store, { pdfRenderer: this.pdfRenderer }),

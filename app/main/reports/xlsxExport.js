@@ -76,9 +76,108 @@ async function writeBkvc(d, file) {
 }
 
 async function writeTable(d, file, { landscape = true } = {}) {
+  // Khi bảng có số dòng lớn (≥ 2.000 dòng, vd xuất hàng chục ngàn phiếu cân) và không có bảng phụ/chữ ký phức tạp:
+  // tự động dùng luồng (streaming WorkbookWriter) để giải phóng RAM tức thì, tránh vượt giới hạn heap trên máy trạm.
+  if (d.rows && d.rows.length >= 2000 && !d.extraTables && !d.signers) {
+    return writeTableStream(d, file, { landscape });
+  }
   const wb = new ExcelJS.Workbook(); wb.creator = 'DGVC';
   tableSheet(wb, d, { landscape });
   await wb.xlsx.writeFile(file);
+}
+
+/** Xuất bảng bằng ExcelJS stream (WorkbookWriter): giải phóng bộ nhớ RAM tức thì cho các bảng lớn (hàng chục nghìn dòng). */
+async function writeTableStream(d, file, { landscape = true, sheetName } = {}) {
+  const wb = new ExcelJS.stream.xlsx.WorkbookWriter({ filename: file, useStyles: true });
+  wb.creator = 'DGVC';
+  const ws = wb.addWorksheet((sheetName || d.title).slice(0, 30), {
+    pageSetup: {
+      paperSize: 9,
+      orientation: landscape ? 'landscape' : 'portrait',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+    },
+    views: [{ state: 'frozen', ySplit: 4 }],
+  });
+
+  const cols = d.columns.map((c) => ({
+    width: c.key === 'description' ? 70 : Math.max(8, Math.min(28, c.header.length < 12 ? 12 : 16)),
+  }));
+  ws.columns = cols;
+
+  const r1 = ws.addRow([d.company ? d.company.unit_name.toUpperCase() : '']);
+  r1.getCell(1).font = { name: FONT, bold: true };
+  r1.commit();
+
+  const r2 = ws.addRow([d.title]);
+  r2.getCell(1).font = { name: FONT, bold: true, size: 14 };
+  r2.commit();
+
+  const r3 = ws.addRow([d.subtitle || '']);
+  r3.getCell(1).font = { name: FONT, italic: true };
+  r3.commit();
+
+  const hr = ws.addRow(d.columns.map((c) => c.header));
+  hr.height = 42;
+  hr.eachCell((cell) => {
+    cell.font = { name: FONT, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F2740' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.border = box;
+  });
+  hr.commit();
+
+  for (const row of d.rows) {
+    const vals = d.columns.map((c) => {
+      const v = row[c.key];
+      return c.fmt === 'date' ? dmy(v) : (v === '' || v === undefined ? null : v);
+    });
+    const dr = ws.addRow(vals);
+    dr.eachCell((cell, i) => {
+      const c = d.columns[i - 1];
+      if (!c) return;
+      cell.numFmt = FMT[c.fmt] || '@';
+      cell.border = box;
+      cell.font = { name: FONT, size: 10, bold: !!row._b };
+      if (row._b) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F5F8' } };
+      cell.alignment = {
+        horizontal: ['int', 'money', 'dec1', 'dec2'].includes(c.fmt) ? 'right' : 'left',
+        vertical: 'top',
+        wrapText: c.key === 'description',
+      };
+    });
+    dr.commit();
+  }
+
+  if (d.totalsRow) {
+    const trVals = d.columns.map((c) => (d.totalsRow[c.key] !== undefined ? d.totalsRow[c.key] : null));
+    const tr = ws.addRow(trVals);
+    tr.eachCell((cell, i) => {
+      const c = d.columns[i - 1];
+      if (!c) return;
+      cell.numFmt = FMT[c.fmt] || '@';
+      cell.border = box;
+      cell.font = { name: FONT, bold: true, size: 10 };
+    });
+    tr.commit();
+  } else if (d.totals) {
+    const tVals = new Array(d.columns.length).fill(null);
+    tVals[0] = d.totals.trips;
+    tVals[1] = 'TỔNG CỘNG';
+    const kgCol = d.columns.findIndex((c) => c.key === 'net_kg');
+    if (kgCol >= 0) tVals[kgCol] = d.totals.kg;
+    const tr = ws.addRow(tVals);
+    tr.eachCell((cell, i) => {
+      cell.border = box;
+      cell.font = { name: FONT, bold: true };
+      if (i - 1 === kgCol) cell.numFmt = FMT.int;
+    });
+    tr.commit();
+  }
+
+  ws.commit();
+  await wb.commit();
 }
 
 /** Nhiều bảng trong 1 file: d = { company, title, subtitle, sheets:[{ name, title, columns, rows, totalsRow }] } */
@@ -383,4 +482,4 @@ async function writeContractBasis(d, file) {
   await wb.xlsx.writeFile(file);
 }
 
-module.exports = { writeBkvc, writeTable, writeSheets, writeSignBlock, writeMisa, writePricingSheet, writeFuelHandover, writeContractBasis, MISA_TEMPLATE };
+module.exports = { writeBkvc, writeTable, writeTableStream, writeSheets, writeSignBlock, writeMisa, writePricingSheet, writeFuelHandover, writeContractBasis, MISA_TEMPLATE };
