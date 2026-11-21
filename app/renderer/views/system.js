@@ -206,6 +206,15 @@
   };
   const pretty = (s) => { try { return JSON.stringify(JSON.parse(s || 'null'), null, 1); } catch { return s; } };
 
+  const UF = [{ key: 'unitCode', label: 'Mã công ty', required: true }, { key: 'unitName', label: 'Tên công ty', required: true, full: true }, { key: 'docDisplayName', label: 'Tên ghi trên chứng từ', full: true, hint: 'in trên BKVC / bảng kê (vd "CN Công ty TNHH Hoàng Anh Khôi")' },
+    { key: 'shortName', label: 'Tên ngắn' }, { key: 'unitType', label: 'Loại', type: 'select', options: [['CONG_TY', 'Công ty'], ['CHI_NHANH', 'Chi nhánh']] }, { key: 'taxCode', label: 'MST' }, { key: 'phone', label: 'Điện thoại' }, { key: 'address', label: 'Địa chỉ', full: true }, { key: 'email', label: 'Email' },
+    { key: 'legalRepSalutation', label: 'Người đại diện — xưng hô', type: 'select', options: [['', '—'], ['Ông', 'Ông'], ['Bà', 'Bà']] }, { key: 'legalRepName', label: 'Người đại diện (ký hợp đồng)' }, { key: 'legalRepTitle', label: 'Chức danh' },
+    { key: 'bankName', label: 'Ngân hàng' }, { key: 'bankAccount', label: 'Số tài khoản' },
+    { key: 'signPriority', label: 'Thứ tự ký (số nhỏ ký Giám đốc)', type: 'number' }, { key: 'accountantName', label: 'Kế toán ký BKVC' }, { key: 'factoryName', label: 'Nhà máy' }, { key: 'nameAliases', label: 'Tên khác trong file cân (;)', full: true }];
+  const uv = (x) => ({ unitCode: x.unit_code, unitName: x.unit_name, docDisplayName: x.doc_display_name, shortName: x.short_name, unitType: x.unit_type, taxCode: x.tax_code, address: x.address, phone: x.phone, email: x.email, legalRepSalutation: x.legal_rep_salutation, legalRepName: x.legal_rep_name, legalRepTitle: x.legal_rep_title,
+    bankName: x.bank_name, bankAccount: x.bank_account, signPriority: x.sign_priority, accountantName: x.accountant_name, factoryName: x.factory_name, nameAliases: x.name_aliases });
+  const reminder = (r) => { for (const w of r.warnings || []) D.toast(w.message, 'info', 9000); };
+
   // ───────── Cài đặt ─────────
   D.views.settings = {
     async render(p) {
@@ -238,35 +247,14 @@
           submit: async (v) => { await D.api('config.save', { key: r.config_key, value: v.value, reason: v.reason }); await D.refreshBoot(); D.go('settings', { tab: 'params' }); } }) : null,
         columns: [{ key: 'config_key', label: 'Tham số' }, { key: 'config_value', label: 'Giá trị' }, { key: 'description', label: 'Ý nghĩa' }, { key: 'updated_by', label: 'Sửa bởi' }] })));
       } else if (tab === 'units') {
-        const none = { items: [] }; // mỗi màn chỉ gọi API nó cần (Xe không cần công ty / hợp đồng; Công ty & đối tác không cần danh sách xe)
-        const [u, v, cs] = await Promise.all([only === 'vehicles' ? none : D.api('units.list'), only === 'units' ? none : D.api('vehicles.list'), only === 'vehicles' ? none : D.api('contracts.list')]);
-        const me = D.state.boot.install.unitCode; const mine = u.items.find((x) => x.unit_code === me); const partners = u.items.filter((x) => x.unit_code !== me);
-        const UF = [{ key: 'unitCode', label: 'Mã công ty', required: true }, { key: 'unitName', label: 'Tên công ty', required: true, full: true }, { key: 'docDisplayName', label: 'Tên ghi trên chứng từ', full: true, hint: 'in trên BKVC / bảng kê (vd "CN Công ty TNHH Hoàng Anh Khôi")' },
-          { key: 'shortName', label: 'Tên ngắn' }, { key: 'unitType', label: 'Loại', type: 'select', options: [['CONG_TY', 'Công ty'], ['CHI_NHANH', 'Chi nhánh']] }, { key: 'taxCode', label: 'MST' }, { key: 'phone', label: 'Điện thoại' }, { key: 'address', label: 'Địa chỉ', full: true }, { key: 'email', label: 'Email' },
-          { key: 'legalRepSalutation', label: 'Người đại diện — xưng hô', type: 'select', options: [['', '—'], ['Ông', 'Ông'], ['Bà', 'Bà']] }, { key: 'legalRepName', label: 'Người đại diện (ký hợp đồng)' }, { key: 'legalRepTitle', label: 'Chức danh' },
-          { key: 'bankName', label: 'Ngân hàng' }, { key: 'bankAccount', label: 'Số tài khoản' },
-          { key: 'signPriority', label: 'Thứ tự ký (số nhỏ ký Giám đốc)', type: 'number' }, { key: 'accountantName', label: 'Kế toán ký BKVC' }, { key: 'factoryName', label: 'Nhà máy' }, { key: 'nameAliases', label: 'Tên khác trong file cân (;)', full: true }];
-        const uv = (x) => ({ unitCode: x.unit_code, unitName: x.unit_name, docDisplayName: x.doc_display_name, shortName: x.short_name, unitType: x.unit_type, taxCode: x.tax_code, address: x.address, phone: x.phone, email: x.email, legalRepSalutation: x.legal_rep_salutation, legalRepName: x.legal_rep_name, legalRepTitle: x.legal_rep_title,
-          bankName: x.bank_name, bankAccount: x.bank_account, signPriority: x.sign_priority, accountantName: x.accountant_name, factoryName: x.factory_name, nameAliases: x.name_aliases });
-        const reminder = (r) => { for (const w of r.warnings || []) D.toast(w.message, 'info', 9000); };
-        const editUnit = (x, title) => D.formModal({ title, fields: UF.map((f) => (f.key === 'unitCode' ? { ...f, readonly: true } : f)), values: uv(x), wide: true, submit: async (val) => { reminder(await D.api('units.save', { record: val, rowVersion: x.row_version })); await D.refreshBoot(); D.go(only || 'units'); } });
-        // quan hệ của đối tác với công ty mình, suy ra từ hợp đồng
-        const rel = (code) => { const a = cs.items.some((c) => c.carrier_unit_code === me && c.customer_unit_code === code); const b2 = cs.items.some((c) => c.customer_unit_code === me && c.carrier_unit_code === code); return a && b2 ? 'Bên thuê + bên vận chuyển' : a ? 'Bên thuê vận chuyển' : b2 ? 'Bên vận chuyển cho mình' : 'Chưa có hợp đồng'; };
-        const kv = (k, val) => h('div', { class: 'kv' }, h('span', { class: 'small muted' }, k), h('b', {}, val || '—'));
-        const unitsPart = [h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Công ty vận chuyển (công ty dùng phần mềm này)'), D.can('ADMIN') && mine ? h('button', { class: 'btn', onclick: () => editUnit(mine, `Công ty ${mine.unit_code}`) }, 'Sửa thông tin công ty') : null),
-          mine ? h('div', { class: 'card company-card' }, h('div', { class: 'company-grid' }, kv('Mã', mine.unit_code), kv('Tên công ty', mine.unit_name), kv('Tên trên chứng từ', mine.doc_display_name), kv('MST', mine.tax_code), kv('Địa chỉ', mine.address), kv('Điện thoại', mine.phone), kv('Email', mine.email),
-            kv('Người đại diện', [mine.legal_rep_salutation, mine.legal_rep_name].filter(Boolean).join(' ') + (mine.legal_rep_title ? ` — ${mine.legal_rep_title}` : '')), kv('Ngân hàng', mine.bank_name), kv('Số tài khoản', mine.bank_account), kv('Kế toán ký BKVC', mine.accountant_name))) : h('p', { class: 'muted' }, `Chưa có công ty ${me} trong danh mục.`),
-          h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Công ty đối tác'), D.can('ADMIN') ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm công ty đối tác', fields: UF, values: { unitType: 'CONG_TY', signPriority: 50 }, wide: true, submit: async (x) => { reminder(await D.api('units.save', { create: true, record: x })); await D.refreshBoot(); D.go(only || 'units'); } }) }, 'Thêm đối tác') : null),
-          h('p', { class: 'small muted' }, D.can('ADMIN') ? 'Danh mục các công ty làm việc với bạn: bên thuê vận chuyển, bên giao dầu, chủ xe… Bấm vào một dòng để sửa.' : 'Danh mục các công ty làm việc với bạn: bên thuê vận chuyển, bên giao dầu, chủ xe… Chỉ ADMIN sửa được thông tin công ty / đối tác.'),
-          h('div', { class: 'card flush' }, D.table({ rows: partners, onRow: D.can('ADMIN') ? (x) => editUnit(x, `Đối tác ${x.unit_code}`) : null,
-            columns: [{ key: 'unit_code', label: 'Mã' }, { key: 'unit_name', label: 'Tên' }, { key: 'x', label: 'Quan hệ', render: (r) => rel(r.unit_code) }, { key: 'tax_code', label: 'MST' }, { key: 'phone', label: 'Điện thoại' }, { key: 'address', label: 'Địa chỉ' }], empty: 'Chưa có công ty đối tác' })),
-        ];
+        if (only === 'units') return D.views.units.render(p);
+        const [v] = await Promise.all([D.api('vehicles.list')]);
         const vehPart = [h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Xe'), D.writer() ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm xe', fields: [{ key: 'plateNo', label: 'Biển số', required: true, hint: 'vd 92H-00057' }, { key: 'ownerUnitCode', label: 'Chủ xe', type: 'select', options: D.unitOptions() }, { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' }], values: { ownerUnitCode: D.state.boot.install.unitCode },
-            submit: async (x) => { reminder(await D.api('vehicles.save', { create: true, record: x })); D.go(only || 'units'); } }) }, 'Thêm xe') : null),
+            submit: async (x) => { reminder(await D.api('vehicles.save', { create: true, record: x })); D.go('vehicles'); } }) }, 'Thêm xe') : null),
           h('div', { class: 'card flush' }, D.table({ rows: v.items, onRow: D.writer() ? (x) => vehicleEdit(x, reminder) : null,
             columns: [{ key: 'plate_no', label: 'Biển số' }, { key: 'owner_unit_code', label: 'Chủ xe' }, { key: 'fuel_code', label: 'Mã xe dầu' }, { key: 'note', label: 'Ghi chú' }, { key: 'is_active', label: 'Đang dùng', fmt: 'bool' }] })),
           D.writer() ? h('p', { class: 'small muted' }, 'Bấm vào 1 xe để sửa chủ xe, mã xe dầu, ghi chú, sửa biển số nhập nhầm, ngừng dùng hoặc xóa xe nhập nhầm.') : null];
-        body.append(...(only === 'vehicles' ? vehPart : only === 'units' ? unitsPart : [...unitsPart, ...vehPart]));
+        body.append(...vehPart);
       } else if (tab === 'users') {
         if (!admin) { body.append(h('p', { class: 'muted' }, 'Chỉ ADMIN quản lý người dùng.')); } else {
           const d = await D.api('users.list');
@@ -296,7 +284,170 @@
       return D.page('Cài đặt', '11 · Cài đặt', [], tabs, body);
     },
   };
-  // Màn riêng (menu Danh mục): cùng nội dung cũ của tab Cài đặt › Công ty & xe, tách làm 2
-  D.views.units = { render: (p) => D.views.settings.render({ ...p, tab: 'units', only: 'units' }) };
+  // Màn riêng (menu Danh mục): Xe
   D.views.vehicles = { render: (p) => D.views.settings.render({ ...p, tab: 'units', only: 'vehicles' }) };
+
+  // ───────── Công ty & đối tác (2 tab: Công ty vận chuyển / Công ty đối tác) ─────────
+  D.views.units = {
+    async render(p = {}) {
+      const [u, cs] = await Promise.all([D.api('units.list'), D.api('contracts.list')]);
+      const me = D.state.boot.install.unitCode;
+      const mine = u.items.find((x) => x.unit_code === me);
+      const partners = u.items.filter((x) => x.unit_code !== me);
+      const admin = D.can('ADMIN');
+
+      let currentTab = p.tab || 'mine';
+
+      const editUnit = (x, title) => D.formModal({
+        title,
+        fields: UF.map((f) => (f.key === 'unitCode' ? { ...f, readonly: true } : f)),
+        values: uv(x),
+        wide: true,
+        submit: async (val) => {
+          reminder(await D.api('units.save', { record: val, rowVersion: x.row_version }));
+          await D.refreshBoot();
+          D.go('units', { tab: currentTab });
+        }
+      });
+
+      const addPartner = () => D.formModal({
+        title: 'Thêm công ty đối tác',
+        fields: UF,
+        values: { unitType: 'CONG_TY', signPriority: 50 },
+        wide: true,
+        submit: async (x) => {
+          reminder(await D.api('units.save', { create: true, record: x }));
+          await D.refreshBoot();
+          D.go('units', { tab: 'partners' });
+        }
+      });
+
+      const rel = (code) => {
+        const a = cs.items.some((c) => c.carrier_unit_code === me && c.customer_unit_code === code);
+        const b2 = cs.items.some((c) => c.customer_unit_code === me && c.carrier_unit_code === code);
+        return a && b2 ? { text: 'Bên thuê + bên vận chuyển', tag: 'ok' } : a ? { text: 'Bên thuê vận chuyển', tag: 'info' } : b2 ? { text: 'Bên vận chuyển cho mình', tag: 'ok' } : { text: 'Chưa có hợp đồng', tag: 'mute' };
+      };
+
+      const kv = (lbl, val) => h('div', { class: 'unit-kv' }, h('span', { class: 'lbl' }, lbl), h('span', { class: 'val' }, val || '—'));
+
+      const tabs = h('div', { class: 'tabs', role: 'tablist' });
+      const tabContent = h('div', { class: 'tab-content' });
+      const actionsBox = h('div', { class: 'btns' });
+
+      const renderTab = (k) => {
+        currentTab = k;
+        tabs.innerHTML = '';
+        tabs.append(
+          h('button', { role: 'tab', 'aria-selected': String(currentTab === 'mine'), onclick: () => renderTab('mine') }, 'Công ty vận chuyển'),
+          h('button', { role: 'tab', 'aria-selected': String(currentTab === 'partners'), onclick: () => renderTab('partners') }, `Công ty đối tác (${partners.length})`)
+        );
+
+        actionsBox.innerHTML = '';
+        tabContent.innerHTML = '';
+
+        if (currentTab === 'mine') {
+          if (admin && mine) {
+            actionsBox.append(h('button', { class: 'btn primary', onclick: () => editUnit(mine, `Công ty ${mine.unit_code}`) }, 'Sửa thông tin công ty'));
+          }
+
+          if (!mine) {
+            tabContent.append(h('div', { class: 'card' }, h('p', { class: 'muted' }, `Chưa có thông tin công ty ${me} trong danh mục.`)));
+            return;
+          }
+
+          const col1 = h('div', { class: 'card' },
+            h('h2', {}, 'Thông tin doanh nghiệp & Liên hệ'),
+            h('div', { class: 'unit-kv-list' },
+              h('div', { class: 'unit-kv' }, h('span', { class: 'lbl' }, 'Mã đơn vị'), h('span', { class: 'val' }, h('b', { class: 'mono' }, mine.unit_code), ' ', h('span', { class: 'tag ok' }, 'Bản cài này'))),
+              kv('Tên công ty', mine.unit_name),
+              h('div', { class: 'unit-kv' }, h('span', { class: 'lbl' }, 'Tên trên chứng từ'), h('div', { class: 'val' }, h('div', {}, mine.doc_display_name || mine.unit_name), h('span', { class: 'small muted' }, 'In trên BKVC & Bảng tính đơn giá'))),
+              kv('Mã số thuế', mine.tax_code),
+              kv('Loại hình', mine.unit_type === 'CHI_NHANH' ? 'Chi nhánh' : 'Công ty'),
+              kv('Tên viết tắt', mine.short_name),
+              kv('Số điện thoại', mine.phone),
+              kv('Email', mine.email),
+              kv('Địa chỉ trụ sở', mine.address)
+            )
+          );
+
+          const col2 = h('div', { class: 'card' },
+            h('h2', {}, 'Ký duyệt chứng từ & Thanh toán'),
+            h('div', { class: 'unit-kv-list' },
+              kv('Người đại diện', [mine.legal_rep_salutation, mine.legal_rep_name].filter(Boolean).join(' ') + (mine.legal_rep_title ? ` (${mine.legal_rep_title})` : '')),
+              kv('Kế toán ký BKVC', mine.accountant_name),
+              kv('Thứ tự ký', mine.sign_priority != null ? String(mine.sign_priority) : '—'),
+              kv('Số tài khoản', mine.bank_account),
+              kv('Tại ngân hàng', mine.bank_name),
+              kv('Tên nhà máy', mine.factory_name),
+              kv('Tên trong file cân', mine.name_aliases)
+            )
+          );
+
+          const asCarrier = cs.items.filter((c) => c.carrier_unit_code === me);
+          const asCustomer = cs.items.filter((c) => c.customer_unit_code === me);
+          const contractCard = h('div', { class: 'card' },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' } },
+              h('div', {},
+                h('h2', { style: { margin: '0 0 6px' } }, 'Hợp đồng vận chuyển liên quan'),
+                h('p', { class: 'small muted', style: { margin: 0 } }, `${asCarrier.length} hợp đồng làm bên vận chuyển · ${asCustomer.length} hợp đồng làm bên thuê`)
+              ),
+              h('button', { class: 'btn', onclick: () => D.go('contracts') }, 'Xem danh mục Hợp đồng →')
+            )
+          );
+
+          tabContent.append(h('div', { class: 'grid g2' }, col1, col2), contractCard);
+        } else {
+          // Tab Đối tác
+          if (admin) {
+            actionsBox.append(h('button', { class: 'btn primary', onclick: addPartner }, 'Thêm công ty đối tác'));
+          }
+
+          const qInp = h('input', { type: 'text', placeholder: 'Tìm theo mã, tên, MST đối tác...', 'aria-label': 'Tìm đối tác' });
+          const tableBox = h('div', { class: 'card flush' });
+
+          const filterPartners = () => {
+            const kw = qInp.value.trim().toLowerCase();
+            const list = kw ? partners.filter((x) => (x.unit_code || '').toLowerCase().includes(kw) || (x.unit_name || '').toLowerCase().includes(kw) || (x.tax_code || '').toLowerCase().includes(kw) || (x.address || '').toLowerCase().includes(kw)) : partners;
+            tableBox.innerHTML = '';
+            tableBox.append(D.table({
+              rows: list,
+              onRow: admin ? (x) => editUnit(x, `Đối tác ${x.unit_code}`) : null,
+              columns: [
+                { key: 'unit_code', label: 'Mã' },
+                { key: 'unit_name', label: 'Tên đối tác', wrap: true },
+                { key: 'x', label: 'Quan hệ', render: (r) => { const info = rel(r.unit_code); return h('span', { class: `tag ${info.tag}` }, info.text); } },
+                { key: 'tax_code', label: 'MST' },
+                { key: 'phone', label: 'Điện thoại' },
+                { key: 'rep', label: 'Đại diện / Kế toán', render: (r) => [r.legal_rep_name, r.accountant_name].filter(Boolean).join(' · ') || '—' },
+                { key: 'address', label: 'Địa chỉ', wrap: true },
+                ...(admin ? [{ key: 'act', label: '', render: (r) => h('button', { class: 'btn small', onclick: (e) => { e.stopPropagation(); editUnit(r, `Đối tác ${r.unit_code}`); } }, 'Sửa') }] : [])
+              ],
+              empty: kw ? 'Không tìm thấy công ty đối tác phù hợp' : 'Chưa có công ty đối tác'
+            }));
+          };
+
+          qInp.addEventListener('input', filterPartners);
+          filterPartners();
+
+          const filterBar = h('div', { class: 'card', style: { padding: '12px 18px', marginBottom: '14px' } },
+            h('div', { class: 'filters filters-inline' },
+              h('label', { class: 'field' }, h('span', {}, 'Tìm kiếm'), qInp),
+              h('span', { class: 'small muted', style: { marginLeft: 'auto' } }, `${partners.length} đối tác`)
+            )
+          );
+
+          const guideNote = h('p', { class: 'small muted', style: { marginTop: '8px' } },
+            admin ? 'Bấm vào một dòng để sửa thông tin đối tác.' : 'Chỉ ADMIN sửa được thông tin công ty / đối tác.'
+          );
+
+          tabContent.append(filterBar, tableBox, guideNote);
+        }
+      };
+
+      renderTab(currentTab);
+
+      const notice = !admin ? h('p', { class: 'small muted', style: { margin: '0 0 10px' } }, 'Chỉ ADMIN sửa được thông tin công ty / đối tác.') : null;
+      return D.page('Công ty & đối tác', 'Danh mục · Công ty vận chuyển và công ty đối tác', [actionsBox], notice, tabs, tabContent);
+    }
+  };
 })();
