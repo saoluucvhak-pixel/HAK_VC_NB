@@ -16,8 +16,8 @@
  */
 const E = require('../engine');
 const { AppError, businessError } = require('../../shared/errors');
-const PRICE_METHOD_LABEL = { CO_DINH: 'Đơn giá cố định', THEO_DAU: 'Đơn giá theo giá dầu', HON_HOP: 'Hỗn hợp (cần tách mã)' };
-const MIXED_WARNING = 'Mã có cả dòng cố định và theo giá dầu (tạo ở bản cũ) — tách thành 2 mã';
+const PRICE_METHOD_LABEL = { CO_DINH: 'Đơn giá cố định', THEO_DAU: 'Đơn giá điều chỉnh dầu', HON_HOP: 'Hỗn hợp (cần tách mã)' };
+const MIXED_WARNING = 'Mã có cả dòng cố định và điều chỉnh dầu (tạo ở bản cũ) — tách thành 2 mã';
 const lineMethod = (p) => (p.price_method === 'CO_DINH' ? 'CO_DINH' : 'THEO_DAU'); // dòng giá cũ cột rỗng = theo giá dầu
 const { remindTx } = require('./SyncReminderService');
 
@@ -401,7 +401,7 @@ class CatalogService {
     const name = String(r.price_name || '').trim(); if (!name) bad.push('Thiếu tên mã đơn giá'); else if (name.length > 120) bad.push('Tên mã đơn giá tối đa 120 ký tự');
     if (String(r.note || '').trim().length > 500) bad.push('Ghi chú tối đa 500 ký tự');
     const wantMethod = r.price_method === undefined || r.price_method === null || r.price_method === '' ? '' : String(r.price_method);
-    if (wantMethod && !PRICE_METHOD_LABEL[wantMethod]) bad.push('Hình thức giá chỉ có: CO_DINH (đơn giá cố định) hoặc THEO_DAU (theo giá dầu)');
+    if (wantMethod && !PRICE_METHOD_LABEL[wantMethod]) bad.push('Hình thức giá chỉ có: CO_DINH (đơn giá cố định) hoặc THEO_DAU (đơn giá điều chỉnh dầu)');
     const unitCode = String(r.unit_code || '').trim().toUpperCase();
     if (!this.store.get('DON_VI', unitCode)) bad.push(`Đơn vị ${unitCode || '(chưa chọn)'} không có trong danh mục`);
     if (bad.length) throw new AppError('VALIDATION_FAILED', bad.join('; '), { errors: bad });

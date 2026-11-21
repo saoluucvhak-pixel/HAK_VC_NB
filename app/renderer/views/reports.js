@@ -269,15 +269,142 @@
     await load();
   }
 
+  // Báo cáo đơn giá theo tuyến (theo Hợp đồng / Mã đơn giá / Bảng giá chung)
+  async function routePricesTab(body) {
+    const pcs = await D.api('pricecodes.list', {}, { quiet: true }).catch(() => ({ items: [] }));
+    const modeSel = h('select', { 'aria-label': 'Nguồn bảng giá' },
+      h('option', { value: '' }, '— Bảng giá chung —'),
+      h('optgroup', { label: 'Theo Hợp đồng' }, D.contractOptions().map(([id, lbl]) => h('option', { value: `C:${id}` }, lbl))),
+      (pcs.items || []).length ? h('optgroup', { label: 'Theo Mã đơn giá' }, pcs.items.map((c) => h('option', { value: `P:${c.price_code}` }, `${c.price_code} · ${c.price_name} (${c.priceMethodLabel})`))) : null
+    );
+    const asOfInp = h('input', { type: 'date', value: D.today(), 'aria-label': 'Áp dụng ngày' });
+    const out = h('div');
+    const sfSlot = h('div', { style: { marginTop: '10px' } });
+    let allRows = [];
+    let currentLabel = 'Giá chung';
+    let currentContractId = '';
+    let sfState = D.sf ? D.sf.empty() : { q: '', one: {} };
+    let sfInfo = { kept: 0, total: 0 };
+    let sfMount = null;
+
+    const sfCfg = {
+      screenId: 'report-route-prices',
+      searchPlaceholder: 'Tìm không dấu: mã tuyến, tên tuyến, phiên bản giá…',
+      quickFields: ['q', 'method', 'uom'],
+      advancedFields: ['q', 'method', 'uom'],
+      fields: [
+        { key: 'method', label: 'Hình thức giá', type: 'enum', options: [{ value: 'CO_DINH', label: 'Đơn giá cố định' }, { value: 'THEO_DAU', label: 'Đơn giá điều chỉnh dầu' }], match: (r, v) => r.priceMethod === v },
+        { key: 'uom', label: 'ĐVT', type: 'enum', options: [{ value: 'Tấn', label: 'Tấn' }, { value: 'M3', label: 'M³' }], match: (r, v) => r.uom === v || (v === 'Tấn' && r.uom === 'TAN') }
+      ],
+      matchQ: (r, q) => D.sf.hay([r.routeCode, r.routeName, r.priceId, r.source]).indexOf(q) >= 0,
+      state: { get: () => sfState, set: (s) => { sfState = s; } },
+      dataSource: () => sfInfo,
+      onApply: () => draw(),
+      onReset: () => draw(),
+      scopeFallback: () => 'Tất cả tuyến có đơn giá'
+    };
+
+    const draw = () => {
+      const res = D.sf ? D.sf.filterRows(allRows, sfCfg, sfState) : { rows: allRows, kept: allRows.length, total: allRows.length };
+      sfInfo = { kept: res.kept, total: res.total, unsupported: res.unsupported };
+      const rows = res.rows;
+      const fixedCnt = rows.filter((r) => r.priceMethod === 'CO_DINH').length;
+      const oilCnt = rows.length - fixedCnt;
+      out.innerHTML = '';
+      out.append(h('div', { class: 'kpis' },
+        h('div', { class: 'kpi' }, h('div', { class: 'v' }, D.vn(rows.length)), h('div', { class: 'l' }, 'Tuyến có đơn giá')),
+        h('div', { class: 'kpi' }, h('div', { class: 'v' }, D.vn(fixedCnt)), h('div', { class: 'l' }, 'Đơn giá cố định')),
+        h('div', { class: 'kpi' }, h('div', { class: 'v' }, D.vn(oilCnt)), h('div', { class: 'l' }, 'Đơn giá điều chỉnh dầu')),
+        h('div', { class: 'kpi main' }, h('div', { class: 'v', style: { fontSize: '1.1rem' } }, currentLabel), h('div', { class: 'l' }, `Áp dụng ${D.dmy(asOfInp.value || D.today())}`))
+      ));
+      out.append(h('div', { class: 'card flush' }, D.table({
+        rows,
+        empty: 'Không có đơn giá theo tuyến phù hợp bộ lọc',
+        columns: [
+          { key: 'routeCode', label: 'Mã tuyến' },
+          { key: 'routeName', label: 'Tên tuyến', wrap: true },
+          { key: 'tripDistanceKm', label: 'Cự ly chuyến (km)', num: true, fmt: 'auto' },
+          { key: 'uom', label: 'ĐVT' },
+          { key: 'priceMethod', label: 'Hình thức', render: (r) => (r.priceMethod === 'CO_DINH' ? D.tag('info', 'Cố định') : h('span', { class: 'small muted' }, 'Điều chỉnh dầu')) },
+          { key: 'contractPrice', label: 'Đơn giá', num: true, render: (r) => h('span', { class: 'money' }, D.vn(r.contractPrice)) },
+          { key: 'fuelPriceCatalog', label: 'ĐG dầu DM', num: true, render: (r) => (r.priceMethod === 'CO_DINH' ? '—' : D.vn(r.fuelPriceCatalog)) },
+          { key: 'fuelNormLPerKm', label: 'ĐM (l/km)', num: true, render: (r) => (r.priceMethod === 'CO_DINH' ? '—' : D.vn(r.fuelNormLPerKm, 1)) },
+          { key: 'avgLoadTon', label: 'KL TB', num: true, render: (r) => (r.priceMethod === 'CO_DINH' ? '—' : D.vnAuto(r.avgLoadTon)) },
+          { key: 'priceId', label: 'Phiên bản', render: (r) => h('span', { class: 'mono small' }, r.priceId) },
+          { key: 'effectiveFrom', label: 'Từ ngày', fmt: 'date' },
+          { key: 'source', label: 'Nguồn' }
+        ]
+      })));
+    };
+
+    const load = async () => {
+      const val = modeSel.value;
+      const asOf = asOfInp.value || D.today();
+      if (val.startsWith('P:')) {
+        const pc = val.slice(2);
+        currentContractId = '';
+        currentLabel = `Mã ${pc}`;
+        const d = await D.api('pricecodes.get', { priceCode: pc });
+        const routesByCode = Object.fromEntries((D.state.boot.routes || []).map((r) => [r.route_code, r]));
+        allRows = (d.lines || []).filter((l) => l.status === 'ACTIVE' && l.effective_from <= asOf && (!l.effective_to || l.effective_to >= asOf)).map((l) => {
+          const ro = routesByCode[l.route_code] || {};
+          const m = l.price_method === 'CO_DINH' ? 'CO_DINH' : 'THEO_DAU';
+          return {
+            routeCode: l.route_code, routeName: l.routeName || ro.route_name || '',
+            tripDistanceKm: ro.trip_distance_km || 0, uom: l.uom === 'M3' ? 'M3' : 'Tấn',
+            priceMethod: m, contractPrice: m === 'CO_DINH' ? l.fixed_price : l.contractPrice,
+            fuelPriceCatalog: l.fuel_price_excl_vat, fuelNormLPerKm: l.fuel_norm_l_per_km, avgLoadTon: l.avg_load_ton,
+            priceId: l.price_id, effectiveFrom: l.effective_from, source: `Mã ${pc}`
+          };
+        });
+      } else {
+        currentContractId = val.startsWith('C:') ? val.slice(2) : '';
+        const d = await D.api('reports.contractBasis', { contractId: currentContractId, asOf });
+        currentLabel = d.contract ? d.contract.code : 'Giá chung';
+        allRows = d.rows || [];
+      }
+      draw();
+      if (sfMount) sfMount.refresh();
+    };
+
+    const expBasis = (fmt) => async () => {
+      if (modeSel.value.startsWith('P:')) { D.toast('Chọn Hợp đồng hoặc Bảng giá chung để xuất mẫu Căn cứ giá HĐ', 'info'); return; }
+      const params = { contractId: currentContractId, asOf: asOfInp.value || D.today() };
+      const def = `BaoCaoDonGiaTheoTuyen_${currentContractId || 'GiaChung'}_${params.asOf}.${fmt.toLowerCase()}`;
+      const target = window.dgvc ? await D.pickFile({ title: `Lưu ${fmt}`, save: true, defaultPath: def }) : '';
+      if (window.dgvc && !target) return;
+      const r = await D.api('reports.export', { report: 'CONTRACT_BASIS', format: fmt, params, targetPath: target || undefined });
+      D.toast(`Đã xuất ${fmt}: ${r.path}`, 'ok', 8000);
+      if (window.dgvc) D.api('system.openPath', { path: r.path }, { quiet: true }).catch(() => {});
+    };
+
+    modeSel.addEventListener('change', load);
+    asOfInp.addEventListener('change', load);
+    if (D.smartFilter) { sfMount = D.smartFilter.mount(sfCfg); sfSlot.append(sfMount.el); }
+    body.append(h('div', { class: 'card' },
+      h('div', { class: 'filters' },
+        h('label', { class: 'field wide' }, h('span', {}, 'Nguồn bảng giá (Hợp đồng / Mã đơn giá / Giá chung)'), modeSel),
+        h('label', { class: 'field' }, h('span', {}, 'Áp dụng ngày'), asOfInp),
+        h('button', { class: 'btn primary', onclick: load }, 'Xem'),
+        h('span', { style: { flex: 1 } }),
+        h('button', { class: 'btn', onclick: async () => { if (!modeSel.value.startsWith('P:')) await D.api('reports.print', { report: 'CONTRACT_BASIS', params: { contractId: currentContractId, asOf: asOfInp.value || D.today() } }); else window.print(); } }, 'In'),
+        h('button', { class: 'btn', onclick: expBasis('PDF') }, 'Xuất PDF'),
+        h('button', { class: 'btn primary', onclick: expBasis('XLSX') }, 'Xuất Excel')
+      ),
+      sfSlot
+    ), out);
+    await load();
+  }
+
   D.views.reports = {
     async render(p) {
       const tab = p.tab || 'periods';
-      const TABS = [['periods', 'Kỳ tính'], ['volume', 'Tổng hợp khối lượng'], ['vehicle', 'Nhật trình xe'], ['tickets', 'Phiếu cân'], ['fuel', 'Giao nhận dầu']];
+      const TABS = [['periods', 'Kỳ tính'], ['volume', 'Tổng hợp khối lượng'], ['vehicle', 'Nhật trình xe'], ['tickets', 'Phiếu cân'], ['fuel', 'Giao nhận dầu'], ['route_prices', 'Đơn giá theo tuyến']];
       const tabs = h('div', { class: 'tabs', role: 'tablist' }, TABS.map(([k, t]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => D.go('reports', { tab: k }) }, t)));
       if (tab !== 'periods') {
         const body = h('div');
         const page = D.page('Báo cáo', `9 · ${TABS.find((x) => x[0] === tab)[1]}`, [], tabs, body);
-        await ({ volume: volumeTab, vehicle: vehicleLogTab, tickets: ticketTab, fuel: fuelTab }[tab])(body, p);
+        await ({ volume: volumeTab, vehicle: vehicleLogTab, tickets: ticketTab, fuel: fuelTab, route_prices: routePricesTab }[tab])(body, p);
         return page;
       }
       const f = D.form([{ key: 'contractId', label: 'Hợp đồng', type: 'select', options: [['', 'Tất cả'], ...D.contractOptions()] }, { key: 'status', label: 'Trạng thái', type: 'select', options: [['', 'Tất cả'], ['NHAP', 'Nháp'], ['DA_XAC_NHAN', 'Đã xác nhận'], ['DA_KHOA', 'Đã khóa']] },

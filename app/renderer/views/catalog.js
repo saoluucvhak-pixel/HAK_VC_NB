@@ -172,7 +172,7 @@
         out.innerHTML = '';
         out.append(h('div', { class: 'card flush' }, D.table({ rows: d.items, onRow: (r) => (r.status === 'DRAFT' && D.writer() ? draft(r) : null), columns: [{ key: 'price_id', label: 'Phiên bản' }, { key: 'contract_id', label: 'Hợp đồng' },
           { key: 'effective_from', label: 'Từ ngày', fmt: 'date' }, { key: 'effective_to', label: 'Đến ngày', fmt: 'date' }, { key: 'status', label: 'Trạng thái', fmt: 'tag' },
-          { key: 'price_method', label: 'Phương thức', render: (r) => (r.price_method === 'CO_DINH' ? D.tag('info', 'Cố định') : h('span', { class: 'small muted' }, 'Theo giá dầu')) },
+          { key: 'price_method', label: 'Phương thức', render: (r) => (r.price_method === 'CO_DINH' ? D.tag('info', 'Cố định') : h('span', { class: 'small muted' }, 'Điều chỉnh dầu')) },
           { key: 'new_price', label: 'ĐG ký HĐ dự kiến', num: true, render: (r) => (r.price_method === 'CO_DINH' ? '—' : D.vnAuto(r.new_price)) },
           { key: 'base_price_excl_vat', label: 'ĐG tham khảo', fmt: 'auto' }, { key: 'base_price_source', label: 'Nguồn tham khảo', wrap: true },
           ...[['fuel_price_excl_vat', 'ĐG dầu DM'], ['fuel_norm_l_per_km', 'ĐM (l/km)'], ['avg_load_ton', 'KL_TB']].map(([key, label]) => ({ key, label, num: true, render: (r) => (r.price_method === 'CO_DINH' ? '—' : D.vnAuto(r[key])) })),
@@ -288,7 +288,7 @@
         const usageNote = h('p', { class: 'small', style: { margin: '0 0 12px' } }, use.canEditParties
           ? [D.tag('ok', 'Chưa dùng'), ' Hợp đồng chưa có kỳ tính, chưa có dòng dầu — sửa được cả mã hợp đồng, bên vận chuyển, bên thuê; xóa được nếu nhập nhầm.']
           : [D.tag('info', 'Đã dùng'), ` Hợp đồng đã có ${use.blockers.join(', ')} — sửa được số HĐ, ngày hiệu lực, tên in, người ký, phạm vi xe; KHÔNG đổi mã / hai bên và không xóa. Nhập nhầm thì thêm hợp đồng đúng rồi bấm "Ngừng dùng".`]);
-        const METHOD_TXT = { CO_DINH: 'đơn giá cố định', THEO_DAU: 'theo giá dầu' };
+        const METHOD_TXT = { CO_DINH: 'đơn giá cố định', THEO_DAU: 'đơn giá điều chỉnh dầu' };
         const myCode = (pcs.items || []).find((x) => x.price_code === c.price_code);
         const routeOf = (rc) => (D.state.boot.routes || []).find((x) => x.route_code === rc);
 
@@ -396,7 +396,7 @@
           { key: 'inUse', label: 'Có phiếu cân', render: (r) => (r.inUse ? 'Có' : '—') },
           { key: 'contractPrice', label: 'Đơn giá', num: true, render: (r) => (r.contractPrice != null ? D.vn(r.contractPrice) + ' đ/tấn' : '—') },
           { key: 'source', label: 'Nguồn giá', render: (r) => (r.source === 'CODE' ? D.tag('info', `theo mã ${r.priceCode} (${METHOD_TXT[r.priceMethod] || r.priceMethod})`) : r.source === 'CONTRACT' ? h('span', { class: 'small' }, 'giá riêng hợp đồng (cách cũ)') : h('span', { class: 'small muted' }, 'dùng giá chung (cách cũ)')) },
-          { key: 'priceMethod', label: 'Hình thức', render: (r) => (r.priceMethod === 'CO_DINH' ? 'Cố định' : 'Theo giá dầu') }
+          { key: 'priceMethod', label: 'Hình thức', render: (r) => (r.priceMethod === 'CO_DINH' ? 'Cố định' : 'Điều chỉnh dầu') }
         ];
         function drawRs() {
           const others = rs.items.filter((x) => !x.inContract).length;

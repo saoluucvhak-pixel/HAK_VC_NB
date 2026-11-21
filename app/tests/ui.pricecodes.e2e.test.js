@@ -35,11 +35,11 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     // màn Mã đơn giá
     await nav('Mã đơn giá'); await page.getByRole('heading', { name: 'Mã đơn giá' }).first().waitFor();
     const tree = page.locator('.pc-tree'); await tree.getByText('Chưa có mã đơn giá nào').waitFor();
-    await tree.getByRole('heading', { name: 'Đơn giá cố định' }).waitFor(); await tree.getByRole('heading', { name: 'Đơn giá theo giá dầu' }).waitFor();
+    await tree.getByRole('heading', { name: 'Đơn giá cố định' }).waitFor(); await tree.getByRole('heading', { name: 'Đơn giá điều chỉnh dầu' }).waitFor();
     await tree.getByRole('button', { name: '+ Mã đơn giá cố định' }).click();
     const m = page.locator('.modal', { hasText: 'Tạo mã đơn giá' }); await m.getByLabel(/Đơn vị/).selectOption(unit);
     // B7: hai thẻ hình thức là radio — đã chọn sẵn thẻ cố định; bàn phím (mũi tên) đổi thẻ; có tên truy cập
-    const rCD = m.getByRole('radio', { name: /Đơn giá cố định/ }); const rTD = m.getByRole('radio', { name: /Đơn giá theo giá dầu/ });
+    const rCD = m.getByRole('radio', { name: /Đơn giá cố định/ }); const rTD = m.getByRole('radio', { name: /Đơn giá điều chỉnh dầu/ });
     assert.equal(await rCD.isChecked(), true); await rCD.focus(); await page.keyboard.press('ArrowDown'); assert.equal(await rTD.isChecked(), true);
     await page.keyboard.press('ArrowUp'); assert.equal(await rCD.isChecked(), true);
     await m.getByLabel(/Mã đơn giá/).fill('DG-UI-01'); await m.getByLabel(/Tên mã đơn giá/).fill('Giá cố định thử UI'); await m.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã tạo mã DG-UI-01/);
@@ -77,13 +77,13 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     await page.locator('.pc-detail').getByText(/DG-UI-01/).first().waitFor();
     await page.locator('.pc-detail').getByRole('button', { name: /Bỏ mã khỏi hợp đồng HAKQN-QS/ }).click(); await page.locator('.modal').getByRole('button', { name: 'Đồng ý' }).click(); await toast(/Đã bỏ mã khỏi hợp đồng/);
     assert.equal(ct().price_code || '', '');
-    // mã THEO GIÁ DẦU: tạo bằng thẻ thứ hai, dòng giá có "Đơn giá ký hợp đồng", giá dầu, định mức, tải trọng; cự ly chỉ hiển thị
-    await nav('Mã đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: '+ Mã đơn giá theo giá dầu' }).click();
-    const m2 = page.locator('.modal', { hasText: 'Tạo mã đơn giá' }); assert.equal(await m2.getByRole('radio', { name: /Đơn giá theo giá dầu/ }).isChecked(), true); await m2.getByLabel(/Đơn vị/).selectOption(unit);
-    await m2.getByLabel(/Mã đơn giá/).fill('DG-UI-02'); await m2.getByLabel(/Tên mã đơn giá/).fill('Giá theo dầu thử UI'); await m2.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã tạo mã DG-UI-02/);
+    // mã ĐIỀU CHỈNH DẦU: tạo bằng thẻ thứ hai, dòng giá có "Đơn giá ký hợp đồng", giá dầu, định mức, tải trọng; cự ly chỉ hiển thị
+    await nav('Mã đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: '+ Mã đơn giá điều chỉnh dầu' }).click();
+    const m2 = page.locator('.modal', { hasText: 'Tạo mã đơn giá' }); assert.equal(await m2.getByRole('radio', { name: /Đơn giá điều chỉnh dầu/ }).isChecked(), true); await m2.getByLabel(/Đơn vị/).selectOption(unit);
+    await m2.getByLabel(/Mã đơn giá/).fill('DG-UI-02'); await m2.getByLabel(/Tên mã đơn giá/).fill('Giá điều chỉnh dầu thử UI'); await m2.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã tạo mã DG-UI-02/);
     await page.locator('.pc-detail').getByRole('button', { name: 'Thêm dòng giá cố định' }).waitFor({ state: 'detached' });
-    await page.locator('.pc-detail').getByRole('button', { name: 'Thêm dòng giá theo giá dầu' }).click();
-    const tm = page.locator('.modal', { hasText: 'Thêm dòng giá theo giá dầu vào mã DG-UI-02' });
+    await page.locator('.pc-detail').getByRole('button', { name: 'Thêm dòng giá điều chỉnh dầu' }).click();
+    const tm = page.locator('.modal', { hasText: 'Thêm dòng giá điều chỉnh dầu vào mã DG-UI-02' });
     await tm.getByRole('combobox', { name: /^Tuyến/ }).selectOption('VC.007'); assert.equal(await tm.getByLabel(/Cự ly chuyến/).inputValue(), '144'); assert.equal(await tm.getByLabel(/Cự ly chuyến/).getAttribute('readonly') !== null, true);
     // B8: cảnh báo sớm, trước khi lưu — chưa nhập đơn giá/định mức → báo ngay
     await tm.getByLabel(/ĐG dầu chưa VAT/).fill('15.500'); await tm.locator('[role=status]').getByText(/phải > 0/).first().waitFor();
@@ -124,6 +124,11 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     await nav('Mã đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: /DG-UI-02/ }).click(); await page.locator('.pc-detail').getByText(/DG-UI-02/).first().waitFor();
     for (const name of [/^\+ Mã/, /Thêm dòng giá/, /Chọn đơn giá có sẵn/, /Gán cho hợp đồng/, /Sửa mã/, /Đóng mã/, /^Áp dụng$/]) assert.equal(await page.getByRole('button', { name }).count(), 0, `XEM không được thấy nút ${name}`);
+    // Kiểm tra Báo cáo -> Đơn giá theo tuyến
+    await page.locator('nav .nav-items').getByRole('button', { name: 'Báo cáo' }).first().click();
+    await page.getByRole('tab', { name: 'Đơn giá theo tuyến' }).click();
+    await page.getByLabel('Nguồn bảng giá').waitFor();
+    await page.locator('tbody tr', { hasText: 'VC.007' }).waitFor();
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await srv.close(); }
 });
