@@ -32,8 +32,8 @@
   --note-fg: var(--warnFg, #6b4a10);
   --overlay: rgba(8, 14, 26, .62);
   --radius: var(--r, 12px);
-  --font: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", 'Be Vietnam Pro', sans-serif;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'IBM Plex Mono', monospace;
+  --font: 'Be Vietnam Pro', "Segoe UI", -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   /* tên cũ — giữ để các chỗ dùng var(--green…) theo màu mới */
   --green: var(--brand); --green-dark: var(--brand-dark); --accent: var(--brand-2); --sidebar-bg: var(--deep, #0f1b33);
 }
@@ -96,9 +96,10 @@ a { color: var(--brand-text); }
 .filters-inline .field input[type="date"], .filters-inline .field input { width: 150px; min-height: 38px; }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
 .field > span { font-size: .84rem; font-weight: 600; color: var(--text); }
-.field input, .field select, .field textarea { border: 1px solid var(--field-line); border-radius: 8px; padding: 7px 11px; background: var(--field-bg); min-height: 38px; transition: border-color .15s, box-shadow .15s; }
-.field input:focus, .field select:focus, .field textarea:focus { outline: 0; border-color: var(--brand); box-shadow: 0 0 0 .2rem var(--brand-soft); }
-.field input[readonly], .field select:disabled, .field textarea[readonly] { background: var(--field-off-bg); color: var(--field-off-fg); cursor: not-allowed; }
+input:not([type="checkbox"]):not([type="radio"]), select, textarea { border: 1px solid var(--field-line); border-radius: 8px; padding: 7px 11px; background: var(--field-bg); min-height: 38px; transition: border-color .15s, box-shadow .15s; }
+input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:focus { outline: 0; border-color: var(--brand); box-shadow: 0 0 0 .2rem var(--brand-soft); }
+input[readonly], select:disabled, textarea[readonly] { background: var(--field-off-bg); color: var(--field-off-fg); cursor: not-allowed; }
+textarea { width: 100%; min-height: 110px; line-height: 1.55; resize: vertical; }
 .field.wide { min-width: 320px; flex: 1; } .field.full { grid-column: 1 / -1; }
 .field .hint, .field > span.hint { font-size: .76rem; color: var(--text-mute); font-weight: 400; }
 .req::after { content: " *"; color: var(--red); }
@@ -166,8 +167,9 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .pc-layout { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 1000px) { .pc-layout { grid-template-columns: minmax(0, 1fr); } }
 .pc-tree h2 { margin-top: 0; } .pc-unit { margin-bottom: 14px; } .pc-unit-h { align-items: center; margin-bottom: 4px; }
-.pc-code { display: block; width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: 8px; padding: 6px 10px; cursor: pointer; color: var(--text); }
-.pc-code:hover { background: var(--field-off-bg, rgba(0, 0, 0, .04)); } .pc-code[aria-current="true"] { border-color: var(--brand); background: var(--field-off-bg, rgba(0, 0, 0, .04)); font-weight: 600; }
+.pc-code { display: block; width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: 8px; padding: 8px 11px; margin-bottom: 3px; cursor: pointer; color: var(--text); transition: all .15s; }
+.pc-code:hover { background: var(--row-hover); }
+.pc-code[aria-current="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-text); font-weight: 600; }
 .pc-detail > .card { margin-bottom: 14px; }
 .storage-card p { font-size: 14px; line-height: 1.55; margin: 10px 0; } .storage-card .tag { font-size: 12.5px; }
 .btn:disabled { opacity: .6; } .right { text-align: right; }

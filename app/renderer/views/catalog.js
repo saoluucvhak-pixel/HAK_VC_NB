@@ -410,7 +410,28 @@
           h('div', { class: 'card', style: { margin: '12px 0' } }, h('h2', {}, 'Giao nhận dầu của hợp đồng'),
           h('p', { class: 'small' }, `${D.vn(use.fuelRows)} dòng dầu · ${D.vn(use.periods)} kỳ tính. Dầu nhập tay hoặc import từ Excel đều gắn đúng hợp đồng này; chỉ dùng cho các tuyến theo giá dầu.`),
           h('button', { class: 'btn small', onclick: () => D.go('fuel', { contractId: c.contract_id }) }, 'Sang màn nhập dầu →')) : null;
-        const vehTxt = h('textarea', { rows: 8, 'aria-label': 'Phạm vi xe', readonly: !w }); vehTxt.value = veh.items.map((v) => `${v.plate_no}\t${v.effective_from}\t${v.effective_to || ''}`).join('\n');
+        const vehTxt = h('textarea', { rows: 6, 'aria-label': 'Phạm vi xe', readonly: !w, style: { width: '100%', fontFamily: 'var(--mono)', fontSize: '.86rem', whiteSpace: 'pre', overflowX: 'auto' } });
+        vehTxt.value = veh.items.map((v) => `${v.plate_no}\t${v.effective_from}\t${v.effective_to || ''}`).join('\n');
+        const vehPreview = h('div', { class: 'card flush', style: { marginBottom: '10px' } });
+        const drawVehPreview = () => {
+          const rows = vehTxt.value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+            const [plateNo = '', effectiveFrom = '', effectiveTo = ''] = l.split(/\t|\s{2,}|,/);
+            return { plateNo: plateNo.trim(), effectiveFrom: effectiveFrom.trim(), effectiveTo: effectiveTo.trim() };
+          });
+          vehPreview.replaceChildren(D.table({
+            rows,
+            maxHeight: '32vh',
+            empty: 'Hợp đồng chưa có xe nào',
+            columns: [
+              { key: 'plateNo', label: 'Biển số', render: (r) => h('b', { class: 'mono' }, r.plateNo) },
+              { key: 'effectiveFrom', label: 'Hiệu lực từ', fmt: 'date' },
+              { key: 'effectiveTo', label: 'Hiệu lực đến', fmt: 'date' },
+              { key: 'st', label: 'Trạng thái', render: (r) => (r.effectiveTo ? D.tag('CLOSED', 'Hết hiệu lực') : D.tag('ACTIVE', 'Đang dùng')) }
+            ]
+          }));
+        };
+        vehTxt.addEventListener('input', drawVehPreview);
+        drawVehPreview();
         const signer = (s) => h('div', {}, h('b', {}, s.unitName), h('div', {}, `${s.signer.title}: ${s.signer.name}`), h('div', { class: 'small muted' }, `Kế toán: ${s.accountant || '—'} · ${s.source === 'OVERRIDE' ? 'ghi đè' : 'theo thứ tự ưu tiên'}`));
         const saveContract = async () => { const r = await D.api('contracts.save', { record: { contractId: c.contract_id, ...f.values() }, rowVersion: c.row_version }); D.toast('Đã lưu hợp đồng', 'ok'); showReminder(r); await back(keepOther('info')); };
         const saveVehicles = async () => { const vehicles = vehTxt.value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const [plateNo, effectiveFrom, effectiveTo] = l.split(/\t|\s{2,}|,/); return { plateNo, effectiveFrom, effectiveTo }; });
@@ -423,9 +444,12 @@
           info: () => h('div', {}, usageNote, f, h('div', { class: 'sep' }), h('h2', {}, 'Người ký (thứ tự ưu tiên HAK → HAKQN → ĐH → CNHAK)'), h('div', { class: 'grid g2' }, signer(signers.carrier), signer(signers.customer)),
             w ? h('div', { class: 'btns', style: { marginTop: '12px' } }, h('button', { class: 'btn primary', 'data-hotkey': 'primary', onclick: saveContract }, 'Lưu hợp đồng'), ...(use.canDelete ? [h('button', { class: 'btn danger', onclick: del }, 'Xóa hợp đồng…')] : []),
               h('button', { class: 'btn', onclick: toggle }, c.is_active ? 'Ngừng dùng' : 'Dùng lại')) : null),
-          vehicles: () => h('div', {}, h('p', { class: 'small muted' }, 'Mỗi dòng: biển số [tab] hiệu lực từ [tab] hiệu lực đến (trống = đang dùng). Xe bỏ khỏi danh sách được đóng hiệu lực, không xóa.'), vehTxt,
-            w ? h('div', { class: 'btns', style: { marginTop: '8px' } },
-              h('button', { class: 'btn small', onclick: async () => { const s = await D.api('contracts.suggestVehicles', { contractId: c.contract_id }); const have = new Set(vehTxt.value.split('\n').map((l) => l.split('\t')[0])); vehTxt.value += s.plates.filter((x) => !have.has(x)).map((x) => `\n${x}\t${c.effective_from}\t`).join(''); } }, 'Gợi ý xe (từ phiếu cân)'),
+          vehicles: () => h('div', {},
+            vehPreview,
+            h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, 'Chỉnh sửa nhanh (mỗi dòng: biển số [tab] hiệu lực từ [tab] hiệu lực đến, trống = đang dùng; xe bỏ khỏi danh sách được đóng hiệu lực, không xóa):'),
+            vehTxt,
+            w ? h('div', { class: 'btns', style: { marginTop: '10px' } },
+              h('button', { class: 'btn small', onclick: async () => { const s = await D.api('contracts.suggestVehicles', { contractId: c.contract_id }); const have = new Set(vehTxt.value.split('\n').map((l) => l.split('\t')[0])); vehTxt.value += s.plates.filter((x) => !have.has(x)).map((x) => `\n${x}\t${c.effective_from}\t`).join(''); drawVehPreview(); } }, 'Gợi ý xe (từ phiếu cân)'),
               h('button', { class: 'btn small', onclick: async () => {
                 const vs = await D.api('vehicles.list');
                 const have = new Set(vehTxt.value.split('\n').map((l) => l.split('\t')[0].trim()).filter(Boolean));
@@ -443,6 +467,7 @@
                     if (picked.size) {
                       const prefix = vehTxt.value.trim() ? '\n' : '';
                       vehTxt.value = vehTxt.value.trimEnd() + prefix + [...picked].map((p) => `${p}\t${c.effective_from}\t`).join('\n');
+                      drawVehPreview();
                     }
                     return true;
                   } }] });
