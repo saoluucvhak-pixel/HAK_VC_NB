@@ -7,7 +7,7 @@ const path = require('node:path');
 const { start } = require('../tools/dev-server');
 const { FILE, KETOAN, rid } = require('./install');
 
-const CHROME = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
+const CHROME = process.env.CHROMIUM_PATH || (fs.existsSync('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe') ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '/opt/pw-browsers/chromium');
 
 test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định, áp dụng, gán hợp đồng; chọn đơn giá có sẵn; hợp đồng chọn mã', { skip: !fs.existsSync(CHROME) && 'không có Chromium', timeout: 300000 }, async () => {
   const { chromium } = require('playwright-core');
@@ -16,7 +16,11 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
   const page = await browser.newPage({ viewport: { width: 1366, height: 800 }, locale: 'vi-VN' });
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   const toast = async (re) => { await page.locator('.toast', { hasText: re }).first().waitFor({ timeout: 30000 }); };
-  const nav = async (label) => { await page.locator('nav button', { hasText: label }).first().click(); await page.waitForTimeout(500); };
+  const nav = async (label) => {
+    const l = (label === 'Mã đơn giá' || label === 'Đơn giá') ? 'DM Đơn giá' : label;
+    await page.locator('nav button', { hasText: l }).first().click();
+    await page.waitForTimeout(500);
+  };
   try {
     await page.goto(srv.url);
     await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
@@ -30,10 +34,8 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     const ctx = srv.ctx; const contractId = 'HD-HAKQN-QS'; const ct = () => ctx.store.get('HOP_DONG', contractId); const unit = ct().customer_unit_code;
     const imp = ctx.svc.import; const a = await imp.preview({ importType: 'PHIEU_CAN', filePath: FILE.HAKQN, user: 'k' }); await imp.confirm({ batchId: a.batchId, acceptWarnings: true, clientRequestId: rid(), user: 'k' });
 
-    // màn Đơn giá CŨ vẫn như cũ (không lẫn dòng của mã)
-    await nav('Đơn giá'); await page.getByRole('heading', { name: 'Đơn giá' }).first().waitFor();
-    // màn Mã đơn giá
-    await nav('Mã đơn giá'); await page.getByRole('heading', { name: 'Mã đơn giá' }).first().waitFor();
+    // màn DM Đơn giá (hợp nhất cha-con)
+    await nav('DM Đơn giá'); await page.getByRole('heading', { name: /DM Đơn giá|Mã đơn giá/ }).first().waitFor();
     const tree = page.locator('.pc-tree'); await tree.getByText('Chưa có mã đơn giá nào').waitFor();
     await tree.getByRole('heading', { name: 'Đơn giá cố định' }).waitFor(); await tree.getByRole('heading', { name: 'Đơn giá điều chỉnh dầu' }).waitFor();
     await tree.getByRole('button', { name: '+ Mã đơn giá cố định' }).click();
@@ -73,7 +75,7 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     await cm.getByText(/Mã đơn giá của đối tác/).waitFor(); assert.equal(await cm.getByText('DG-KHAC-DT').count(), 0, 'không thấy mã của đối tác khác');
     await cm.getByRole('tab', { name: 'Thông tin' }).click(); await cm.getByLabel('Ghi chú').fill('sửa ghi chú — không đụng mã giá'); await cm.getByRole('button', { name: 'Lưu hợp đồng' }).click(); await toast(/Đã lưu hợp đồng/);
     assert.equal(ct().price_code, 'DG-UI-01', 'lưu hợp đồng không làm mất mã đơn giá');
-    cm = await pickCt('Mã đơn giá'); await cm.getByRole('button', { name: 'Đổi ở Mã đơn giá →' }).click();
+    cm = await pickCt('Mã đơn giá'); await cm.getByRole('button', { name: /Đổi ở (DM Đơn giá|Mã đơn giá) →/ }).click();
     await page.locator('.pc-detail').getByText(/DG-UI-01/).first().waitFor();
     await page.locator('.pc-detail').getByRole('button', { name: /Bỏ mã khỏi hợp đồng HAKQN-QS/ }).click(); await page.locator('.modal').getByRole('button', { name: 'Đồng ý' }).click(); await toast(/Đã bỏ mã khỏi hợp đồng/);
     assert.equal(ct().price_code || '', '');
@@ -95,10 +97,10 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     await page.locator('.pc-detail').getByRole('button', { name: 'Chọn đơn giá có sẵn…' }).click();
     const pm = page.locator('.modal', { hasText: 'Chọn đơn giá có sẵn đưa vào mã DG-UI-02' }); await pm.locator('input[type=checkbox]').first().check(); await pm.locator('input[type=date]').fill('2027-01-01'); await pm.getByRole('button', { name: 'Đưa vào mã' }).click();
     await toast(/Đã đưa 1 dòng vào mã/);
-    // B3: màn Đơn giá cũ có nhãn "cách cũ"
-    await nav('Đơn giá'); await page.locator('main').getByText('Cách cũ').first().waitFor();
+    // B3: màn DM Đơn giá (hợp nhất cha-con)
+    await nav('DM Đơn giá');
     // thuật ngữ: "Đơn giá ký hợp đồng"; không còn "Đơn giá hợp đồng" / "ĐG HĐ" ở các màn giá
-    for (const label of ['Đơn giá', 'Mã đơn giá', 'Báo cáo giá hợp đồng']) {
+    for (const label of ['DM Đơn giá', 'Báo cáo giá hợp đồng']) {
       await nav(label); await page.waitForTimeout(400);
       const txt = await page.locator('main').innerText(); assert.ok(!/Đơn giá hợp đồng|ĐG HĐ/.test(txt), `màn ${label} còn nhãn cũ`);
     }

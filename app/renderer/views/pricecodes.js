@@ -17,12 +17,12 @@
       const tree = h('aside', { class: 'card pc-tree', 'aria-label': 'Đơn vị và mã đơn giá' }); const detail = h('section', { class: 'pc-detail', 'aria-live': 'polite' });
       const again = async (code) => { if (code !== undefined) sel = code; await loadTree(); await loadDetail(); };
 
-      // ── Cha: tạo / sửa mã. Hình thức giá = 2 thẻ radio (Tab/mũi tên/Enter); khóa khi mã đã có dòng giá hoặc hợp đồng ──
+      // ── Cha: tạo / sửa mã. Phương thức đơn giá = 2 thẻ radio (Tab/mũi tên/Enter); khóa khi mã đã có dòng giá hoặc hợp đồng ──
       const METHOD_HINT = { CO_DINH: 'Mỗi tuyến một đơn giá đ/tấn, dùng nguyên số — không tính dầu.', THEO_DAU: 'Đơn giá điều chỉnh dầu: đơn giá ký hợp đồng + chênh lệch dầu thực nhận.' };
       const methodCards = (value, locked) => {
         const name = `pc-method-${Math.random().toString(36).slice(2, 7)}`;
         const cards = Object.entries(METHOD_LABEL).map(([m, label]) => h('label', { class: 'pc-card' }, h('input', { type: 'radio', name, value: m, checked: m === value, disabled: locked }), h('b', {}, label), h('span', { class: 'small muted' }, METHOD_HINT[m])));
-        const group = h('div', { class: 'pc-cards', role: 'radiogroup', 'aria-label': 'Hình thức giá' }, cards);
+        const group = h('div', { class: 'pc-cards', role: 'radiogroup', 'aria-label': 'Phương thức đơn giá' }, cards);
         group.value = () => (group.querySelector('input:checked') || {}).value || value;
         return group;
       };
@@ -33,7 +33,7 @@
           { key: 'unitCode', label: 'Đơn vị', type: 'select', options: D.unitOptions().filter(([c]) => c !== D.state.boot.install.unitCode || c === (rec && rec.unit_code) || c === defUnit), required: true, hint: 'công ty đối tác áp dụng mã giá' },
           { key: 'priceName', label: 'Tên mã đơn giá', required: true, full: true }, { key: 'note', label: 'Ghi chú', full: true }];
         const f = D.form(fields, rec ? { priceCode: rec.price_code, unitCode: rec.unit_code, priceName: rec.price_name, note: rec.note } : { unitCode: defUnit || '' });
-        D.modal({ title: rec ? `Sửa mã ${rec.price_code}` : 'Tạo mã đơn giá', body: h('div', {}, h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, mixed ? 'Mã này có cả dòng cố định và điều chỉnh dầu (tạo ở bản cũ) — hãy tách thành 2 mã.' : locked ? 'Hình thức giá không đổi được khi mã đã có dòng giá hoặc đã gán hợp đồng.' : 'Chọn hình thức giá:'), cards, f),
+        D.modal({ title: rec ? `Sửa mã ${rec.price_code}` : 'Tạo mã đơn giá', body: h('div', {}, h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, mixed ? 'Mã này có cả dòng cố định và điều chỉnh dầu (tạo ở bản cũ) — hãy tách thành 2 mã.' : locked ? 'Phương thức đơn giá không đổi được khi mã đã có dòng giá hoặc đã gán hợp đồng.' : 'Chọn phương thức đơn giá:'), cards, f),
           actions: [{ label: 'Hủy', run: () => true }, { label: 'Lưu', primary: true, run: async () => {
             const v = { ...f.values(), ...(mixed ? {} : { priceMethod: cards.value() }) }; const miss = fields.filter((x) => x.required && (v[x.key] === '' || v[x.key] === null)).map((x) => x.label);
             if (miss.length) { D.toast(`Chưa nhập: ${miss.join(', ')}`, 'err'); return false; }
@@ -138,7 +138,7 @@
         if (!guard.ok(tok)) return;
         const c = d.record; const closed = c.status !== 'ACTIVE'; const mixed = c.priceMethod === 'HON_HOP'; const noEdit = closed || mixed;
         const kpis = h('div', { class: 'kpis', style: { margin: '10px 0 0' } },
-          h('div', { class: 'kpi' }, h('div', { class: 'v', style: { fontSize: '1.05rem' } }, METHOD_LABEL[c.priceMethod] || c.priceMethodLabel), h('div', { class: 'l' }, 'Hình thức')),
+          h('div', { class: 'kpi' }, h('div', { class: 'v', style: { fontSize: '1.05rem' } }, METHOD_LABEL[c.priceMethod] || c.priceMethodLabel), h('div', { class: 'l' }, 'Phương thức')),
           h('div', { class: 'kpi' }, h('div', { class: 'v' }, D.vn(c.lineCount)), h('div', { class: 'l' }, 'Đơn giá con')),
           h('div', { class: 'kpi' }, h('div', { class: 'v' }, D.vn(c.activeLines)), h('div', { class: 'l' }, 'Đang áp dụng')),
           h('div', { class: 'kpi' }, h('div', { class: 'v' }, D.vn(c.contracts.length)), h('div', { class: 'l' }, 'Hợp đồng dùng'))
@@ -210,10 +210,10 @@
             w && g.method !== 'HON_HOP' ? h('button', { class: 'btn small', title: `Tạo mã ${g.label.toLowerCase()}`, onclick: () => codeForm(g.method) }, `+ Mã ${g.label.charAt(0).toLowerCase()}${g.label.slice(1)}`) : null),
           g.codes.length ? g.codes.map((c) => h('button', { class: 'pc-code', 'aria-current': String(c.price_code === sel), onclick: async () => { sel = c.price_code; await loadTree(); await loadDetail(); } },
             h('span', { class: 'mono' }, c.price_code), h('span', { class: 'small muted' }, ` ${c.price_name} · ${c.unit_code}`), c.status !== 'ACTIVE' ? h('span', { class: 'tag mute', style: { marginLeft: '6px' } }, 'đóng') : null)) : h('p', { class: 'small muted', style: { margin: '4px 0 10px' } }, 'Chưa có mã.'));
-        tree.append(h('h2', {}, 'Hình thức giá → Mã đơn giá'), d.total ? null : h('p', { class: 'small muted' }, 'Chưa có mã đơn giá nào. Chọn hình thức giá bên dưới và bấm "+ Mã …".'), d.methods.map(group));
-              }
+        tree.append(h('h2', {}, 'Phương thức đơn giá → Mã đơn giá'), d.total ? null : h('p', { class: 'small muted' }, 'Chưa có mã đơn giá nào. Chọn phương thức đơn giá bên dưới và bấm "+ Mã …".'), d.methods.map(group));
+      }
 
-      const page = D.page('Mã đơn giá', '5 · Hình thức giá (Đơn giá cố định / Đơn giá điều chỉnh dầu) → Mã đơn giá → Đơn giá theo tuyến', [], D.priceScreenNote('pricecodes'), h('p', { class: 'small muted', style: { margin: '0 0 10px' } }, 'Ba tầng: Hình thức giá (Đơn giá cố định / Đơn giá điều chỉnh dầu) → Mã đơn giá (cha) → Danh sách đơn giá theo tuyến (con, lấy tuyến từ Danh mục tuyến).'), h('div', { class: 'pc-layout' }, tree, detail));
+      const page = D.page('DM Đơn giá', '5 · Phương thức đơn giá (Đơn giá cố định / Đơn giá điều chỉnh dầu) → Mã đơn giá (Cha) → Đơn giá theo tuyến (Con)', [], D.priceScreenNote('pricecodes'), h('p', { class: 'small muted', style: { margin: '0 0 10px' } }, 'Danh mục đơn giá theo Phương thức đơn giá: Đơn giá cố định & Đơn giá điều chỉnh dầu → Mã đơn giá (cha) → Danh sách đơn giá theo tuyến (con, tham chiếu Danh mục tuyến).'), h('div', { class: 'pc-layout' }, tree, detail));
       await loadTree(); await loadDetail();
       return page;
     },

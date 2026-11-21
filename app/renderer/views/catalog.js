@@ -81,10 +81,13 @@
     },
   };
 
-  /** Dòng giải thích + liên kết sang 2 màn giá còn lại (Đơn giá · Mã đơn giá · Báo cáo giá hợp đồng) — mỗi màn nói rõ vai trò của mình. */
-  const PRICE_SCREENS = { prices: ['Đơn giá', 'Bảng giá chung theo tuyến. Hợp đồng có mã đơn giá riêng thì dùng giá ở màn Mã đơn giá.'], pricecodes: ['Mã đơn giá', 'Bộ giá riêng theo đối tác; gán cho hợp đồng tại đây.'], basis: ['Báo cáo giá hợp đồng', 'Chỉ xem: giá nào đang được áp cho từng hợp đồng / tuyến / ngày.'] };
-  D.priceScreenNote = (current) => h('p', { class: 'small muted', style: { margin: '0 0 8px' } }, PRICE_SCREENS[current][1], ' Xem thêm: ',
-    Object.entries(PRICE_SCREENS).filter(([v]) => v !== current).map(([v, [name]], i) => [i ? ' · ' : '', h('button', { class: 'btn small', onclick: () => D.go(v) }, name)]));
+  /** Dòng giải thích + liên kết sang màn giá còn lại (DM Đơn giá · Báo cáo giá hợp đồng) — mỗi màn nói rõ vai trò của mình. */
+  const PRICE_SCREENS = {
+    pricecodes: ['DM Đơn giá', 'Danh mục Đơn giá — Phân theo Phương thức đơn giá (Đơn giá cố định / Đơn giá điều chỉnh dầu) → Mã đơn giá (cha) → Đơn giá theo tuyến (con). Gán mã cho hợp đồng tại đây.'],
+    basis: ['Báo cáo giá hợp đồng', 'Chỉ xem: giá nào đang được áp cho từng hợp đồng / tuyến / ngày.']
+  };
+  D.priceScreenNote = (current) => h('p', { class: 'small muted', style: { margin: '0 0 8px' } }, (PRICE_SCREENS[current] || [])[1] || '', ' Xem thêm: ',
+    Object.entries(PRICE_SCREENS).filter(([v]) => v !== current).map(([v, [name]], i) => [i ? ' · ' : '', h('button', { class: 'btn small', onclick: () => D.go(v) }, name + ' →')]));
 
   // ───────── Căn cứ tính giá ký hợp đồng (Tầng A) ─────────
   D.views.basis = {
@@ -400,7 +403,7 @@
         };
 
         const codeActions = [
-          h('button', { class: 'btn small', onclick: () => D.go('pricecodes', { unitCode: partner, code: c.price_code || '' }) }, 'Đổi ở Mã đơn giá →'),
+          h('button', { class: 'btn small', onclick: () => D.go('pricecodes', { unitCode: partner, code: c.price_code || '' }) }, 'Đổi ở DM Đơn giá →'),
           w ? h('button', { class: 'btn small', onclick: assignModal }, c.price_code ? 'Đổi mã cho HĐ…' : 'Gán mã đơn giá…') : null,
           w && c.price_code ? h('button', { class: 'btn small', onclick: async () => {
             if (await D.confirm({ title: 'Bỏ gán mã đơn giá', message: `Hợp đồng ${c.contract_code} sẽ quay về dùng giá chung / giá riêng (cách cũ)?` })) {

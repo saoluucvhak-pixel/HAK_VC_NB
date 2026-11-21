@@ -61,9 +61,9 @@ test('Giao diện Hợp đồng cha-con: Hợp đồng -> Mã đơn giá -> Tuy�
     await table.locator('th', { hasText: 'Nguồn giá' }).waitFor();
     await table.locator('th', { hasText: 'Hình thức' }).waitFor();
 
-    // Nút thao tác ở Mã đơn giá: Gán mã đơn giá…, Đổi ở Mã đơn giá →
+    // Nút thao tác ở Mã đơn giá: Gán mã đơn giá…, Đổi ở DM Đơn giá →
     await page.getByRole('button', { name: 'Gán mã đơn giá…' }).waitFor();
-    await page.getByRole('button', { name: 'Đổi ở Mã đơn giá →' }).waitFor();
+    await page.getByRole('button', { name: /Đổi ở (DM Đơn giá|Mã đơn giá) →/ }).waitFor();
 
     console.log('TEST PASSED: Mô hình cha-con Hợp đồng -> Mã đơn giá -> Tuyến & Đơn giá hoạt động hoàn hảo!');
   } finally {
