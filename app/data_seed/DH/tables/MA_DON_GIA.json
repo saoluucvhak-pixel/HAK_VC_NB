@@ -1,0 +1,46 @@
+{
+ "table": "MA_DON_GIA",
+ "partition": null,
+ "schemaVersion": 1,
+ "columns": [
+  "price_code",
+  "unit_code",
+  "price_name",
+  "price_method",
+  "status",
+  "note",
+  "created_at",
+  "created_by",
+  "updated_at",
+  "updated_by",
+  "row_version"
+ ],
+ "rows": [
+  {
+   "price_code": "PT-CD",
+   "unit_code": "DH",
+   "price_name": "Đơn giá cố định",
+   "price_method": "CO_DINH",
+   "status": "ACTIVE",
+   "note": "Mỗi tuyến một đơn giá đ/tấn cố định, không tính dầu",
+   "created_at": "2026-01-01T00:00:00+07:00",
+   "created_by": "seed@import",
+   "updated_at": "",
+   "updated_by": "",
+   "row_version": 1
+  },
+  {
+   "price_code": "PT-TD",
+   "unit_code": "DH",
+   "price_name": "Đơn giá điều chỉnh dầu",
+   "price_method": "THEO_DAU",
+   "status": "ACTIVE",
+   "note": "Đơn giá tính theo công thức điều chỉnh giá dầu thực tế",
+   "created_at": "2026-01-01T00:00:00+07:00",
+   "created_by": "seed@import",
+   "updated_at": "",
+   "updated_by": "",
+   "row_version": 1
+  }
+ ]
+}
