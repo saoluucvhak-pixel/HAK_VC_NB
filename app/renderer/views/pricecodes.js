@@ -70,7 +70,7 @@
       };
       D.codeForm = codeForm;
 
-      // ── Con: Thêm / sửa đơn giá theo tuyến ──
+      // ── Con: Thêm / sửa đơn giá theo tuyến (Thiết lập công thức tính giá ký hợp đồng) ──
       const lineForm = (code, line, onSaved) => {
         const method = line ? lineMethod(line) : code.priceMethod;
         const all = Object.fromEntries(D.priceFormFields().map((f) => [f.key, f]));
@@ -94,11 +94,30 @@
         ];
         const km = (rc) => { const r = routeOf(rc); return r ? D.vnAuto(r.trip_distance_km) : ''; };
         const first = line ? line.route_code : (D.routeOptions(false)[0] || [''])[0];
+
+        // Mẫu công thức tính chuẩn (Tương tự HAK_LUONG_OFFLINE formula-master/ctWizardPanel)
+        const formulaBanner = h('div', { class: 'hint', style: { margin: '0 0 10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--card)' } },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' } },
+            h('b', {}, method === 'CO_DINH' ? 'Mẫu công thức: Đơn giá cố định' : 'Mẫu công thức: Đơn giá điều chỉnh dầu (Chuẩn HAK Group)'),
+            h('span', { class: 'tag ' + (method === 'CO_DINH' ? 'info' : 'warn') }, method === 'CO_DINH' ? 'CỐ ĐỊNH' : 'ĐIỀU CHỈNH DẦU')
+          ),
+          h('div', { style: { fontFamily: 'var(--mono)', fontSize: '13px', color: 'var(--brand)', margin: '4px 0', wordBreak: 'break-all' } },
+            method === 'CO_DINH'
+              ? 'ĐG ký HĐ = DG_CO_DINH (đ/tấn trọn gói, không bù trừ dầu)'
+              : 'ĐG ký HĐ = ROUND( ((DG_CUOC × KL_TB) − (CU_LY × DINH_MUC × DG_DAU)) / KL_TB, −3 )'
+          ),
+          h('div', { class: 'small muted', style: { marginTop: '4px' } },
+            method === 'CO_DINH'
+              ? 'Biến: DG_CO_DINH (đơn giá cố định đ/tấn áp dụng cho tuyến).'
+              : 'Thư viện biến: CU_LY (km, từ Tuyến) · DG_CUOC (đ/tấn) · KL_TB (tấn/chuyến) · DINH_MUC (l/km) · DG_DAU (đ/lít chưa VAT).'
+          )
+        );
+
         const routeRef = h('div', { class: 'small muted', style: { margin: '0 0 8px', padding: '8px 10px', background: 'var(--row-alt)', borderRadius: '8px', border: '1px solid var(--line)' } });
         const drawRouteRef = (rc) => {
           const r = routeOf(rc);
           routeRef.textContent = r
-            ? `Tham chiếu Danh mục tuyến (${r.route_code}): ${r.route_name} · ${r.from_place || '—'} → ${r.to_place || '—'} · Cự ly 1 chiều: ${D.vnAuto(r.distance_km)} km · Cự ly chuyến: ${D.vnAuto(r.trip_distance_km)} km · ĐVT: ${r.uom === 'M3' ? 'M³' : 'Tấn'}`
+            ? `Tham chiếu Tuyến (${r.route_code}): ${r.route_name} · ${r.from_place || '—'} → ${r.to_place || '—'} · Cự ly 1 chiều: ${D.vnAuto(r.distance_km)} km · Cự ly chuyến: ${D.vnAuto(r.trip_distance_km)} km · ĐVT: ${r.uom === 'M3' ? 'M³' : 'Tấn'}`
             : 'Chọn tuyến từ Danh mục tuyến để lấy cự ly và ĐVT.';
         };
         drawRouteRef(first);
@@ -111,7 +130,23 @@
           if (r && !(r.trip_distance_km > 0)) msgs.push(`Cự ly chuyến của tuyến ${rc} chưa hợp lệ — sửa ở Danh mục tuyến trước khi áp dụng`);
           try {
             const x = await D.api('prices.preview', { record: { ...v, routeCode: rc, priceCode: code.price_code, priceMethod: method } }, { quiet: true });
-            warn.className = 'small'; warn.replaceChildren(...msgs.map((m) => h('div', { class: 'warn-line' }, '⚠ ' + m)), h('div', { class: 'muted' }, `Xem trước: ${method === 'CO_DINH' ? 'đơn giá cố định' : 'ĐG ký HĐ tính ra'} = `, h('b', { class: 'money' }, D.vn(x.contractPrice)), ' đ/tấn'));
+            warn.className = 'small';
+            const explain = method === 'CO_DINH'
+              ? h('div', { class: 'slip', style: { padding: '8px 10px', background: 'var(--card)', borderRadius: '6px', border: '1px solid var(--line)', margin: '6px 0' } },
+                h('b', {}, 'Giải thích công thức: '), 'Đơn giá cố định áp dụng nguyên giá ', h('b', { class: 'money' }, D.vn(x.contractPrice)), ' đ/tấn (không tính biến động dầu).'
+              )
+              : h('div', { class: 'slip', style: { padding: '8px 10px', background: 'var(--card)', borderRadius: '6px', border: '1px solid var(--line)', margin: '6px 0' } },
+                h('div', { style: { fontWeight: 600, marginBottom: '4px' } }, 'Giải thích bằng số thực tế (Các bước tính ra ĐG ký HĐ):'),
+                h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '4px 12px', fontSize: '12.5px' } },
+                  h('div', {}, '1. Tiền cước chuyến: ', h('b', {}, D.vn(x.tripPrice)), ' đ'),
+                  h('div', {}, '2. Lượng dầu/chuyến: ', h('b', {}, D.vn(x.fuelPerTrip, 1)), ' lít'),
+                  h('div', {}, '3. Tiền dầu/chuyến: ', h('b', {}, D.vn(x.fuelCostPerTrip)), ' đ'),
+                  h('div', {}, '4. Tỷ lệ tiền dầu: ', h('b', {}, D.vn(x.fuelCostRatio * 100, 2)), '%'),
+                  h('div', {}, '5. ĐG chưa dầu: ', h('b', {}, D.vn(x.priceNoDiesel, 2)), ' đ/tấn'),
+                  h('div', {}, '6. ĐG ký HĐ làm tròn: ', h('b', { class: 'money' }, D.vn(x.contractPrice)), ' đ/tấn')
+                )
+              );
+            warn.replaceChildren(...msgs.map((m) => h('div', { class: 'warn-line' }, '⚠ ' + m)), explain, h('div', { class: 'muted' }, `Xem trước: ${method === 'CO_DINH' ? 'đơn giá cố định' : 'ĐG ký HĐ tính ra'} = `, h('b', { class: 'money' }, D.vn(x.contractPrice)), ' đ/tấn'));
           } catch (e) {
             const errs = (e.details && e.details.errors) || [e.message];
             warn.replaceChildren(...msgs.concat(errs).map((m) => h('div', { class: 'warn-line' }, '⚠ ' + m)));
@@ -121,9 +156,9 @@
         f.addEventListener('change', () => { clearTimeout(f._t); f._t = setTimeout(check, 100); });
 
         D.modal({
-          title: line ? `Sửa dòng giá nháp ${line.price_id}` : `Thêm dòng giá ${method === 'CO_DINH' ? 'cố định' : 'điều chỉnh dầu'} vào mã ${code.price_code}`,
-          body: h('div', {}, routeRef, f, warn),
-          wide: method !== 'CO_DINH',
+          title: line ? `Sửa công thức tính đơn giá ${line.price_id}` : `Thêm dòng giá ${method === 'CO_DINH' ? 'cố định' : 'điều chỉnh dầu'} vào mã ${code.price_code}`,
+          body: h('div', {}, formulaBanner, routeRef, f, warn),
+          wide: true,
           actions: [
             { label: 'Hủy', run: () => true },
             { label: 'Lưu', primary: true, run: async () => {
@@ -141,6 +176,41 @@
         });
       };
       D.lineForm = lineForm;
+
+      // ── Xem chi tiết công thức tính của 1 dòng giá đã tạo ──
+      const viewFormula = (r) => {
+        const isCd = lineMethod(r) === 'CO_DINH';
+        const t = routeOf(r.route_code);
+        const cp = isCd ? r.fixed_price : r.contractPrice;
+        D.modal({
+          title: `Công thức tính đơn giá — Tuyến ${r.route_code} (${r.routeName || (t && t.route_name) || ''})`,
+          body: h('div', {},
+            h('div', { class: 'hint', style: { marginBottom: '12px', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)' } },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' } },
+                h('b', {}, isCd ? 'Phương thức: Đơn giá cố định' : 'Phương thức: Đơn giá điều chỉnh dầu (Chuẩn HAK Group)'),
+                h('span', { class: 'tag ' + (isCd ? 'info' : 'warn') }, isCd ? 'CỐ ĐỊNH' : 'ĐIỀU CHỈNH DẦU')
+              ),
+              h('div', { style: { fontFamily: 'var(--mono)', marginTop: '4px', color: 'var(--brand)' } },
+                isCd
+                  ? 'ĐG ký HĐ = DG_CO_DINH (đ/tấn trọn gói, không tính dầu)'
+                  : 'ĐG ký HĐ = ROUND( ((DG_CUOC × KL_TB) − (CU_LY × DINH_MUC × DG_DAU)) / KL_TB, −3 )'
+              )
+            ),
+            isCd ? h('div', { class: 'card flush', style: { padding: '14px' } },
+              h('p', {}, 'Đơn giá vận chuyển cố định: ', h('b', { class: 'money', style: { fontSize: '18px' } }, D.vn(cp)), ' đ/tấn'),
+              h('p', { class: 'small muted', style: { margin: 0 } }, 'Tuyến chạy theo đơn giá trọn gói, hằng kỳ không giao nhận dầu và không tính chênh lệch dầu.')
+            ) : h('ol', { class: 'trace' },
+              h('li', {}, h('b', {}, '(1) Đơn giá cước dự kiến (DG_CUOC)'), h('div', { class: 'v' }, `= ${D.vn(r.new_price)} đ/tấn`)),
+              h('li', {}, h('b', {}, '(2) Trọng tải bình quân / chuyến (KL_TB)'), h('div', { class: 'v' }, `= ${D.vn(r.avg_load_ton)} tấn`)),
+              h('li', {}, h('b', {}, '(3) Cự ly chuyến khứ hồi (CU_LY)'), h('div', { class: 'v' }, `= ${t ? D.vnAuto(t.trip_distance_km) : '—'} km`)),
+              h('li', {}, h('b', {}, '(4) Định mức tiêu hao dầu (DINH_MUC)'), h('div', { class: 'v' }, `= ${D.vn(r.fuel_norm_l_per_km, 1)} lít/km`)),
+              h('li', {}, h('b', {}, '(5) Đơn giá dầu Diesel chưa VAT (DG_DAU)'), h('div', { class: 'v' }, `= ${D.vn(r.fuel_price_excl_vat)} đ/lít`)),
+              h('li', {}, h('b', {}, '(6) ĐƠN GIÁ KÝ HỢP ĐỒNG TÍNH RA (làm tròn đến hàng nghìn)'), h('div', { class: 'v' }, `= `, h('b', { class: 'money', style: { fontSize: '18px' } }, D.vn(cp)), ' đ/tấn'))
+            )
+          )
+        });
+      };
+      D.viewFormula = viewFormula;
 
       // ── Con: chọn đơn giá CÓ SẴN đưa vào mã ──
       const pickExisting = async (code, onSaved) => {
@@ -281,15 +351,18 @@
             { key: 'uom', label: 'ĐVT', render: (r) => (r.uom === 'M3' ? 'đ/m³' : 'đ/tấn') },
             { key: 'effective_from', label: 'Ngày hiệu lực', fmt: 'date' },
             { key: 'status', label: 'Trạng thái', fmt: 'tag' },
-            { key: 'x', label: '', render: (r) => (w && r.status === 'DRAFT' ? h('span', { class: 'btns' },
-              h('button', { class: 'btn small', disabled: mixed, title: mixed ? c.methodWarning : '', onclick: () => lineForm(c, r) }, 'Sửa'),
-              h('button', { class: 'btn small primary', disabled: mixed, title: mixed ? c.methodWarning : '', onclick: async () => {
-                const x = await D.api('prices.activate', { priceId: r.price_id, rowVersion: r.row_version });
-                for (const m of x.warnings || []) D.toast(m.message, 'info', 9000);
-                D.toast(`Đã áp dụng ${r.price_id}`, 'ok');
-                await again();
-              } }, 'Áp dụng')
-            ) : '') }
+            { key: 'x', label: 'Thao tác', render: (r) => h('span', { class: 'btns' },
+              h('button', { class: 'btn small', title: 'Xem chi tiết công thức tính và các bước giải thích', onclick: () => viewFormula(r) }, 'Xem công thức'),
+              w && r.status === 'DRAFT' ? [
+                h('button', { class: 'btn small', disabled: mixed, title: mixed ? c.methodWarning : '', onclick: () => lineForm(c, r) }, 'Sửa'),
+                h('button', { class: 'btn small primary', disabled: mixed, title: mixed ? c.methodWarning : '', onclick: async () => {
+                  const x = await D.api('prices.activate', { priceId: r.price_id, rowVersion: r.row_version });
+                  for (const m of x.warnings || []) D.toast(m.message, 'info', 9000);
+                  D.toast(`Đã áp dụng ${r.price_id}`, 'ok');
+                  await again();
+                } }, 'Áp dụng')
+              ] : null
+            ) }
           ]
         }));
 

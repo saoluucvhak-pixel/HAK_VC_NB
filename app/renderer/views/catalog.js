@@ -248,7 +248,7 @@
         D.api('prices.list', { routeCode: sel.value }).then((d) => {
           const last = d.items.filter((x) => x.status !== 'DRAFT').pop() || {};
           const f = draftForm({ priceMethod: last.price_method || 'THEO_DAU', fixedPrice: last.fixed_price, newPrice: last.new_price || '', basePriceExclVat: last.base_price_excl_vat, basePriceSource: last.base_price_source, fuelPriceExclVat: last.fuel_price_excl_vat, fuelNormLPerKm: last.fuel_norm_l_per_km || 0.4, avgLoadTon: last.avg_load_ton, avgVolumeM3: last.avg_volume_m3, effectiveFrom: D.today() });
-          D.modal({ title: `Phiên bản giá mới — ${sel.value}${cur ? ` · ${cur.route_name}` : ''}`, wide: true, body: h('div', { class: 'grid g2' }, f, previewBox), actions: [{ label: 'Hủy', run: () => true },
+          D.modal({ title: `Công thức tính đơn giá mới — ${sel.value}${cur ? ` · ${cur.route_name}` : ''}`, wide: true, body: h('div', { class: 'grid g2' }, f, previewBox), actions: [{ label: 'Hủy', run: () => true },
             { label: 'Lưu bản nháp', primary: true, run: async () => { await D.api('prices.createVersion', { record: { routeCode: sel.value, ...f.values() } }); D.toast('Đã lưu bản nháp — bấm vào bản nháp để kích hoạt', 'ok'); load(); } }] });
         });
       };
@@ -260,7 +260,7 @@
       };
       sel.addEventListener('change', load);
       selCode.addEventListener('change', () => { activeCode = selCode.value; if (activeCode) sel.value = ''; load(); });
-      const page = D.page('Đơn giá', '5 · Theo dõi Cha–Con: Mã đơn giá → Đơn giá theo tuyến', [D.writer() ? h('button', { class: 'btn primary', onclick: create }, 'Tạo phiên bản giá mới') : null],
+      const page = D.page('Đơn giá', '5 · Theo dõi Cha–Con: Mã đơn giá → Đơn giá theo tuyến', [D.writer() ? h('button', { class: 'btn primary', onclick: create }, 'Tạo công thức tính đơn giá mới') : null],
         h('div', { class: 'card' },
           D.priceScreenNote('prices'),
           parentBar,
@@ -416,10 +416,10 @@
 
         const priceBlock = h('div', { class: 'card-sub', style: { padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', marginBottom: '14px' } },
           h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' } },
-            h('h3', { style: { margin: 0, fontSize: '15px' } }, '1. Hợp đồng vận chuyển có 1 Mã đơn giá'),
+            h('h3', { style: { margin: 0, fontSize: '15px' } }, '1. Mã đơn giá vận chuyển (bảng con của hợp đồng)'),
             h('div', { class: 'btns', style: { margin: 0 } }, ...codeActions)
           ),
-          h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, 'Cấu trúc 3 cấp: 1 Hợp đồng có 1 Mã đơn giá → 1 Mã đơn giá có nhiều đơn giá → 1 Đơn giá áp dụng cho 1 Tuyến.'),
+          h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, 'Hợp đồng vận chuyển là bảng cha liên kết với mã đơn giá con (Quy tắc 3 cấp: 1 Hợp đồng có 1 Mã đơn giá → 1 Mã đơn giá có nhiều đơn giá → 1 Đơn giá áp dụng cho 1 Tuyến).'),
           h('p', { style: { margin: '0 0 6px' } }, 'Mã đơn giá: ', c.price_code ? h('b', {}, `${c.price_code}${myCode ? ` — ${myCode.priceMethodLabel}` : ''}`) : h('b', {}, 'Giá chung (cách cũ)')),
           h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, `Mã đơn giá của đối tác ${partner}: `, (pcs.items || []).filter((x) => x.status === 'ACTIVE').length
             ? pcs.items.filter((x) => x.status === 'ACTIVE').map((x) => h('span', { class: 'tag info', style: { marginRight: '6px', cursor: 'pointer' }, title: 'Bấm để gán mã này', onclick: () => setPriceCode(x.price_code) }, `${x.price_code} · ${x.priceMethodLabel}`))
@@ -434,7 +434,7 @@
         const rsBox = h('div');
         const routeBlock = h('div', { class: 'card-sub', style: { padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', marginBottom: '14px' } },
           h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' } },
-            h('h3', { style: { margin: 0, fontSize: '15px' } }, '2. Đơn giá theo từng tuyến (1 mã đơn giá có nhiều đơn giá — 1 đơn giá có 1 tuyến)'),
+            h('h3', { style: { margin: 0, fontSize: '15px' } }, '2. Tuyến vận chuyển & Đơn giá (bảng con của mã đơn giá)'),
             lineActions
           ),
           h('p', { class: 'small muted', style: { margin: '0 0 10px' } }, 'Tuyến vận chuyển trong hợp đồng được lấy từ "mã đơn giá" cha của đơn giá. Đơn giá từng tuyến là bảng con của mã đơn giá.'),
