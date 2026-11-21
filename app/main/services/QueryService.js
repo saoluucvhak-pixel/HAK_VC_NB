@@ -20,6 +20,7 @@ class QueryService {
       dataFolder: s.root, schemaVersion: s.schemaVersion, dataVersion: s.dataVersion, appVersion: require('../../package.json').version },
     user: session && session.user, units: s.all('DON_VI'), routes: s.all('TUYEN_VC').filter((r) => r.is_active),
     contracts: s.all('HOP_DONG').map((c) => ({ ...c, role: c.carrier_unit_code === s.unitCode ? 'CARRIER' : c.customer_unit_code === s.unitCode ? 'CUSTOMER' : 'OTHER' })),
+    priceCodes: s.all('MA_DON_GIA').filter((c) => c.status === 'ACTIVE'),
     config: Object.fromEntries(s.all('CONFIG').map((c) => [c.config_key, c.config_value])) };
   }
 

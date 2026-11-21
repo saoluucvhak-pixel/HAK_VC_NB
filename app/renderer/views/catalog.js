@@ -280,14 +280,15 @@
   // canParties: hợp đồng chưa có kỳ tính / dòng dầu → sửa được mã HĐ và hai bên (bản 1.2.4)
   const CF = (isNew, canParties = isNew) => [
     { key: 'contractCode', label: 'Mã hợp đồng', required: true, readonly: !canParties, hint: 'vd DH-HAKQN' }, { key: 'contractNo', label: 'Số hợp đồng (tự điền)' },
+    { key: 'priceCode', label: 'Mã đơn giá', type: 'select', options: D.priceCodeOptions ? D.priceCodeOptions(true) : [['', '—']], hint: '1 Hợp đồng có 1 Mã đơn giá (1 Mã đơn giá có nhiều đơn giá theo tuyến)' },
     { key: 'carrierUnitCode', label: 'Bên vận chuyển', type: 'select', options: D.unitOptions(), readonly: !canParties }, { key: 'customerUnitCode', label: 'Bên thuê', type: 'select', options: D.unitOptions(), readonly: !canParties },
     { key: 'effectiveFrom', label: 'Hiệu lực từ', type: 'date', required: true }, { key: 'effectiveTo', label: 'Hiệu lực đến', type: 'date' },
     { key: 'signPlace', label: 'Nơi lập BKVC', hint: 'vd Quế Sơn Trung' }, { key: 'reportTitle', label: 'Tiêu đề BKVC' },
     { key: 'carrierPrintName', label: 'Tên bên vận chuyển in trên chứng từ', hint: 'trống = "Tên ghi trên chứng từ" của đơn vị' }, { key: 'customerPrintName', label: 'Tên bên thuê in trên chứng từ', hint: 'trống = "Tên ghi trên chứng từ" của đơn vị' },
     { key: 'serviceDesc', label: 'Mẫu diễn giải cước để viết hóa đơn', type: 'textarea', full: true, hint: 'Chỗ trống: {BKS} {DIEM_DI} {DIEM_DEN} {TUYEN} {MA_TUYEN} {TU_NGAY} {DEN_NGAY}. Trống = mẫu chung "Cước vận chuyển dăm gỗ từ {DIEM_DI} đến {DIEM_DEN} bằng xe thùng BKS : {BKS}"' },
     { key: 'note', label: 'Ghi chú', full: true }];
-  const cVal = (c) => ({ contractCode: c.contract_code, contractNo: c.contract_no, carrierUnitCode: c.carrier_unit_code, customerUnitCode: c.customer_unit_code, effectiveFrom: c.effective_from, effectiveTo: c.effective_to,
-    signPlace: c.sign_place, reportTitle: c.report_title, carrierPrintName: c.carrier_print_name, customerPrintName: c.customer_print_name, serviceDesc: c.service_desc, note: c.note }); // KHÔNG có priceCode: mã đơn giá chỉ sửa ở màn Mã đơn giá
+  const cVal = (c) => ({ contractCode: c.contract_code, contractNo: c.contract_no, priceCode: c.price_code || '', carrierUnitCode: c.carrier_unit_code, customerUnitCode: c.customer_unit_code, effectiveFrom: c.effective_from, effectiveTo: c.effective_to,
+    signPlace: c.sign_place, reportTitle: c.report_title, carrierPrintName: c.carrier_print_name, customerPrintName: c.customer_print_name, serviceDesc: c.service_desc, note: c.note });
 
   D.views.contracts = {
     // Màn Hợp đồng kiểu cha–con (1.8.x): trái = danh sách hợp đồng (lọc), phải = chi tiết hợp đồng đang chọn với các thẻ Thông tin · Xe của hợp đồng · Mã đơn giá · Kỳ tính.
@@ -415,10 +416,10 @@
 
         const priceBlock = h('div', { class: 'card-sub', style: { padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', marginBottom: '14px' } },
           h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' } },
-            h('h3', { style: { margin: 0, fontSize: '15px' } }, '1. Mã đơn giá vận chuyển (bảng con của hợp đồng)'),
+            h('h3', { style: { margin: 0, fontSize: '15px' } }, '1. Hợp đồng vận chuyển có 1 Mã đơn giá'),
             h('div', { class: 'btns', style: { margin: 0 } }, ...codeActions)
           ),
-          h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, 'Hợp đồng vận chuyển là bảng cha liên kết với mã đơn giá con. Tuyến vận chuyển trong hợp đồng sẽ lấy từ "mã đơn giá" cha của đơn giá.'),
+          h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, 'Cấu trúc 3 cấp: 1 Hợp đồng có 1 Mã đơn giá → 1 Mã đơn giá có nhiều đơn giá → 1 Đơn giá áp dụng cho 1 Tuyến.'),
           h('p', { style: { margin: '0 0 6px' } }, 'Mã đơn giá: ', c.price_code ? h('b', {}, `${c.price_code}${myCode ? ` — ${myCode.priceMethodLabel}` : ''}`) : h('b', {}, 'Giá chung (cách cũ)')),
           h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, `Mã đơn giá của đối tác ${partner}: `, (pcs.items || []).filter((x) => x.status === 'ACTIVE').length
             ? pcs.items.filter((x) => x.status === 'ACTIVE').map((x) => h('span', { class: 'tag info', style: { marginRight: '6px', cursor: 'pointer' }, title: 'Bấm để gán mã này', onclick: () => setPriceCode(x.price_code) }, `${x.price_code} · ${x.priceMethodLabel}`))
@@ -433,7 +434,7 @@
         const rsBox = h('div');
         const routeBlock = h('div', { class: 'card-sub', style: { padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', marginBottom: '14px' } },
           h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' } },
-            h('h3', { style: { margin: 0, fontSize: '15px' } }, '2. Tuyến vận chuyển & Đơn giá (bảng con của mã đơn giá)'),
+            h('h3', { style: { margin: 0, fontSize: '15px' } }, '2. Đơn giá theo từng tuyến (1 mã đơn giá có nhiều đơn giá — 1 đơn giá có 1 tuyến)'),
             lineActions
           ),
           h('p', { class: 'small muted', style: { margin: '0 0 10px' } }, 'Tuyến vận chuyển trong hợp đồng được lấy từ "mã đơn giá" cha của đơn giá. Đơn giá từng tuyến là bảng con của mã đơn giá.'),

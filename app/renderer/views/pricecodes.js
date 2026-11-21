@@ -295,7 +295,7 @@
 
         const table = h('div', { class: 'card' },
           h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' } },
-            h('h2', { style: { margin: 0 } }, `Danh sách đơn giá theo tuyến (1 Phương thức có nhiều đơn giá — 1 đơn giá áp dụng cho 1 tuyến)`),
+            h('h2', { style: { margin: 0 } }, `Danh sách đơn giá theo tuyến (1 Mã đơn giá có nhiều đơn giá — 1 Đơn giá có 1 Tuyến)`),
             w ? h('button', { class: 'btn small primary', onclick: () => lineForm(c) }, c.priceMethod === 'CO_DINH' ? '+ Tạo đơn giá cố định' : '+ Tạo đơn giá điều chỉnh dầu') : null
           ),
           childTableBox
@@ -349,7 +349,7 @@
 
         tree.append(
           h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } },
-            h('h2', { style: { margin: 0, fontSize: '16px' } }, 'Mã / Phương thức đơn giá'),
+            h('h2', { style: { margin: 0, fontSize: '16px' } }, 'Mã đơn giá (1 HĐ có 1 Mã)'),
             w ? h('button', { class: 'btn small primary', onclick: () => codeForm('CO_DINH') }, '+ Tạo mã') : null
           ),
           d.total ? null : h('p', { class: 'small muted' }, 'Chưa có mã đơn giá nào. Chọn phương thức đơn giá bên dưới và bấm "+ Mã …".'),
@@ -359,10 +359,10 @@
 
       const page = D.page(
         'DM Đơn giá',
-        '5 · Phương thức đơn giá (Đơn giá cố định / Đơn giá điều chỉnh dầu) → Mã đơn giá (Cha) → Đơn giá theo tuyến (Con)',
+        '5 · Quy tắc 3 cấp: 1 Hợp đồng có 1 Mã đơn giá → 1 Mã đơn giá có nhiều Đơn giá → 1 Đơn giá có 1 Tuyến',
         [],
         D.priceScreenNote('pricecodes'),
-        h('p', { class: 'small muted', style: { margin: '0 0 10px' } }, 'Click vào dòng Mã/Phương thức đơn giá bên trái để xem và quản lý đơn giá theo tuyến tương ứng bên phải. 1 Phương thức có nhiều đơn giá, 1 đơn giá áp dụng cho 1 tuyến.'),
+        h('p', { class: 'small muted', style: { margin: '0 0 10px' } }, 'Cấu trúc 3 cấp chuẩn: 1 Hợp đồng có 1 Mã đơn giá · 1 Mã đơn giá có nhiều Đơn giá · 1 Đơn giá áp dụng cho 1 Tuyến.'),
         h('div', { class: 'pc-layout' }, tree, detail)
       );
 

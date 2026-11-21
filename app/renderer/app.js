@@ -377,6 +377,10 @@
     .map((c) => [c.contract_id, `${c.contract_code} · ${c.carrier_unit_code} → ${c.customer_unit_code}${c.role === 'CARRIER' ? '' : ' (bên thuê)'}${c.is_active === false ? ' (ngừng dùng)' : ''}`]);
   D.routeOptions = (blank = true) => [...(blank ? [['', 'Tất cả tuyến']] : []), ...state.boot.routes.map((r) => [r.route_code, `${r.route_code} · ${r.route_name}`])];
   D.unitOptions = (blank = false) => [...(blank ? [['', '—']] : []), ...state.boot.units.map((u) => [u.unit_code, `${u.unit_code} · ${u.unit_name}`])];
+  D.priceCodeOptions = (blank = true) => [
+    ...(blank ? [['', '— Giá chung (không dùng mã) —']] : []),
+    ...((state.boot && state.boot.priceCodes) || []).map((c) => [c.price_code, `${c.price_code} · ${c.price_name} (${c.price_method === 'CO_DINH' ? 'Cố định' : 'Theo dầu'})`])
+  ];
 
   // ───────── HAK Smart Filter adapter (HAK_SMART_FILTER) ─────────
   D.sf = window.HAKCore && window.HAKCore.sf;
