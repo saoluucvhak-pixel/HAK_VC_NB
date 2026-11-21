@@ -40,7 +40,35 @@ test('Danh mục/Xe vận chuyển menu và hiển thị trang', async (t) => {
 
     // Tiêu đề trang phải là 'Xe vận chuyển'
     await w.getByRole('heading', { name: 'Xe vận chuyển', level: 1 }).waitFor();
-    console.log('TEST PASSED: Menu Danh mục/Xe vận chuyển mở đúng trang Xe vận chuyển!');
+
+    // Kiểm tra bộ lọc: Tìm kiếm, Chủ xe, Trạng thái
+    const fQ = w.getByLabel('Tìm xe vận chuyển');
+    const fOwner = w.getByLabel('Lọc theo chủ xe');
+    const fStatus = w.getByLabel('Lọc theo trạng thái xe');
+    await fQ.waitFor();
+    await fOwner.waitFor();
+    await fStatus.waitFor();
+
+    // Thêm 1 xe để test lọc
+    await w.getByRole('button', { name: 'Thêm xe' }).click();
+    await w.locator('.modal label.field', { hasText: 'Biển số' }).locator('input').fill('92H-88888');
+    await w.locator('.modal').getByRole('button', { name: 'Lưu' }).click();
+    await w.locator('tbody tr', { hasText: '92H-88888' }).waitFor();
+
+    // Lọc theo từ khóa tìm kiếm
+    await fQ.fill('92H-88888');
+    assert.equal(await w.locator('tbody tr').count(), 1);
+    await fQ.fill('KHONG_CO_XE_NAO_XYZ');
+    await w.getByText('Không có xe vận chuyển phù hợp bộ lọc').waitFor();
+    await fQ.fill('');
+
+    // Lọc theo trạng thái Ngừng dùng
+    await fStatus.selectOption('inactive');
+    assert.equal(await w.locator('tbody tr', { hasText: '92H-88888' }).count(), 0);
+    await fStatus.selectOption('active');
+    await w.locator('tbody tr', { hasText: '92H-88888' }).waitFor();
+
+    console.log('TEST PASSED: Menu Danh mục/Xe vận chuyển và bộ lọc hoạt động tốt!');
   } finally {
     if (app) await app.close();
   }

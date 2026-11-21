@@ -249,11 +249,55 @@
       } else if (tab === 'units') {
         if (only === 'units') return D.views.units.render(p);
         const [v] = await Promise.all([D.api('vehicles.list')]);
-        const vehPart = [h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Xe vận chuyển'), D.writer() ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm xe', fields: [{ key: 'plateNo', label: 'Biển số', required: true, hint: 'vd 92H-00057' }, { key: 'ownerUnitCode', label: 'Chủ xe', type: 'select', options: D.unitOptions() }, { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' }], values: { ownerUnitCode: D.state.boot.install.unitCode },
+        const fQ = h('input', { type: 'search', placeholder: 'Tìm biển số, mã xe dầu, ghi chú…', 'aria-label': 'Tìm xe vận chuyển' });
+        const fOwner = h('select', { 'aria-label': 'Lọc theo chủ xe' }, h('option', { value: '' }, 'Tất cả chủ xe'), D.unitOptions().map(([c, lbl]) => h('option', { value: c }, lbl)));
+        const fStatus = h('select', { 'aria-label': 'Lọc theo trạng thái xe' }, h('option', { value: 'all' }, 'Tất cả trạng thái'), h('option', { value: 'active' }, 'Đang dùng'), h('option', { value: 'inactive' }, 'Ngừng dùng'));
+        const countEl = h('span', { class: 'small muted', style: { marginLeft: 'auto', alignSelf: 'center' } });
+        const tableWrap = h('div', { class: 'card flush' });
+        const drawVeh = () => {
+          const q = fQ.value.trim().toLowerCase();
+          const owner = fOwner.value;
+          const status = fStatus.value;
+          const filtered = v.items.filter((x) => {
+            if (status === 'active' && !x.is_active) return false;
+            if (status === 'inactive' && x.is_active) return false;
+            if (owner && x.owner_unit_code !== owner) return false;
+            if (q && !`${x.plate_no || ''} ${x.fuel_code || ''} ${x.owner_unit_code || ''} ${x.note || ''}`.toLowerCase().includes(q)) return false;
+            return true;
+          });
+          countEl.textContent = `Hiển thị ${D.vn(filtered.length)} / ${D.vn(v.items.length)} xe`;
+          tableWrap.replaceChildren(D.table({
+            rows: filtered,
+            onRow: D.writer() ? (x) => vehicleEdit(x, reminder) : null,
+            empty: 'Không có xe vận chuyển phù hợp bộ lọc',
+            columns: [
+              { key: 'plate_no', label: 'Biển số' },
+              { key: 'owner_unit_code', label: 'Chủ xe' },
+              { key: 'fuel_code', label: 'Mã xe dầu' },
+              { key: 'note', label: 'Ghi chú' },
+              { key: 'is_active', label: 'Đang dùng', fmt: 'bool' }
+            ]
+          }));
+        };
+        fQ.addEventListener('input', drawVeh);
+        fOwner.addEventListener('change', drawVeh);
+        fStatus.addEventListener('change', drawVeh);
+        drawVeh();
+        const filterBar = h('div', { class: 'card', style: { marginBottom: '12px' } },
+          h('div', { class: 'filters' },
+            h('label', { class: 'field wide' }, h('span', {}, 'Tìm kiếm'), fQ),
+            h('label', { class: 'field' }, h('span', {}, 'Chủ xe'), fOwner),
+            h('label', { class: 'field' }, h('span', {}, 'Trạng thái'), fStatus),
+            countEl
+          )
+        );
+        const vehPart = [
+          h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Xe vận chuyển'), D.writer() ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm xe', fields: [{ key: 'plateNo', label: 'Biển số', required: true, hint: 'vd 92H-00057' }, { key: 'ownerUnitCode', label: 'Chủ xe', type: 'select', options: D.unitOptions() }, { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' }], values: { ownerUnitCode: D.state.boot.install.unitCode },
             submit: async (x) => { reminder(await D.api('vehicles.save', { create: true, record: x })); D.go('vehicles'); } }) }, 'Thêm xe') : null),
-          h('div', { class: 'card flush' }, D.table({ rows: v.items, onRow: D.writer() ? (x) => vehicleEdit(x, reminder) : null,
-            columns: [{ key: 'plate_no', label: 'Biển số' }, { key: 'owner_unit_code', label: 'Chủ xe' }, { key: 'fuel_code', label: 'Mã xe dầu' }, { key: 'note', label: 'Ghi chú' }, { key: 'is_active', label: 'Đang dùng', fmt: 'bool' }] })),
-          D.writer() ? h('p', { class: 'small muted' }, 'Bấm vào 1 xe để sửa chủ xe, mã xe dầu, ghi chú, sửa biển số nhập nhầm, ngừng dùng hoặc xóa xe nhập nhầm.') : null];
+          filterBar,
+          tableWrap,
+          D.writer() ? h('p', { class: 'small muted' }, 'Bấm vào 1 xe để sửa chủ xe, mã xe dầu, ghi chú, sửa biển số nhập nhầm, ngừng dùng hoặc xóa xe nhập nhầm.') : null
+        ];
         body.append(...vehPart);
       } else if (tab === 'users') {
         if (!admin) { body.append(h('p', { class: 'muted' }, 'Chỉ ADMIN quản lý người dùng.')); } else {
