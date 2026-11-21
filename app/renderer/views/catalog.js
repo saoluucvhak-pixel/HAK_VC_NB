@@ -251,16 +251,114 @@
           : [D.tag('info', 'Đã dùng'), ` Hợp đồng đã có ${use.blockers.join(', ')} — sửa được số HĐ, ngày hiệu lực, tên in, người ký, phạm vi xe; KHÔNG đổi mã / hai bên và không xóa. Nhập nhầm thì thêm hợp đồng đúng rồi bấm "Ngừng dùng".`]);
         const METHOD_TXT = { CO_DINH: 'đơn giá cố định', THEO_DAU: 'theo giá dầu' };
         const myCode = (pcs.items || []).find((x) => x.price_code === c.price_code);
-        const rsBox = h('div'); const priceBlock = h('div', {}, h('p', {}, 'Mã đơn giá: ', c.price_code ? h('b', {}, `${c.price_code}${myCode ? ` — ${myCode.priceMethodLabel}` : ''}`) : h('b', {}, 'Giá chung (cách cũ)'), ' ',
-          h('button', { class: 'btn small', onclick: () => D.go('pricecodes', { unitCode: partner, code: c.price_code || '' }) }, 'Đổi ở Mã đơn giá →')),
-        h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, `Mã đơn giá của đối tác ${partner}: `, (pcs.items || []).filter((x) => x.status === 'ACTIVE').length ? pcs.items.filter((x) => x.status === 'ACTIVE').map((x) => h('span', { class: 'tag info', style: { marginRight: '6px' } }, `${x.price_code} · ${x.priceMethodLabel}`)) : 'chưa có'),
-        rsBox);
+        const routeOf = (rc) => (D.state.boot.routes || []).find((x) => x.route_code === rc);
+
+        const setPriceCode = async (newCode) => {
+          const r = await D.api('contracts.save', { record: { contractId: c.contract_id, priceCode: newCode || '' }, rowVersion: c.row_version });
+          showReminder(r);
+          await back(keepOther('price'));
+          D.toast(newCode ? `Đã gán mã đơn giá ${newCode} cho hợp đồng ${c.contract_code}` : `Đã bỏ gán mã đơn giá khỏi hợp đồng ${c.contract_code}`, 'ok');
+        };
+
+        const assignModal = () => {
+          const activeCodes = (pcs.items || []).filter((x) => x.status === 'ACTIVE');
+          if (!activeCodes.length) {
+            D.toast(`Đối tác ${partner} chưa có mã đơn giá nào đang dùng. Bấm "+ Tạo mã đơn giá mới" để tạo mã trước.`, 'info');
+            return;
+          }
+          const selCode = h('select', { 'aria-label': 'Chọn mã đơn giá' },
+            h('option', { value: '' }, '-- Giá chung (cách cũ, không dùng mã) --'),
+            activeCodes.map((x) => h('option', { value: x.price_code, selected: x.price_code === c.price_code }, `${x.price_code} — ${x.priceMethodLabel} (${x.price_name})`))
+          );
+          D.modal({
+            title: `Gán mã đơn giá cho hợp đồng ${c.contract_code}`,
+            body: h('div', {},
+              h('p', { class: 'small' }, `Mã đơn giá vận chuyển là bảng con của hợp đồng ${c.contract_code}. Tuyến vận chuyển và đơn giá trong hợp đồng sẽ được lấy từ mã đơn giá này.`),
+              h('label', { class: 'field' }, h('span', {}, 'Mã đơn giá của đối tác ' + partner), selCode)
+            ),
+            actions: [
+              { label: 'Hủy', run: () => true },
+              { label: 'Lưu gán mã', primary: true, run: async () => {
+                await setPriceCode(selCode.value);
+                return true;
+              } }
+            ]
+          });
+        };
+
+        const openLineForm = async () => {
+          let targetCode = myCode;
+          if (!targetCode && c.price_code) {
+            try { const g = await D.api('pricecodes.get', { priceCode: c.price_code }); targetCode = g.code; } catch {}
+          }
+          if (targetCode && D.lineForm) {
+            D.lineForm(targetCode, null, async () => { await back(keepOther('price')); });
+          } else {
+            D.toast('Chưa có thông tin mã đơn giá của hợp đồng', 'info');
+          }
+        };
+
+        const openPickExisting = async () => {
+          let targetCode = myCode;
+          if (!targetCode && c.price_code) {
+            try { const g = await D.api('pricecodes.get', { priceCode: c.price_code }); targetCode = g.code; } catch {}
+          }
+          if (targetCode && D.pickExisting) {
+            D.pickExisting(targetCode, async () => { await back(keepOther('price')); });
+          } else {
+            D.toast('Chưa có thông tin mã đơn giá của hợp đồng', 'info');
+          }
+        };
+
+        const codeActions = [
+          h('button', { class: 'btn small', onclick: () => D.go('pricecodes', { unitCode: partner, code: c.price_code || '' }) }, 'Đổi ở Mã đơn giá →'),
+          w ? h('button', { class: 'btn small', onclick: assignModal }, c.price_code ? 'Đổi mã cho HĐ…' : 'Gán mã đơn giá…') : null,
+          w && c.price_code ? h('button', { class: 'btn small', onclick: async () => {
+            if (await D.confirm({ title: 'Bỏ gán mã đơn giá', message: `Hợp đồng ${c.contract_code} sẽ quay về dùng giá chung / giá riêng (cách cũ)?` })) {
+              await setPriceCode('');
+            }
+          } }, 'Bỏ gán mã') : null,
+          w ? h('button', { class: 'btn small', onclick: () => D.codeForm('CO_DINH', null, async (newCode) => { await back(keepOther('price')); if (newCode) await setPriceCode(newCode); }, partner) }, '+ Tạo mã đơn giá mới') : null
+        ].filter(Boolean);
+
+        const priceBlock = h('div', { class: 'card-sub', style: { padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', marginBottom: '14px' } },
+          h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' } },
+            h('h3', { style: { margin: 0, fontSize: '15px' } }, '1. Mã đơn giá vận chuyển (bảng con của hợp đồng)'),
+            h('div', { class: 'btns', style: { margin: 0 } }, ...codeActions)
+          ),
+          h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, 'Hợp đồng vận chuyển là bảng cha liên kết với mã đơn giá con. Tuyến vận chuyển trong hợp đồng sẽ lấy từ "mã đơn giá" cha của đơn giá.'),
+          h('p', { style: { margin: '0 0 6px' } }, 'Mã đơn giá: ', c.price_code ? h('b', {}, `${c.price_code}${myCode ? ` — ${myCode.priceMethodLabel}` : ''}`) : h('b', {}, 'Giá chung (cách cũ)')),
+          h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, `Mã đơn giá của đối tác ${partner}: `, (pcs.items || []).filter((x) => x.status === 'ACTIVE').length
+            ? pcs.items.filter((x) => x.status === 'ACTIVE').map((x) => h('span', { class: 'tag info', style: { marginRight: '6px', cursor: 'pointer' }, title: 'Bấm để gán mã này', onclick: () => setPriceCode(x.price_code) }, `${x.price_code} · ${x.priceMethodLabel}`))
+            : 'chưa có')
+        );
+
+        const lineActions = w && c.price_code ? h('div', { class: 'btns', style: { margin: 0 } },
+          h('button', { class: 'btn small primary', onclick: openLineForm }, '+ Thêm đơn giá theo tuyến'),
+          h('button', { class: 'btn small', onclick: openPickExisting }, 'Chọn đơn giá có sẵn đưa vào mã…')
+        ) : null;
+
+        const rsBox = h('div');
+        const routeBlock = h('div', { class: 'card-sub', style: { padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', marginBottom: '14px' } },
+          h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' } },
+            h('h3', { style: { margin: 0, fontSize: '15px' } }, '2. Tuyến vận chuyển & Đơn giá (bảng con của mã đơn giá)'),
+            lineActions
+          ),
+          h('p', { class: 'small muted', style: { margin: '0 0 10px' } }, 'Tuyến vận chuyển trong hợp đồng được lấy từ "mã đơn giá" cha của đơn giá. Đơn giá từng tuyến là bảng con của mã đơn giá.'),
+          rsBox
+        );
+
         // Nguồn giá: mặc định chỉ TUYẾN CỦA HỢP ĐỒNG (có phiếu cân của xe trong hợp đồng / có dòng giá của mã / giá riêng); nút xem cả tuyến khác
         let rsAll = false;
-        const rsCols = [{ key: 'routeCode', label: 'Mã tuyến' }, { key: 'routeName', label: 'Tên tuyến', wrap: true },
-          { key: 'source', label: 'Nguồn giá', render: (r) => (r.source === 'CODE' ? D.tag('info', `theo mã ${r.priceCode} (${METHOD_TXT[r.priceMethod]})`) : r.source === 'CONTRACT' ? h('span', { class: 'small' }, 'giá riêng hợp đồng (cách cũ)') : h('span', { class: 'small muted' }, 'dùng giá chung (cách cũ)')) },
-          { key: 'priceMethod', label: 'Hình thức', render: (r) => (r.priceMethod === 'CO_DINH' ? 'Cố định' : 'Theo giá dầu') }];
-        rsCols.splice(2, 0, { key: 'inUse', label: 'Có phiếu cân', render: (r) => (r.inUse ? 'Có' : '—') });
+        const rsCols = [
+          { key: 'routeCode', label: 'Mã tuyến' },
+          { key: 'routeName', label: 'Tên tuyến', wrap: true },
+          { key: 'km', label: 'Cự ly (km)', num: true, render: (r) => { const ro = routeOf(r.routeCode); return ro ? D.vnAuto(ro.trip_distance_km) : '—'; } },
+          { key: 'inUse', label: 'Có phiếu cân', render: (r) => (r.inUse ? 'Có' : '—') },
+          { key: 'contractPrice', label: 'Đơn giá', num: true, render: (r) => (r.contractPrice != null ? D.vn(r.contractPrice) + ' đ/tấn' : '—') },
+          { key: 'source', label: 'Nguồn giá', render: (r) => (r.source === 'CODE' ? D.tag('info', `theo mã ${r.priceCode} (${METHOD_TXT[r.priceMethod] || r.priceMethod})`) : r.source === 'CONTRACT' ? h('span', { class: 'small' }, 'giá riêng hợp đồng (cách cũ)') : h('span', { class: 'small muted' }, 'dùng giá chung (cách cũ)')) },
+          { key: 'priceMethod', label: 'Hình thức', render: (r) => (r.priceMethod === 'CO_DINH' ? 'Cố định' : 'Theo giá dầu') }
+        ];
         function drawRs() {
           const others = rs.items.filter((x) => !x.inContract).length;
           rsBox.replaceChildren(D.table({ rows: rsAll ? rs.items : rs.items.filter((x) => x.inContract), maxHeight: '40vh', columns: rsCols,
@@ -289,7 +387,7 @@
           vehicles: () => h('div', {}, h('p', { class: 'small muted' }, 'Mỗi dòng: biển số [tab] hiệu lực từ [tab] hiệu lực đến (trống = đang dùng). Xe bỏ khỏi danh sách được đóng hiệu lực, không xóa.'), vehTxt,
             w ? h('div', { class: 'btns', style: { marginTop: '8px' } }, h('button', { class: 'btn small', onclick: async () => { const s = await D.api('contracts.suggestVehicles', { contractId: c.contract_id }); const have = new Set(vehTxt.value.split('\n').map((l) => l.split('\t')[0])); vehTxt.value += s.plates.filter((x) => !have.has(x)).map((x) => `\n${x}\t${c.effective_from}\t`).join(''); } }, 'Gợi ý xe'),
               h('button', { class: 'btn primary', 'data-hotkey': 'primary', onclick: saveVehicles }, 'Lưu phạm vi xe')) : null),
-          price: () => h('div', {}, priceBlock, fuelBlock),
+          price: () => h('div', {}, priceBlock, routeBlock, fuelBlock),
           periods: () => D.table({ rows: periods.items, empty: 'Hợp đồng chưa có kỳ tính', columns: [{ key: 'period_code', label: 'Mã kỳ' }, { key: 'date_from', label: 'Từ ngày', fmt: 'date' }, { key: 'date_to', label: 'Đến ngày', fmt: 'date' }, { key: 'status', label: 'Trạng thái', fmt: 'tag' },
             { key: 'x', label: '', render: (r) => h('button', { class: 'btn small', onclick: () => D.go('calc', { periodId: r.period_id }) }, 'Mở kỳ') }] }),
         };

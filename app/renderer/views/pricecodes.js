@@ -26,25 +26,29 @@
         group.value = () => (group.querySelector('input:checked') || {}).value || value;
         return group;
       };
-      const codeForm = (method, rec) => {
+      const codeForm = (method, rec, onSaved, defUnit) => {
         const locked = !!rec && (rec.lineCount > 0 || rec.contracts.length > 0);
         const mixed = !!rec && rec.priceMethod === 'HON_HOP'; const cards = methodCards(rec ? rec.priceMethod : method, locked);
         const fields = [{ key: 'priceCode', label: 'Mã đơn giá', required: true, readonly: !!rec, hint: rec ? 'không đổi được' : 'vd DG-DH-2026 (chữ HOA, số, . _ -)' },
-          { key: 'unitCode', label: 'Đơn vị', type: 'select', options: D.unitOptions().filter(([c]) => c !== D.state.boot.install.unitCode || c === (rec && rec.unit_code)), required: true, hint: 'công ty đối tác áp dụng mã giá' },
+          { key: 'unitCode', label: 'Đơn vị', type: 'select', options: D.unitOptions().filter(([c]) => c !== D.state.boot.install.unitCode || c === (rec && rec.unit_code) || c === defUnit), required: true, hint: 'công ty đối tác áp dụng mã giá' },
           { key: 'priceName', label: 'Tên mã đơn giá', required: true, full: true }, { key: 'note', label: 'Ghi chú', full: true }];
-        const f = D.form(fields, rec ? { priceCode: rec.price_code, unitCode: rec.unit_code, priceName: rec.price_name, note: rec.note } : {});
+        const f = D.form(fields, rec ? { priceCode: rec.price_code, unitCode: rec.unit_code, priceName: rec.price_name, note: rec.note } : { unitCode: defUnit || '' });
         D.modal({ title: rec ? `Sửa mã ${rec.price_code}` : 'Tạo mã đơn giá', body: h('div', {}, h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, mixed ? 'Mã này có cả dòng cố định và theo giá dầu (tạo ở bản cũ) — hãy tách thành 2 mã.' : locked ? 'Hình thức giá không đổi được khi mã đã có dòng giá hoặc đã gán hợp đồng.' : 'Chọn hình thức giá:'), cards, f),
           actions: [{ label: 'Hủy', run: () => true }, { label: 'Lưu', primary: true, run: async () => {
             const v = { ...f.values(), ...(mixed ? {} : { priceMethod: cards.value() }) }; const miss = fields.filter((x) => x.required && (v[x.key] === '' || v[x.key] === null)).map((x) => x.label);
             if (miss.length) { D.toast(`Chưa nhập: ${miss.join(', ')}`, 'err'); return false; }
             const r = await D.api('pricecodes.save', rec ? { record: v, rowVersion: rec.row_version } : { create: true, record: v });
             for (const x of r.warnings || []) D.toast(x.message, 'info', 9000);
-            D.toast(rec ? 'Đã lưu mã đơn giá' : `Đã tạo mã ${v.priceCode} — thêm dòng giá để áp dụng`, 'ok'); await again(v.priceCode.trim().toUpperCase()); return true;
+            D.toast(rec ? 'Đã lưu mã đơn giá' : `Đã tạo mã ${v.priceCode} — thêm dòng giá để áp dụng`, 'ok');
+            if (onSaved) await onSaved(v.priceCode.trim().toUpperCase());
+            else await again(v.priceCode.trim().toUpperCase());
+            return true;
           } }] });
       };
+      D.codeForm = codeForm;
 
       // ── Con: thêm / sửa dòng giá (theo hình thức của mã). Cự ly chỉ hiển thị — lưu một chỗ ở Danh mục tuyến ──
-      const lineForm = (code, line) => {
+      const lineForm = (code, line, onSaved) => {
         const method = line ? lineMethod(line) : code.priceMethod; const all = Object.fromEntries(D.priceFormFields().map((f) => [f.key, f]));
         const date = { ...all.effectiveFrom, label: 'Ngày cập nhật (hiệu lực từ ngày)', hint: 'bản mới nhất không sau ngày tính có hiệu lực; bản cũ tự đóng. Không điền lùi vào khoảng đã có kỳ tính' };
         const kmField = { key: 'distanceKm', label: 'Cự ly chuyến (km) — lấy từ Danh mục tuyến', readonly: true, hint: 'chỉ hiển thị; sửa ở Danh mục tuyến' };
@@ -72,12 +76,16 @@
             if (miss.length) { D.toast(`Chưa nhập: ${miss.join(', ')}`, 'err'); return false; }
             if (line) await D.api('prices.updateDraft', { priceId: line.price_id, rowVersion: line.row_version, record: { ...v, priceMethod: method } });
             else await D.api('pricecodes.addLine', { priceCode: code.price_code, record: { ...v, priceMethod: method } });
-            D.toast(line ? 'Đã lưu dòng giá nháp' : 'Đã thêm dòng giá (NHÁP) — bấm "Áp dụng" để dùng', 'ok'); await again(); return true;
+            D.toast(line ? 'Đã lưu dòng giá nháp' : 'Đã thêm dòng giá (NHÁP) — bấm "Áp dụng" để dùng', 'ok');
+            if (onSaved) await onSaved();
+            else await again();
+            return true;
           } }] });
       };
+      D.lineForm = lineForm;
 
       // ── Con: chọn đơn giá CÓ SẴN đưa vào mã ──
-      const pickExisting = async (code) => {
+      const pickExisting = async (code, onSaved) => {
         const d = await D.api('prices.list', { status: 'ACTIVE' }); const rows = d.items.filter((x) => !x.price_code && (x.price_method || 'THEO_DAU') === code.priceMethod);
         const chosen = new Set(); const date = h('input', { type: 'date', value: D.today(), 'aria-label': 'Hiệu lực từ ngày' });
         const table = D.table({ rows, empty: `Chưa có ${METHOD_LABEL[code.priceMethod].toLowerCase()} đang dùng để chọn`, maxHeight: '50vh', columns: [
@@ -90,8 +98,12 @@
           actions: [{ label: 'Hủy', run: () => true }, { label: 'Đưa vào mã', primary: true, run: async () => {
             if (!chosen.size) { D.toast('Chưa chọn đơn giá nào', 'err'); return false; }
             let n = 0; for (const id of chosen) { try { await D.api('pricecodes.addLine', { priceCode: code.price_code, fromPriceId: id, record: { effectiveFrom: date.value } }); n++; } catch { /* lỗi đã hiện; làm tiếp các dòng sau */ } }
-            if (n) D.toast(`Đã đưa ${n} dòng vào mã (NHÁP)`, 'ok'); await again(); return true; } }] });
+            if (n) D.toast(`Đã đưa ${n} dòng vào mã (NHÁP)`, 'ok');
+            if (onSaved) await onSaved();
+            else await again();
+            return true; } }] });
       };
+      D.pickExisting = pickExisting;
 
       // ── Gán mã cho hợp đồng ──
       const assign = async (code) => {

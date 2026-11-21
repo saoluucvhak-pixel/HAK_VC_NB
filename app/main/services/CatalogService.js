@@ -323,7 +323,16 @@ class CatalogService {
       if (!sel.price) continue; // tuyến chưa có giá hiệu lực: không có nguồn để nêu
       const p = sel.price; const source = code && p.price_code === code ? 'CODE' : p.contract_id ? 'CONTRACT' : 'GENERAL';
       const inUse = used.has(r.route_code);
-      items.push({ routeCode: r.route_code, routeName: r.route_name, source, priceCode: p.price_code || '', priceMethod: lineMethod(p), priceId: p.price_id, inUse, inContract: inUse || priced.has(r.route_code) });
+      let contractPrice = p.fixed_price;
+      if (p.price_method !== 'CO_DINH') {
+        try {
+          const cp = E.computeContractPrice(r, p, cfg);
+          contractPrice = cp ? cp.contractPrice : p.new_price;
+        } catch {
+          contractPrice = p.new_price;
+        }
+      }
+      items.push({ routeCode: r.route_code, routeName: r.route_name, source, priceCode: p.price_code || '', priceMethod: lineMethod(p), priceId: p.price_id, inUse, inContract: inUse || priced.has(r.route_code), contractPrice });
     }
     items.sort((a, b) => Number(b.inContract) - Number(a.inContract)); // tuyến của hợp đồng lên đầu (sort ổn định, giữ thứ tự mã tuyến)
     const mine = items.filter((x) => x.inContract);
