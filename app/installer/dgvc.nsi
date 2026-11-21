@@ -1,7 +1,7 @@
-; Bộ cài DGVC — Đơn giá vận chuyển dăm (HAK Group)
+﻿; Bộ cài DGVC — Đơn giá vận chuyển dăm (HAK Group)
 ; MỘT bộ cài dùng cho MỌI nhà máy (HAK, HAKQN, ĐH, CNHAK …): đơn vị của máy chọn ở lần mở đầu tiên.
 ; Cài cho người dùng hiện tại (không cần quyền quản trị). Gỡ cài KHÔNG xóa thư mục dữ liệu (Documents\DGVC_DATA).
-; Dựng: makensis installer/dgvc.nsi   (sau khi có dist/win-unpacked từ electron-builder --win dir)
+; Dựng: makensis /INPUTCHARSET UTF8 installer/dgvc.nsi   (sau khi có dist/win-unpacked từ electron-builder --win dir)
 Unicode true
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
@@ -29,17 +29,68 @@ VIAddVersionKey /LANG=1066 "LegalCopyright" "HAK Group"
 !define MUI_ICON "..\build\icon.ico"
 !define MUI_UNICON "..\build\icon.ico"
 !define MUI_ABORTWARNING
+
+; Đặt font chữ Segoe UI hiển thị tiếng Việt sắc nét chuẩn Windows
+!define MUI_FONT "Segoe UI"
+!define MUI_FONTSIZE 9
+!define MUI_WELCOMEPAGE_TITLE_FONT "Segoe UI"
+!define MUI_WELCOMEPAGE_TITLE_FONTSIZE 12
+!define MUI_WELCOMEPAGE_TITLE_FONTSTYLE "700"
+
 !define MUI_WELCOMEPAGE_TITLE "Cài đặt ${APPNAME}"
 !define MUI_WELCOMEPAGE_TEXT "Phần mềm tính đơn giá vận chuyển dăm, bảng xác nhận khối lượng, diễn giải hóa đơn — thay cho Excel + Power Query.$\r$\n$\r$\nBộ cài dùng chung cho mọi nhà máy của HAK Group. Lần đầu mở phần mềm sẽ chọn đơn vị của máy này và thư mục dữ liệu (mặc định Documents\DGVC_DATA).$\r$\n$\r$\nChạy không cần Internet."
 !define MUI_FINISHPAGE_RUN "$INSTDIR\DGVC.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Mở phần mềm ngay"
+
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
+
 !insertmacro MUI_LANGUAGE "Vietnamese"
+
+; Ghi đè Font hệ thống sang Segoe UI (chuẩn Unicode tiếng Việt)
+LangString ^Font ${LANG_VIETNAMESE} "Segoe UI"
+LangString ^FontSize ${LANG_VIETNAMESE} "9"
+
+; Chuẩn hóa toàn bộ chuỗi sang tiếng Việt dựng sẵn (NFC), khắc phục lỗi vỡ font do ký tự tổ hợp NFD
+LangString ^SetupCaption ${LANG_VIETNAMESE} "Cài đặt $(^Name)"
+LangString ^UninstallCaption ${LANG_VIETNAMESE} "Gỡ cài đặt $(^Name)"
+LangString ^NextBtn ${LANG_VIETNAMESE} "Tiếp tục >"
+LangString ^BackBtn ${LANG_VIETNAMESE} "< Quay lại"
+LangString ^InstallBtn ${LANG_VIETNAMESE} "Cài đặt"
+LangString ^UninstallBtn ${LANG_VIETNAMESE} "Gỡ cài đặt"
+LangString ^CancelBtn ${LANG_VIETNAMESE} "Hủy bỏ"
+LangString ^CloseBtn ${LANG_VIETNAMESE} "Đóng"
+LangString ^BrowseBtn ${LANG_VIETNAMESE} "Duyệt..."
+LangString ^ShowDetailsBtn ${LANG_VIETNAMESE} "Hiện chi tiết"
+LangString ^Completed ${LANG_VIETNAMESE} "Hoàn tất"
+LangString ^ClickNext ${LANG_VIETNAMESE} "Nhấn Tiếp tục để sang bước kế tiếp."
+LangString ^ClickInstall ${LANG_VIETNAMESE} "Nhấn Cài đặt để bắt đầu cài đặt."
+LangString ^ClickUninstall ${LANG_VIETNAMESE} "Nhấn Gỡ cài đặt để bắt đầu gỡ bỏ."
+
+LangString MUI_BUTTONTEXT_FINISH ${LANG_VIETNAMESE} "Hoàn tất"
+LangString MUI_TEXT_DIRECTORY_TITLE ${LANG_VIETNAMESE} "Chọn thư mục cài đặt"
+LangString MUI_TEXT_DIRECTORY_SUBTITLE ${LANG_VIETNAMESE} "Chọn thư mục để cài đặt $(^NameDA)."
+LangString MUI_INNERTEXT_DIRECTORY_TOP ${LANG_VIETNAMESE} "Trình cài đặt sẽ cài đặt $(^NameDA) vào thư mục sau.$\r$\n$\r$\nĐể cài đặt vào thư mục khác, nhấn Duyệt và chọn thư mục."
+LangString MUI_INNERTEXT_DIRECTORY_DESTINATION ${LANG_VIETNAMESE} "Thư mục cài đặt"
+LangString MUI_TEXT_INSTALLING_TITLE ${LANG_VIETNAMESE} "Đang cài đặt"
+LangString MUI_TEXT_INSTALLING_SUBTITLE ${LANG_VIETNAMESE} "Vui lòng chờ trong khi $(^NameDA) được cài đặt."
+LangString MUI_TEXT_FINISH_TITLE ${LANG_VIETNAMESE} "Cài đặt hoàn tất"
+LangString MUI_TEXT_FINISH_SUBTITLE ${LANG_VIETNAMESE} "Đã cài đặt thành công $(^NameDA) trên máy tính của bạn."
+LangString MUI_TEXT_FINISH_INFO_TITLE ${LANG_VIETNAMESE} "Hoàn tất Cài đặt $(^NameDA)"
+LangString MUI_TEXT_FINISH_INFO_TEXT ${LANG_VIETNAMESE} "$(^NameDA) đã được cài đặt vào máy tính của bạn.$\r$\n$\r$\nNhấn Hoàn tất để đóng trình cài đặt."
+
+LangString MUI_UNTEXT_CONFIRM_TITLE ${LANG_VIETNAMESE} "Gỡ cài đặt $(^NameDA)"
+LangString MUI_UNTEXT_CONFIRM_SUBTITLE ${LANG_VIETNAMESE} "Gỡ bỏ $(^NameDA) khỏi máy tính."
+LangString MUI_UNTEXT_UNINSTALLING_TITLE ${LANG_VIETNAMESE} "Đang gỡ cài đặt"
+LangString MUI_UNTEXT_UNINSTALLING_SUBTITLE ${LANG_VIETNAMESE} "Vui lòng chờ trong khi $(^NameDA) được gỡ bỏ."
+LangString MUI_UNTEXT_FINISH_TITLE ${LANG_VIETNAMESE} "Gỡ cài đặt hoàn tất"
+LangString MUI_UNTEXT_FINISH_SUBTITLE ${LANG_VIETNAMESE} "Đã gỡ cài đặt $(^NameDA) thành công khỏi máy tính của bạn."
+LangString MUI_UNTEXT_FINISH_INFO_TITLE ${LANG_VIETNAMESE} "Hoàn tất Gỡ cài đặt $(^NameDA)"
+LangString MUI_UNTEXT_FINISH_INFO_TEXT ${LANG_VIETNAMESE} "$(^NameDA) đã được gỡ khỏi máy tính của bạn.$\r$\n$\r$\nNhấn Hoàn tất để đóng cửa sổ."
 
 Var AcceptanceMode
 

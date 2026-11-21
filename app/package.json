@@ -13,7 +13,7 @@
     "test:electron": "xvfb-run -a node tests/electron.smoke.js && xvfb-run -a electron tests/electron.sqlite.main.js --no-sandbox && xvfb-run -a node tests/electron.autoupgrade.js",
     "compare": "node tools/compare-excel.js",
     "build:catalog": "node tools/build-catalog.js",
-    "dist": "electron-builder --win dir --x64 && makensis -V2 installer/dgvc.nsi",
+    "dist": "electron-builder --win dir --x64 && makensis -V2 /INPUTCHARSET UTF8 installer/dgvc.nsi",
     "dist:win": "electron-builder --win nsis --x64",
     "dist:win:portable": "electron-builder --win portable --x64",
     "dist:win:dir": "electron-builder --win dir --x64",

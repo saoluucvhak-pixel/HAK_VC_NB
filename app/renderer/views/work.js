@@ -8,12 +8,18 @@
 
   // ───────── Tổng quan ─────────
   D.views.dashboard = {
-    async render(p) {
-      const f = D.form([{ key: 'dateFrom', label: 'Từ ngày', type: 'date' }, { key: 'dateTo', label: 'Đến ngày', type: 'date' }], { dateFrom: p.dateFrom || '', dateTo: p.dateTo || '' });
-      f.className = 'filters';
+    async render(p = {}) {
+      const dateFrom = h('input', { type: 'date', value: p.dateFrom || '', 'aria-label': 'Từ ngày' });
+      const dateTo = h('input', { type: 'date', value: p.dateTo || '', 'aria-label': 'Đến ngày' });
+      const filterBar = h('div', { class: 'filters filters-inline' },
+        h('label', { class: 'field' }, h('span', {}, 'Từ ngày'), dateFrom),
+        h('label', { class: 'field' }, h('span', {}, 'đến ngày'), dateTo),
+        h('button', { class: 'btn primary', onclick: () => load() }, 'Xem')
+      );
+      filterBar.values = () => ({ dateFrom: dateFrom.value, dateTo: dateTo.value });
       const out = h('div');
       const load = async () => {
-        const v = f.values(); const d = await D.api('dashboard.summary', v);
+        const v = filterBar.values(); const d = await D.api('dashboard.summary', v);
         out.innerHTML = '';
         out.append(h('div', { class: 'kpis' }, kpi('Tổng chuyến', D.vn(d.kpi.trips)), kpi('Tổng khối lượng (tấn)', D.vn(d.kpi.ton, 2)), kpi('Dầu thực nhận (lít)', D.vnAuto(d.kpi.actualFuel)),
           kpi('Dầu định mức (lít)', D.vnAuto(d.kpi.standardFuel)), kpi('Chênh lệch dầu (lít)', D.vnAuto(d.kpi.fuelDiff)), kpi('Đơn giá VC bình quân', D.vn(d.kpi.avgTransportPrice), true),
@@ -30,7 +36,7 @@
             h('span', { style: { flex: 1 } }, t.message),
             h('button', { class: 'btn small', onclick: () => (t.kind === 'SYNC_REMINDER' ? D.go('sync') : t.kind === 'BACKUP_OLD' ? D.go('settings', { tab: 'backup' }) : D.go('calc', { periodId: t.periodId })) }, 'Mở')))) : h('p', { class: 'muted' }, 'Không có việc tồn đọng.'))));
       };
-      const page = D.page('Tổng quan', 'Dashboard', [], h('div', { class: 'card' }, h('div', { class: 'filters' }, f, h('button', { class: 'btn primary', onclick: load }, 'Xem'))), out);
+      const page = D.page('Tổng quan', 'Dashboard', [], h('div', { class: 'card', style: { padding: '12px 18px' } }, filterBar), out);
       await load();
       return page;
     },

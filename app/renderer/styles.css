@@ -69,6 +69,10 @@ a { color: var(--brand-text); }
 .filters { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; }
 .filters .field { flex: 0 1 190px; min-width: 150px; } .filters .field.full, .filters .field.wide { flex: 1 1 260px; }
 .filters .field input:not([type=checkbox]), .filters .field select { width: 100%; }
+.filters-inline { display: flex; flex-direction: row; align-items: center; gap: 12px; flex-wrap: wrap; }
+.filters-inline .field { display: inline-flex; flex-direction: row; align-items: center; gap: 8px; flex: 0 0 auto; min-width: 0; }
+.filters-inline .field > span { font-size: .84rem; font-weight: 600; color: var(--text); white-space: nowrap; }
+.filters-inline .field input[type="date"], .filters-inline .field input { width: 150px; min-height: 38px; }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
 .field > span { font-size: .84rem; font-weight: 600; color: var(--text); }
 .field input, .field select, .field textarea { border: 1px solid var(--field-line); border-radius: 8px; padding: 7px 11px; background: var(--field-bg); min-height: 38px; transition: border-color .15s, box-shadow .15s; }
