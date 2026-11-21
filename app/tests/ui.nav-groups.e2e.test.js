@@ -33,7 +33,7 @@ test('Giao diện HAKQN: menu nhóm + Hợp đồng cha–con', { skip: !fs.exis
 
     // nhóm: nút có aria-expanded; mặc định mở hết; mọi mục cũ còn trong menu; số phím tắt giữ nguyên
     for (const g of ['Bắt đầu', 'Danh mục', 'Nhập liệu', 'Tính & chốt', 'Kết xuất', 'Trao đổi & đối chiếu', 'Hệ thống']) assert.equal(await group(g).getAttribute('aria-expanded'), 'true', g);
-    for (const label of ['Tổng quan', 'Hướng dẫn & quy trình', 'Phiếu cân', 'Giao nhận dầu', 'Danh mục tuyến', 'Hợp đồng vận chuyển', 'Đơn giá', 'Mã đơn giá', 'Căn cứ giá hợp đồng', 'Tính giá vận chuyển', 'Bảng xác nhận KL', 'Chi tiết vận chuyển', 'Kiểm tra dữ liệu', 'Báo cáo', 'Trao đổi dữ liệu', 'Đối chiếu dữ liệu', 'Nhắc sửa danh mục', 'Lịch sử thao tác', 'Cài đặt', 'Công ty & đối tác', 'Xe']) {
+    for (const label of ['Tổng quan', 'Hướng dẫn & quy trình', 'Phiếu cân', 'Giao nhận dầu', 'Danh mục tuyến', 'Hợp đồng vận chuyển', 'Đơn giá', 'Mã đơn giá', 'Căn cứ giá hợp đồng', 'Tính giá vận chuyển', 'Bảng xác nhận KL', 'Chi tiết vận chuyển', 'Kiểm tra dữ liệu', 'Báo cáo', 'Trao đổi dữ liệu', 'Đối chiếu dữ liệu', 'Nhắc sửa danh mục', 'Lịch sử thao tác', 'Cài đặt', 'Công ty & đối tác', 'Xe vận chuyển']) {
       assert.ok(await item(label).count() >= 1, `mục menu ${label}`); }
     const hot = async (label) => (await page.locator('nav .nav-items button', { hasText: label }).first().locator('.n').innerText()).trim();
     assert.deepEqual([await hot('Tổng quan'), await hot('Phiếu cân'), await hot('Giao nhận dầu'), await hot('Danh mục tuyến'), await hot('Đơn giá'), await hot('Tính giá vận chuyển'), await hot('Cài đặt')], ['1', '2', '3', '4', '5', '6', '11']);
@@ -52,8 +52,8 @@ test('Giao diện HAKQN: menu nhóm + Hợp đồng cha–con', { skip: !fs.exis
 
     // Công ty & đối tác / Xe tách khỏi Cài đặt; đường dẫn cũ vẫn chạy
     await item('Công ty & đối tác').click(); await page.getByRole('heading', { name: 'Công ty & đối tác' }).first().waitFor(); await page.getByText('Công ty đối tác', { exact: true }).waitFor();
-    assert.equal(await page.getByRole('heading', { name: 'Xe', exact: true }).count(), 0);
-    await item('Xe').click(); await page.getByRole('heading', { name: 'Xe', exact: true }).first().waitFor();
+    assert.equal(await page.getByRole('heading', { name: 'Xe vận chuyển', exact: true }).count(), 0);
+    await item('Xe vận chuyển').click(); await page.getByRole('heading', { name: 'Xe vận chuyển', exact: true }).first().waitFor();
     await item('Cài đặt').click(); await page.getByRole('heading', { name: 'Cài đặt' }).first().waitFor(); assert.equal(await page.getByRole('tab', { name: 'Công ty & xe' }).count(), 0);
     await page.evaluate(() => window.DGVC.go('settings', { tab: 'units' })); await page.getByRole('heading', { name: 'Công ty & đối tác' }).first().waitFor();
 

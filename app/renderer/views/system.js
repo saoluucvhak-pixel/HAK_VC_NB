@@ -249,7 +249,7 @@
       } else if (tab === 'units') {
         if (only === 'units') return D.views.units.render(p);
         const [v] = await Promise.all([D.api('vehicles.list')]);
-        const vehPart = [h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Xe'), D.writer() ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm xe', fields: [{ key: 'plateNo', label: 'Biển số', required: true, hint: 'vd 92H-00057' }, { key: 'ownerUnitCode', label: 'Chủ xe', type: 'select', options: D.unitOptions() }, { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' }], values: { ownerUnitCode: D.state.boot.install.unitCode },
+        const vehPart = [h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Xe vận chuyển'), D.writer() ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm xe', fields: [{ key: 'plateNo', label: 'Biển số', required: true, hint: 'vd 92H-00057' }, { key: 'ownerUnitCode', label: 'Chủ xe', type: 'select', options: D.unitOptions() }, { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' }], values: { ownerUnitCode: D.state.boot.install.unitCode },
             submit: async (x) => { reminder(await D.api('vehicles.save', { create: true, record: x })); D.go('vehicles'); } }) }, 'Thêm xe') : null),
           h('div', { class: 'card flush' }, D.table({ rows: v.items, onRow: D.writer() ? (x) => vehicleEdit(x, reminder) : null,
             columns: [{ key: 'plate_no', label: 'Biển số' }, { key: 'owner_unit_code', label: 'Chủ xe' }, { key: 'fuel_code', label: 'Mã xe dầu' }, { key: 'note', label: 'Ghi chú' }, { key: 'is_active', label: 'Đang dùng', fmt: 'bool' }] })),
@@ -280,11 +280,11 @@
         body.append(h('div', { class: 'card' }, h('table', { class: 't' }, h('tbody', {}, [['Phiên bản APP', i.appVersion], ['Bản cài', `${i.unitCode} · ${i.unitName}`], ['Mã bản cài', i.installId], ['Thư mục dữ liệu', i.dataFolder], ['schemaVersion', i.schemaVersion], ['dataVersion', i.dataVersion],
           ['Số file dữ liệu', hl ? hl.files : '']].map(([k, v]) => h('tr', {}, h('td', {}, k), h('td', { class: 'mono' }, v)))))));
       }
-      if (only) return only === 'units' ? D.page('Công ty & đối tác', 'Danh mục · Công ty vận chuyển và công ty đối tác', [], body) : D.page('Xe', 'Danh mục · Xe vận chuyển', [], body);
+      if (only) return only === 'units' ? D.page('Công ty & đối tác', 'Danh mục · Công ty vận chuyển và công ty đối tác', [], body) : D.page('Xe vận chuyển', 'Danh mục · Xe vận chuyển', [], body);
       return D.page('Cài đặt', '11 · Cài đặt', [], tabs, body);
     },
   };
-  // Màn riêng (menu Danh mục): Xe
+  // Màn riêng (menu Danh mục): Xe vận chuyển
   D.views.vehicles = { render: (p) => D.views.settings.render({ ...p, tab: 'units', only: 'vehicles' }) };
 
   // ───────── Công ty & đối tác (2 tab: Công ty vận chuyển / Công ty đối tác) ─────────

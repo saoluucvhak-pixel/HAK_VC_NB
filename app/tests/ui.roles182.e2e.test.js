@@ -49,7 +49,7 @@ test('Giao diện ĐH: quyền hiển thị nút + chống bấm đúp (1.8.2)',
     assert.equal(await page.getByRole('button', { name: 'Sửa thông tin công ty' }).count(), 0);
     assert.equal(await page.getByRole('button', { name: /Thêm công ty đối tác|Thêm đối tác/ }).count(), 0);
     await page.getByText('Chỉ ADMIN sửa được thông tin công ty').waitFor();
-    await nav('Xe'); assert.ok(await page.getByRole('button', { name: 'Thêm xe' }).count() >= 1, 'KE_TOAN vẫn thêm được xe');
+    await nav('Xe vận chuyển'); assert.ok(await page.getByRole('button', { name: 'Thêm xe' }).count() >= 1, 'KE_TOAN vẫn thêm được xe');
     await nav('Cài đặt'); assert.ok(await page.getByRole('button', { name: 'Sao lưu ngay' }).count() >= 1, 'KE_TOAN được sao lưu');
     await logout();
 

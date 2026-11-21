@@ -19,7 +19,7 @@ test('Giao diện: sửa biển số xe nhập nhầm', { skip: !fs.existsSync(C
   const next = (p) => fetch(`${srv.url}/dev/next`, { method: 'POST', body: JSON.stringify({ path: p }) });
   const shot = async (name) => { if (SHOTS) { fs.mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: path.join(SHOTS, `xe-${name}.png`) }); } };
   const toast = async (re) => { await page.locator('.toast', { hasText: re }).first().waitFor({ timeout: 20000 }); };
-  const units = async () => { await page.locator('nav').getByRole('button', { name: 'Xe', exact: true }).click(); await page.getByRole('heading', { name: 'Xe', exact: true }).first().waitFor(); }; // 1.8.x: màn Xe tách khỏi Cài đặt
+  const units = async () => { await page.locator('nav').getByRole('button', { name: 'Xe vận chuyển', exact: true }).click(); await page.getByRole('heading', { name: 'Xe vận chuyển', exact: true }).first().waitFor(); }; // 1.8.x: màn Xe tách khỏi Cài đặt
   try {
     await page.goto(srv.url);
     await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
