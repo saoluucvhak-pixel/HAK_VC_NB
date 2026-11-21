@@ -42,9 +42,9 @@ test('Danh mục/Xe vận chuyển menu và hiển thị trang', async (t) => {
     await w.getByRole('heading', { name: 'Xe vận chuyển', level: 1 }).waitFor();
 
     // Kiểm tra bộ lọc: Tìm kiếm, Chủ xe, Trạng thái
-    const fQ = w.getByLabel('Tìm xe vận chuyển');
-    const fOwner = w.getByLabel('Lọc theo chủ xe');
-    const fStatus = w.getByLabel('Lọc theo trạng thái xe');
+    const fQ = w.getByLabel('Tìm xe vận chuyển', { exact: true });
+    const fOwner = w.getByLabel('Lọc theo chủ xe', { exact: true });
+    const fStatus = w.getByLabel('Lọc theo trạng thái xe', { exact: true });
     await fQ.waitFor();
     await fOwner.waitFor();
     await fStatus.waitFor();
@@ -57,10 +57,13 @@ test('Danh mục/Xe vận chuyển menu và hiển thị trang', async (t) => {
 
     // Lọc theo từ khóa tìm kiếm
     await fQ.fill('92H-88888');
+    await w.waitForTimeout(350);
     assert.equal(await w.locator('tbody tr').count(), 1);
+    await w.locator('.fchip', { hasText: 'Tìm: 92H-88888' }).waitFor();
     await fQ.fill('KHONG_CO_XE_NAO_XYZ');
     await w.getByText('Không có xe vận chuyển phù hợp bộ lọc').waitFor();
     await fQ.fill('');
+    await w.waitForTimeout(350);
 
     // Lọc theo trạng thái Ngừng dùng
     await fStatus.selectOption('inactive');

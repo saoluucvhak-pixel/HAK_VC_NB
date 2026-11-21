@@ -104,12 +104,19 @@
     ACTIVE: ['Đang dùng', 'ok'], CLOSED: ['Đã đóng', 'mute'], OPEN: ['Chờ sửa', 'warn'], DONE: ['Đã xong', 'ok'], CONFIRMED: ['Đã xác nhận', 'ok'], LOCKED: ['Đã khóa', 'ok'],
     CARRIER: ['Bên vận chuyển', 'ok'], info: ['', 'info'], warn: ['', 'warn'], ok: ['', 'ok'], err: ['', 'err'], CUSTOMER: ['Bên thuê', 'info'], OTHER: ['Khác', 'mute'], IMPORTED: ['Nhận từ gói', 'info'], LOCAL: ['Tại bản cài', 'mute'] };
   D.tag = (code, text) => { const s = STATUS[code] || [code, 'mute']; return h('span', { class: `tag ${s[1]}` }, text || s[0]); };
-  // ───────── giao diện sáng / tối: 'auto' theo hệ điều hành, hoặc chọn tay (lưu trên máy này) ─────────
+  // ───────── giao diện sáng / tối & bảng màu (HAK Enterprise Design System: Luxe / Classic) ─────────
   const THEMES = [['auto', 'Tự động'], ['light', 'Sáng'], ['dark', 'Tối']];
+  const SKINS = [['luxe', 'Luxe'], ['classic', 'Classic']];
   const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   D.themePref = () => { try { const v = localStorage.getItem('dgvc.theme'); return THEMES.some(([k]) => k === v) ? v : 'auto'; } catch { return 'auto'; } };
-  D.applyTheme = () => { const p = D.themePref(); document.documentElement.dataset.theme = p === 'auto' ? (mq && mq.matches ? 'dark' : 'light') : p; };
-  D.cycleTheme = () => { const i = THEMES.findIndex(([k]) => k === D.themePref()); try { localStorage.setItem('dgvc.theme', THEMES[(i + 1) % THEMES.length][0]); } catch { /* không lưu được: vẫn đổi trong phiên */ } D.applyTheme(); };
+  D.skinPref = () => { try { const v = localStorage.getItem('dgvc.skin'); return SKINS.some(([k]) => k === v) ? v : 'luxe'; } catch { return 'luxe'; } };
+  D.applyTheme = () => {
+    const p = D.themePref();
+    document.documentElement.dataset.theme = p === 'auto' ? (mq && mq.matches ? 'dark' : 'light') : p;
+    document.documentElement.dataset.skin = D.skinPref();
+  };
+  D.cycleTheme = () => { const i = THEMES.findIndex(([k]) => k === D.themePref()); try { localStorage.setItem('dgvc.theme', THEMES[(i + 1) % THEMES.length][0]); } catch { /* không lưu được */ } D.applyTheme(); };
+  D.cycleSkin = () => { const i = SKINS.findIndex(([k]) => k === D.skinPref()); try { localStorage.setItem('dgvc.skin', SKINS[(i + 1) % SKINS.length][0]); } catch { /* không lưu được */ } D.applyTheme(); };
   if (mq && mq.addEventListener) mq.addEventListener('change', D.applyTheme);
   D.applyTheme();
   D.today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -342,8 +349,10 @@
         return h('li', { class: 'nav-group' }, head, ul);
       }))),
       h('div', { class: 'me' }, h('div', {}, b.user.fullName || b.user.username), h('div', {}, `${b.user.role} · dữ liệu: `, h('span', { class: 'mono' }, b.install.dataFolder)),
-        h('button', { class: 'theme-btn', 'aria-label': 'Đổi giao diện sáng/tối', onclick: (e) => { D.cycleTheme(); e.currentTarget.textContent = `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`; } }, `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`),
-        h('button', { onclick: async () => { await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); state.token = ''; state.boot = null; D.go('login'); } }, 'Đăng xuất')));
+        h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' } },
+          h('button', { class: 'theme-btn', 'aria-label': 'Đổi giao diện sáng/tối', onclick: (e) => { D.cycleTheme(); e.currentTarget.textContent = `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`; } }, `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`),
+          h('button', { class: 'skin-btn', 'aria-label': 'Đổi bảng màu Luxe/Classic', onclick: (e) => { D.cycleSkin(); e.currentTarget.textContent = `Màu: ${SKINS.find(([k]) => k === D.skinPref())[1]}`; } }, `Màu: ${SKINS.find(([k]) => k === D.skinPref())[1]}`),
+          h('button', { onclick: async () => { await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); state.token = ''; state.boot = null; D.go('login'); } }, 'Đăng xuất'))));
     root.innerHTML = ''; root.append(h('div', { class: 'app' }, side, main));
     const v = D.views[view];
     try {
@@ -363,6 +372,46 @@
     .map((c) => [c.contract_id, `${c.contract_code} · ${c.carrier_unit_code} → ${c.customer_unit_code}${c.role === 'CARRIER' ? '' : ' (bên thuê)'}${c.is_active === false ? ' (ngừng dùng)' : ''}`]);
   D.routeOptions = (blank = true) => [...(blank ? [['', 'Tất cả tuyến']] : []), ...state.boot.routes.map((r) => [r.route_code, `${r.route_code} · ${r.route_name}`])];
   D.unitOptions = (blank = false) => [...(blank ? [['', '—']] : []), ...state.boot.units.map((u) => [u.unit_code, `${u.unit_code} · ${u.unit_name}`])];
+
+  // ───────── HAK Smart Filter adapter (HAK_SMART_FILTER) ─────────
+  D.sf = window.HAKCore && window.HAKCore.sf;
+  if (window.HAKUI && window.HAKUI.smartFilter && D.sf) {
+    const sfH = (tag, attrs, kids) => {
+      const e = document.createElement(tag);
+      for (const [k, v] of Object.entries(attrs || {})) {
+        if (v === null || v === undefined || v === false) continue;
+        if (k === 'text') e.textContent = String(v);
+        else if (k === 'class') e.className = String(v);
+        else if (k === 'style') { if (typeof v === 'string') e.style.cssText = v; else Object.assign(e.style, v); }
+        else if (k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2), v);
+        else e.setAttribute(k, v === true ? '' : String(v));
+      }
+      for (const c of (Array.isArray(kids) ? kids : kids != null ? [kids] : [])) {
+        if (c !== null && c !== undefined && c !== false) e.append(typeof c === 'string' ? document.createTextNode(c) : c);
+      }
+      return e;
+    };
+    D.smartFilter = window.HAKUI.smartFilter.create({
+      h: sfH,
+      btn: (label, kind, onclick, title) => sfH('button', { type: 'button', class: `btn small${kind === 'primary' || kind === 'pri' ? ' primary' : kind === 'ghost' ? ' sf-ghost' : ''}`, title: title || '', onclick }, [label]),
+      dateField: (iso, attrs) => sfH('input', Object.assign({ type: 'date', value: iso || '' }, attrs || {})),
+      dateIso: (inp) => (inp && inp.value) || '',
+      toast: (msg) => D.toast(msg, 'info'),
+      askText: (title, label, opts, cb) => {
+        const inp = h('input', { type: 'text', value: (opts && opts.value) || '', 'aria-label': label });
+        D.modal({
+          title,
+          body: h('label', { class: 'field' }, h('span', {}, label), inp),
+          actions: [
+            { label: 'Hủy', run: () => true },
+            { label: 'Lưu', primary: true, run: () => { const v = inp.value.trim(); if (!v) { D.toast('Chưa nhập tên', 'err'); return false; } cb(v); return true; } }
+          ]
+        });
+        setTimeout(() => inp.focus(), 50);
+      },
+      storage: () => { try { return window.localStorage; } catch { return null; } }
+    });
+  }
 
   document.addEventListener('keydown', (e) => {
     if (!(e.ctrlKey && e.key === 'Enter')) return;

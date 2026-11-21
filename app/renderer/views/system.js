@@ -249,25 +249,36 @@
       } else if (tab === 'units') {
         if (only === 'units') return D.views.units.render(p);
         const [v] = await Promise.all([D.api('vehicles.list')]);
-        const fQ = h('input', { type: 'search', placeholder: 'Tìm biển số, mã xe dầu, ghi chú…', 'aria-label': 'Tìm xe vận chuyển' });
-        const fOwner = h('select', { 'aria-label': 'Lọc theo chủ xe' }, h('option', { value: '' }, 'Tất cả chủ xe'), D.unitOptions().map(([c, lbl]) => h('option', { value: c }, lbl)));
-        const fStatus = h('select', { 'aria-label': 'Lọc theo trạng thái xe' }, h('option', { value: 'all' }, 'Tất cả trạng thái'), h('option', { value: 'active' }, 'Đang dùng'), h('option', { value: 'inactive' }, 'Ngừng dùng'));
-        const countEl = h('span', { class: 'small muted', style: { marginLeft: 'auto', alignSelf: 'center' } });
         const tableWrap = h('div', { class: 'card flush' });
+        const sfSlot = h('div', { class: 'card', style: { marginBottom: '12px' } });
+        let sfState = D.sf ? D.sf.empty() : { q: '', one: {} };
+        let sfInfo = { kept: 0, total: 0 };
+        let sfMount = null;
+
+        const sfCfg = {
+          screenId: 'vehicles',
+          searchPlaceholder: 'Tìm không dấu: biển số, mã xe dầu, chủ xe, ghi chú…',
+          qAttrs: { 'aria-label': 'Tìm xe vận chuyển' },
+          quickFields: ['q', 'owner', 'status'],
+          advancedFields: ['q', 'owner', 'status', 'hasFuelCode'],
+          fields: [
+            { key: 'owner', label: 'Lọc theo chủ xe', type: 'enum', options: () => D.unitOptions().map(([c, lbl]) => ({ value: c, label: lbl })), match: (x, val) => x.owner_unit_code === val },
+            { key: 'status', label: 'Lọc theo trạng thái xe', type: 'enum', options: [{ value: 'active', label: 'Đang dùng' }, { value: 'inactive', label: 'Ngừng dùng' }], match: (x, val) => (val === 'active' ? !!x.is_active : !x.is_active) },
+            { key: 'hasFuelCode', label: 'Chưa có mã xe dầu', type: 'bool', match: (x) => !x.fuel_code }
+          ],
+          matchQ: (x, q) => D.sf.hay([x.plate_no, x.fuel_code, x.owner_unit_code, x.note]).indexOf(q) >= 0,
+          state: { get: () => sfState, set: (s) => { sfState = s; } },
+          dataSource: () => sfInfo,
+          onApply: () => drawVeh(),
+          onReset: () => drawVeh(),
+          scopeFallback: () => 'Tất cả xe vận chuyển'
+        };
+
         const drawVeh = () => {
-          const q = fQ.value.trim().toLowerCase();
-          const owner = fOwner.value;
-          const status = fStatus.value;
-          const filtered = v.items.filter((x) => {
-            if (status === 'active' && !x.is_active) return false;
-            if (status === 'inactive' && x.is_active) return false;
-            if (owner && x.owner_unit_code !== owner) return false;
-            if (q && !`${x.plate_no || ''} ${x.fuel_code || ''} ${x.owner_unit_code || ''} ${x.note || ''}`.toLowerCase().includes(q)) return false;
-            return true;
-          });
-          countEl.textContent = `Hiển thị ${D.vn(filtered.length)} / ${D.vn(v.items.length)} xe`;
+          const res = D.sf ? D.sf.filterRows(v.items || [], sfCfg, sfState) : { rows: v.items || [], kept: (v.items || []).length, total: (v.items || []).length };
+          sfInfo = { kept: res.kept, total: res.total, unsupported: res.unsupported };
           tableWrap.replaceChildren(D.table({
-            rows: filtered,
+            rows: res.rows,
             onRow: D.writer() ? (x) => vehicleEdit(x, reminder) : null,
             empty: 'Không có xe vận chuyển phù hợp bộ lọc',
             columns: [
@@ -279,22 +290,15 @@
             ]
           }));
         };
-        fQ.addEventListener('input', drawVeh);
-        fOwner.addEventListener('change', drawVeh);
-        fStatus.addEventListener('change', drawVeh);
         drawVeh();
-        const filterBar = h('div', { class: 'card', style: { marginBottom: '12px' } },
-          h('div', { class: 'filters' },
-            h('label', { class: 'field wide' }, h('span', {}, 'Tìm kiếm'), fQ),
-            h('label', { class: 'field' }, h('span', {}, 'Chủ xe'), fOwner),
-            h('label', { class: 'field' }, h('span', {}, 'Trạng thái'), fStatus),
-            countEl
-          )
-        );
+        if (D.smartFilter) {
+          sfMount = D.smartFilter.mount(sfCfg);
+          sfSlot.append(sfMount.el);
+        }
         const vehPart = [
           h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Xe vận chuyển'), D.writer() ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm xe', fields: [{ key: 'plateNo', label: 'Biển số', required: true, hint: 'vd 92H-00057' }, { key: 'ownerUnitCode', label: 'Chủ xe', type: 'select', options: D.unitOptions() }, { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' }], values: { ownerUnitCode: D.state.boot.install.unitCode },
             submit: async (x) => { reminder(await D.api('vehicles.save', { create: true, record: x })); D.go('vehicles'); } }) }, 'Thêm xe') : null),
-          filterBar,
+          sfSlot,
           tableWrap,
           D.writer() ? h('p', { class: 'small muted' }, 'Bấm vào 1 xe để sửa chủ xe, mã xe dầu, ghi chú, sửa biển số nhập nhầm, ngừng dùng hoặc xóa xe nhập nhầm.') : null
         ];
@@ -489,9 +493,38 @@
             actionsBox.append(h('button', { class: 'btn primary', onclick: addPartner }, 'Thêm công ty đối tác'));
           }
 
-          const qInp = h('input', { type: 'text', placeholder: 'Tìm theo mã, tên, MST đối tác...', 'aria-label': 'Tìm đối tác' });
           const tableBox = h('div', { class: 'card flush' });
           const partnerVehBox = h('div');
+          const sfSlot = h('div', { class: 'card', style: { padding: '12px 18px', marginBottom: '14px' } });
+          let sfState = D.sf ? D.sf.empty() : { q: '', one: {} };
+          let sfInfo = { kept: 0, total: 0 };
+
+          const sfCfg = {
+            screenId: 'partners',
+            searchPlaceholder: 'Tìm không dấu: mã, tên, MST, địa chỉ đối tác…',
+            qAttrs: { 'aria-label': 'Tìm đối tác' },
+            quickFields: ['q', 'relType'],
+            advancedFields: ['q', 'relType', 'hasVehicles'],
+            fields: [
+              { key: 'relType', label: 'Quan hệ hợp đồng', type: 'enum', options: [
+                { value: 'customer', label: 'Bên thuê vận chuyển' },
+                { value: 'carrier', label: 'Bên vận chuyển cho mình' },
+                { value: 'none', label: 'Chưa có hợp đồng' }
+              ], match: (r, v) => {
+                const txt = rel(r.unit_code).text.toLowerCase();
+                if (v === 'customer') return txt.includes('bên thuê');
+                if (v === 'carrier') return txt.includes('bên vận chuyển');
+                return txt === 'chưa có hợp đồng';
+              } },
+              { key: 'hasVehicles', label: 'Đã có xe trong danh mục', type: 'bool', match: (r) => (vs.items || []).some((v) => v.owner_unit_code === r.unit_code) }
+            ],
+            matchQ: (x, q) => D.sf.hay([x.unit_code, x.unit_name, x.tax_code, x.address, x.phone]).indexOf(q) >= 0,
+            state: { get: () => sfState, set: (s) => { sfState = s; } },
+            dataSource: () => sfInfo,
+            onApply: () => filterPartners(),
+            onReset: () => filterPartners(),
+            scopeFallback: () => 'Tất cả đối tác'
+          };
 
           const drawPartnerVeh = () => {
             partnerVehBox.innerHTML = '';
@@ -501,11 +534,11 @@
           };
 
           const filterPartners = () => {
-            const kw = qInp.value.trim().toLowerCase();
-            const list = kw ? partners.filter((x) => (x.unit_code || '').toLowerCase().includes(kw) || (x.unit_name || '').toLowerCase().includes(kw) || (x.tax_code || '').toLowerCase().includes(kw) || (x.address || '').toLowerCase().includes(kw)) : partners;
+            const res = D.sf ? D.sf.filterRows(partners, sfCfg, sfState) : { rows: partners, kept: partners.length, total: partners.length };
+            sfInfo = { kept: res.kept, total: res.total, unsupported: res.unsupported };
             tableBox.innerHTML = '';
             tableBox.append(D.table({
-              rows: list,
+              rows: res.rows,
               onRow: admin ? (x) => editUnit(x, `Đối tác ${x.unit_code}`) : null,
               columns: [
                 { key: 'unit_code', label: 'Mã' },
@@ -518,26 +551,21 @@
                 { key: 'address', label: 'Địa chỉ', wrap: true },
                 ...(admin ? [{ key: 'act', label: '', render: (r) => h('button', { class: 'btn small', onclick: (e) => { e.stopPropagation(); editUnit(r, `Đối tác ${r.unit_code}`); } }, 'Sửa') }] : [])
               ],
-              empty: kw ? 'Không tìm thấy công ty đối tác phù hợp' : 'Chưa có công ty đối tác'
+              empty: 'Không tìm thấy công ty đối tác phù hợp'
             }));
           };
 
-          qInp.addEventListener('input', filterPartners);
           filterPartners();
+          if (D.smartFilter) {
+            sfSlot.append(D.smartFilter.mount(sfCfg).el);
+          }
           drawPartnerVeh();
-
-          const filterBar = h('div', { class: 'card', style: { padding: '12px 18px', marginBottom: '14px' } },
-            h('div', { class: 'filters filters-inline' },
-              h('label', { class: 'field' }, h('span', {}, 'Tìm kiếm'), qInp),
-              h('span', { class: 'small muted', style: { marginLeft: 'auto' } }, `${partners.length} đối tác`)
-            )
-          );
 
           const guideNote = h('p', { class: 'small muted', style: { marginTop: '8px' } },
             admin ? 'Bấm "Xe (N)" để xem/thêm danh mục xe con của đối tác. Bấm vào một dòng để sửa thông tin đối tác.' : 'Bấm "Xe (N)" để xem danh mục xe con của đối tác. Chỉ ADMIN sửa được thông tin công ty / đối tác.'
           );
 
-          tabContent.append(filterBar, tableBox, guideNote, partnerVehBox);
+          tabContent.append(sfSlot, tableBox, guideNote, partnerVehBox);
         }
       };
 

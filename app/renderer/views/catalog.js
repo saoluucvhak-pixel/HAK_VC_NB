@@ -21,24 +21,36 @@
   D.views.routes = {
     async render() {
       const inactive = h('input', { type: 'checkbox', id: 'ina' });
-      const fQ = h('input', { type: 'search', placeholder: 'Tìm mã tuyến, tên tuyến, điểm đi/đến…', 'aria-label': 'Tìm tuyến vận chuyển' });
-      const fUnit = h('select', { 'aria-label': 'Lọc theo đơn vị' }, h('option', { value: '' }, 'Tất cả đơn vị'), D.unitOptions().map(([c, lbl]) => h('option', { value: c }, lbl)));
-      const fUom = h('select', { 'aria-label': 'Lọc theo ĐVT' }, h('option', { value: '' }, 'Tất cả ĐVT'), h('option', { value: 'TAN' }, 'Tấn'), h('option', { value: 'M3' }, 'M³'));
-      const countEl = h('span', { class: 'small muted', style: { marginLeft: 'auto', alignSelf: 'center' } });
       const out = h('div', { class: 'card flush' });
+      const sfSlot = h('div');
       let allItems = [];
+      let sfState = D.sf ? D.sf.empty() : { q: '', one: {} };
+      let sfInfo = { kept: 0, total: 0 };
+      let sfMount = null;
+
+      const sfCfg = {
+        screenId: 'routes',
+        searchPlaceholder: 'Tìm không dấu: mã tuyến, tên tuyến, điểm đi/đến…',
+        qAttrs: { 'aria-label': 'Tìm tuyến vận chuyển' },
+        quickFields: ['q', 'unit', 'uom'],
+        advancedFields: ['q', 'unit', 'uom', 'hasPrice'],
+        fields: [
+          { key: 'unit', label: 'Lọc theo đơn vị', type: 'enum', options: () => D.unitOptions().map(([c, lbl]) => ({ value: c, label: lbl })), match: (r, v) => r.catalog_unit_code === v },
+          { key: 'uom', label: 'Lọc theo ĐVT', type: 'enum', options: [{ value: 'TAN', label: 'Tấn' }, { value: 'M3', label: 'M³' }], match: (r, v) => r.uom === v },
+          { key: 'hasPrice', label: 'Chưa có ĐG hiện hành', type: 'bool', match: (r) => !r.activePrice }
+        ],
+        matchQ: (r, q) => D.sf.hay([r.route_code, r.route_name, r.from_place, r.to_place, r.catalog_unit_code]).indexOf(q) >= 0,
+        state: { get: () => sfState, set: (s) => { sfState = s; } },
+        dataSource: () => sfInfo,
+        onApply: () => draw(),
+        onReset: () => draw(),
+        scopeFallback: () => 'Tất cả tuyến'
+      };
+
       const draw = () => {
-        const q = fQ.value.trim().toLowerCase();
-        const unit = fUnit.value;
-        const uom = fUom.value;
-        const filtered = allItems.filter((r) => {
-          if (unit && r.catalog_unit_code !== unit) return false;
-          if (uom && r.uom !== uom) return false;
-          if (q && !`${r.route_code || ''} ${r.route_name || ''} ${r.from_place || ''} ${r.to_place || ''} ${r.catalog_unit_code || ''}`.toLowerCase().includes(q)) return false;
-          return true;
-        });
-        countEl.textContent = `Hiển thị ${D.vn(filtered.length)} / ${D.vn(allItems.length)} tuyến`;
-        out.replaceChildren(D.table({ rows: filtered, onRow: D.writer() ? edit : null, empty: 'Không có tuyến vận chuyển phù hợp bộ lọc', columns: [{ key: 'catalogDate', label: 'Ngày cập nhật', fmt: 'date' }, { key: 'route_code', label: 'Mã tuyến' }, { key: 'route_name', label: 'Tuyến', wrap: true }, { key: 'distance_km', label: 'Cự ly', fmt: 'auto' },
+        const res = D.sf ? D.sf.filterRows(allItems, sfCfg, sfState) : { rows: allItems, kept: allItems.length, total: allItems.length };
+        sfInfo = { kept: res.kept, total: res.total, unsupported: res.unsupported };
+        out.replaceChildren(D.table({ rows: res.rows, onRow: D.writer() ? edit : null, empty: 'Không có tuyến vận chuyển phù hợp bộ lọc', columns: [{ key: 'catalogDate', label: 'Ngày cập nhật', fmt: 'date' }, { key: 'route_code', label: 'Mã tuyến' }, { key: 'route_name', label: 'Tuyến', wrap: true }, { key: 'distance_km', label: 'Cự ly', fmt: 'auto' },
           { key: 'trip_distance_km', label: 'Cự ly chuyến', fmt: 'auto' }, { key: 'uom', label: 'ĐVT' }, { key: 'from_place', label: 'Điểm đi' }, { key: 'to_place', label: 'Điểm đến' }, { key: 'catalog_unit_code', label: 'Đơn vị' },
           { key: 'p', label: 'ĐG ký HĐ hiện hành', num: true, render: (r) => (r.activePrice ? r.activePrice.price_id : h('span', { class: 'tag warn' }, 'chưa có giá')) }, { key: 'usedInPeriods', label: 'Số kỳ đã dùng', fmt: 'int' },
           { key: 'is_active', label: 'Trạng thái', render: (r) => (r.is_active ? D.tag('ACTIVE') : D.tag('CLOSED', 'Ngừng dùng')) }] }));
@@ -47,6 +59,7 @@
         const d = await D.api('routes.list', { includeInactive: inactive.checked });
         allItems = d.items || [];
         draw();
+        if (sfMount) sfMount.refresh();
       };
       const edit = (r) => D.formModal({ title: `Sửa tuyến ${r.route_code}`, fields: ROUTE_FIELDS(false), values: routeValues(r), submit: async (v) => {
         const { reason, ...record } = v; const res = await D.api('routes.save', { record, rowVersion: r.row_version, reason });
@@ -54,18 +67,14 @@
       const add = async () => { const next = await D.api('routes.nextCode', {}, { quiet: true }).catch(() => ({ routeCode: '' })); D.formModal({ title: 'Thêm tuyến vận chuyển', fields: ROUTE_FIELDS(true), values: { routeCode: next.routeCode, catalogDate: D.today(), uom: 'TAN', catalogUnitCode: D.state.boot.install.unitCode }, submit: async (v) => {
         const res = await D.api('routes.save', { create: true, record: v }); showReminder(res); D.toast(`Đã thêm tuyến ${res.record.route_code} — nhớ tạo đơn giá cho tuyến`, 'ok'); await D.refreshBoot(); load(); } }); };
       inactive.addEventListener('change', load);
-      fQ.addEventListener('input', draw);
-      fUnit.addEventListener('change', draw);
-      fUom.addEventListener('change', draw);
+      if (D.smartFilter) {
+        sfMount = D.smartFilter.mount(sfCfg);
+        sfSlot.append(sfMount.el);
+      }
       const page = D.page('Danh mục tuyến', '4 · Danh mục tuyến độc lập — tham chiếu cự ly, ĐVT, điểm đi/đến cho Đơn giá và Hợp đồng', [D.writer() ? h('button', { class: 'btn primary', onclick: add }, 'Thêm tuyến') : null],
         h('div', { class: 'card' },
-          h('div', { class: 'filters', style: { marginBottom: '8px' } },
-            h('label', { class: 'field wide' }, h('span', {}, 'Tìm kiếm'), fQ),
-            h('label', { class: 'field' }, h('span', {}, 'Đơn vị'), fUnit),
-            h('label', { class: 'field' }, h('span', {}, 'ĐVT'), fUom),
-            countEl
-          ),
-          h('label', { class: 'check', for: 'ina' }, inactive, 'Hiện cả tuyến ngừng dùng'),
+          sfSlot,
+          h('label', { class: 'check', for: 'ina', style: { marginTop: '8px' } }, inactive, 'Hiện cả tuyến ngừng dùng'),
           syncNote()), out);
       await load();
       return page;
@@ -452,10 +461,17 @@
           panelEls[k] = h('div', { role: 'tabpanel', id: `ct-panel-${k}`, 'aria-labelledby': `ct-tab-${k}`, style: { marginTop: '10px' } }, panels[k]());
         }
         const tabsEl = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Chi tiết hợp đồng' }, TABS.map(([k]) => tabBtns[k]));
+        const kpiStrip = h('div', { class: 'kpis', style: { margin: '10px 0 12px' } },
+          h('div', { class: 'kpi', style: { cursor: 'pointer' }, onclick: () => setTab('vehicles') }, h('div', { class: 'v' }, D.vn(c.vehicles)), h('div', { class: 'l' }, 'Xe của hợp đồng')),
+          h('div', { class: 'kpi', style: { cursor: 'pointer' }, onclick: () => setTab('price') }, h('div', { class: 'v', style: { fontSize: c.price_code ? '1.15rem' : '1rem' } }, c.price_code || 'Giá chung'), h('div', { class: 'l' }, 'Mã đơn giá')),
+          h('div', { class: 'kpi', style: { cursor: 'pointer' }, onclick: () => setTab('price') }, h('div', { class: 'v' }, D.vn(rs.contractRoutes != null ? rs.contractRoutes : (rs.items || []).filter((x) => x.inContract).length)), h('div', { class: 'l' }, 'Tuyến áp dụng')),
+          h('div', { class: 'kpi', style: { cursor: 'pointer' }, onclick: () => setTab('periods') }, h('div', { class: 'v' }, D.vn(periods.items.length)), h('div', { class: 'l' }, 'Kỳ tính'))
+        );
         detail.replaceChildren(h('div', { class: 'card' },
           h('div', { class: 'row' }, h('button', { class: 'btn small ct-back', onclick: async () => { if (!(await askDiscard())) return; sel = ''; cur = null; drawList(); syncCrumb(); drawDetail(true); } }, '← Danh sách'),
             h('h2', { class: 'grow', style: { margin: 0 } }, `Hợp đồng ${c.contract_code}`), c.is_active ? D.tag('ACTIVE') : D.tag('CLOSED', 'Ngừng')),
-          h('p', { class: 'small muted' }, `${c.carrier_unit_code} → ${c.customer_unit_code} · hiệu lực từ ${c.effective_from}${c.effective_to ? ` đến ${c.effective_to}` : ''} · ${D.vn(c.vehicles)} xe`),
+          h('p', { class: 'small muted', style: { margin: '4px 0 0' } }, `${c.carrier_unit_code} → ${c.customer_unit_code} · hiệu lực từ ${c.effective_from}${c.effective_to ? ` đến ${c.effective_to}` : ''}`),
+          kpiStrip,
           tabsEl, ...TABS.map(([k]) => panelEls[k])));
         setTab(TABS.some(([k]) => k === tab) ? tab : 'info');
         cur = { id: c.contract_id, code: c.contract_code, f, vehTxt, snapF: JSON.stringify(f.values()), snapV: vehTxt.value, setTab };

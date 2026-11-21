@@ -32,9 +32,9 @@ test('Giao diện: Bộ lọc màn Danh mục tuyến', { skip: !fs.existsSync(C
     await page.locator('nav button', { hasText: 'Danh mục tuyến' }).first().click();
     await page.getByRole('heading', { name: 'Danh mục tuyến', level: 1 }).waitFor();
 
-    const fQ = page.getByLabel('Tìm tuyến vận chuyển');
-    const fUnit = page.getByLabel('Lọc theo đơn vị');
-    const fUom = page.getByLabel('Lọc theo ĐVT');
+    const fQ = page.getByLabel('Tìm tuyến vận chuyển', { exact: true });
+    const fUnit = page.getByLabel('Lọc theo đơn vị', { exact: true });
+    const fUom = page.getByLabel('Lọc theo ĐVT', { exact: true });
     await fQ.waitFor();
     await fUnit.waitFor();
     await fUom.waitFor();
@@ -44,13 +44,18 @@ test('Giao diện: Bộ lọc màn Danh mục tuyến', { skip: !fs.existsSync(C
 
     // Lọc theo từ khóa VC.007
     await fQ.fill('VC.007');
+    await page.waitForTimeout(350);
     assert.equal(await page.locator('tbody tr').count(), 1);
     await page.locator('tbody tr', { hasText: 'VC.007' }).waitFor();
+
+    // Kiểm tra chip điều kiện của HAK_SMART_FILTER và xóa chip
+    await page.locator('.fchip', { hasText: 'Tìm: VC.007' }).waitFor();
 
     // Lọc không khớp
     await fQ.fill('KHONG_TON_TAI_999');
     await page.getByText('Không có tuyến vận chuyển phù hợp bộ lọc').waitFor();
     await fQ.fill('');
+    await page.waitForTimeout(350);
     assert.equal(await page.locator('tbody tr').count(), total);
 
     // Lọc theo ĐVT M3

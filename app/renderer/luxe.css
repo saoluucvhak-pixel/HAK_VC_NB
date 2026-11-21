@@ -1,0 +1,39 @@
+/* HAK Enterprise Design System — Chủ đề V10.3/V10.4 "luxe" (mặc định): Navy + Champagne + Warm Ivory.
+   Nguồn: HAK-Enterprise-Design-System/tokens/luxe.css
+   sáng = :root + [data-skin="luxe"]
+   tối  = :root + [data-theme="dark"] + [data-skin="luxe"][data-theme="dark"] */
+:root{--brand:#0e7c86;--brand2:#14a3ad;--brandH:#0b6870;--brandA:#095961;--brandSoft:rgba(14,124,134,.12);--onBrand:#fff;
+--bg:#f3f6fa;--card:#fff;--ink:#14212b;--mut:#6b7a8c;--line:#e3e9f0;--line2:#edf1f4;--ctl:#d3dce2;--th:#f5f8fa;--hover:#f1f7f8;--field:#fff;
+--sb:linear-gradient(180deg,#0f2740 0%,#0a1c30 100%);--sbText:#b8c7d9;--sbMut:#7d8fa3;--sbLine:rgba(255,255,255,.08);
+--warnBg:#fbf4e6;--warnBd:#ecd8b0;--warnFg:#6e4710;--warn:#b45309;--red:#c2410c;--redBg:#fbe9e2;--okBg:#e2f1f2;--okFg:#0b6870;
+--infoBg:#eef3fb;--infoBd:#c9d6ee;--infoFg:#24365f;--edit:#d99a2b;--editBg:#fffbf2;--focus:rgba(14,124,134,.22);
+--shadow:0 1px 2px rgba(16,35,58,.05),0 6px 18px rgba(16,35,58,.06);--shadowH:0 10px 26px rgba(14,124,134,.16);--r:14px;
+--hero:radial-gradient(1200px 300px at 90% -20%,rgba(255,255,255,.18),transparent 60%),linear-gradient(120deg,#0f2740,#0e7c86);
+--we:#eef2f5;--c1:#e2f1f2;--c1f:#0b6870;--cH:#eef2f5;--cHf:#14212b;--cP:#e7eef8;--cPf:#23497a;--cO:#f8eed9;--cOf:#8a5a12;--cTC:#efe9fb;--cTCf:#4e3a9a;
+--pri:var(--brand);--pri2:var(--brandH);--priL:var(--okBg);--deep:#0f2740;--champ:#d99a2b;--champL:#f0cf8f;
+color-scheme:light}
+:root{--mut-aa:#6b655a}
+[data-theme="dark"]{--brand:#21b5c0;--brand2:#47c8d1;--brandH:#47c8d1;--brandA:#6bd4db;--brandSoft:rgba(33,181,192,.16);--onBrand:#062c30;
+--bg:#0d151e;--card:#15202c;--ink:#e3eaf2;--mut:#8ea0b5;--line:#243244;--line2:#1d2a38;--ctl:#33465a;--th:#1a2633;--hover:#1b2a38;--field:#101a25;
+--sb:linear-gradient(180deg,#0a1826 0%,#071019 100%);
+--warnBg:#2a2213;--warnBd:#5a4520;--warnFg:#f0cf8f;--warn:#f0b35a;--red:#ff8a6a;--redBg:#3a1e17;--okBg:rgba(33,181,192,.16);--okFg:#7fdbe2;
+--infoBg:#18243a;--infoBd:#2c3d5c;--infoFg:#c3d3f0;--edit:#e0a948;--editBg:#2a2213;--focus:rgba(33,181,192,.3);
+--shadow:0 1px 2px rgba(0,0,0,.35),0 8px 22px rgba(0,0,0,.3);--shadowH:0 10px 26px rgba(0,0,0,.45);
+--hero:radial-gradient(1200px 300px at 90% -20%,rgba(255,255,255,.10),transparent 60%),linear-gradient(120deg,#0a1826,#0e5f68);
+--we:#1a2633;--c1:rgba(33,181,192,.18);--c1f:#7fdbe2;--cH:#223142;--cHf:#e3eaf2;--cP:#1e2c45;--cPf:#a9c3ef;--cO:#33281a;--cOf:#f0cf8f;--cTC:#2a2340;--cTCf:#c7b8ff;
+--deep:#0a1826;color-scheme:dark}
+[data-theme="dark"]{--mut-aa:var(--mut)}
+[data-skin="luxe"]{--brand:#1d3a63;--brand2:#2d5388;--brandH:#142b4b;--brandA:#0e203a;--brandSoft:rgba(29,58,99,.10);--onBrand:#fff;
+--bg:#f5f2ec;--card:#fffefb;--ink:#1a2130;--mut:#756f63;--line:#e5dfd1;--line2:#eee9dc;--ctl:#d5cdbb;--th:#f1ece0;--hover:#f6f1e5;--field:#fff;
+--sb:linear-gradient(180deg,#0f1b33 0%,#0a1220 100%);--sbText:#c8cfdc;--sbMut:#8d97aa;--sbLine:rgba(214,178,106,.18);
+--warnBg:#faf3e3;--warnBd:#e6d3a3;--warnFg:#6b4a10;--okBg:#e8eef7;--okFg:#1d3a63;
+--infoBg:#eef1f7;--infoBd:#cdd5e6;--infoFg:#22345a;--edit:#b8903f;--editBg:#fdf8ec;--focus:rgba(184,144,63,.30);
+--shadow:0 1px 2px rgba(26,33,48,.05),0 8px 22px rgba(26,33,48,.07);--shadowH:0 12px 28px rgba(29,58,99,.16);--r:12px;
+--hero:radial-gradient(1200px 300px at 90% -20%,rgba(214,178,106,.22),transparent 60%),linear-gradient(120deg,#0f1b33,#1d3a63);
+--c1:#e8eef7;--c1f:#1d3a63;--deep:#0f1b33;--champ:#b8903f;--champL:#e6cf9b;--gold:#c9a45c}
+[data-skin="luxe"][data-theme="dark"]{--brand:#d4b06a;--brand2:#e3c88f;--brandH:#e3c88f;--brandA:#efd9a8;--brandSoft:rgba(212,176,106,.16);--onBrand:#1b1405;
+--bg:#0b101a;--card:#121926;--ink:#e8e6df;--mut:#9aa0ad;--line:#232c3d;--line2:#1b2434;--ctl:#344058;--th:#18202f;--hover:#19222f;--field:#0e1420;
+--sb:linear-gradient(180deg,#090e19 0%,#060a12 100%);
+--okBg:rgba(212,176,106,.14);--okFg:#e3c88f;--focus:rgba(212,176,106,.32);--edit:#d4b06a;--editBg:#251f12;
+--hero:radial-gradient(1200px 300px at 90% -20%,rgba(212,176,106,.14),transparent 60%),linear-gradient(120deg,#090e19,#1a2b49);
+--c1:rgba(212,176,106,.16);--c1f:#e3c88f;--deep:#090e19}
