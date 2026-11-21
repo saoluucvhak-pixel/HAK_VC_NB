@@ -20,14 +20,33 @@
 
   D.views.routes = {
     async render() {
-      const inactive = h('input', { type: 'checkbox', id: 'ina' }); const out = h('div', { class: 'card flush' });
-      const load = async () => {
-        const d = await D.api('routes.list', { includeInactive: inactive.checked });
-        out.innerHTML = '';
-        out.append(D.table({ rows: d.items, onRow: D.writer() ? edit : null, columns: [{ key: 'catalogDate', label: 'Ngày cập nhật', fmt: 'date' }, { key: 'route_code', label: 'Mã tuyến' }, { key: 'route_name', label: 'Tuyến', wrap: true }, { key: 'distance_km', label: 'Cự ly', fmt: 'auto' },
+      const inactive = h('input', { type: 'checkbox', id: 'ina' });
+      const fQ = h('input', { type: 'search', placeholder: 'Tìm mã tuyến, tên tuyến, điểm đi/đến…', 'aria-label': 'Tìm tuyến vận chuyển' });
+      const fUnit = h('select', { 'aria-label': 'Lọc theo đơn vị' }, h('option', { value: '' }, 'Tất cả đơn vị'), D.unitOptions().map(([c, lbl]) => h('option', { value: c }, lbl)));
+      const fUom = h('select', { 'aria-label': 'Lọc theo ĐVT' }, h('option', { value: '' }, 'Tất cả ĐVT'), h('option', { value: 'TAN' }, 'Tấn'), h('option', { value: 'M3' }, 'M³'));
+      const countEl = h('span', { class: 'small muted', style: { marginLeft: 'auto', alignSelf: 'center' } });
+      const out = h('div', { class: 'card flush' });
+      let allItems = [];
+      const draw = () => {
+        const q = fQ.value.trim().toLowerCase();
+        const unit = fUnit.value;
+        const uom = fUom.value;
+        const filtered = allItems.filter((r) => {
+          if (unit && r.catalog_unit_code !== unit) return false;
+          if (uom && r.uom !== uom) return false;
+          if (q && !`${r.route_code || ''} ${r.route_name || ''} ${r.from_place || ''} ${r.to_place || ''} ${r.catalog_unit_code || ''}`.toLowerCase().includes(q)) return false;
+          return true;
+        });
+        countEl.textContent = `Hiển thị ${D.vn(filtered.length)} / ${D.vn(allItems.length)} tuyến`;
+        out.replaceChildren(D.table({ rows: filtered, onRow: D.writer() ? edit : null, empty: 'Không có tuyến vận chuyển phù hợp bộ lọc', columns: [{ key: 'catalogDate', label: 'Ngày cập nhật', fmt: 'date' }, { key: 'route_code', label: 'Mã tuyến' }, { key: 'route_name', label: 'Tuyến', wrap: true }, { key: 'distance_km', label: 'Cự ly', fmt: 'auto' },
           { key: 'trip_distance_km', label: 'Cự ly chuyến', fmt: 'auto' }, { key: 'uom', label: 'ĐVT' }, { key: 'from_place', label: 'Điểm đi' }, { key: 'to_place', label: 'Điểm đến' }, { key: 'catalog_unit_code', label: 'Đơn vị' },
           { key: 'p', label: 'ĐG ký HĐ hiện hành', num: true, render: (r) => (r.activePrice ? r.activePrice.price_id : h('span', { class: 'tag warn' }, 'chưa có giá')) }, { key: 'usedInPeriods', label: 'Số kỳ đã dùng', fmt: 'int' },
           { key: 'is_active', label: 'Trạng thái', render: (r) => (r.is_active ? D.tag('ACTIVE') : D.tag('CLOSED', 'Ngừng dùng')) }] }));
+      };
+      const load = async () => {
+        const d = await D.api('routes.list', { includeInactive: inactive.checked });
+        allItems = d.items || [];
+        draw();
       };
       const edit = (r) => D.formModal({ title: `Sửa tuyến ${r.route_code}`, fields: ROUTE_FIELDS(false), values: routeValues(r), submit: async (v) => {
         const { reason, ...record } = v; const res = await D.api('routes.save', { record, rowVersion: r.row_version, reason });
@@ -35,8 +54,19 @@
       const add = async () => { const next = await D.api('routes.nextCode', {}, { quiet: true }).catch(() => ({ routeCode: '' })); D.formModal({ title: 'Thêm tuyến vận chuyển', fields: ROUTE_FIELDS(true), values: { routeCode: next.routeCode, catalogDate: D.today(), uom: 'TAN', catalogUnitCode: D.state.boot.install.unitCode }, submit: async (v) => {
         const res = await D.api('routes.save', { create: true, record: v }); showReminder(res); D.toast(`Đã thêm tuyến ${res.record.route_code} — nhớ tạo đơn giá cho tuyến`, 'ok'); await D.refreshBoot(); load(); } }); };
       inactive.addEventListener('change', load);
+      fQ.addEventListener('input', draw);
+      fUnit.addEventListener('change', draw);
+      fUom.addEventListener('change', draw);
       const page = D.page('Danh mục tuyến', '4 · Tuyến vận chuyển — sửa được, bổ sung được', [D.writer() ? h('button', { class: 'btn primary', onclick: add }, 'Thêm tuyến') : null],
-        h('div', { class: 'card' }, h('label', { class: 'check', for: 'ina' }, inactive, 'Hiện cả tuyến ngừng dùng'), syncNote()), out);
+        h('div', { class: 'card' },
+          h('div', { class: 'filters', style: { marginBottom: '8px' } },
+            h('label', { class: 'field wide' }, h('span', {}, 'Tìm kiếm'), fQ),
+            h('label', { class: 'field' }, h('span', {}, 'Đơn vị'), fUnit),
+            h('label', { class: 'field' }, h('span', {}, 'ĐVT'), fUom),
+            countEl
+          ),
+          h('label', { class: 'check', for: 'ina' }, inactive, 'Hiện cả tuyến ngừng dùng'),
+          syncNote()), out);
       await load();
       return page;
     },
