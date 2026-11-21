@@ -93,8 +93,8 @@ test('Giao diện ĐH: đơn giá cố định theo tuyến', { skip: !fs.exists
     await page.getByText('Đơn giá cố định', { exact: true }).first().waitFor();
     await shot('ket-qua');
     await page.keyboard.press('Escape');
-    // Căn cứ giá hợp đồng: tuyến cố định ghi thẳng đơn giá, cột dầu "—"
-    await nav('Căn cứ giá hợp đồng');
+    // Báo cáo giá hợp đồng: tuyến cố định ghi thẳng đơn giá, cột dầu "—"
+    await nav('Báo cáo giá hợp đồng');
     await page.locator('label.field', { hasText: 'Hợp đồng' }).locator('select').selectOption('HD-DH-HAKQN');
     await page.locator('label.field', { hasText: 'Áp dụng ngày' }).locator('input').fill('2026-09-20');
     await page.getByRole('button', { name: 'Xem', exact: true }).click();

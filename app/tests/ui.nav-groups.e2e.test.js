@@ -16,7 +16,7 @@ test('Giao diện HAKQN: menu nhóm + Hợp đồng cha–con', { skip: !fs.exis
   const page = await browser.newPage({ viewport: { width: 1366, height: 800 }, locale: 'vi-VN' });
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   const shot = async (name) => { if (SHOTS) { fs.mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: path.join(SHOTS, `${name}.png`) }); } };
-  const item = (label) => page.locator('nav .nav-items').getByRole('button', { name: label });
+  const item = (label) => page.locator('nav .nav-items').getByRole('button', { name: label }).first();
   const group = (label) => page.locator('nav').getByRole('button', { name: label, exact: true });
   try {
     await page.goto(srv.url);
@@ -33,7 +33,7 @@ test('Giao diện HAKQN: menu nhóm + Hợp đồng cha–con', { skip: !fs.exis
 
     // nhóm: nút có aria-expanded; mặc định mở hết; mọi mục cũ còn trong menu; số phím tắt giữ nguyên
     for (const g of ['Bắt đầu', 'Danh mục', 'Nhập liệu', 'Tính & chốt', 'Kết xuất', 'Trao đổi & đối chiếu', 'Hệ thống']) assert.equal(await group(g).getAttribute('aria-expanded'), 'true', g);
-    for (const label of ['Tổng quan', 'Hướng dẫn & quy trình', 'Phiếu cân', 'Giao nhận dầu', 'Danh mục tuyến', 'Hợp đồng vận chuyển', 'Đơn giá', 'Mã đơn giá', 'Căn cứ giá hợp đồng', 'Tính giá vận chuyển', 'Bảng xác nhận KL', 'Chi tiết vận chuyển', 'Kiểm tra dữ liệu', 'Báo cáo', 'Trao đổi dữ liệu', 'Đối chiếu dữ liệu', 'Nhắc sửa danh mục', 'Lịch sử thao tác', 'Cài đặt', 'Công ty & đối tác', 'Xe vận chuyển']) {
+    for (const label of ['Tổng quan', 'Hướng dẫn & quy trình', 'Phiếu cân', 'Giao nhận dầu', 'Danh mục tuyến', 'Hợp đồng vận chuyển', 'Đơn giá', 'Mã đơn giá', 'Báo cáo giá hợp đồng', 'Tính giá vận chuyển', 'Bảng xác nhận KL', 'Chi tiết vận chuyển', 'Kiểm tra dữ liệu', 'Báo cáo', 'Trao đổi dữ liệu', 'Đối chiếu dữ liệu', 'Nhắc sửa danh mục', 'Lịch sử thao tác', 'Cài đặt', 'Công ty & đối tác', 'Xe vận chuyển']) {
       assert.ok(await item(label).count() >= 1, `mục menu ${label}`); }
     const hot = async (label) => (await page.locator('nav .nav-items button', { hasText: label }).first().locator('.n').innerText()).trim();
     assert.deepEqual([await hot('Tổng quan'), await hot('Phiếu cân'), await hot('Giao nhận dầu'), await hot('Danh mục tuyến'), await hot('Đơn giá'), await hot('Tính giá vận chuyển'), await hot('Cài đặt')], ['1', '2', '3', '4', '5', '6', '11']);
@@ -51,7 +51,7 @@ test('Giao diện HAKQN: menu nhóm + Hợp đồng cha–con', { skip: !fs.exis
     await group('Hệ thống').click();
 
     // Công ty & đối tác / Xe tách khỏi Cài đặt; đường dẫn cũ vẫn chạy
-    await item('Công ty & đối tác').click(); await page.getByRole('heading', { name: 'Công ty & đối tác' }).first().waitFor(); await page.getByText('Công ty đối tác', { exact: true }).waitFor();
+    await item('Công ty & đối tác').click(); await page.getByRole('heading', { name: 'Công ty & đối tác' }).first().waitFor(); await page.getByRole('tab', { name: /Công ty đối tác/ }).waitFor();
     assert.equal(await page.getByRole('heading', { name: 'Xe vận chuyển', exact: true }).count(), 0);
     await item('Xe vận chuyển').click(); await page.getByRole('heading', { name: 'Xe vận chuyển', exact: true }).first().waitFor();
     await item('Cài đặt').click(); await page.getByRole('heading', { name: 'Cài đặt' }).first().waitFor(); assert.equal(await page.getByRole('tab', { name: 'Công ty & xe' }).count(), 0);

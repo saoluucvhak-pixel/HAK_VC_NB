@@ -57,7 +57,7 @@
       fQ.addEventListener('input', draw);
       fUnit.addEventListener('change', draw);
       fUom.addEventListener('change', draw);
-      const page = D.page('Danh mục tuyến', '4 · Tuyến vận chuyển — sửa được, bổ sung được', [D.writer() ? h('button', { class: 'btn primary', onclick: add }, 'Thêm tuyến') : null],
+      const page = D.page('Danh mục tuyến', '4 · Danh mục tuyến độc lập — tham chiếu cự ly, ĐVT, điểm đi/đến cho Đơn giá và Hợp đồng', [D.writer() ? h('button', { class: 'btn primary', onclick: add }, 'Thêm tuyến') : null],
         h('div', { class: 'card' },
           h('div', { class: 'filters', style: { marginBottom: '8px' } },
             h('label', { class: 'field wide' }, h('span', {}, 'Tìm kiếm'), fQ),
@@ -72,8 +72,8 @@
     },
   };
 
-  /** Dòng giải thích + liên kết sang 2 màn giá còn lại (Đơn giá · Mã đơn giá · Căn cứ giá hợp đồng) — mỗi màn nói rõ vai trò của mình. */
-  const PRICE_SCREENS = { prices: ['Đơn giá', 'Bảng giá chung theo tuyến. Hợp đồng có mã đơn giá riêng thì dùng giá ở màn Mã đơn giá.'], pricecodes: ['Mã đơn giá', 'Bộ giá riêng theo đối tác; gán cho hợp đồng tại đây.'], basis: ['Căn cứ giá hợp đồng', 'Chỉ xem: giá nào đang được áp cho từng hợp đồng / tuyến / ngày.'] };
+  /** Dòng giải thích + liên kết sang 2 màn giá còn lại (Đơn giá · Mã đơn giá · Báo cáo giá hợp đồng) — mỗi màn nói rõ vai trò của mình. */
+  const PRICE_SCREENS = { prices: ['Đơn giá', 'Bảng giá chung theo tuyến. Hợp đồng có mã đơn giá riêng thì dùng giá ở màn Mã đơn giá.'], pricecodes: ['Mã đơn giá', 'Bộ giá riêng theo đối tác; gán cho hợp đồng tại đây.'], basis: ['Báo cáo giá hợp đồng', 'Chỉ xem: giá nào đang được áp cho từng hợp đồng / tuyến / ngày.'] };
   D.priceScreenNote = (current) => h('p', { class: 'small muted', style: { margin: '0 0 8px' } }, PRICE_SCREENS[current][1], ' Xem thêm: ',
     Object.entries(PRICE_SCREENS).filter(([v]) => v !== current).map(([v, [name]], i) => [i ? ' · ' : '', h('button', { class: 'btn small', onclick: () => D.go(v) }, name)]));
 
@@ -132,7 +132,7 @@
             h('li', {}, h('b', {}, '(10) ĐƠN GIÁ HỢP ĐỒNG = làm tròn (9) đến hàng nghìn'), h('div', { class: 'f' }, 'Ghi vào hợp đồng — chưa gồm nhiên liệu. Hằng kỳ cộng chênh lệch dầu theo dầu thực nhận.'))),
             h('p', { class: 'small muted' }, 'Bấm vào 1 tuyến để xem thay số. Muốn thử phương án giá: Xuất Excel — file có công thức, sửa ô xanh là tự tính lại.'))));
       };
-      const page = D.page('Căn cứ tính giá ký hợp đồng', '5 · Đơn giá ký hợp đồng (chưa gồm nhiên liệu) theo từng tuyến', [
+      const page = D.page('Báo cáo giá hợp đồng', 'Kết xuất · Đơn giá ký hợp đồng (chưa gồm nhiên liệu) theo từng tuyến', [
         h('button', { class: 'btn', onclick: async () => { await D.api('reports.print', { report: 'CONTRACT_BASIS', params: params() }); } }, 'In'),
         h('button', { class: 'btn', onclick: save('PDF') }, 'Xuất PDF'), h('button', { class: 'btn primary', onclick: save('XLSX') }, 'Xuất Excel (có công thức)')],
       h('div', { class: 'card' }, D.priceScreenNote('basis'), h('div', { class: 'filters' }, f, h('button', { class: 'btn primary', onclick: load }, 'Xem'))), out);
@@ -415,7 +415,29 @@
             w ? h('div', { class: 'btns', style: { marginTop: '12px' } }, h('button', { class: 'btn primary', 'data-hotkey': 'primary', onclick: saveContract }, 'Lưu hợp đồng'), ...(use.canDelete ? [h('button', { class: 'btn danger', onclick: del }, 'Xóa hợp đồng…')] : []),
               h('button', { class: 'btn', onclick: toggle }, c.is_active ? 'Ngừng dùng' : 'Dùng lại')) : null),
           vehicles: () => h('div', {}, h('p', { class: 'small muted' }, 'Mỗi dòng: biển số [tab] hiệu lực từ [tab] hiệu lực đến (trống = đang dùng). Xe bỏ khỏi danh sách được đóng hiệu lực, không xóa.'), vehTxt,
-            w ? h('div', { class: 'btns', style: { marginTop: '8px' } }, h('button', { class: 'btn small', onclick: async () => { const s = await D.api('contracts.suggestVehicles', { contractId: c.contract_id }); const have = new Set(vehTxt.value.split('\n').map((l) => l.split('\t')[0])); vehTxt.value += s.plates.filter((x) => !have.has(x)).map((x) => `\n${x}\t${c.effective_from}\t`).join(''); } }, 'Gợi ý xe'),
+            w ? h('div', { class: 'btns', style: { marginTop: '8px' } },
+              h('button', { class: 'btn small', onclick: async () => { const s = await D.api('contracts.suggestVehicles', { contractId: c.contract_id }); const have = new Set(vehTxt.value.split('\n').map((l) => l.split('\t')[0])); vehTxt.value += s.plates.filter((x) => !have.has(x)).map((x) => `\n${x}\t${c.effective_from}\t`).join(''); } }, 'Gợi ý xe (từ phiếu cân)'),
+              h('button', { class: 'btn small', onclick: async () => {
+                const vs = await D.api('vehicles.list');
+                const have = new Set(vehTxt.value.split('\n').map((l) => l.split('\t')[0].trim()).filter(Boolean));
+                const partySet = new Set([c.carrier_unit_code, c.customer_unit_code]);
+                const rows = (vs.items || []).filter((x) => x.is_active && !have.has(x.plate_no) && partySet.has(x.owner_unit_code));
+                const picked = new Set();
+                const tbl = D.table({ rows, empty: `Không còn xe nào của ${c.carrier_unit_code} / ${c.customer_unit_code} chưa thêm vào hợp đồng`, maxHeight: '45vh', columns: [
+                  { key: 'pick', label: '', render: (r) => h('input', { type: 'checkbox', onchange: (e) => (e.target.checked ? picked.add(r.plate_no) : picked.delete(r.plate_no)) }) },
+                  { key: 'plate_no', label: 'Biển số' },
+                  { key: 'owner_unit_code', label: 'Chủ xe (Đơn vị)' },
+                  { key: 'fuel_code', label: 'Mã xe dầu' }
+                ] });
+                D.modal({ title: `Chọn xe từ danh mục của ${c.carrier_unit_code} / ${c.customer_unit_code}`, body: h('div', {}, h('p', { class: 'small muted' }, 'Danh mục đối tác là cha của danh mục xe. Tích chọn xe để đưa vào hợp đồng:'), tbl),
+                  actions: [{ label: 'Hủy', run: () => true }, { label: 'Đưa vào hợp đồng', primary: true, run: () => {
+                    if (picked.size) {
+                      const prefix = vehTxt.value.trim() ? '\n' : '';
+                      vehTxt.value = vehTxt.value.trimEnd() + prefix + [...picked].map((p) => `${p}\t${c.effective_from}\t`).join('\n');
+                    }
+                    return true;
+                  } }] });
+              } }, 'Chọn từ danh mục xe…'),
               h('button', { class: 'btn primary', 'data-hotkey': 'primary', onclick: saveVehicles }, 'Lưu phạm vi xe')) : null),
           price: () => h('div', {}, priceBlock, routeBlock, fuelBlock),
           periods: () => D.table({ rows: periods.items, empty: 'Hợp đồng chưa có kỳ tính', columns: [{ key: 'period_code', label: 'Mã kỳ' }, { key: 'date_from', label: 'Từ ngày', fmt: 'date' }, { key: 'date_to', label: 'Đến ngày', fmt: 'date' }, { key: 'status', label: 'Trạng thái', fmt: 'tag' },

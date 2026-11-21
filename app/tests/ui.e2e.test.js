@@ -133,7 +133,7 @@ test('Giao diện: đi hết luồng chính trên trình duyệt', { skip: !fs.e
     await shot('giao-nhan-dau-theo-ngay');
     await page.getByRole('button', { name: 'Tải Excel' }).click(); await toast(/Đã xuất XLSX/);
     // ── căn cứ tính giá ký hợp đồng (QR_DATA (2))
-    await nav('Căn cứ giá hợp đồng');
+    await nav('Báo cáo giá hợp đồng');
     await page.getByRole('heading', { name: 'Căn cứ tính giá ký hợp đồng' }).waitFor();
     await page.locator('tr', { hasText: 'VC.007' }).locator('.money', { hasText: '115.000' }).waitFor();
     assert.equal(await page.getByText('Power Query').count(), 0, 'không còn diễn giải Power Query');

@@ -334,13 +334,56 @@
   // ───────── Công ty & đối tác (2 tab: Công ty vận chuyển / Công ty đối tác) ─────────
   D.views.units = {
     async render(p = {}) {
-      const [u, cs] = await Promise.all([D.api('units.list'), D.api('contracts.list')]);
+      const [u, cs, vs] = await Promise.all([D.api('units.list'), D.api('contracts.list'), D.api('vehicles.list')]);
       const me = D.state.boot.install.unitCode;
       const mine = u.items.find((x) => x.unit_code === me);
       const partners = u.items.filter((x) => x.unit_code !== me);
       const admin = D.can('ADMIN');
+      const w = D.writer();
 
       let currentTab = p.tab || 'mine';
+      let selPartner = p.selPartner || '';
+
+      const addVehicleFor = (unitCode) => D.formModal({
+        title: `Thêm xe cho đơn vị ${unitCode}`,
+        fields: [
+          { key: 'plateNo', label: 'Biển số', required: true, hint: 'vd 92H-00057' },
+          { key: 'ownerUnitCode', label: 'Chủ xe (Đơn vị cha)', type: 'select', options: D.unitOptions(), readonly: true },
+          { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' }
+        ],
+        values: { ownerUnitCode: unitCode },
+        submit: async (x) => {
+          reminder(await D.api('vehicles.save', { create: true, record: x }));
+          D.go('units', { tab: currentTab, selPartner });
+        }
+      });
+
+      const unitVehiclesCard = (unitCode, unitName) => {
+        const list = (vs.items || []).filter((v) => v.owner_unit_code === unitCode);
+        return h('div', { class: 'card', style: { marginTop: '14px' } },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' } },
+            h('div', {},
+              h('h2', { style: { margin: '0 0 4px' } }, `Danh mục xe vận chuyển của ${unitCode} (bảng con)`),
+              h('p', { class: 'small muted', style: { margin: 0 } }, `Đơn vị ${unitName || unitCode} là cha của ${list.length} xe vận chuyển.`)
+            ),
+            h('div', { class: 'btns', style: { margin: 0 } },
+              w ? h('button', { class: 'btn small primary', onclick: () => addVehicleFor(unitCode) }, `+ Thêm xe cho ${unitCode}`) : null,
+              h('button', { class: 'btn small', onclick: () => D.go('vehicles') }, 'Mở màn Xe vận chuyển →')
+            )
+          ),
+          D.table({
+            rows: list,
+            onRow: w ? (x) => vehicleEdit(x, (r) => { reminder(r); D.go('units', { tab: currentTab, selPartner }); }) : null,
+            empty: `Đơn vị ${unitCode} chưa có xe nào trong danh mục`,
+            columns: [
+              { key: 'plate_no', label: 'Biển số' },
+              { key: 'fuel_code', label: 'Mã xe dầu' },
+              { key: 'note', label: 'Ghi chú' },
+              { key: 'is_active', label: 'Đang dùng', fmt: 'bool' }
+            ]
+          })
+        );
+      };
 
       const editUnit = (x, title) => D.formModal({
         title,
@@ -439,7 +482,7 @@
             )
           );
 
-          tabContent.append(h('div', { class: 'grid g2' }, col1, col2), contractCard);
+          tabContent.append(h('div', { class: 'grid g2' }, col1, col2), contractCard, unitVehiclesCard(mine.unit_code, mine.unit_name));
         } else {
           // Tab Đối tác
           if (admin) {
@@ -448,6 +491,14 @@
 
           const qInp = h('input', { type: 'text', placeholder: 'Tìm theo mã, tên, MST đối tác...', 'aria-label': 'Tìm đối tác' });
           const tableBox = h('div', { class: 'card flush' });
+          const partnerVehBox = h('div');
+
+          const drawPartnerVeh = () => {
+            partnerVehBox.innerHTML = '';
+            if (!selPartner) return;
+            const pRec = partners.find((x) => x.unit_code === selPartner);
+            if (pRec) partnerVehBox.append(unitVehiclesCard(pRec.unit_code, pRec.unit_name));
+          };
 
           const filterPartners = () => {
             const kw = qInp.value.trim().toLowerCase();
@@ -460,6 +511,7 @@
                 { key: 'unit_code', label: 'Mã' },
                 { key: 'unit_name', label: 'Tên đối tác', wrap: true },
                 { key: 'x', label: 'Quan hệ', render: (r) => { const info = rel(r.unit_code); return h('span', { class: `tag ${info.tag}` }, info.text); } },
+                { key: 'veh', label: 'Xe vận chuyển', render: (r) => { const n = (vs.items || []).filter((v) => v.owner_unit_code === r.unit_code).length; return h('button', { class: `btn small${selPartner === r.unit_code ? ' primary' : ''}`, onclick: (e) => { e.stopPropagation(); selPartner = selPartner === r.unit_code ? '' : r.unit_code; filterPartners(); drawPartnerVeh(); } }, `Xe (${n})`); } },
                 { key: 'tax_code', label: 'MST' },
                 { key: 'phone', label: 'Điện thoại' },
                 { key: 'rep', label: 'Đại diện / Kế toán', render: (r) => [r.legal_rep_name, r.accountant_name].filter(Boolean).join(' · ') || '—' },
@@ -472,6 +524,7 @@
 
           qInp.addEventListener('input', filterPartners);
           filterPartners();
+          drawPartnerVeh();
 
           const filterBar = h('div', { class: 'card', style: { padding: '12px 18px', marginBottom: '14px' } },
             h('div', { class: 'filters filters-inline' },
@@ -481,10 +534,10 @@
           );
 
           const guideNote = h('p', { class: 'small muted', style: { marginTop: '8px' } },
-            admin ? 'Bấm vào một dòng để sửa thông tin đối tác.' : 'Chỉ ADMIN sửa được thông tin công ty / đối tác.'
+            admin ? 'Bấm "Xe (N)" để xem/thêm danh mục xe con của đối tác. Bấm vào một dòng để sửa thông tin đối tác.' : 'Bấm "Xe (N)" để xem danh mục xe con của đối tác. Chỉ ADMIN sửa được thông tin công ty / đối tác.'
           );
 
-          tabContent.append(filterBar, tableBox, guideNote);
+          tabContent.append(filterBar, tableBox, guideNote, partnerVehBox);
         }
       };
 

@@ -98,7 +98,7 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     // B3: màn Đơn giá cũ có nhãn "cách cũ"
     await nav('Đơn giá'); await page.locator('main').getByText('Cách cũ').first().waitFor();
     // thuật ngữ: "Đơn giá ký hợp đồng"; không còn "Đơn giá hợp đồng" / "ĐG HĐ" ở các màn giá
-    for (const label of ['Đơn giá', 'Mã đơn giá', 'Căn cứ giá hợp đồng']) {
+    for (const label of ['Đơn giá', 'Mã đơn giá', 'Báo cáo giá hợp đồng']) {
       await nav(label); await page.waitForTimeout(400);
       const txt = await page.locator('main').innerText(); assert.ok(!/Đơn giá hợp đồng|ĐG HĐ/.test(txt), `màn ${label} còn nhãn cũ`);
     }
