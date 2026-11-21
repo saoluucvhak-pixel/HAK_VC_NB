@@ -54,14 +54,17 @@ class ExchangeService {
       if (!dateFrom || !dateTo) throw new AppError('VALIDATION_FAILED', 'Chọn khoảng ngày phiếu cân');
       const pl = new Set(plates.map((p) => p.toUpperCase()));
       tables.PHIEU_CAN = s.find('PHIEU_CAN', (t) => !t.is_deleted && t.weigh1_date >= dateFrom && t.weigh1_date <= dateTo && (!pl.size || pl.has(t.plate_no)));
+      const fuelInWindow = s.find('GIAO_NHAN_DAU', (f) => !f.is_deleted && (f.receipt_date || f.issue_date || '') >= dateFrom && (f.receipt_date || f.issue_date || '') <= dateTo && (!pl.size || pl.has(f.plate_no)));
+      if (fuelInWindow.length) tables.GIAO_NHAN_DAU = fuelInWindow;
       if (!tables.PHIEU_CAN.length) throw new AppError('VALIDATION_FAILED', 'Không có phiếu cân nào trong khoảng đã chọn');
       Object.assign(header, { dateFrom, dateTo });
     } else if (packageType === 'KY_TINH') {
       if (!periodIds.length) throw new AppError('VALIDATION_FAILED', 'Chọn kỳ cần gửi');
       const ps = periodIds.map((id) => s.get('KY_TINH', id));
       const cur = (t, pid) => s.find(t, (r) => r.period_id === pid && r.is_current);
-      Object.assign(tables, { HOP_DONG: [], HOP_DONG_XE: [], PRICE_HISTORY: [], PHIEU_CAN: [], GIAO_NHAN_DAU: [], KY_TINH: [], TRANSPORT_CALCULATION: [], TRANSPORT_DETAIL: [], FUEL_DETAIL: [], BKVC_LINE: [] });
-      const seen = { HOP_DONG: new Set(), PHIEU_CAN: new Set(), GIAO_NHAN_DAU: new Set(), PRICE_HISTORY: new Set() };
+      Object.assign(tables, { MA_DON_GIA: [], HOP_DONG: [], HOP_DONG_XE: [], PRICE_HISTORY: [], PHIEU_CAN: [], GIAO_NHAN_DAU: [], KY_TINH: [], TRANSPORT_CALCULATION: [], TRANSPORT_DETAIL: [], FUEL_DETAIL: [], BKVC_LINE: [] });
+      const seen = { MA_DON_GIA: new Set(), HOP_DONG: new Set(), PHIEU_CAN: new Set(), GIAO_NHAN_DAU: new Set(), PRICE_HISTORY: new Set() };
+      const addCode = (code) => { if (code && !seen.MA_DON_GIA.has(code)) { const pc = s.get('MA_DON_GIA', code); if (pc) { seen.MA_DON_GIA.add(code); tables.MA_DON_GIA.push(pc); } } };
       for (const p of ps) {
         if (!p) throw new AppError('NOT_FOUND', 'Có kỳ không tồn tại');
         const c = s.get('HOP_DONG', p.contract_id);
@@ -69,16 +72,17 @@ class ExchangeService {
         if (!['DA_XAC_NHAN', 'DA_KHOA'].includes(p.status)) throw businessError('E_PERIOD_STATUS', `Kỳ ${p.period_code} chưa xác nhận — chỉ gửi kỳ đã xác nhận / đã khóa`);
         if (targetUnitCode && targetUnitCode !== c.customer_unit_code) throw new AppError('VALIDATION_FAILED', `Kỳ ${p.period_code} gửi cho bên thuê ${c.customer_unit_code}, không phải ${targetUnitCode}`);
         header.targetUnitCode = header.targetUnitCode || c.customer_unit_code;
-        if (!seen.HOP_DONG.has(c.contract_id)) { seen.HOP_DONG.add(c.contract_id); tables.HOP_DONG.push(c); tables.HOP_DONG_XE.push(...s.find('HOP_DONG_XE', (v) => v.contract_id === c.contract_id)); }
+        if (!seen.HOP_DONG.has(c.contract_id)) { seen.HOP_DONG.add(c.contract_id); tables.HOP_DONG.push(c); addCode(c.price_code); tables.HOP_DONG_XE.push(...s.find('HOP_DONG_XE', (v) => v.contract_id === c.contract_id)); }
         tables.KY_TINH.push(p);
         const calcs = cur('TRANSPORT_CALCULATION', p.period_id); tables.TRANSPORT_CALCULATION.push(...calcs);
-        for (const cc of calcs) if (!seen.PRICE_HISTORY.has(cc.price_id)) { seen.PRICE_HISTORY.add(cc.price_id); tables.PRICE_HISTORY.push(s.get('PRICE_HISTORY', cc.price_id)); }
+        for (const cc of calcs) if (!seen.PRICE_HISTORY.has(cc.price_id)) { const ph = s.get('PRICE_HISTORY', cc.price_id); seen.PRICE_HISTORY.add(cc.price_id); tables.PRICE_HISTORY.push(ph); if (ph) addCode(ph.price_code); }
         const td = cur('TRANSPORT_DETAIL', p.period_id); tables.TRANSPORT_DETAIL.push(...td);
         for (const d of td) if (!seen.PHIEU_CAN.has(d.ticket_id)) { seen.PHIEU_CAN.add(d.ticket_id); tables.PHIEU_CAN.push(s.get('PHIEU_CAN', d.ticket_id)); }
         const fd = cur('FUEL_DETAIL', p.period_id); tables.FUEL_DETAIL.push(...fd);
         for (const d of fd) if (!seen.GIAO_NHAN_DAU.has(d.receipt_id)) { seen.GIAO_NHAN_DAU.add(d.receipt_id); tables.GIAO_NHAN_DAU.push(s.get('GIAO_NHAN_DAU', d.receipt_id)); }
         tables.BKVC_LINE.push(...cur('BKVC_LINE', p.period_id));
       }
+      if (!tables.MA_DON_GIA.length) delete tables.MA_DON_GIA;
       header.periodCodes = ps.map((p) => p.period_code);
     } else throw new AppError('VALIDATION_FAILED', `Loại gói không hợp lệ: ${packageType}`);
 

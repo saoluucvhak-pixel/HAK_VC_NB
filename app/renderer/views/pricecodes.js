@@ -178,6 +178,7 @@
           const res = D.sf ? D.sf.filterRows(d.lines || [], sfCfg, sfState) : { rows: d.lines || [], kept: (d.lines || []).length, total: (d.lines || []).length };
           sfInfo = { kept: res.kept, total: res.total, unsupported: res.unsupported };
           childTableBox.replaceChildren(D.table({ rows: res.rows, empty: 'Mã chưa có đơn giá theo tuyến — bấm "Thêm dòng giá …" hoặc "Chọn đơn giá có sẵn…"', columns: [
+            { key: 'price_code', label: 'Mã đơn giá', render: (r) => h('span', { class: 'mono small' }, r.price_code || c.price_code) },
             { key: 'route_code', label: 'Tuyến' }, { key: 'routeName', label: 'Tên tuyến', wrap: true }, { key: 'km', label: 'Cự ly (km)', num: true, render: (r) => { const t = routeOf(r.route_code); return t ? D.vnAuto(t.trip_distance_km) : ''; } },
             ...(d.lines.some((r) => lineMethod(r) === 'CO_DINH') ? [{ key: 'fixed_price', label: 'Đơn giá cố định', num: true, render: (r) => (lineMethod(r) === 'CO_DINH' ? D.vnAuto(r.fixed_price) : '—') }] : []), // cột theo hình thức CỦA TỪNG DÒNG
             ...(d.lines.some((r) => lineMethod(r) === 'THEO_DAU') ? [

@@ -62,11 +62,18 @@
     await load();
   }
 
-  // ───────── Tab 2: đối chiếu với đơn vị khác ─────────
+  // ───────── Tab 2: đối chiếu với bên mình thuê / bên thuê mình (Phiếu cân, Chuyến xe & Dầu nhận) ─────────
   async function compareTab(body, p) {
     let file = p.filePath || '';
     const fileLbl = h('span', { class: 'mono small' }, file || 'Chưa chọn file');
-    const f = D.form([{ key: 'dateFrom', label: 'Từ ngày (bỏ trống = theo file)', type: 'date' }, { key: 'dateTo', label: 'Đến ngày', type: 'date' }], {});
+    const cons = (D.state.boot && D.state.boot.contracts) || [];
+    const asCarrier = cons.filter((c) => c.role === 'CARRIER').map((c) => [c.contract_id, `Bên thuê mình (${c.customer_unit_code}) · HĐ ${c.contract_code} (${c.carrier_unit_code} → ${c.customer_unit_code})`]);
+    const asCustomer = cons.filter((c) => c.role === 'CUSTOMER').map((c) => [c.contract_id, `Bên mình thuê (${c.carrier_unit_code}) · HĐ ${c.contract_code} (${c.carrier_unit_code} → ${c.customer_unit_code})`]);
+    const f = D.form([
+      { key: 'contractId', label: 'Hợp đồng / Đối tác đối chiếu (Bên mình thuê · Bên thuê mình)', type: 'select', options: [['', '— Mọi xe trong file (Tất cả đối tác) —'], ...asCarrier, ...asCustomer] },
+      { key: 'dateFrom', label: 'Từ ngày (bỏ trống = theo file)', type: 'date' },
+      { key: 'dateTo', label: 'Đến ngày', type: 'date' }
+    ], { contractId: p.contractId || '' });
     f.className = 'filters';
     const all = h('input', { type: 'checkbox', id: 'rcAll' });
     const out = h('div');
@@ -75,18 +82,19 @@
       if (!file) { D.toast('Chọn gói .dgvc hoặc file Excel phiếu cân của đơn vị kia', 'warn'); return; }
       const d = await D.api('reconcile.compare', params());
       out.innerHTML = '';
-      const S = d.summary; const T = d.totals;
-      out.append(h('div', { class: 'card' }, h('b', {}, d.source.fileName), ' — ', d.source.sourceText, ` · ${D.vn(d.source.rows)} phiếu · so từ ${D.dmy(d.dateFrom)} đến ${D.dmy(d.dateTo)} · `,
+      const S = d.summary; const T = d.totals; const F = d.fuelCompare;
+      out.append(h('div', { class: 'card' }, h('b', {}, d.source.fileName), ' — ', d.source.sourceText, ` · ${D.vn(d.source.rows)} phiếu cân${d.source.fuelRows ? ` · ${D.vn(d.source.fuelRows)} dòng dầu` : ''} · so từ ${D.dmy(d.dateFrom)} đến ${D.dmy(d.dateTo)} · `,
         d.allPlates ? 'mọi xe' : `${d.plates.length} xe có trong file`,
         d.source.unreadable.length ? h('div', { class: 'small', style: { color: 'var(--warn, #b45309)', marginTop: '6px' } }, `${d.source.unreadable.length} dòng không đọc được: `, d.source.unreadable.slice(0, 5).map((x) => `dòng ${x.rowNo} (${x.note})`).join('; ')) : null,
         d.source.duplicates.length ? h('div', { class: 'small', style: { marginTop: '6px' } }, `${d.source.duplicates.length} phiếu lặp trong file bên kia (chỉ tính 1 lần).`) : null));
+      out.append(h('h3', { style: { margin: '10px 0 8px' } }, '1. Đối chiếu Chuyến xe & Phiếu cân'));
       out.append(h('div', { class: 'kpis' },
         kpi('Khớp', D.vn(S.KHOP.count), `${D.vn(S.KHOP.mineKg)} kg`, 'main'),
         kpi('Lệch số liệu', D.vn(S.LECH.count), `chênh ${D.vn(S.LECH.theirKg - S.LECH.mineKg)} kg`, S.LECH.count ? 'bad' : ''),
         kpi('Khác số phiếu', D.vn(S.KHAC_SO_PHIEU.count), 'cùng xe, ngày, KL'),
         kpi('Bên mình chưa có', D.vn(S.THIEU_BEN_MINH.count), `${D.vn(S.THIEU_BEN_MINH.theirKg)} kg`, S.THIEU_BEN_MINH.count ? 'bad' : ''),
         kpi('Bên kia không có', D.vn(S.THIEU_BEN_KIA.count), `${D.vn(S.THIEU_BEN_KIA.mineKg)} kg`)));
-      out.append(h('div', { class: 'card flush' }, h('div', { class: 'card-h' }, h('h2', {}, 'Theo xe')),
+      out.append(h('div', { class: 'card flush' }, h('div', { class: 'card-h' }, h('h2', {}, 'Chuyến xe & Sản lượng theo xe')),
         D.table({ rows: d.byPlate, columns: [{ key: 'plateNo', label: 'Biển số' }, { key: 'mineTrips', label: 'Chuyến bên mình', fmt: 'int' }, { key: 'theirTrips', label: 'Chuyến bên kia', fmt: 'int' },
           { key: 'diffTrips', label: 'Chênh chuyến', fmt: 'int' }, { key: 'mineKg', label: 'KG bên mình', fmt: 'int' }, { key: 'theirKg', label: 'KG bên kia', fmt: 'int' },
           { key: 'diffKg', label: 'Chênh KG', render: (r) => h('span', { class: r.diffKg ? 'b' : 'muted' }, D.vn(r.diffKg)), num: true },
@@ -104,7 +112,51 @@
             { key: 'fields', label: 'Chi tiết lệch', wrap: true }, { key: 'periodCode', label: 'Kỳ bên mình', render: (r) => (r.periodCode ? h('span', {}, h('span', { class: 'mono' }, r.periodCode), ' ', h('span', { class: 'small muted' }, r.periodStatus)) : '') }] }));
       };
       draw(); onlyBad.addEventListener('change', draw);
-      out.append(h('div', { class: 'card flush' }, h('div', { class: 'card-h row' }, h('h2', { class: 'grow' }, 'Chi tiết từng phiếu'), h('label', { class: 'check' }, onlyBad, 'Chỉ hiện phiếu lệch')), tbl));
+      out.append(h('div', { class: 'card flush' }, h('div', { class: 'card-h row' }, h('h2', { class: 'grow' }, 'Chi tiết từng phiếu cân'), h('label', { class: 'check' }, onlyBad, 'Chỉ hiện phiếu lệch')), tbl));
+
+      // Khối 2: Đối chiếu Dầu nhận
+      if (F) {
+        out.append(h('h3', { style: { margin: '18px 0 8px' } }, '2. Đối chiếu Dầu nhận (giữa Bên mình thuê & Bên thuê mình)'));
+        out.append(h('div', { class: 'kpis' },
+          kpi('Dầu khớp', D.vn(F.summary.KHOP), `${D.vnAuto(F.totals.mineLiter)} lít bên mình`),
+          kpi('Lệch số lít', D.vn(F.summary.LECH), `chênh ${D.vnAuto(F.totals.theirLiter - F.totals.mineLiter)} lít`, F.summary.LECH ? 'bad' : ''),
+          kpi('Dầu bên mình chưa có', D.vn(F.summary.THIEU_BEN_MINH), `${D.vn(F.totals.theirRows)} dòng bên kia`, F.summary.THIEU_BEN_MINH ? 'bad' : ''),
+          kpi('Dầu bên kia không có', D.vn(F.summary.THIEU_BEN_KIA), `${D.vn(F.totals.mineRows)} dòng bên mình`)
+        ));
+        out.append(h('div', { class: 'card flush' }, h('div', { class: 'card-h' }, h('h2', {}, 'Dầu nhận theo xe')),
+          D.table({
+            rows: F.byPlate,
+            empty: 'Không có dữ liệu giao nhận dầu trong khoảng ngày đối chiếu',
+            columns: [
+              { key: 'plateNo', label: 'Biển số' },
+              { key: 'mineRows', label: 'Lần nhận (mình)', fmt: 'int' },
+              { key: 'theirRows', label: 'Lần nhận (bên kia)', fmt: 'int' },
+              { key: 'mineLiter', label: 'Lít bên mình', num: true, render: (r) => D.vnAuto(r.mineLiter) },
+              { key: 'theirLiter', label: 'Lít bên kia', num: true, render: (r) => D.vnAuto(r.theirLiter) },
+              { key: 'diffLiter', label: 'Chênh lít', num: true, render: (r) => h('span', { class: r.diffLiter ? 'b' : 'muted' }, D.vnAuto(r.diffLiter)) },
+              { key: 'issues', label: 'Kết quả', render: (r) => h('span', { class: `tag ${r.issues ? 'warn' : 'ok'}` }, r.issues ? `${r.issues} dòng lệch` : 'Khớp') }
+            ],
+            footer: F.byPlate.length ? { plateNo: 'TỔNG CỘNG', mineRows: F.totals.mineRows, theirRows: F.totals.theirRows, mineLiter: F.totals.mineLiter, theirLiter: F.totals.theirLiter, diffLiter: F.totals.theirLiter - F.totals.mineLiter } : null
+          })
+        ));
+        if (F.rows.length) {
+          out.append(h('div', { class: 'card flush' }, h('div', { class: 'card-h' }, h('h2', {}, 'Chi tiết từng lần nhận dầu')),
+            D.table({
+              rows: F.rows,
+              maxHeight: '45vh',
+              columns: [
+                { key: 'kindText', label: 'Kết quả', render: (r) => h('span', { class: `tag ${CMP[r.kind]}` }, r.kindText) },
+                { key: 'date', label: 'Ngày nhận dầu', fmt: 'date' },
+                { key: 'plateNo', label: 'Biển số' },
+                { key: 'mineLiter', label: 'Lít bên mình', num: true, render: (r) => (r.mineLiter != null ? D.vnAuto(r.mineLiter) : '—') },
+                { key: 'theirLiter', label: 'Lít bên kia', num: true, render: (r) => (r.theirLiter != null ? D.vnAuto(r.theirLiter) : '—') },
+                { key: 'diffLiter', label: 'Chênh lít', num: true, render: (r) => D.vnAuto(r.diffLiter) },
+                { key: 'fields', label: 'Ghi chú', wrap: true }
+              ]
+            })
+          ));
+        }
+      }
       if (S.THIEU_BEN_MINH.count) {
         out.append(h('div', { class: 'card' }, h('b', {}, `Có ${S.THIEU_BEN_MINH.count} phiếu bên mình chưa có. `),
           /\.dgvc$/i.test(file) ? h('span', {}, 'Nhập gói này ở ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); D.go('exchange', { tab: 'import' }); } }, 'Trao đổi dữ liệu → Nhập gói'), ' — phiếu đã có không bị nhân đôi.')

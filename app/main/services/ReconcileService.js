@@ -104,25 +104,28 @@ class ReconcileService {
     if (ext === '.dgvc') {
       const pkg = this.exchange.read(filePath); const h = pkg.header;
       const list = (pkg.tables.PHIEU_CAN || []).filter((t) => !t.is_deleted);
-      if (!list.length) throw new AppError('VALIDATION_FAILED', 'Gói không có phiếu cân — chọn gói Phiếu cân hoặc gói Kỳ tính');
+      const fuelRows = (pkg.tables.GIAO_NHAN_DAU || []).filter((f) => !f.is_deleted);
+      if (!list.length && !fuelRows.length) throw new AppError('VALIDATION_FAILED', 'Gói không có phiếu cân — chọn gói Phiếu cân hoặc gói Kỳ tính');
       const kind = { DANH_MUC: 'gói Danh mục', PHIEU_CAN: 'gói Phiếu cân', KY_TINH: 'gói Kỳ tính' }[h.packageType] || 'gói';
-      return { fileName: path.basename(filePath), sourceText: `${kind} của ${h.sourceUnitCode} (${h.createdBy}, ${String(h.createdAt).slice(0, 10)})`, sourceUnit: h.sourceUnitCode, tickets: list, unreadable: [] };
+      return { fileName: path.basename(filePath), sourceText: `${kind} của ${h.sourceUnitCode} (${h.createdBy}, ${String(h.createdAt).slice(0, 10)})`, sourceUnit: h.sourceUnitCode, tickets: list, fuelRows, unreadable: [] };
     }
     if (!['.xlsx', '.xlsm', '.xls'].includes(ext)) throw new AppError('VALIDATION_FAILED', 'Chỉ đối chiếu được gói .dgvc hoặc file Excel phiếu cân');
     const r = await this.importService.readTickets({ filePath });
     const ok = (x) => x.record.ticket_no && x.record.weigh1_date && x.record.plate_no && typeof x.record.net_kg === 'number' && x.record.net_kg > 0;
-    return { fileName: r.fileName, sourceText: `file Excel, sheet "${r.sheet}"`, sourceUnit: '', tickets: r.rows.filter(ok).map((x) => ({ ...x.record, _rowNo: x.rowNo })),
+    return { fileName: r.fileName, sourceText: `file Excel, sheet "${r.sheet}"`, sourceUnit: '', tickets: r.rows.filter(ok).map((x) => ({ ...x.record, _rowNo: x.rowNo })), fuelRows: [],
       unreadable: r.rows.filter((x) => !ok(x)).map((x) => ({ rowNo: x.rowNo, ticketNo: x.record.ticket_no, note: x.errors.join('; ') })) };
   }
 
-  async compare({ filePath, dateFrom = '', dateTo = '', allPlates = false }) {
+  async compare({ filePath, dateFrom = '', dateTo = '', allPlates = false, contractId = '' }) {
     const th = await this._theirs(filePath);
-    const dates = th.tickets.map((t) => t.weigh1_date).sort();
-    const from = dateFrom || dates[0]; const to = dateTo || dates[dates.length - 1];
-    const theirs = th.tickets.filter((t) => t.weigh1_date >= from && t.weigh1_date <= to);
+    const fDate = (f) => f.receipt_date || f.issue_date || '';
+    const dates = [...th.tickets.map((t) => t.weigh1_date), ...(th.fuelRows || []).map(fDate)].filter(Boolean).sort();
+    const from = dateFrom || dates[0] || ''; const to = dateTo || dates[dates.length - 1] || '';
+    const contractPlates = contractId ? new Set(this.store.find('HOP_DONG_XE', (v) => v.contract_id === contractId).map((v) => v.plate_no)) : null;
+    const theirs = th.tickets.filter((t) => (!from || t.weigh1_date >= from) && (!to || t.weigh1_date <= to) && (!contractPlates || contractPlates.has(t.plate_no)));
     const plates = new Set(theirs.map((t) => t.plate_no));
     const key = (t) => `${t.ticket_no}|${t.weigh1_date}|${t.plate_no}`;
-    const mine = this.store.all('PHIEU_CAN').filter((t) => !t.is_deleted && t.weigh1_date >= from && t.weigh1_date <= to && (allPlates || plates.has(t.plate_no)));
+    const mine = this.store.all('PHIEU_CAN').filter((t) => !t.is_deleted && (!from || t.weigh1_date >= from) && (!to || t.weigh1_date <= to) && (!contractPlates || contractPlates.has(t.plate_no)) && (allPlates || plates.has(t.plate_no)));
     const used = ticketUsage(this.store);
     const pInfo = (t) => { const p = t && (used.get(t.ticket_id) || [])[0]; return p ? { periodCode: p.period_code, periodStatus: STATUS_TEXT[p.status] || p.status } : { periodCode: '', periodStatus: '' }; };
     const mineBy = new Map(mine.map((t) => [key(t), t]));
@@ -162,8 +165,66 @@ class ReconcileService {
     for (const r of rows) if (r.kind !== 'KHOP') bp(r.plateNo).issues += 1;
     const plateRows = [...byPlate.values()].map((x) => ({ ...x, diffTrips: x.theirTrips - x.mineTrips, diffKg: x.theirKg - x.mineKg })).sort((a, b) => a.plateNo.localeCompare(b.plateNo));
     const totals = { mineTrips: mine.length, mineKg: mine.reduce((a, t) => a + t.net_kg, 0), theirTrips: theirBy.size, theirKg: [...theirBy.values()].reduce((a, t) => a + num(t.net_kg), 0) };
-    return { source: { fileName: th.fileName, sourceText: th.sourceText, sourceUnit: th.sourceUnit, rows: th.tickets.length, unreadable: th.unreadable, duplicates: dupTheirs.map((t) => ({ ticketNo: t.ticket_no, date: t.weigh1_date, plateNo: t.plate_no })) },
-      dateFrom: from, dateTo: to, allPlates, plates: [...plates].sort(), summary, totals, rows, byPlate: plateRows,
+
+    // Đối chiếu Dầu nhận (GIAO_NHAN_DAU) giữa bên mình và bên mình thuê / bên thuê mình
+    const theirFuel = (th.fuelRows || []).filter((f) => {
+      const d = fDate(f);
+      return (!from || d >= from) && (!to || d <= to) && (!contractPlates || contractPlates.has(f.plate_no));
+    });
+    const fuelPlates = new Set([...plates, ...theirFuel.map((f) => f.plate_no)]);
+    const mineFuel = this.store.all('GIAO_NHAN_DAU').filter((f) => {
+      if (f.is_deleted) return false;
+      if (contractId && f.contract_id && f.contract_id !== contractId) return false;
+      const d = fDate(f);
+      return (!from || d >= from) && (!to || d <= to) && (!contractPlates || contractPlates.has(f.plate_no)) && (allPlates || fuelPlates.has(f.plate_no));
+    });
+    const fKey = (f, idx) => `${fDate(f)}|${f.plate_no}|${f.receipt_no || f.receipt_id || idx}`;
+    const fMineLeft = [...mineFuel];
+    const fRows = [];
+    for (const o of theirFuel) {
+      const od = fDate(o); const ol = num(o.qty_liter) || 0;
+      let idx = fMineLeft.findIndex((m) => fDate(m) === od && m.plate_no === o.plate_no && Math.abs((num(m.qty_liter) || 0) - ol) < 0.01);
+      if (idx >= 0) {
+        const m = fMineLeft.splice(idx, 1)[0];
+        fRows.push({ kind: 'KHOP', kindText: 'Khớp', date: od, plateNo: o.plate_no, mineLiter: num(m.qty_liter), theirLiter: ol, diffLiter: 0, fields: '' });
+      } else {
+        idx = fMineLeft.findIndex((m) => fDate(m) === od && m.plate_no === o.plate_no);
+        if (idx >= 0) {
+          const m = fMineLeft.splice(idx, 1)[0]; const ml = num(m.qty_liter) || 0;
+          fRows.push({ kind: 'LECH', kindText: 'Lệch số lít', date: od, plateNo: o.plate_no, mineLiter: ml, theirLiter: ol, diffLiter: ol - ml, fields: `Số lít: ${ml} ≠ ${ol}` });
+        } else {
+          fRows.push({ kind: 'THIEU_BEN_MINH', kindText: 'Bên mình chưa có', date: od, plateNo: o.plate_no, mineLiter: null, theirLiter: ol, diffLiter: ol, fields: 'Thiếu dòng dầu bên mình' });
+        }
+      }
+    }
+    for (const m of fMineLeft) {
+      const ml = num(m.qty_liter) || 0;
+      fRows.push({ kind: 'THIEU_BEN_KIA', kindText: 'Bên kia không có', date: fDate(m), plateNo: m.plate_no, mineLiter: ml, theirLiter: null, diffLiter: -ml, fields: 'Bên kia không có dòng dầu này' });
+    }
+    const fByPlate = new Map();
+    const fbp = (p) => { if (!fByPlate.has(p)) fByPlate.set(p, { plateNo: p, mineRows: 0, theirRows: 0, mineLiter: 0, theirLiter: 0, issues: 0 }); return fByPlate.get(p); };
+    for (const m of mineFuel) { const x = fbp(m.plate_no); x.mineRows += 1; x.mineLiter += num(m.qty_liter) || 0; }
+    for (const o of theirFuel) { const x = fbp(o.plate_no); x.theirRows += 1; x.theirLiter += num(o.qty_liter) || 0; }
+    for (const r of fRows) if (r.kind !== 'KHOP') fbp(r.plateNo).issues += 1;
+    const fuelCompare = {
+      hasTheirFuel: theirFuel.length > 0,
+      totals: {
+        mineRows: mineFuel.length, theirRows: theirFuel.length,
+        mineLiter: mineFuel.reduce((a, f) => a + (num(f.qty_liter) || 0), 0),
+        theirLiter: theirFuel.reduce((a, f) => a + (num(f.qty_liter) || 0), 0),
+      },
+      summary: {
+        KHOP: fRows.filter((r) => r.kind === 'KHOP').length,
+        LECH: fRows.filter((r) => r.kind === 'LECH').length,
+        THIEU_BEN_MINH: fRows.filter((r) => r.kind === 'THIEU_BEN_MINH').length,
+        THIEU_BEN_KIA: fRows.filter((r) => r.kind === 'THIEU_BEN_KIA').length,
+      },
+      byPlate: [...fByPlate.values()].map((x) => ({ ...x, diffLiter: x.theirLiter - x.mineLiter })).sort((a, b) => a.plateNo.localeCompare(b.plateNo)),
+      rows: fRows
+    };
+
+    return { source: { fileName: th.fileName, sourceText: th.sourceText, sourceUnit: th.sourceUnit, rows: th.tickets.length, fuelRows: theirFuel.length, unreadable: th.unreadable, duplicates: dupTheirs.map((t) => ({ ticketNo: t.ticket_no, date: t.weigh1_date, plateNo: t.plate_no })) },
+      dateFrom: from, dateTo: to, allPlates, contractId, plates: [...plates].sort(), summary, totals, rows, byPlate: plateRows, fuelCompare,
       matched: summary.KHOP.count, problems: rows.length - summary.KHOP.count };
   }
 

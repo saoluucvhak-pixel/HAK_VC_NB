@@ -169,7 +169,7 @@
         };
         body.append(h('div', { class: 'card' }, h('p', {}, 'Nhận gói .dgvc do nhà máy khác gửi: kỳ tính (bên vận chuyển gửi bên thuê), danh mục (nhà máy nào sửa danh mục cũng gửi được), phiếu cân.'), (D.writer() ? h('button', { class: 'btn primary', onclick: pick }, 'Chọn gói…') : h('p', { class: 'small muted' }, 'Vai trò Chỉ xem không nhận gói.'))), res);
       } else if (tab === 'export') {
-        const f = D.form([{ key: 'packageType', label: 'Loại gói', type: 'select', options: [['DANH_MUC', 'Danh mục (đơn vị, xe, tuyến, giá, hợp đồng)'], ['KY_TINH', 'Kỳ tính đã xác nhận / đã khóa'], ['PHIEU_CAN', 'Phiếu cân theo khoảng ngày']] },
+        const f = D.form([{ key: 'packageType', label: 'Loại gói', type: 'select', options: [['DANH_MUC', 'Danh mục (đơn vị, xe, tuyến, mã đơn giá, đơn giá, hợp đồng)'], ['KY_TINH', 'Kỳ tính vận chuyển đã xác nhận / đã khóa (gửi bên thuê mình)'], ['PHIEU_CAN', 'Phiếu cân & Dầu nhận theo khoảng ngày (đối chiếu 2 chiều)']] },
           { key: 'targetUnitCode', label: 'Gửi cho nhà máy', type: 'select', options: [['', '— tất cả —'], ...D.state.boot.units.filter((u) => u.unit_code !== D.state.boot.install.unitCode).map((u) => [u.unit_code, `${u.unit_code} · ${u.unit_name}`])] },
           { key: 'dateFrom', label: 'Phiếu cân từ ngày', type: 'date' }, { key: 'dateTo', label: 'đến ngày', type: 'date' }], { packageType: 'DANH_MUC' });
         const periods = (await D.api('periods.list', {})).items.filter((x) => x.origin === 'LOCAL' && x.role === 'CARRIER' && ['DA_XAC_NHAN', 'DA_KHOA'].includes(x.status));
