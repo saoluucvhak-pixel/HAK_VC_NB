@@ -256,7 +256,10 @@
       // ── Con: chọn đơn giá CÓ SẴN đưa vào mã ──
       const pickExisting = async (code, onSaved) => {
         const d = await D.api('prices.list', { status: 'ACTIVE' });
-        const rows = (d.items || []).filter((x) => !x.price_code && (x.price_method || 'THEO_DAU') === code.priceMethod);
+        const dc = await D.api('prices.list', { status: 'ACTIVE', priceCode: code.priceMethod === 'CO_DINH' ? 'PT-CD' : 'PT-TD' });
+        d.items = [...(d.items || []), ...(dc.items || []).filter((x) => x.price_code !== code.price_code && !(d.items || []).some((y) => y.price_id === x.price_id))];
+        // 1.9.0: giá chung cũ đã nằm trong mã mặc định PT-TD/PT-CD → vẫn là "đơn giá có sẵn" để sao chép sang mã khác
+        const rows = (d.items || []).filter((x) => (!x.price_code || ((x.price_code === 'PT-TD' || x.price_code === 'PT-CD') && !x.contract_id && x.price_code !== code.price_code)) && (x.price_method || 'THEO_DAU') === code.priceMethod);
         const chosen = new Set(); const date = h('input', { type: 'date', value: D.today(), 'aria-label': 'Hiệu lực từ ngày' });
         const table = D.table({ rows, empty: `Chưa có ${METHOD_LABEL[code.priceMethod].toLowerCase()} đang dùng để chọn`, maxHeight: '50vh', columns: [
           { key: 'pick', label: '', render: (r) => h('input', { type: 'checkbox', 'aria-label': `Chọn ${r.price_id}`, onchange: (e) => (e.target.checked ? chosen.add(r.price_id) : chosen.delete(r.price_id)) }) },

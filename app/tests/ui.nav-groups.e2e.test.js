@@ -58,14 +58,14 @@ test('Giao diện HAKQN: menu nhóm + Hợp đồng cha–con', { skip: !fs.exis
     await page.evaluate(() => window.DGVC.go('settings', { tab: 'units' })); await page.getByRole('heading', { name: 'Công ty & đối tác' }).first().waitFor();
 
     // Hợp đồng cha–con
-    await item('Hợp đồng vận chuyển').click(); await page.getByRole('heading', { name: 'Hợp đồng vận chuyển' }).first().waitFor();
+    await item('Hợp đồng vận chuyển').click(); await page.locator('.ct-items').first().waitFor(); // màn Công ty & đối tác cũng có chữ "Hợp đồng vận chuyển" → chờ danh sách hợp đồng, không chờ tiêu đề
     assert.match(await page.locator('.crumb').textContent(), /^Danh mục › Hợp đồng$/);
     await page.locator('.ct-items button', { hasText: 'HAKQN-QS' }).first().click(); const d = page.locator('.ct-detail', { hasText: 'Hợp đồng HAKQN-QS' }); await d.waitFor();
     assert.match(await page.locator('.crumb').textContent(), /Danh mục › Hợp đồng › HAKQN-QS/);
     await d.getByRole('tab', { name: 'Xe của hợp đồng' }).click(); const plates = ctx.store.find('HOP_DONG_XE', (v) => v.contract_id === contractId).length;
     assert.equal((await d.getByLabel('Phạm vi xe').inputValue()).split('\n').filter(Boolean).length, plates);
     await d.getByRole('tab', { name: /Kỳ tính \(1\)/ }).click(); await d.getByRole('button', { name: 'Mở kỳ' }).waitFor();
-    await d.getByRole('tab', { name: 'Mã đơn giá' }).click(); await d.getByText(/Giá chung \(cách cũ\)/).waitFor();
+    await d.getByRole('tab', { name: 'Mã đơn giá' }).click(); await d.getByText(/Mã đơn giá: PT-TD/).waitFor(); // 1.9.0: hợp đồng cũ tự gán mã mặc định PT-TD (không còn "Giá chung (cách cũ)")
     await shot('hop-dong-cha-con');
     // chọn nhanh liên tiếp: kết quả cũ không ghi đè — hợp đồng cuối cùng được chọn là hợp đồng hiển thị
     const codes = await page.locator('.ct-items button .mono').allInnerTexts(); assert.ok(codes.length >= 1);

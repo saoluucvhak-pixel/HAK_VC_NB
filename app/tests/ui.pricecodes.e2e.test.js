@@ -36,7 +36,7 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
 
     // màn DM Đơn giá (hợp nhất cha-con)
     await nav('DM Đơn giá'); await page.getByRole('heading', { name: /DM Đơn giá|Mã đơn giá/ }).first().waitFor();
-    const tree = page.locator('.pc-tree'); await tree.getByText('Chưa có mã đơn giá nào').waitFor();
+    const tree = page.locator('.pc-tree'); await tree.getByRole('button', { name: /PT-TD/ }).waitFor(); // 1.9.0: có sẵn 2 mã mặc định PT-CD / PT-TD
     await tree.getByRole('heading', { name: 'Đơn giá cố định' }).waitFor(); await tree.getByRole('heading', { name: 'Đơn giá điều chỉnh dầu' }).waitFor();
     await tree.getByRole('button', { name: '+ Mã đơn giá cố định' }).click();
     const m = page.locator('.modal', { hasText: 'Tạo mã đơn giá' }); await m.getByLabel(/Đơn vị/).selectOption(unit);
@@ -55,7 +55,9 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     await row.getByRole('button', { name: 'Áp dụng' }).click(); await toast(/Đã áp dụng/); await page.locator('.pc-detail tbody tr', { hasText: 'VC.007' }).getByText('Đang dùng').waitFor();
     // gán cho hợp đồng từ màn Mã đơn giá
     await page.locator('.pc-detail').getByRole('button', { name: 'Gán cho hợp đồng…' }).click();
-    const am = page.locator('.modal', { hasText: 'Gán mã DG-UI-01 cho hợp đồng' }); await am.getByLabel('Hợp đồng').selectOption(contractId); await am.getByRole('button', { name: 'Gán mã' }).click(); await toast(/Đã gán mã DG-UI-01/);
+    const am = page.locator('.modal', { hasText: 'Gán mã DG-UI-01 cho hợp đồng' }); await am.getByLabel('Hợp đồng').selectOption(contractId); await am.getByRole('button', { name: 'Gán mã' }).click();
+    await page.locator('.modal', { hasText: 'Đổi mã đơn giá của hợp đồng' }).getByRole('button', { name: 'Đồng ý' }).click(); // 1.9.0: hợp đồng đang dùng mã mặc định PT-TD → hỏi trước khi đổi
+    await toast(/Đã gán mã DG-UI-01/);
     assert.equal(ct().price_code, 'DG-UI-01'); await page.locator('.pc-detail').getByText(/HAKQN-QS/).first().waitFor();
     // kỳ tính dùng giá cố định của mã (tuyến cố định không nhận dầu → không có dầu trong kỳ)
     const k = await ctx.svc.periods.calculate({ contractId, dateFrom: '2026-09-18', dateTo: '2026-09-23', routeCode: 'VC.007', reportDate: '2026-09-24', clientRequestId: rid(), user: KETOAN });

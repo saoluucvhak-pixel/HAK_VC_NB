@@ -31,7 +31,9 @@ function selectPriceVersion(prices, routeCode, contractId, dateFrom, dateTo, cfg
     const isDefaultCd = priceCode === 'PT-CD';
     const coded = priceCode ? usable.filter((p) => (p.price_code === priceCode || (isDefaultTd && (!p.price_code || p.price_code === '') && !p.contract_id && p.price_method !== 'CO_DINH') || (isDefaultCd && (!p.price_code || p.price_code === '') && !p.contract_id && p.price_method === 'CO_DINH')) && effectiveAt(p, d)) : [];
     const own = usable.filter((p) => !p.price_code && p.contract_id === contractId && effectiveAt(p, d));
-    const gen = usable.filter((p) => !p.price_code && !p.contract_id && effectiveAt(p, d));
+    // Giá chung cũ đã được gắn mã mặc định PT-TD/PT-CD khi nâng cấp (1.9.0) — với hợp đồng KHÔNG dùng mã mặc định (mã tự tạo hoặc không mã) đó vẫn là "giá chung" làm chỗ dựa cho tuyến mã chưa có dòng giá, đúng như trước khi chuyển.
+    const legacyGeneral = (p) => !p.price_code || ((p.price_code === 'PT-TD' || p.price_code === 'PT-CD') && !(isDefaultTd || isDefaultCd));
+    const gen = usable.filter((p) => legacyGeneral(p) && !p.contract_id && effectiveAt(p, d));
     // Mã MẶC ĐỊNH (PT-TD/PT-CD) chỉ là cách gọi tên của giá chung cũ → giữ thứ tự 1.6.0: giá RIÊNG hợp đồng > giá chung. Mã do người dùng tạo vẫn: dòng của mã > giá riêng > giá chung.
     const list = (isDefaultTd || isDefaultCd) ? (own.length ? own : coded.length ? coded : gen) : (coded.length ? coded : own.length ? own : gen);
     return list.sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0] || null;

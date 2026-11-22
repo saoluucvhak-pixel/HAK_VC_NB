@@ -23,7 +23,7 @@ const canon = (v) => (Array.isArray(v) ? `[${v.map(canon).join(',')}]`
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 // catalog_date (TUYEN_VC, 1.8.0) là ngày theo dõi của từng máy (tự gán khi sửa) — không coi là khác nội dung, tránh xung đột giả khi 2 nhà máy "sửa giống" ở 2 ngày
 const META = new Set(['created_at', 'created_by', 'updated_at', 'updated_by', 'row_version']);
-const CMP_SKIP = new Set([...META, 'catalog_date']); // chỉ bỏ khi SO nội dung; khi nhập UPDATE thật thì ngày vẫn chép theo
+const CMP_SKIP = new Set([...META, 'catalog_date', 'is_used']); // is_used là trạng thái cục bộ (đã dùng ở kỳ của máy nào), không phải nội dung do người sửa; // chỉ bỏ khi SO nội dung; khi nhập UPDATE thật thì ngày vẫn chép theo
 const content = (r) => Object.fromEntries(Object.entries(r).filter(([k]) => !CMP_SKIP.has(k)));
 const sameContent = (a, b) => canon(content(a)) === canon(content(b));
 const vnNum = (n) => Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -190,6 +190,10 @@ class ExchangeService {
         if (t === 'PRICE_HISTORY' && r.contract_id && !s.get('HOP_DONG', r.contract_id) && !(T.HOP_DONG || []).some((c) => c.contract_id === r.contract_id && party(c))) { add(t, id, 'SKIP', r, { note: 'giá riêng của hợp đồng không liên quan' }); continue; }
         if (t === 'MA_DON_GIA' && (r.price_code === 'PT-CD' || r.price_code === 'PT-TD') && local) { add(t, id, 'SAME', r); continue; }
         if (!local) { add(t, id, 'NEW', r); continue; }
+        // bản cài này đã tự chuyển giá/hợp đồng cũ sang mã mặc định PT-TD/PT-CD (1.9.0); bản đến từ máy chưa chuyển có các cột đó rỗng → không phải "sửa khác nhau"
+        if ((t === 'HOP_DONG' || t === 'PRICE_HISTORY') && !r.price_code && (local.price_code === 'PT-TD' || local.price_code === 'PT-CD')) {
+          r.price_code = local.price_code; if (t === 'PRICE_HISTORY' && !r.price_method) r.price_method = local.price_method;
+        }
         if (sameContent(local, r)) { add(t, id, 'SAME', r); continue; }
         if (t === 'PRICE_HISTORY') {
           const onlyClose = canon(content({ ...local, effective_to: '', status: '' })) === canon(content({ ...r, effective_to: '', status: '' })) && r.status === 'CLOSED';
