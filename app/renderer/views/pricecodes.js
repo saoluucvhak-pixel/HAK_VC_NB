@@ -354,17 +354,16 @@
       // ── Cha: 2 phương thức có sẵn (+ mã cũ nếu còn) ──
       async function loadTree() {
         const d = await D.api('pricecodes.list');
-        const items = [...(d.items || [])].sort((a, b) => (STD.indexOf(a.price_code) < 0 ? 9 : STD.indexOf(a.price_code)) - (STD.indexOf(b.price_code) < 0 ? 9 : STD.indexOf(b.price_code)) || a.price_code.localeCompare(b.price_code, 'vi', { numeric: true }));
+        // mã tự tạo ở bản cũ: mã RỖNG (không dòng giá, không hợp đồng dùng) thì ẩn cho gọn; mã còn dữ liệu vẫn hiện để dữ liệu không mất
+        const items = [...(d.items || [])].filter((x) => STD.includes(x.price_code) || x.lineCount > 0 || (x.contracts || []).length > 0).sort((a, b) => (STD.indexOf(a.price_code) < 0 ? 9 : STD.indexOf(a.price_code)) - (STD.indexOf(b.price_code) < 0 ? 9 : STD.indexOf(b.price_code)) || a.price_code.localeCompare(b.price_code, 'vi', { numeric: true }));
         if (!sel && items.length) sel = (items.find((x) => x.price_code === 'PT-TD') || items[0]).price_code;
-        const legacy = items.filter((x) => !STD.includes(x.price_code));
         tree.replaceChildren(
           h('h2', { style: { margin: '0 0 10px', fontSize: '16px' } }, 'Phương thức tính giá'),
           ...items.map((c) => h('button', { class: 'pc-code', 'aria-current': String(c.price_code === sel), onclick: async () => { sel = c.price_code; await loadTree(); await loadDetail(); } },
             h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'center' } }, h('b', { class: 'mono' }, c.price_code), c.priceMethod === 'CO_DINH' ? D.tag('info', 'Cố định') : c.priceMethod === 'HON_HOP' ? D.tag('warn', 'Hỗn hợp') : D.tag('mute', 'Theo dầu')),
             h('div', { class: 'small', style: { marginTop: '2px' } }, STD.includes(c.price_code) ? (c.priceMethod === 'CO_DINH' ? 'Đơn giá cố định' : 'Đơn giá điều chỉnh theo giá dầu') : c.price_name),
             h('div', { class: 'small muted', style: { marginTop: '2px' } }, `${D.vn(c.lineCount)} đơn giá · ${D.vn(c.activeLines)} đang dùng`)
-          )),
-          ...(legacy.length ? [h('p', { class: 'small muted', style: { margin: '8px 0 0' } }, `Có ${legacy.length} mã tự tạo ở bản cũ (${legacy.map((x) => x.price_code).join(', ')}) — vẫn xem và dùng được, không tạo thêm mã mới.`)] : [])
+          ))
         );
       }
 
