@@ -22,6 +22,14 @@
         h('p', { class: 'small muted' }, 'Quay lại: Đã khóa → (Mở khóa) → Đã xác nhận → (Trả về nháp) → Nháp. Hai thao tác quay lại cần ADMIN hoặc người có quyền mở khóa, và bắt buộc ghi lý do.')),
       ...STEPS.map(([title, view, text], i) => h('div', { class: 'card guide-step' },
         h('div', { class: 'guide-n' }, String(i + 1)), h('div', { class: 'grow' }, h('h2', {}, title), h('p', {}, ...text)), link('Mở màn hình', view))),
+      h('div', { class: 'card' }, h('h2', {}, 'Làm việc với đối tác: đối tác gửi gì → vào đâu?'),
+        h('p', { class: 'small muted' }, 'Hai cổng duy nhất: ', b('Trao đổi dữ liệu'), ' (nhập / xuất gói) và ', b('Đối chiếu dữ liệu'), ' (so sánh, không ghi vào kỳ). Menu "Đối tác".'),
+        plain([['Đối tác gửi', 'a'], ['Vào đâu', 'b'], ['Kết quả', 'c']], [
+          { a: 'Gói kỳ tính (.dgvc / .json) — bên vận chuyển gửi bên thuê', b: 'Trao đổi dữ liệu → Nhập gói', c: 'Lưu để xem / in lại, không sửa được' },
+          { a: 'Gói phiếu cân kèm dầu (.dgvc / .json)', b: 'Trao đổi dữ liệu → Nhập gói (hoặc Đối chiếu dữ liệu nếu chỉ muốn so sánh)', c: 'Nhập: ghi phiếu + dầu (trùng dầu nhập tay thì hỏi). Đối chiếu: không ghi gì' },
+          { a: 'Gói danh mục (.dgvc / .json)', b: 'Trao đổi dữ liệu → Nhập gói', c: 'Cập nhật đơn vị, xe, tuyến, đơn giá, hợp đồng' },
+          { a: 'Excel phiếu cân hoặc Excel dầu (file mẫu)', b: 'Đối chiếu dữ liệu → Đối chiếu 3 tiêu chí → Chọn file (có nút Tải file mẫu Excel)', c: 'So 3 tiêu chí; có thể "Lưu thành đợt" để dùng lại. Đợt không vào kỳ' }]),
+        h('div', { class: 'btns' }, link('Mở Trao đổi dữ liệu', 'exchange'), link('Mở Đối chiếu dữ liệu', 'reconcile', { tab: 'compare' }))),
       h('div', { class: 'card' }, h('h2', {}, 'Cuối ngày làm việc'), h('p', {}, 'Vào ', b('Cài đặt → Dữ liệu & sao lưu'), ' để sao lưu ra USB / thư mục Google Drive. Mọi thay đổi quan trọng đều được ghi ở ', b('Lịch sử thao tác'), '.'), link('Mở Cài đặt', 'settings')));
   }
 
@@ -37,7 +45,7 @@
     ['Import nhầm file phiếu cân', 'Phiếu cân → lọc đúng các phiếu cần xóa → ', 'Xóa N phiếu đang lọc…', ' (ghi lý do). Phiếu ở kỳ đã chốt được giữ lại. Khôi phục: lọc Trạng thái = Đã xóa → bấm phiếu → Khôi phục phiếu.'],
     ['Tải file dầu sai', 'Giao nhận dầu → chọn hợp đồng, lọc Từ ngày – Đến ngày đúng khoảng của file → ', 'Xóa … dòng đang lọc…', ' → import lại file đúng. Dòng dầu ở kỳ đã chốt được giữ lại; kỳ nháp phải tính lại.'],
     ['Trạm cân gửi lại file đã sửa', 'Phiếu cân → ', 'Import từ Excel', ' như bình thường: phiếu khác số liệu hiện "Cập nhật", ghi rõ cột đổi. Kỳ nháp có phiếu đó được đánh dấu tính lại.'],
-    ['Phiếu nhập muộn sau khi kỳ đã chốt', 'Đối chiếu dữ liệu → thẻ "Phiếu cân chưa tính vào kỳ" → ', 'Mở kỳ để tính lại', ' → Tính giá → Xác nhận kỳ → xuất lại gói gửi bên thuê (bên thuê nhập gói mới sẽ thay bản cũ).'],
+    ['Phiếu nhập muộn sau khi kỳ đã chốt', 'Đối chiếu dữ liệu → thẻ "Kiểm tra nội bộ" → ', 'Mở kỳ để tính lại', ' → Tính giá → Xác nhận kỳ → xuất lại gói gửi bên thuê (bên thuê nhập gói mới sẽ thay bản cũ).'],
     ['Bên vận chuyển hủy kỳ rồi lập lại (nhận gói)', 'Trao đổi dữ liệu → Nhập gói: gói có mã kỳ mới (vd …#2) cùng khoảng ngày với kỳ đã nhận sẽ hiện lựa chọn ', 'Thay kỳ cũ bằng kỳ này', ' (kỳ cũ thành Đã hủy, giữ lịch sử). Mặc định là giữ kỳ cũ. Để gửi bản sửa mà không đổi mã kỳ, bên gửi nên dùng Trả về nháp thay vì Hủy kỳ.'],
     ['Kỳ nháp tính sai', 'Tính giá vận chuyển → mở kỳ → ', 'TÍNH GIÁ', ' lại, hoặc ', 'Hủy kỳ', ' (ghi lý do) để trả phiếu và dầu về trạng thái chưa dùng.'],
   ];

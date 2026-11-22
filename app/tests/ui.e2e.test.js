@@ -146,8 +146,8 @@ test('Giao diện: đi hết luồng chính trên trình duyệt', { skip: !fs.e
     // ── đơn giá: đơn giá tham khảo ghi rõ nguồn (1.9.0: màn Đơn giá cũ đã gộp vào DM Đơn giá → dòng giá của mã PT-TD)
     await nav('DM Đơn giá');
     await page.locator('.pc-tree').getByRole('button', { name: /PT-TD/ }).click();
-    await page.locator('.pc-detail').getByRole('button', { name: 'Thêm dòng giá điều chỉnh dầu' }).click();
-    const pdlg = page.locator('.modal', { hasText: 'Thêm dòng giá điều chỉnh dầu vào mã PT-TD' });
+    await page.locator('.pc-detail').getByRole('button', { name: 'Thêm đơn giá' }).click();
+    const pdlg = page.locator('.modal', { hasText: 'Thêm đơn giá điều chỉnh theo giá dầu — PT-TD' });
     await pdlg.getByText(/ĐG ký HĐ|Đơn giá dự kiến ký hợp đồng/).first().waitFor(); // form dòng giá theo giá dầu có ĐG ký HĐ (ô "Nguồn đơn giá tham khảo" không còn trong form mới)
     await shot('don-gia-tham-khao');
     await page.keyboard.press('Escape');

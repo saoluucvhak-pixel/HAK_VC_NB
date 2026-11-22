@@ -87,6 +87,86 @@ class ImportService {
     return { fileName: wb.fileName, sheet, rows: rows.map((r) => ({ rowNo: r.rowNo, record: r.record, errors: r.issues.filter((i) => i.level === 'ERROR').map((i) => i.message) })) };
   }
 
+  /**
+   * Tìm sheet của một loại dữ liệu trong file ĐỐI TÁC: ưu tiên đúng tên mẫu (NL_VC / NL_GIAONHANDAU), nếu không thì sheet có dòng tiêu đề
+   * chứa cột "neo" (Số phiếu cho phiếu cân, Ngày nhận dầu cho dầu) cùng ít nhất 1 cột khác. Không có → null (file không chứa loại đó).
+   */
+  _anchorSheet(wb, importType) {
+    const named = importType === 'PHIEU_CAN' ? 'NL_VC' : 'NL_GIAONHANDAU';
+    const vis = wb.sheets.filter((x) => !x.hidden);
+    if (vis.some((x) => x.name === named)) return named;
+    const anchor = importType === 'PHIEU_CAN' ? 'ticket_no' : 'receive_date';
+    let best = null;
+    for (const sh of vis) {
+      const rows = wb.rows(sh.name); const hIdx = M.detectHeaderRow(rows, importType); if (hIdx < 0) continue;
+      const keys = new Set(rows[hIdx].map((x) => M.matchField(M.FIELDS[importType], x)).filter(Boolean));
+      if (keys.has(anchor) && keys.size >= 2 && (!best || keys.size > best.score)) best = { name: sh.name, score: keys.size };
+    }
+    return best ? best.name : null;
+  }
+
+  /**
+   * Đọc dòng giao nhận DẦU từ sheet Excel của đối tác để ĐỐI CHIẾU — không tạo lô, không ghi gì, không đòi hợp đồng / tuyến / bên giao.
+   * Chỉ bắt buộc ngày nhận dầu, biển số xe, số lượng (lít). Biển số khớp danh mục thì chuẩn theo danh mục, không thì giữ nguyên chữ hoa.
+   */
+  _readFuelFrom(wb, sheet, numberStyle = 'AUTO') {
+    const all = wb.rows(sheet);
+    const hIdx = M.detectHeaderRow(all, 'GIAO_NHAN_DAU');
+    if (hIdx < 0) throw businessError('E_MAPPING_REQUIRED', `Không tìm thấy dòng tiêu đề dầu trong sheet "${sheet}" (cần các cột: Ngày nhận dầu, Biển số xe, Số lượng (lít)) — bấm "Tải file mẫu" để lấy file Excel dầu đúng mẫu`);
+    const headers = (all[hIdx] || []).map((h) => (h === null ? '' : String(h)));
+    const map = M.suggestMapping(headers, 'GIAO_NHAN_DAU');
+    const NEED = { receive_date: 'Ngày nhận dầu', fuel_vehicle_code: 'Biển số xe', qty_liter: 'Số lượng (lít)' };
+    const miss = Object.keys(NEED).filter((k) => !Object.values(map).includes(k));
+    if (miss.length) throw businessError('E_MAPPING_REQUIRED', `File dầu (sheet "${sheet}") thiếu cột: ${miss.map((k) => NEED[k]).join(', ')}`, { headers, mapping: map, missing: miss });
+    const colOf = {}; headers.forEach((h, i) => { if (map[h]) colOf[map[h]] = i; });
+    const byKey = new Map(this.store.all('XE').map((x) => [x.plate_key, x]));
+    const cell = (cells, k) => (colOf[k] === undefined ? null : cells[colOf[k]]);
+    const rows = [];
+    for (let i = hIdx + 1; i < all.length; i++) {
+      const cells = all[i] || [];
+      if (Object.values(colOf).every((c) => cells[c] === null || cells[c] === undefined || cells[c] === '')) continue;
+      if (cells.some((v) => typeof v === 'string' && /^t[ổo]ng c[ộo]ng$/i.test(v.trim()))) continue;
+      const errors = []; const rec = {};
+      const d = M.toDate(cell(cells, 'receive_date')); if (d.error) errors.push(`ngày nhận dầu: ${d.error}`); rec.receive_date = d.value || '';
+      if (!rec.receive_date && !d.error) errors.push('thiếu ngày nhận dầu');
+      const raw = M.toText(cell(cells, 'fuel_vehicle_code'));
+      if (!raw) errors.push('thiếu biển số xe');
+      const veh = raw ? byKey.get(M.plateKey(raw)) : null;
+      rec.fuel_vehicle_code = raw; rec.plate_no = veh ? veh.plate_no : raw.trim().toUpperCase();
+      const q = M.toNumber(cell(cells, 'qty_liter'), numberStyle); rec.qty_liter = q.error || q.ambiguous ? '' : q.value;
+      if (q.ambiguous) errors.push(`số lượng "${cell(cells, 'qty_liter')}" đọc được 2 cách (${q.ambiguous[0]} hoặc ${q.ambiguous[1]}) — nhập số thuần, không dấu ngăn nghìn`);
+      else if (!(typeof rec.qty_liter === 'number' && rec.qty_liter !== 0)) errors.push(`số lượng không hợp lệ "${cell(cells, 'qty_liter') ?? ''}"`);
+      rec.route_code = M.toText(cell(cells, 'route_code')).toUpperCase();
+      const pr = M.toNumber(cell(cells, 'fuel_price_excl_vat')); rec.fuel_price_excl_vat = typeof pr.value === 'number' ? pr.value : '';
+      rec.giver_unit_code = M.toText(cell(cells, 'giver_unit_code'));
+      rows.push({ rowNo: i + 1, record: rec, errors });
+    }
+    return { fileName: wb.fileName, sheet, rows };
+  }
+
+  async readFuel({ filePath, sheetName, numberStyle = 'AUTO' }) {
+    const wb = await openWorkbook(filePath);
+    const sheet = sheetName || this._anchorSheet(wb, 'GIAO_NHAN_DAU');
+    if (!sheet) throw businessError('E_MAPPING_REQUIRED', `File ${wb.fileName} không có sheet dầu (NL_GIAONHANDAU) — bấm "Tải file mẫu dầu" để lấy file Excel đúng mẫu`);
+    return this._readFuelFrom(wb, sheet, numberStyle);
+  }
+
+  /**
+   * Đọc file Excel của ĐỐI TÁC: có thể chứa mẫu phiếu cân (NL_VC), mẫu dầu (NL_GIAONHANDAU) hoặc cả hai sheet.
+   * Trả { fileName, tickets: {sheet, rows} | null, fuel: {sheet, rows} | null }. Không nhận ra sheet nào → thông báo như readTickets cũ.
+   */
+  async readPartnerExcel({ filePath }) {
+    const wb = await openWorkbook(filePath);
+    const ts = this._anchorSheet(wb, 'PHIEU_CAN'); const fsn = this._anchorSheet(wb, 'GIAO_NHAN_DAU');
+    if (!ts && !fsn) {
+      const r = await this.readTickets({ filePath }); // file một sheet đặt tên khác / thiếu cột: giữ thông báo lỗi cũ (nêu cột thiếu)
+      return { fileName: r.fileName, tickets: { sheet: r.sheet, rows: r.rows }, fuel: null };
+    }
+    const tickets = ts ? await this.readTickets({ filePath, sheetName: ts }) : null;
+    const fuel = fsn ? this._readFuelFrom(wb, fsn) : null;
+    return { fileName: wb.fileName, tickets: tickets ? { sheet: tickets.sheet, rows: tickets.rows } : null, fuel: fuel ? { sheet: fuel.sheet, rows: fuel.rows } : null };
+  }
+
   previewRows({ batchId, status, page = 1, pageSize = PAGE }) {
     const st = this.staging.get(batchId); if (!st) throw new AppError('NOT_FOUND', `Không có lô đang xem trước: ${batchId}`);
     const rows = status ? st.result.rows.filter((r) => r.status === status) : st.result.rows;

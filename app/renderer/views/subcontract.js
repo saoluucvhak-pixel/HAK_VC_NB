@@ -1,210 +1,95 @@
 'use strict';
-/* DGVC — Nhập dữ liệu thuê vận chuyển: nạp file JSON/DGVC từng đợt của đơn vị khác và gán vào kỳ tính công ty */
+/*
+ * DGVC — Các đợt dữ liệu của ĐỐI TÁC (trước đây màn "Nhập dữ liệu thuê VC").
+ * Đã GỘP vào màn "Đối chiếu dữ liệu" (renderer/views/reconcile.js): ô chọn file + nút "Lưu thành đợt" nằm ở thẻ "Đối chiếu 3 tiêu chí",
+ * danh sách / xem / xóa đợt nằm ở thẻ "Các đợt đã nạp". File này chỉ giữ:
+ *  - D.partnerBatch.saveDialog(...)  hộp thoại lưu một file đối tác thành đợt (có chống trùng: hỏi xác nhận khi file / phiếu đã nạp);
+ *  - D.partnerBatch.listCard(...)    bảng các đợt đã nạp (đối chiếu / xóa);
+ *  - D.views.subcontract             bí danh: id màn cũ mở sang Đối chiếu dữ liệu (D.go('subcontract') đã được app.js chuyển hướng).
+ * Đợt chỉ là BẢN SAO dữ liệu đối tác phục vụ đối chiếu — không vào kỳ, không đổi số tiền của kỳ nào.
+ */
 (function () {
   const D = window.DGVC; const { h } = D;
   const kpi = (label, value, sub, cls = '') => h('div', { class: `kpi ${cls}` }, h('div', { class: 'v' }, value), h('div', { class: 'l' }, label), sub ? h('div', { class: 'small muted' }, sub) : null);
 
-  D.views.subcontract = {
-    async render(params = {}) {
-      const tab = params.tab || 'import';
-      const body = h('div');
-      const tabs = h('div', { class: 'tabs', role: 'tablist' }, [
-        ['import', 'Nạp đợt mới'],
-        ['list', 'Danh sách các đợt đã nạp']
-      ].map(([k, t]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => D.go('subcontract', { tab: k }) }, t)));
+  D.partnerBatch = {
+    /** Lưu file đối tác (Excel / .json / .dgvc) thành đợt. onSaved(batch) chạy sau khi lưu xong. */
+    async saveDialog({ filePath, onSaved }) {
+      if (!filePath) { D.toast('Chọn file của đối tác trước khi lưu thành đợt', 'warn'); return; }
+      let pv;
+      try { pv = await D.api('subcontract.preview', { filePath }, { quiet: true }); } catch (err) { D.toast(`Không đọc được file: ${err.message}`, 'err', 9000); return; }
+      const s = pv.summary;
+      const periodsRes = await D.api('periods.list', {}).catch(() => ({ items: [] }));
+      const periodOpts = [['', '— Không gán kỳ (chỉ để đối chiếu) —'], ...(periodsRes.items || []).map((p) => [p.period_id, `${p.period_code} · ${p.contract_code || p.contract_id} (${D.dmy(p.date_from)} → ${D.dmy(p.date_to)}) [${p.status}]`])];
+      const f = D.form([
+        { key: 'partnerName', label: 'Tên đơn vị đối tác (gửi file)', type: 'text', placeholder: 'Ví dụ: CÔNG TY VẬN TẢI TUẤN HƯNG' },
+        { key: 'batchName', label: 'Tên đợt / ghi chú', type: 'text', placeholder: 'Ví dụ: Đợt 1 - tuyến VC.007 từ 18/09 - 23/09' },
+        { key: 'periodId', label: 'Kỳ tính công ty liên quan (tùy chọn)', type: 'select', options: periodOpts, full: true },
+        { key: 'rentUnitPrice', label: 'Đơn giá thuê (đ/tấn)', type: 'number', placeholder: 'Ví dụ: 155000' },
+        { key: 'fuelUnitPrice', label: 'Đơn giá dầu cấp (đ/lít)', type: 'number', placeholder: 'Ví dụ: 19500' },
+        { key: 'deductFuel', label: 'Khấu trừ tiền dầu cấp vào cước thanh toán', type: 'check', full: true },
+      ], { partnerName: pv.partnerSuggested || '', batchName: '', periodId: '', rentUnitPrice: '', fuelUnitPrice: '', deductFuel: true });
+      const warn = [];
+      if (pv.duplicates && pv.duplicates.length) warn.push(h('div', { class: 'card err-card', role: 'alert' }, h('b', {}, 'Lưu ý: '), pv.duplicates[0].reason === 'SAME_FILE' ? `file này đã nạp ở đợt "${pv.duplicates[0].batchName}" (${pv.duplicates[0].batchId}).` : `toàn bộ phiếu / dầu trùng với đợt đã nạp "${pv.duplicates[0].batchName}" (${pv.duplicates[0].batchId}).`, ' Lưu lại sẽ hỏi xác nhận.'));
+      if (pv.unreadable && pv.unreadable.length) warn.push(h('div', { class: 'card small' }, h('b', {}, `${D.vn(pv.unreadable.length)} dòng Excel không đọc được (bỏ qua): `), pv.unreadable.slice(0, 5).map((x) => `${x.sheet} dòng ${x.rowNo}: ${x.note}`).join(' · '), pv.unreadable.length > 5 ? ' …' : ''));
+      const save = async (confirmDuplicate) => {
+        const v = f.values();
+        return D.api('subcontract.importBatch', { filePath, periodId: v.periodId || undefined, partnerName: v.partnerName, batchName: v.batchName, rentUnitPrice: Number(v.rentUnitPrice) || 0,
+          fuelUnitPrice: Number(v.fuelUnitPrice) || 0, deductFuel: !!v.deductFuel, confirmDuplicate: !!confirmDuplicate, clientRequestId: D.rid() }, { quiet: true });
+      };
+      D.modal({
+        title: 'Lưu thành đợt để đối chiếu lại',
+        wide: true,
+        body: h('div', {},
+          h('p', { class: 'small muted' }, 'Đợt chỉ là bản sao dữ liệu của đối tác phục vụ đối chiếu — KHÔNG vào kỳ và không đổi số tiền của kỳ nào. Lưu để lần sau chọn lại, không phải chọn file.'),
+          h('div', { class: 'kpis' }, kpi('Phiếu cân', D.vn(s.ticketCount), `${D.vn(s.totalTon)} tấn`, 'main'), kpi('Dầu', D.vn(s.fuelCount), `${D.vnAuto(s.totalFuelLiter)} lít`), kpi('Số xe', D.vn(s.plateCount)), kpi('Khoảng ngày', `${D.dmy(s.dateFrom)} → ${D.dmy(s.dateTo)}`)),
+          ...warn, f),
+        actions: [{ label: 'Hủy', run: () => true }, { label: 'Lưu đợt', primary: true, run: async () => {
+          let res;
+          try { res = await save(false); } catch (err) {
+            if (!(err.details && err.details.code === 'E_BATCH_DUPLICATE')) { D.toast(err.message, 'err', 9000); return false; }
+            const yes = await D.confirm({ title: 'File đã nạp trước đó', message: `${err.message}\n\nVẫn nạp thêm một đợt nữa?`, okLabel: 'Vẫn nạp thêm' });
+            if (!yes) return false;
+            try { res = await save(true); } catch (e2) { D.toast(e2.message, 'err', 9000); return false; }
+          }
+          D.toast(`Đã lưu đợt ${res.batchName} (${res.batchId})`, 'ok', 6000);
+          if (onSaved) onSaved(res);
+          return true;
+        } }],
+      });
+    },
 
-      if (tab === 'import') await renderImportTab(body);
-      else await renderListTab(body);
-
-      return D.page('Nhập dữ liệu thuê vận chuyển', 'Nạp file JSON của từng đợt thuê vận chuyển gửi về · Gán vào kỳ tính công ty · Đối chiếu sản lượng & dầu', [], tabs, body);
-    }
+    /** Bảng các đợt đã nạp: Đối chiếu / Xóa (nút ghi chỉ hiện với ADMIN, KE_TOAN). */
+    async listCard({ onCompare, onChanged }) {
+      const listRes = await D.api('subcontract.list', {}).catch(() => []);
+      const batches = Array.isArray(listRes) ? listRes : [];
+      if (!batches.length) return h('div', { class: 'card empty-card' }, 'Chưa có đợt nào được lưu. Ở thẻ "Đối chiếu 3 tiêu chí": chọn file của đối tác, bấm "Lưu thành đợt" để dùng lại.');
+      return h('div', { class: 'card flush' },
+        h('div', { class: 'card-h row' }, h('h2', { class: 'grow' }, `Các đợt dữ liệu đối tác đã nạp (${batches.length})`), h('span', { class: 'small muted' }, 'Đợt chỉ là bản sao để đối chiếu — không vào kỳ')),
+        D.table({
+          rows: batches,
+          empty: 'Không có đợt nào',
+          columns: [
+            { key: 'batchName', label: 'Tên đợt', render: (r) => h('b', {}, r.batchName) },
+            { key: 'partnerName', label: 'Đơn vị đối tác', render: (r) => r.partnerName || '—' },
+            { key: 'periodCode', label: 'Kỳ liên quan', render: (r) => (r.periodCode ? h('span', { class: 'mono b' }, r.periodCode) : h('span', { class: 'muted' }, 'Không gán')) },
+            { key: 'summary', label: 'Phiếu cân', render: (r) => `${D.vn(r.summary.ticketCount)} phiếu · ${D.vn(r.summary.totalTon)} tấn (${r.summary.plateCount} xe)` },
+            { key: 'fuel', label: 'Dầu nhận', render: (r) => `${D.vn(r.summary.fuelCount)} lần · ${D.vnAuto(r.summary.totalFuelLiter)} L` },
+            { key: 'rentUnitPrice', label: 'Đơn giá thuê', render: (r) => (r.rentUnitPrice ? `${D.vn(r.rentUnitPrice)} đ/tấn` : '—') },
+            { key: 'createdAt', label: 'Ngày nạp', fmt: 'date' },
+            { key: 'actions', label: 'Thao tác', render: (r) => h('div', { class: 'btns' },
+              h('button', { class: 'btn small primary', title: 'Đối chiếu 3 tiêu chí (phiếu cân, dầu nhận, đơn giá & thành tiền)', onclick: () => onCompare(r) }, 'Đối chiếu'),
+              D.writer() ? h('button', { class: 'btn small err', title: 'Xóa đợt này (chỉ xóa bản sao, không đụng dữ liệu của kỳ)', onclick: async () => {
+                if (!(await D.confirm({ title: 'Xóa đợt', message: `Xóa đợt "${r.batchName}"? Chỉ xóa bản sao dùng để đối chiếu.`, okLabel: 'Xóa đợt', danger: true }))) return;
+                await D.api('subcontract.delete', { batchId: r.batchId });
+                D.toast(`Đã xóa đợt ${r.batchName}`, 'ok');
+                if (onChanged) onChanged();
+              } }, 'Xóa') : null) },
+          ],
+        }));
+    },
   };
 
-  async function renderImportTab(body) {
-    let filePath = '';
-    let previewData = null;
-    const fileLbl = h('span', { class: 'mono small' }, 'Chưa chọn file');
-
-    // Lấy danh sách kỳ tính của công ty
-    const periodsRes = await D.api('periods.list', {}).catch(() => ({ items: [] }));
-    const periods = periodsRes.items || [];
-    const periodOpts = [
-      ['', '— Chọn kỳ vận chuyển công ty đang chạy cho đối tác —'],
-      ...periods.map((p) => [p.period_id, `${p.period_code} · ${p.contract_code || p.contract_id} (${D.dmy(p.date_from)} → ${D.dmy(p.date_to)}) [${p.status}]`])
-    ];
-
-    const f = D.form([
-      { key: 'periodId', label: 'Gán vào Kỳ vận chuyển của công ty', type: 'select', options: periodOpts, required: true },
-      { key: 'partnerName', label: 'Tên đơn vị thuê vận chuyển (đối tác gửi file)', type: 'text', placeholder: 'Ví dụ: CÔNG TY VẬN TẢI TUẤN HƯNG' },
-      { key: 'batchName', label: 'Tên đợt nạp / Ghi chú đợt', type: 'text', placeholder: 'Ví dụ: Đợt 1 - Chạy tuyến VC.007 từ 18/09 - 23/09' },
-      { key: 'rentUnitPrice', label: 'Đơn giá thuê (VNĐ / tấn)', type: 'number', placeholder: 'Ví dụ: 155000' },
-      { key: 'fuelUnitPrice', label: 'Đơn giá dầu cấp (VNĐ / lít)', type: 'number', placeholder: 'Ví dụ: 19500' }
-    ], {
-      periodId: '',
-      partnerName: '',
-      batchName: '',
-      rentUnitPrice: '',
-      fuelUnitPrice: ''
-    });
-
-    const deductFuelCheck = h('input', { type: 'checkbox', checked: true, id: 'scDeductFuel' });
-    const previewBox = h('div');
-
-    const pick = async () => {
-      const fp = await D.pickFile({
-        title: 'Chọn file JSON hoặc gói DGVC đợt thuê vận chuyển',
-        filters: [{ name: 'File dữ liệu đợt', extensions: ['json', 'dgvc', 'xlsx', 'xlsm', 'xls'] }]
-      });
-      if (!fp) return;
-      filePath = fp;
-      fileLbl.textContent = fp;
-      await doPreview();
-    };
-
-    const doPreview = async () => {
-      if (!filePath) {
-        D.toast('Chọn file đợt trước khi xem trước', 'warn');
-        return;
-      }
-      try {
-        previewData = await D.api('subcontract.preview', { filePath });
-        const s = previewData.summary;
-        previewBox.innerHTML = '';
-        previewBox.append(
-          h('div', { class: 'kpis', style: { marginTop: '14px' } },
-            kpi('Số phiếu cân', D.vn(s.ticketCount), `${D.vn(s.totalTon)} tấn hàng`, 'main'),
-            kpi('Số xe tham gia', D.vn(s.plateCount), s.plates.slice(0, 3).join(', ') + (s.plates.length > 3 ? '…' : '')),
-            kpi('Giao nhận dầu', D.vn(s.fuelCount), `${D.vnAuto(s.totalFuelLiter)} lít dầu`),
-            kpi('Khoảng ngày', `${D.dmy(s.dateFrom)} → ${D.dmy(s.dateTo)}`, 'theo ngày cân/dầu trong file')
-          )
-        );
-        if (previewData.partnerSuggested) {
-          const partInp = f.querySelector('input[name="partnerName"]');
-          if (partInp && !partInp.value) partInp.value = previewData.partnerSuggested;
-        }
-      } catch (err) {
-        previewBox.innerHTML = '';
-        previewBox.append(h('div', { class: 'card err-card', style: { marginTop: '10px' } }, h('b', {}, 'Lỗi đọc file: '), err.message));
-      }
-    };
-
-    const doImport = async () => {
-      if (!filePath) {
-        D.toast('Vui lòng chọn file đợt cần nạp', 'warn');
-        return;
-      }
-      const vals = f.values();
-      if (!vals.periodId) {
-        D.toast('Vui lòng chọn Kỳ vận chuyển công ty để gán đợt này vào', 'warn');
-        return;
-      }
-
-      const payload = {
-        filePath,
-        periodId: vals.periodId,
-        partnerName: vals.partnerName,
-        batchName: vals.batchName,
-        rentUnitPrice: Number(vals.rentUnitPrice) || 0,
-        fuelUnitPrice: Number(vals.fuelUnitPrice) || 0,
-        deductFuel: deductFuelCheck.checked
-      };
-
-      const res = await D.api('subcontract.importBatch', payload);
-      D.toast(`Đã nạp thành công đợt ${res.batchName} (${res.batchId})!`, 'ok', 6000);
-      D.modal({
-        title: 'Đã nạp dữ liệu đợt thuê vận chuyển',
-        body: h('div', {},
-          h('p', {}, `Đợt `, h('b', {}, res.batchName), ` đã được nạp thành công và gán vào kỳ `, h('b', {}, res.periodCode), `.`),
-          h('p', {}, `Tổng cộng: `, h('b', {}, `${D.vn(res.summary.ticketCount)} phiếu cân (${D.vn(res.summary.totalTon)} tấn)`), ` và `, h('b', {}, `${D.vn(res.summary.fuelCount)} dòng dầu (${D.vnAuto(res.summary.totalFuelLiter)} L)`), `.`),
-          h('p', {}, 'Bạn có muốn chuyển sang màn hình Đối chiếu 3 tiêu chuẩn ngay bây giờ không?')
-        ),
-        actions: [
-          { label: 'Xem danh sách đợt', run: () => { D.go('subcontract', { tab: 'list' }); return true; } },
-          { label: 'Đối chiếu ngay', primary: true, run: () => { D.go('reconcile', { tab: 'compare', batchId: res.batchId }); return true; } }
-        ]
-      });
-    };
-
-    body.append(
-      h('div', { class: 'card' },
-        h('h2', { style: { marginTop: 0 } }, '1. Chọn file dữ liệu đợt thuê vận chuyển gửi về'),
-        h('p', { class: 'small muted' }, 'Chấp nhận file JSON (.json), gói trao đổi (.dgvc), hoặc file Excel phiếu cân (.xlsx) do đơn vị thuê gửi.'),
-        h('div', { class: 'row', style: { gap: '10px', alignItems: 'center', marginBottom: '16px' } },
-          h('button', { class: 'btn primary', onclick: pick }, 'Chọn file đợt…'),
-          fileLbl
-        ),
-        previewBox
-      ),
-      h('div', { class: 'card', style: { marginTop: '14px' } },
-        h('h2', { style: { marginTop: 0 } }, '2. Thông tin gán kỳ & thỏa thuận cước thuê'),
-        f,
-        h('div', { style: { marginTop: '12px' } },
-          h('label', { class: 'check' }, deductFuelCheck, 'Khấu trừ tiền dầu cấp vào cước thanh toán cho bên thuê')
-        ),
-        h('div', { class: 'btns', style: { marginTop: '16px' } },
-          h('button', { class: 'btn primary', onclick: doImport }, 'Lưu đợt nạp vào hệ thống'),
-          h('button', { class: 'btn', onclick: () => D.go('subcontract', { tab: 'list' }) }, 'Xem danh sách đợt đã nạp')
-        )
-      )
-    );
-  }
-
-  async function renderListTab(body) {
-    const listRes = await D.api('subcontract.list', {}).catch(() => []);
-    const batches = Array.isArray(listRes) ? listRes : [];
-
-    const out = h('div');
-
-    const drawTable = () => {
-      out.innerHTML = '';
-      if (!batches.length) {
-        out.append(h('div', { class: 'card empty-card' }, 'Chưa có đợt thuê vận chuyển nào được nạp. Nhấn tab "Nạp đợt mới" để nạp file JSON.'));
-        return;
-      }
-
-      out.append(
-        h('div', { class: 'card flush' },
-          h('div', { class: 'card-h row' },
-            h('h2', { class: 'grow' }, `Danh sách đợt thuê vận chuyển đã nạp (${batches.length})`),
-            h('button', { class: 'btn small primary', onclick: () => D.go('subcontract', { tab: 'import' }) }, '+ Nạp đợt mới')
-          ),
-          D.table({
-            rows: batches,
-            empty: 'Không có đợt nào',
-            columns: [
-              { key: 'batchName', label: 'Tên đợt', render: (r) => h('b', {}, r.batchName) },
-              { key: 'partnerName', label: 'Đơn vị thuê', render: (r) => r.partnerName || '—' },
-              { key: 'periodCode', label: 'Kỳ vận chuyển gán kèm', render: (r) => (r.periodCode ? h('span', { class: 'mono b' }, r.periodCode) : h('span', { class: 'muted' }, 'Chưa gán')) },
-              { key: 'summary', label: 'Sản lượng phiếu cân', render: (r) => `${D.vn(r.summary.ticketCount)} phiếu · ${D.vn(r.summary.totalTon)} tấn (${r.summary.plateCount} xe)` },
-              { key: 'fuel', label: 'Dầu nhận', render: (r) => `${D.vn(r.summary.fuelCount)} lần · ${D.vnAuto(r.summary.totalFuelLiter)} L` },
-              { key: 'rentUnitPrice', label: 'Đơn giá thuê', render: (r) => (r.rentUnitPrice ? `${D.vn(r.rentUnitPrice)} đ/tấn` : '—') },
-              { key: 'createdAt', label: 'Ngày nạp', fmt: 'date' },
-              {
-                key: 'actions', label: 'Thao tác', render: (r) => h('div', { class: 'btns' },
-                  h('button', {
-                    class: 'btn small primary',
-                    title: 'Đối chiếu 3 tiêu chuẩn (Phiếu cân, Dầu nhận, Đơn giá & Thành tiền)',
-                    onclick: () => D.go('reconcile', { tab: 'compare', batchId: r.batchId })
-                  }, 'Đối chiếu 3 tiêu chuẩn'),
-                  h('button', {
-                    class: 'btn small err',
-                    title: 'Xóa đợt này',
-                    onclick: async () => {
-                      if (!confirm(`Xóa đợt "${r.batchName}"?`)) return;
-                      await D.api('subcontract.delete', { batchId: r.batchId });
-                      D.toast(`Đã xóa đợt ${r.batchName}`, 'ok');
-                      D.go('subcontract', { tab: 'list' });
-                    }
-                  }, 'Xóa')
-                )
-              }
-            ]
-          })
-        )
-      );
-    };
-
-    drawTable();
-    body.append(out);
-  }
+  // Bí danh: id màn cũ 'subcontract' — app.js (D.go) đã chuyển sang Đối chiếu dữ liệu; đây chỉ là dự phòng nếu có nơi gán thẳng state.view.
+  D.views.subcontract = { async render(params = {}) { setTimeout(() => D.go('reconcile', { ...params, tab: params.tab === 'list' ? 'batches' : 'compare' })); return h('div'); } };
 })();

@@ -55,6 +55,11 @@ const ROUTES = {
   'vehicles.resolvePlate': [null, (ctx, p) => ({ results: (p.codes || []).map((c) => { const { plateKey } = require('../import/mapping'); const v = ctx.store.find('XE', (x) => x.plate_key === plateKey(c))[0]; return { input: c, plateNo: v ? v.plate_no : null, ownerUnitCode: v ? v.owner_unit_code : null }; }) })],
   'routes.list': [null, (ctx, p) => ctx.svc.catalog.listRoutes(p)],
   'contracts.routeSources': [null, (ctx, p) => ctx.svc.catalog.contractRouteSources(p)],
+  'contracts.routePrices': [null, (ctx, p) => ctx.svc.catalog.contractRoutePrices(p)],
+  'contracts.priceChoices': [null, (ctx, p) => ctx.svc.catalog.contractPriceChoices(p)],
+  'contracts.addPrice': [null, (ctx, p, s) => ctx.svc.catalog.addContractPrice({ ...p, user: s.user })],
+  'contracts.removePrice': [null, (ctx, p, s) => ctx.svc.catalog.removeContractPrice({ ...p, user: s.user })],
+  'contracts.fuelStats': [null, (ctx, p) => ctx.svc.catalog.contractFuelStats(p)],
   'routes.nextCode': [null, (ctx) => ctx.svc.catalog.nextRouteCode()],
   'routes.save': [null, (ctx, p, s) => ctx.svc.catalog.saveRoute({ ...p, user: s.user })],
   'routes.setActive': [null, (ctx, p, s) => ctx.svc.catalog.setRouteActive({ ...p, user: s.user })],
@@ -109,7 +114,7 @@ const ROUTES = {
   'import.cancel': [null, (ctx, p, s) => ctx.svc.import.cancel({ ...p, user: s.user.username })],
   'import.list': [null, (ctx) => ctx.svc.query.imports()],
   'import.template': [null, (ctx, p) => {
-    const name = p.importType === 'GIAO_NHAN_DAU' ? `Mau_Import_GiaoNhanDau_${p.contractId || ''}.xlsx` : `Mau_Import_PhieuCan_${ctx.store.unitCode}.xlsx`;
+    const name = p.importType === 'GIAO_NHAN_DAU' ? `Mau_Import_GiaoNhanDau_${p.contractId || 'DoiTac'}.xlsx` : `Mau_Import_PhieuCan_${ctx.store.unitCode}.xlsx`;
     return ctx.svc.templates.build({ ...p, targetPath: p.targetPath || path.join(ctx.store.root, 'exports', name) });
   }],
   // kỳ tính

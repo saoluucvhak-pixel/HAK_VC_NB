@@ -1,5 +1,5 @@
 'use strict';
-/* Đối chiếu dữ liệu — kiểm tra phiếu cân chưa tính vào kỳ · đối chiếu toàn diện 3 tiêu chuẩn với đơn vị thuê / đơn vị khác */
+/* Đối chiếu dữ liệu (với đối tác) — thẻ "Kiểm tra nội bộ" · thẻ "Đối chiếu 3 tiêu chí" (chọn file Excel / .json / .dgvc, lưu thành đợt, tải file mẫu) · thẻ "Các đợt đã nạp" */
 (function () {
   const D = window.DGVC; const { h } = D;
   const SEV = { high: 'err', mid: 'warn', low: 'mute' };
@@ -20,6 +20,16 @@
     if (window.dgvc && !target) return;
     const r = await D.api('reconcile.export', { kind, params, targetPath: target || undefined });
     D.toast(`Đã xuất Excel: ${r.path}`, 'ok', 8000);
+    if (window.dgvc) D.api('system.openPath', { path: r.path }, { quiet: true }).catch(() => {});
+  };
+
+  /** Tải file Excel mẫu cho file ĐỐI TÁC: phiếu cân (NL_VC) hoặc dầu (NL_GIAONHANDAU, không cần chọn hợp đồng). */
+  const downloadTemplate = async (importType) => {
+    const def = importType === 'PHIEU_CAN' ? 'Mau_Doi_Chieu_PhieuCan.xlsx' : 'Mau_Doi_Chieu_Dau.xlsx';
+    const target = window.dgvc ? await D.pickFile({ title: 'Lưu file Excel mẫu', save: true, defaultPath: def, filters: [{ name: 'Excel', extensions: ['xlsx'] }] }) : '';
+    if (window.dgvc && !target) return;
+    const r = await D.api('import.template', { importType, partner: true, targetPath: target || undefined });
+    D.toast(`Đã tạo file mẫu: ${r.path} — nhập từ dòng ${r.firstDataRow} sheet ${r.sheet}`, 'ok', 9000);
     if (window.dgvc) D.api('system.openPath', { path: r.path }, { quiet: true }).catch(() => {});
   };
 
@@ -81,7 +91,7 @@
     const batchesRes = await D.api('subcontract.list', {}).catch(() => []);
     const batches = Array.isArray(batchesRes) ? batchesRes : [];
     const batchOpts = [
-      ['', '— Chọn đợt thuê đã nạp từ Menu Nhập liệu —'],
+      ['', '— Chọn đợt đã lưu (thẻ "Các đợt đã nạp") —'],
       ...batches.map((b) => [b.batchId, `${b.batchName} (${b.partnerName || 'Đơn vị thuê'}) · Kỳ ${b.periodCode || '—'} · ${D.vn(b.summary ? b.summary.totalTon : 0)} tấn`])
     ];
 
@@ -97,7 +107,7 @@
     ];
 
     const f = D.form([
-      { key: 'batchId', label: '1. Chọn Đợt thuê vận chuyển đã nạp', type: 'select', options: batchOpts },
+      { key: 'batchId', label: '1. Chọn đợt đối tác đã lưu', type: 'select', options: batchOpts },
       { key: 'periodId', label: '2. Hoặc gán Kỳ tính công ty', type: 'select', options: periodOpts },
       { key: 'rentUnitPrice', label: 'Đơn giá thuê (đ/tấn)', type: 'number', placeholder: 'Tự nạp theo đợt' },
       { key: 'fuelUnitPrice', label: 'Đơn giá dầu cấp (đ/lít)', type: 'number', placeholder: 'Tự nạp theo đợt' },
@@ -120,7 +130,7 @@
 
     // Tự động điền khi chọn batchId
     const onBatchChange = () => {
-      const bId = f.querySelector('select[name="batchId"]').value;
+      const bId = f.inputs.batchId.value;
       selectedBatchId = bId;
       if (bId) {
         const found = batches.find((b) => b.batchId === bId);
@@ -128,15 +138,15 @@
           file = found.filePath;
           fileLbl.textContent = `${found.batchName} (${found.fileName})`;
           if (found.periodId) {
-            const pSel = f.querySelector('select[name="periodId"]');
+            const pSel = f.inputs.periodId;
             if (pSel) pSel.value = found.periodId;
           }
           if (found.rentUnitPrice) {
-            const rInp = f.querySelector('input[name="rentUnitPrice"]');
+            const rInp = f.inputs.rentUnitPrice;
             if (rInp) rInp.value = found.rentUnitPrice;
           }
           if (found.fuelUnitPrice) {
-            const fuInp = f.querySelector('input[name="fuelUnitPrice"]');
+            const fuInp = f.inputs.fuelUnitPrice;
             if (fuInp) fuInp.value = found.fuelUnitPrice;
           }
           if (found.deductFuel != null) {
@@ -146,8 +156,8 @@
       }
     };
 
-    const batchSelectEl = f.querySelector('select[name="batchId"]');
-    if (batchSelectEl) batchSelectEl.addEventListener('change', onBatchChange);
+    const batchSelectEl = f.inputs.batchId;
+    if (batchSelectEl) batchSelectEl.addEventListener('change', () => { onBatchChange(); if (selectedBatchId) run(); });
     if (selectedBatchId) setTimeout(onBatchChange, 50);
 
     const params = () => {
@@ -180,7 +190,7 @@
       const F = d.fuelCompare;
 
       // Header tổng quan đợt đối chiếu
-      const batchTitle = d.batch ? `${d.batch.batchName} · Đơn vị: ${d.batch.partnerName || 'Đối tác'}` : d.source.fileName;
+      const batchTitle = d.batch ? `${d.batch.batchName} · Đơn vị: ${d.batch.partnerName || 'Đối tác'}` : `${d.source.fileName} (${d.source.sourceText})`;
       out.append(
         h('div', { class: 'card', style: { borderLeft: '4px solid var(--pri, #0284c7)' } },
           h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
@@ -189,7 +199,7 @@
               h('div', { class: 'small' },
                 h('b', {}, batchTitle),
                 d.period ? ` · Gán vào kỳ tính công ty: ${d.period.periodCode}` : '',
-                ` · Từ ${D.dmy(d.dateFrom)} đến ${D.dmy(d.dateTo)} · Số xe: ${d.plates.length} xe`
+                ` · Từ ${D.dmy(d.dateFrom)} đến ${D.dmy(d.dateTo)} · Số xe: ${new Set([...d.plates, ...((F.byPlate || []).map((x) => x.plateNo))]).size} xe`
               )
             ),
             h('div', { class: 'btns' },
@@ -201,6 +211,12 @@
           )
         )
       );
+
+      if (d.source.unreadable && d.source.unreadable.length) {
+        out.append(h('div', { class: 'card err-card', role: 'alert' }, h('b', {}, `${D.vn(d.source.unreadable.length)} dòng trong file không đọc được (đã bỏ qua): `),
+          d.source.unreadable.slice(0, 8).map((x) => `dòng ${x.rowNo}${x.ticketNo ? ` (phiếu ${x.ticketNo})` : ''}: ${x.note}`).join(' · '), d.source.unreadable.length > 8 ? ' …' : ''));
+      }
+      if (!F.hasTheirFuel) out.append(h('div', { class: 'card small' }, h('b', {}, 'Chưa có dầu của đối tác để so. '), 'Dầu đọc từ mẫu Excel dầu (nút "Tải file mẫu Excel — dầu"), file .json hoặc gói .dgvc có dòng giao nhận dầu.'));
 
       // KPI tổng kết phiếu cân và dầu
       out.append(h('div', { class: 'kpis', style: { marginTop: '10px' } },
@@ -358,23 +374,32 @@
       });
       if (!fp) return;
       file = fp;
+      selectedBatchId = ''; // chọn file mới thì bỏ đợt đang chọn (đợt có ưu tiên hơn file khi đối chiếu)
+      const bSel = f.inputs.batchId; if (bSel) bSel.value = '';
       fileLbl.textContent = fp;
       await run();
     };
 
+    const saveBtn = D.writer() ? h('button', { class: 'btn', title: 'Lưu bản sao file của đối tác thành đợt để đối chiếu lại sau — không vào kỳ', onclick: () => {
+      if (!file || selectedBatchId) { D.toast('Chọn một file của đối tác (Excel, .json, .dgvc) rồi mới lưu thành đợt', 'warn'); return; }
+      D.partnerBatch.saveDialog({ filePath: file, onSaved: (b) => D.go('reconcile', { tab: 'compare', batchId: b.batchId }) });
+    } }, 'Lưu thành đợt…') : null;
     body.append(
       h('div', { class: 'card' },
-        h('h2', { style: { marginTop: 0 } }, 'Chọn đối tượng đối chiếu'),
-        h('p', { class: 'small muted' }, 'Bạn có thể chọn nhanh từ Đợt thuê đã nạp ở menu Nhập liệu hoặc bấm "Chọn file bên ngoài" để chọn file .json, .dgvc, .xlsx tùy ý.'),
-        h('div', { class: 'row', style: { gap: '10px', alignItems: 'center', marginBottom: '12px' } },
+        h('h2', { style: { marginTop: 0 } }, 'Chọn file của đối tác để đối chiếu'),
+        h('p', { class: 'small muted' }, 'Phiếu cân: Excel mẫu phiếu cân, .json hoặc gói .dgvc. ', h('b', {}, 'Dầu: dùng mẫu Excel dầu / .json / .dgvc'), ' (file Excel có thể có một hoặc cả hai sheet NL_VC và NL_GIAONHANDAU). Đợt đã lưu chỉ là bản sao phục vụ đối chiếu, không vào kỳ.'),
+        h('div', { class: 'row', style: { gap: '10px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' } },
           h('button', { class: 'btn primary', onclick: pick }, 'Chọn file…'),
+          D.writer() ? h('button', { class: 'btn', title: 'Tải file Excel mẫu phiếu cân (sheet NL_VC) để gửi / nhận với đối tác', onclick: () => downloadTemplate('PHIEU_CAN') }, 'Tải file mẫu Excel — phiếu cân') : null,
+          D.writer() ? h('button', { class: 'btn', title: 'Tải file Excel mẫu dầu (sheet NL_GIAONHANDAU) — chỉ cần Ngày nhận dầu, Biển số xe, Số lượng (lít)', onclick: () => downloadTemplate('GIAO_NHAN_DAU') }, 'Tải file mẫu Excel — dầu') : null,
           fileLbl
         ),
         f,
         h('div', { class: 'btns', style: { marginTop: '12px' } },
           h('label', { class: 'check' }, deductFuelCheck, 'Khấu trừ tiền dầu vào cước'),
           h('label', { class: 'check' }, allPlatesCheck, 'So cả xe ngoài danh sách'),
-          h('button', { class: 'btn', onclick: run }, 'Đối chiếu lại')
+          h('button', { class: 'btn', onclick: run }, 'Đối chiếu lại'),
+          saveBtn
         )
       ),
       out
@@ -383,19 +408,30 @@
     if (file || selectedBatchId) await run();
   }
 
+  // ───────── Tab 3: các đợt đã nạp ─────────
+  async function batchesTab(body) {
+    const holder = h('div');
+    const draw = async () => { holder.innerHTML = ''; holder.append(await D.partnerBatch.listCard({ onCompare: (r) => D.go('reconcile', { tab: 'compare', batchId: r.batchId }), onChanged: () => D.go('reconcile', { tab: 'batches' }) })); };
+    body.append(h('div', { class: 'card' }, h('p', { style: { marginTop: 0 } }, 'Đợt là ', h('b', {}, 'bản sao dữ liệu của đối tác'), ' (phiếu cân, dầu) lưu lại để đối chiếu nhiều lần. Đợt ', h('b', {}, 'không vào kỳ'), ' và không đổi số tiền của kỳ nào; xóa đợt chỉ xóa bản sao.'),
+      h('div', { class: 'btns' }, h('button', { class: 'btn primary', onclick: () => D.go('reconcile', { tab: 'compare' }) }, 'Chọn file đối tác để đối chiếu / lưu thành đợt'))), holder);
+    await draw();
+  }
+
   D.views.reconcile = {
     async render(p = {}) {
-      const tab = p.tab || 'audit';
+      const tab = ['audit', 'compare', 'batches'].includes(p.tab) ? p.tab : 'audit';
       const body = h('div');
       const tabs = h('div', { class: 'tabs', role: 'tablist' }, [
-        ['audit', 'Phiếu cân chưa tính vào kỳ'],
-        ['compare', 'Đối chiếu với đơn vị khác']
+        ['audit', 'Kiểm tra nội bộ'],
+        ['compare', 'Đối chiếu 3 tiêu chí'],
+        ['batches', 'Các đợt đã nạp']
       ].map(([k, t]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => D.go('reconcile', { tab: k }) }, t)));
 
       if (tab === 'audit') await auditTab(body);
+      else if (tab === 'batches') await batchesTab(body);
       else await compareTab(body, p);
 
-      return D.page('Đối chiếu dữ liệu', 'Đối chiếu đồng bộ 3 tiêu chuẩn: Phiếu cân · Dầu nhận · Đơn giá & Thực trả', [], tabs, body);
+      return D.page('Đối chiếu dữ liệu', 'Đối chiếu với đối tác: kiểm tra nội bộ · 3 tiêu chí (phiếu cân · dầu nhận · đơn giá & thực trả) · các đợt đã nạp', [], tabs, body);
     }
   };
 })();

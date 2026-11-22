@@ -164,7 +164,7 @@ test('Quy trình Thuê vận chuyển & Đối chiếu 3 tiêu chuẩn với fil
   assert.equal(readBack.header.format, 'DGVC-PKG');
 
   // 6. Xóa đợt nạp
-  const delRes = sub.deleteBatch({ batchId: imported.batchId, user: KETOAN });
+  const delRes = await sub.deleteBatch({ batchId: imported.batchId, user: KETOAN });
   assert.equal(delRes.ok, true);
   assert.equal(sub.list({ periodId: period.period_id }).length, 0);
 

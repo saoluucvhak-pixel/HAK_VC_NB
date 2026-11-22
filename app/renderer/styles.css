@@ -165,7 +165,7 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .muted { color: var(--text-mute); } .small { font-size: 13px; }
 /* thẻ có nhiều đoạn thông báo: mọi đoạn cùng cỡ chữ, nút tắt vẫn đọc được */
 .storage-sum { cursor: pointer; font-weight: 600; color: var(--text-mute); } .storage-card[open] .storage-sum { margin-bottom: 8px; }
-.pc-layout { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.pc-layout { display: grid; grid-template-columns: minmax(220px, 260px) minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 1000px) { .pc-layout { grid-template-columns: minmax(0, 1fr); } }
 .pc-tree h2 { margin-top: 0; } .pc-unit { margin-bottom: 14px; } .pc-unit-h { align-items: center; margin-bottom: 4px; }
 .pc-code { display: block; width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: 8px; padding: 8px 11px; margin-bottom: 3px; cursor: pointer; color: var(--text); transition: all .15s; }
@@ -231,9 +231,9 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .nav li button.nav-group-h { display: flex; align-items: center; gap: 6px; padding: 6px 8px; margin: 0; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; opacity: .75; }
 .nav li button.nav-group-h:hover { opacity: 1; } .nav-group-h .chev { display: inline-block; transition: transform .15s; flex: none; } .nav-group-h[aria-expanded="false"] .chev { transform: rotate(-90deg); }
 .nav li button:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 2px; }
-.ct-layout { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 14px; align-items: start; } .ct-list { position: sticky; top: 8px; }
+.ct-layout { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 14px; align-items: start; } .ct-list { position: sticky; top: 8px; } .ct-detail { min-width: 0; }
 .ct-filters { display: grid; gap: 6px; margin-bottom: 8px; } .ct-items { max-height: 70vh; overflow: auto; } .ct-back { display: none; }
-@media (max-width: 899px) { .ct-layout { grid-template-columns: 1fr; } .ct-layout[data-sel="1"] .ct-list { display: none; } .ct-layout:not([data-sel="1"]) .ct-detail { display: none; } .ct-layout[data-sel="1"] .ct-back { display: inline-block; } .ct-list { position: static; } }
+@media (max-width: 999px) { .ct-layout { grid-template-columns: 1fr; } .ct-layout[data-sel="1"] .ct-list { display: none; } .ct-layout:not([data-sel="1"]) .ct-detail { display: none; } .ct-layout[data-sel="1"] .ct-back { display: inline-block; } .ct-list { position: static; } }
 
 /* ---------- HAK Smart Filter (HAK_SMART_FILTER) ---------- */
 .sf { display: flex; flex-direction: column; gap: 8px; }
@@ -275,3 +275,18 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .sfd-presets select { border: 1px solid var(--field-line); border-radius: 8px; padding: 5px 10px; background: var(--field-bg); min-height: 34px; flex: 1 1 160px; }
 
 
+
+/* DM Đơn giá: bảng đơn giá theo tuyến gọn, vừa 1366 và 910 px không bắt cuộn ngang */
+.pc-detail table.t th, .pc-detail table.t td { padding: .45rem .5rem; }
+.pc-detail table.t td.wrap { min-width: 90px; max-width: 220px; }
+.pc-detail table.t .btns { gap: 4px; flex-wrap: wrap; max-width: 150px; justify-content: flex-end; }
+.pc-detail table.t .btn.small { padding: 4px 8px; min-height: 30px; }
+@media (max-width: 1000px) { .pc-detail table.t td, .pc-detail table.t th { white-space: normal; } .pc-detail table.t td.num, .pc-detail table.t th.num { white-space: normal; } .pc-detail table.t .btns { flex-wrap: wrap; } .pc-detail table.t td.wrap { min-width: 80px; } }
+@media (max-width: 1000px) { .pc-detail table.t { font-size: .8rem; } .pc-detail table.t th { font-size: .66rem; letter-spacing: 0; } .pc-detail table.t th, .pc-detail table.t td { padding: .35rem .3rem; } .pc-detail table.t .btn.small { padding: 3px 6px; min-height: 28px; } .pc-detail table.t .tag { padding: 1px 6px; font-size: .7rem; } }
+/* Hợp đồng › Tuyến và đơn giá: bảng gọn, tiêu đề cột xuống dòng để không phải cuộn ngang */
+.ct-compact table.t { font-size: 12.5px; }
+.ct-compact table.t th { white-space: normal; padding: .45rem .35rem; line-height: 1.25; font-size: 10.5px; }
+.ct-compact table.t td { padding: .4rem .35rem; }
+.ct-compact table.t td .tag { white-space: normal; text-align: center; }
+.ct-compact table.t td .btn.small { padding: 4px 8px; min-height: 30px; }
+@media (max-width: 999px) { .ct-routes table.t th:nth-child(3), .ct-routes table.t td:nth-child(3), .ct-routes table.t th:nth-child(6), .ct-routes table.t td:nth-child(6) { display: none; } } /* màn hẹp: bớt cột Cự ly, ĐVT (xem ở màn rộng) để thấy nút Gỡ */
