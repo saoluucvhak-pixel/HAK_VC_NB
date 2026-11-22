@@ -46,10 +46,14 @@ test('Giao diện ĐH: Hợp đồng — giữ chữ khi đổi thẻ, hỏi tr�
 
     // bảng nguồn giá: mặc định chỉ tuyến của hợp đồng, có nút xem cả tuyến khác
     await page.getByRole('tab', { name: 'Mã đơn giá' }).click();
-    await page.getByRole('button', { name: /Xem cả \d+ tuyến khác/ }).waitFor();
-    const before = await page.locator('#ct-panel-price table tbody tr').count();
-    await page.getByRole('button', { name: /Xem cả \d+ tuyến khác/ }).click();
-    assert.ok(await page.locator('#ct-panel-price table tbody tr').count() > before, 'xem cả tuyến khác → nhiều dòng hơn');
+    await page.locator('#ct-panel-price table tbody tr').first().waitFor();
+    const more = page.getByRole('button', { name: /Xem cả \d+ tuyến khác/ });
+    // 1.9.0: giá chung cũ nằm trong mã mặc định PT-TD → thường mọi tuyến đã thuộc hợp đồng, nút chỉ hiện khi còn tuyến ngoài mã
+    if (await more.count()) {
+      const before = await page.locator('#ct-panel-price table tbody tr').count();
+      await more.click();
+      assert.ok(await page.locator('#ct-panel-price table tbody tr').count() > before, 'xem cả tuyến khác → nhiều dòng hơn');
+    }
 
     // rời màn khi còn thay đổi chưa lưu → hỏi; Hủy = ở lại, chữ còn
     await nav('Danh mục tuyến');

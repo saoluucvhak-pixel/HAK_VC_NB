@@ -36,6 +36,8 @@ TABLES = [
         ("fuel_prefix", "TEXT", False, "tiền tố mã xe trong bảng kê dầu: DN / DH / QC", "TBL_GIAONHANDAU[Biển số xe]"),
         ("is_active", "BOOL", True, "", ""),
         ("note", "TEXT", False, "", ""),
+        ("bank_name", "TEXT", False, "tên ngân hàng (in trên hợp đồng / BKVC) — bản 1.6.x", ""),
+        ("bank_account", "TEXT", False, "số tài khoản ngân hàng — bản 1.6.x", ""),
      ], True),
     ("XE", "Danh mục", "Xe vận chuyển", "plate_no", ["plate_key"], {"owner_unit_code": "DON_VI.unit_code"}, [
         ("plate_no", "TEXT", True, "PK. dạng chuẩn `43H-01080`", "TBL_VC[Biển số 1]"),
@@ -44,6 +46,8 @@ TABLES = [
         ("fuel_code", "TEXT", False, "mã xe dùng trong sổ xuất dầu: `DN_43H01080`", "Sheet3[Mã thống kê]"),
         ("is_active", "BOOL", True, "", ""),
         ("note", "TEXT", False, "", ""),
+        ("payload_ton", "NUM", False, "trọng tải xe (tấn) — bản 1.9.0", ""),
+        ("volume_m3", "NUM", False, "thể tích thùng xe (m³), dùng quy đổi tuyến tính m³ — bản 1.9.0", ""),
      ], True),
     ("TUYEN_VC", "Danh mục", "Tuyến vận chuyển (phần định danh của TBL_DATA)", "route_code", [], {"catalog_unit_code": "DON_VI.unit_code"}, [
         ("route_code", "TEXT", True, "PK. `VC.007`", "TBL_DATA[Mã quãng đường]"),
@@ -56,6 +60,7 @@ TABLES = [
         ("catalog_unit_code", "TEXT", False, "FK DON_VI — đơn vị VC ghi trong bảng giá gốc: HAK = Công ty TNHH Hoàng Anh Khôi, HHH = Công ty Hùng Hoàng Hoa (tham khảo, không dùng tính)", "TBL_DATA[Đơn vị VC]"),
         ("is_active", "BOOL", True, "ngừng sử dụng thay cho xóa", ""),
         ("note", "TEXT", False, "", ""),
+        ("catalog_date", "TEXT", False, "ngày cập nhật tuyến (theo dõi từng máy; mặc định ngày hệ thống, sửa được) — bản 1.8.0", ""),
      ], True),
     ("PRICE_HISTORY", "Danh mục", "Phiên bản đơn giá theo tuyến (phần giá của TBL_DATA) — không ghi đè",
      "price_id", ["route_code+contract_id+price_code+effective_from"], {"route_code": "TUYEN_VC.route_code", "contract_id": "HOP_DONG.contract_id", "price_code": "MA_DON_GIA.price_code"}, [
@@ -79,6 +84,7 @@ TABLES = [
         ("price_method", "TEXT", False, "THEO_DAU (trống = mặc định: ĐG HĐ + chênh lệch dầu) | CO_DINH (đơn giá cố định đ/tấn, không tính dầu) — bản 1.2.3", ""),
         ("fixed_price", "NUM", False, "> 0 khi price_method = CO_DINH — đơn giá vận chuyển cố định đ/tấn, chưa VAT", ""),
         ("price_code", "TEXT", False, "FK MA_DON_GIA — dòng giá (CON) thuộc mã đơn giá; trống = giá chung / giá riêng hợp đồng như cũ. Dòng thuộc mã không gắn contract_id (bản 1.5.0)", ""),
+        ("contract_price", "NUM", False, "ĐG ký HĐ do người dùng nhập tay / công thức, lưu kèm dòng giá — bản 1.9.0", ""),
      ], True),
     ("MA_DON_GIA", "Danh mục", "Mã đơn giá (CHA): nhóm các dòng giá (CON = PRICE_HISTORY.price_code) theo đơn vị; hợp đồng chọn mã ở HOP_DONG.price_code (bản 1.5.0)", "price_code", [],
      {"unit_code": "DON_VI.unit_code"}, [
@@ -322,6 +328,7 @@ TABLES = [
         ("note", "TEXT", False, "", "BKVC[Ghi chú]"),
         ("is_current", "BOOL", True, "", ""),
         ("created_at", "DATETIME", True, "", ""),
+        ("uom", "TEXT", False, "ĐVT dòng BKVC (TAN | M3) — bản 1.9.0", ""),
      ], False),
     ("CALC_RUN", "Kết quả", "Mỗi lần tính / xác nhận / khóa — nhật ký", "run_id", [], {"period_id": "KY_TINH.period_id"}, [
         ("run_id", "TEXT", True, "PK", ""),
@@ -350,6 +357,9 @@ TABLES = [
         ("locked_until", "DATETIME", False, "", ""),
         ("is_active", "BOOL", True, "", ""),
         ("last_login_at", "DATETIME", False, "", ""),
+        ("setup_code_hash", "TEXT", False, "băm mã kích hoạt dùng một lần (không lưu mã gốc) — bản 1.6.1", ""),
+        ("setup_code_salt", "TEXT", False, "muối của mã kích hoạt — bản 1.6.1", ""),
+        ("setup_code_expires_at", "TEXT", False, "hạn mã kích hoạt (ISO) — bản 1.6.1", ""),
      ], True),
     ("AUDIT_LOG", "Hệ thống", "Lịch sử thao tác — chỉ ghi thêm, không sửa/xóa", "log_id", [], {}, [
         ("log_id", "TEXT", True, "PK", ""),

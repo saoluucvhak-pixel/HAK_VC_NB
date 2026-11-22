@@ -33,3 +33,10 @@ Bản nâng cấp toàn diện về hệ thống Đơn giá 3 cấp, quản lý 
 ## 🔵 Kiểm thử & Tương thích
 - Đối chiếu số liệu Excel gốc (`verify-seed.js`): **Khớp 100% cả 3 nhà máy ĐH, HAK, HAKQN**.
 - Toàn bộ bài test nghiệp vụ, danh mục, hợp đồng, xe, cảnh báo, báo cáo: **Pass 100%**.
+
+## Bổ sung sau rà soát (nhóm 2)
+- **Giá không đổi sau khi chuyển PT-TD:** hợp đồng không dùng mã mặc định (mã tự tạo hoặc bỏ mã) vẫn dùng giá chung cũ cho tuyến mã chưa có dòng; "Báo cáo giá hợp đồng" chọn đúng dòng giá như màn Tính giá (giá riêng hợp đồng đứng trước mã mặc định) và vẫn liệt kê giá chung khi không chọn hợp đồng; "Chọn đơn giá có sẵn" thấy cả giá chung đã nằm trong PT-TD/PT-CD.
+- **Gói trao đổi:** gói từ máy chưa chuyển PT-TD (cột mã/hình thức rỗng) và cờ cục bộ `is_used` không còn bị tính là "xung đột"; màn **Trao đổi dữ liệu** (gói kỳ .dgvc) có lại trong menu nhóm "Đối chiếu & đồng bộ".
+- **Excel nhiều trang:** xuất danh sách phiếu cân dạng stream lại lặp dòng tiêu đề cột và có chân trang "Trang x/y" khi in.
+- Đồng bộ phiên bản README / package-lock; thêm `PHAT_HANH_1.8.4.md`; `desk/schema.py` có đủ cột như `schema.json`.
+

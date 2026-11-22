@@ -97,8 +97,10 @@ async function writeTableStream(d, file, { landscape = true, sheetName } = {}) {
       fitToPage: true,
       fitToWidth: 1,
       fitToHeight: 0,
+      printTitlesRow: '4:4', // dòng tiêu đề cột lặp lại ở mỗi trang khi in (giống bản không stream)
     },
     views: [{ state: 'frozen', ySplit: 4 }],
+    headerFooter: { oddFooter: `&L&8${d.title}&R&8Trang &P/&N` },
   });
 
   const cols = d.columns.map((c) => ({

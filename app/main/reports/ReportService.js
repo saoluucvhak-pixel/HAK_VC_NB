@@ -301,13 +301,16 @@ class ReportService {
     const d = asOf || today();
     const contract = contractId ? s.get('HOP_DONG', contractId) : null;
     if (contractId && !contract) throw new AppError('NOT_FOUND', `Không có hợp đồng ${contractId}`);
-    const pick = (rc, cid) => s.find('PRICE_HISTORY', (x) => x.route_code === rc && !x.price_code && (x.contract_id || '') === cid && x.status !== 'DRAFT'
+    // giá chung cũ đã mang mã mặc định PT-TD/PT-CD từ 1.9.0 → vẫn là "giá chung" (không gắn hợp đồng)
+    const pick = (rc, cid) => s.find('PRICE_HISTORY', (x) => x.route_code === rc && (!x.price_code || (cid === '' && (x.price_code === 'PT-TD' || x.price_code === 'PT-CD'))) && (x.contract_id || '') === cid && x.status !== 'DRAFT'
       && x.effective_from <= d && (!x.effective_to || x.effective_to >= d)).sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0];
     const code = contract && contract.price_code ? contract.price_code : '';
     const pickCode = (rc) => (code ? s.find('PRICE_HISTORY', (x) => x.route_code === rc && x.price_code === code && x.status !== 'DRAFT' && x.effective_from <= d && (!x.effective_to || x.effective_to >= d)).sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0] : null);
     const rows = [];
     for (const r of s.all('TUYEN_VC').filter((x) => x.is_active && (!routeCode || x.route_code === routeCode)).sort((a, b) => a.route_code.localeCompare(b.route_code, 'vi', { numeric: true }))) {
-      const own = contractId ? (pickCode(r.route_code) || pick(r.route_code, contractId)) : null; const pr = own || pick(r.route_code, '');
+      // mã mặc định PT-TD/PT-CD chỉ là tên cho giá chung cũ → giá riêng hợp đồng đứng trước (khớp engine selectPriceVersion); mã tự tạo thì giá của mã đứng trước
+      const defCode = code === 'PT-TD' || code === 'PT-CD';
+      const own = contractId ? (defCode ? (pick(r.route_code, contractId) || pickCode(r.route_code)) : (pickCode(r.route_code) || pick(r.route_code, contractId))) : null; const pr = own || pick(r.route_code, '');
       if (!pr) continue;
       const a = E.computeContractPrice(r, pr, cfg);
       rows.push({ stt: rows.length + 1, routeCode: r.route_code, routeName: r.route_name, distanceKm: r.distance_km, tripDistanceKm: a.tripDistanceKm, uom: r.uom === 'M3' ? 'M3' : 'Tấn',

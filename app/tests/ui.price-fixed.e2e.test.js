@@ -47,30 +47,10 @@ test('Giao diện ĐH: đơn giá cố định theo tuyến', { skip: !fs.exists
       await toast(/Đã import \d+ dòng/);
     }
 
-    // Đơn giá → tạo phiên bản cố định
-    await nav('Đơn giá');
-    await page.getByRole('heading', { name: 'Đơn giá', exact: true }).waitFor();
-    await page.getByRole('button', { name: 'Tạo phiên bản giá mới' }).click();
-    const m = page.locator('.modal', { hasText: 'Phiên bản giá mới' });
-    await field(m, 'Phương thức đơn giá').locator('select').waitFor();
-    assert.ok(await field(m, 'Định mức dầu (lít/km) *').isVisible(), 'mặc định theo giá dầu: có ô định mức');
-    assert.ok(!(await field(m, 'Đơn giá cố định / tấn (chưa VAT)').isVisible()));
-    await field(m, 'Phương thức đơn giá').locator('select').selectOption('CO_DINH');
-    assert.ok(!(await field(m, 'Định mức dầu (lít/km) *').isVisible()), 'cố định: ẩn ô dầu');
-    await field(m, 'Giá riêng cho hợp đồng').locator('select').selectOption('HD-DH-HAKQN');
-    await field(m, 'Hiệu lực từ ngày *').locator('input').fill('2026-09-01');
-    await field(m, 'Đơn giá cố định / tấn (chưa VAT)').locator('input').fill('95500');
-    await m.getByText('Đơn giá vận chuyển mọi kỳ =').waitFor();
-    await m.locator('.money', { hasText: '95.500' }).waitFor();
-    await shot('tao-phien-ban');
-    await m.getByRole('button', { name: 'Lưu bản nháp' }).click();
-    await toast(/Đã lưu bản nháp/);
-    const draftRow = page.locator('tbody tr', { hasText: 'Cố định' }).filter({ hasText: 'HD-DH-HAKQN' });
-    await draftRow.waitFor(); await draftRow.click();
-    await page.locator('.modal', { hasText: 'Bản nháp' }).getByRole('button', { name: 'Kích hoạt' }).click();
-    await page.locator('.modal', { hasText: 'Kích hoạt giá mới' }).getByRole('button', { name: 'Đồng ý' }).click();
-    await page.locator('tbody tr', { hasText: 'Cố định' }).filter({ hasText: 'ACTIVE' }).or(page.locator('tbody tr', { hasText: 'Cố định' }).filter({ hasText: 'Đang dùng' })).first().waitFor();
-    await shot('danh-sach');
+    // Giá riêng cố định của hợp đồng tạo bằng dịch vụ (1.9.0: màn "Tạo phiên bản giá mới" cũ đã gộp vào DM Đơn giá, UI tạo dòng giá do ui.pricecodes kiểm); phần dưới kiểm Tính giá / Báo cáo trên giao diện
+    const cat = srv.ctx.svc.catalog; const KT = { username: 'k', role: 'KE_TOAN' };
+    const made = await cat.createPriceVersion({ record: { routeCode: 'VC.007', contractId: 'HD-DH-HAKQN', priceMethod: 'CO_DINH', fixedPrice: 95500, effectiveFrom: '2026-09-01' }, user: KT });
+    await cat.activatePrice({ priceId: made.record.price_id, rowVersion: made.record.row_version, user: KT });
 
     // Tính giá: tuyến cố định có dầu → lỗi + nút bỏ dầu
     await nav('Tính giá vận chuyển');
@@ -99,7 +79,7 @@ test('Giao diện ĐH: đơn giá cố định theo tuyến', { skip: !fs.exists
     await page.locator('label.field', { hasText: 'Áp dụng ngày' }).locator('input').fill('2026-09-20');
     await page.getByRole('button', { name: 'Xem', exact: true }).click();
     const br = page.locator('tbody tr', { hasText: 'VC.007' });
-    await br.getByText('giá cố định').waitFor();
+    await br.getByText('95.500').first().waitFor(); // 1.9.0: dòng cố định ghi thẳng đơn giá; các cột dầu là "—"
     assert.match(await br.innerText(), /95\.500/);
     await shot('can-cu-gia');
     assert.deepEqual(errors, []);

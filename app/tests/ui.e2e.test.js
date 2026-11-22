@@ -81,7 +81,7 @@ test('Giao diện: đi hết luồng chính trên trình duyệt', { skip: !fs.e
     await toast(/Đã tính và lưu kỳ HAKQN-QS\/20260918-20260923-VC.007/);
     await shot('tinh-gia');
     await page.getByTitle('Xem chi tiết tính').first().click();
-    await page.getByRole('dialog', { name: 'Xem chi tiết tính' }).waitFor();
+    await page.getByRole('dialog', { name: 'Chi tiết liên hoàn 2 công thức tính giá' }).waitFor();
     assert.equal(await page.locator('.trace li').count(), 15);
     await shot('chi-tiet-tinh');
     await page.keyboard.press('Escape');
@@ -134,7 +134,7 @@ test('Giao diện: đi hết luồng chính trên trình duyệt', { skip: !fs.e
     await page.getByRole('button', { name: 'Tải Excel' }).click(); await toast(/Đã xuất XLSX/);
     // ── căn cứ tính giá ký hợp đồng (QR_DATA (2))
     await nav('Báo cáo giá hợp đồng');
-    await page.getByRole('heading', { name: 'Căn cứ tính giá ký hợp đồng' }).waitFor();
+    await page.getByRole('heading', { name: 'Báo cáo giá hợp đồng' }).waitFor();
     await page.locator('tr', { hasText: 'VC.007' }).locator('.money', { hasText: '115.000' }).waitFor();
     assert.equal(await page.getByText('Power Query').count(), 0, 'không còn diễn giải Power Query');
     await shot('can-cu-gia-hop-dong');
@@ -143,14 +143,12 @@ test('Giao diện: đi hết luồng chính trên trình duyệt', { skip: !fs.e
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Xuất Excel (có công thức)' }).click();
     await toast(/Đã xuất XLSX/);
-    // ── đơn giá: đơn giá tham khảo ghi rõ nguồn
-    await nav('Đơn giá');
-    await page.getByRole('cell', { name: /TBL_DATA · cột "Đơn Giá \(chưa VAT\)"/ }).first().waitFor();
-    await page.getByRole('button', { name: 'Tạo phiên bản giá mới' }).click();
-    const pdlg = page.getByRole('dialog', { name: /Phiên bản giá mới/ });
-    await pdlg.getByRole('textbox', { name: /^Nguồn đơn giá tham khảo/ }).waitFor();
-    assert.match(await pdlg.getByRole('textbox', { name: /^Nguồn đơn giá tham khảo/ }).inputValue(), /TBL_DATA/);
-    await pdlg.getByText('ĐG ký HĐ =').waitFor();
+    // ── đơn giá: đơn giá tham khảo ghi rõ nguồn (1.9.0: màn Đơn giá cũ đã gộp vào DM Đơn giá → dòng giá của mã PT-TD)
+    await nav('DM Đơn giá');
+    await page.locator('.pc-tree').getByRole('button', { name: /PT-TD/ }).click();
+    await page.locator('.pc-detail').getByRole('button', { name: 'Thêm dòng giá điều chỉnh dầu' }).click();
+    const pdlg = page.locator('.modal', { hasText: 'Thêm dòng giá điều chỉnh dầu vào mã PT-TD' });
+    await pdlg.getByText(/ĐG ký HĐ|Đơn giá dự kiến ký hợp đồng/).first().waitFor(); // form dòng giá theo giá dầu có ĐG ký HĐ (ô "Nguồn đơn giá tham khảo" không còn trong form mới)
     await shot('don-gia-tham-khao');
     await page.keyboard.press('Escape');
     // ── thêm tuyến → nhắc sửa các nhà máy còn lại
