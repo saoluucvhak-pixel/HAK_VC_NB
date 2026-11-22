@@ -18,6 +18,10 @@ const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 };
 const ALGO = 'scrypt:16384:8:1';
 const cfgNum = (store, k, d) => { const r = store.all('CONFIG').find((c) => c.config_key === k); const v = Number(r && r.config_value); return Number.isFinite(v) && v > 0 ? v : d; };
 const hash = (pw, salt) => crypto.scryptSync(pw, Buffer.from(salt, 'hex'), SCRYPT.keylen, { N: SCRYPT.N, r: SCRYPT.r, p: SCRYPT.p }).toString('hex');
+/** So hai chuỗi hex bằng thời gian không đổi; độ dài khác / hex hỏng (dữ liệu bị sửa tay, khôi phục lỗi) → false thay vì RangeError làm sập đăng nhập. */
+function hexEq(a, b) {
+  try { const x = Buffer.from(String(a || ''), 'hex'); const y = Buffer.from(String(b || ''), 'hex'); return x.length > 0 && x.length === y.length && crypto.timingSafeEqual(x, y); } catch { return false; }
+}
 const isoPlus = (ms) => new Date(Date.now() + ms).toISOString();
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // bỏ 0 O 1 I L cho khỏi nhầm
 const newSetupCode = () => Array.from({ length: 8 }, () => CODE_ALPHABET[crypto.randomInt(CODE_ALPHABET.length)]).join('');
@@ -67,9 +71,14 @@ class AuthService {
    * Khắc phục 1.8.3: khi khôi phục bản sao lưu cũ (chưa có pass), cờ máy firstAdminCompleted vẫn giữ nguyên nên không bị mở lại ngoại lệ.
    */
   firstAdminOpen() {
-    const ms = this._getMachineState();
-    if (ms && ms.firstAdminCompleted) return false;
-    return !this.store.find('USERS', (u) => u.password_hash || u.setup_code_hash || u.last_login_at).length;
+    const ms = this._getMachineState() || {};
+    const id = this.store.installId;
+    const done = Array.isArray(ms.firstAdminInstalls) ? ms.firstAdminInstalls : [];
+    if (id && done.includes(id)) return false; // cờ THEO TỪNG BẢN CÀI (installId): cài thêm một bản mới trên cùng máy vẫn được đặt admin đầu tiên
+    const active = this.store.find('USERS', (u) => u.password_hash || u.setup_code_hash || u.last_login_at).length > 0;
+    // cờ cũ 1.8.3 (một cờ cho cả máy): chỉ còn giữ cho bản cài đã có hoạt động tài khoản → ghi nhận cho bản cài này; bản cài trống thì không bị khóa nhầm
+    if (ms.firstAdminCompleted && !Array.isArray(ms.firstAdminInstalls) && active && id) { this._setMachineState({ firstAdminInstalls: [id] }); return false; }
+    return !active;
   }
   /** Số ADMIN đang hoạt động CÓ mật khẩu (đăng nhập được), trừ tài khoản `except`. */
   _loginAdmins(except = '') { return this.store.find('USERS', (u) => u.role === 'ADMIN' && u.is_active && u.password_hash && u.username !== except).length; }
@@ -97,7 +106,7 @@ class AuthService {
       throw new AppError('ACCOUNT_LOCKED', `Tài khoản đang bị khóa đến ${new Date(Date.parse(u.locked_until)).toLocaleTimeString('vi-VN')} do nhập sai mật khẩu nhiều lần`, { lockedUntil: u.locked_until });
     }
     if (!u.password_hash) throw new AppError('PASSWORD_NOT_SET', 'Tài khoản chưa có mật khẩu — hãy đặt mật khẩu lần đầu', { username: u.username });
-    const ok = crypto.timingSafeEqual(Buffer.from(hash(String(password || ''), u.password_salt), 'hex'), Buffer.from(u.password_hash, 'hex'));
+    const ok = hexEq(hash(String(password || ''), u.password_salt), u.password_hash);
     if (!ok) {
       const max = cfgNum(this.store, 'LOGIN_MAX_FAILED', 5); const n = (u.failed_attempts || 0) + 1;
       const patch = n >= max ? { failed_attempts: 0, locked_until: isoPlus(cfgNum(this.store, 'LOGIN_LOCK_MINUTES', 15) * 60000) } : { failed_attempts: n };
@@ -123,7 +132,7 @@ class AuthService {
   async _checkSetupCode(u, code) {
     const given = String(code || '').trim().toUpperCase();
     const valid = !!(u.setup_code_hash && u.setup_code_salt && given && Date.parse(u.setup_code_expires_at) > this.now()
-      && crypto.timingSafeEqual(Buffer.from(hash(given, u.setup_code_salt), 'hex'), Buffer.from(u.setup_code_hash, 'hex')));
+      && hexEq(hash(given, u.setup_code_salt), u.setup_code_hash));
     if (valid) return;
     const max = cfgNum(this.store, 'LOGIN_MAX_FAILED', 5); const n = (u.failed_attempts || 0) + 1;
     const patch = n >= max ? { failed_attempts: 0, locked_until: new Date(this.now() + cfgNum(this.store, 'LOGIN_LOCK_MINUTES', 15) * 60000).toISOString() } : { failed_attempts: n };
@@ -134,7 +143,7 @@ class AuthService {
 
   async changePassword({ token, oldPassword, newPassword }) {
     const s = this.check(token); const u = this._user(s.user.username);
-    if (!crypto.timingSafeEqual(Buffer.from(hash(String(oldPassword || ''), u.password_salt), 'hex'), Buffer.from(u.password_hash, 'hex'))) throw new AppError('AUTH_FAILED', 'Mật khẩu cũ không đúng');
+    if (!hexEq(hash(String(oldPassword || ''), u.password_salt), u.password_hash)) throw new AppError('AUTH_FAILED', 'Mật khẩu cũ không đúng');
     return this._setPassword(u, newPassword, 'CHANGE_PASSWORD');
   }
 
@@ -146,7 +155,9 @@ class AuthService {
       tx.audit(action, 'USERS', u.username);
     }, { user: u.username });
     if (u.role === 'ADMIN') {
-      this._setMachineState({ firstAdminCompleted: true, completedAt: new Date(this.now()).toISOString() });
+      const ms = this._getMachineState() || {}; const done = Array.isArray(ms.firstAdminInstalls) ? ms.firstAdminInstalls : [];
+      const id = this.store.installId;
+      this._setMachineState({ firstAdminCompleted: true, firstAdminInstalls: id && !done.includes(id) ? [...done, id] : done, completedAt: new Date(this.now()).toISOString() });
     }
     return this._newSession(this._user(u.username));
   }

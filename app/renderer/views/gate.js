@@ -2,6 +2,9 @@
 /* Khởi tạo (lần đầu mở) + Đăng nhập — UI_DESIGN §4.0. MỘT bộ cài cho mọi nhà máy: bước 2 chọn đơn vị của máy này. */
 (function () {
   const D = window.DGVC; const { h } = D;
+  // localStorage có thể bị chặn / ném lỗi (cửa sổ riêng tư, chính sách máy) — không để làm hỏng màn đăng nhập
+  const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* không nhớ được tên đăng nhập — vẫn đăng nhập bình thường */ } };
 
   const left = (title, sub, extra) => h('section', { class: 'gl' }, h('div', { class: 'logo', style: { width: '52px', height: '52px', fontSize: '20px' } }, 'VC'),
     h('h1', {}, title), h('p', { class: 'sub' }, sub), extra || null);
@@ -64,7 +67,7 @@
       const st = await D.api('setup.status', {}, { quiet: true });
       if (!st.initialized) { D.state.setup = st; setTimeout(() => D.go('setup')); return h('div'); }
       const need = new Set(st.usersNeedPassword || []);
-      const user = h('input', { autocomplete: 'username', value: localStorage.getItem('dgvc.lastUser') || st.singleUserName || '', 'aria-label': 'Tên đăng nhập' });
+      const user = h('input', { autocomplete: 'username', value: lsGet('dgvc.lastUser') || st.singleUserName || '', 'aria-label': 'Tên đăng nhập' });
       const pw = h('input', { type: 'password', autocomplete: 'current-password', 'aria-label': 'Mật khẩu' });
       const pw2 = h('input', { type: 'password', autocomplete: 'new-password', 'aria-label': 'Nhập lại mật khẩu' });
       const code = h('input', { autocomplete: 'one-time-code', autocapitalize: 'characters', maxlength: 12, 'aria-label': 'Mã kích hoạt' });
@@ -85,7 +88,7 @@
             D.toast(err.message, 'err'); return;
           }
         }
-        D.state.token = r.token; localStorage.setItem('dgvc.lastUser', u);
+        D.state.token = r.token; lsSet('dgvc.lastUser', u);
         await D.refreshBoot(); D.go('dashboard');
       };
       const form = h('form', { class: 'box card', onsubmit: go }, title, note,
