@@ -93,7 +93,9 @@ test('Giao diện ĐH: Đối chiếu với đối tác — file mẫu, Excel d�
     await toast(/Đã lưu đợt Dầu đối tác 2/); assert.equal(ctx.svc.subcontract.list().length, 2, 'xác nhận → nạp thêm');
 
     // ── Các đợt đã nạp: nhãn "chỉ là bản sao", đối chiếu theo đợt cho ra cùng dầu, xóa đợt
-    await page.getByRole('tab', { name: 'Các đợt đã nạp' }).click(); await page.getByText(/không vào kỳ/).first().waitFor();
+    await page.getByRole('tab', { name: 'Các đợt đã nạp' }).click();
+    // chờ đúng màn MỚI (tab được chọn) — chữ "không vào kỳ" và các bảng ở màn trước vẫn còn trên trang trong lúc chuyển màn nên không dùng làm mốc
+    await page.getByRole('tab', { name: 'Các đợt đã nạp', selected: true }).waitFor(); await page.getByText(/không vào kỳ/).first().waitFor();
     // bảng nạp bất đồng bộ và có thể dựng lại giữa chừng: chờ tới khi thật sự đủ 2 dòng (không chờ "≥ 2 dòng" của bảng cũ) rồi mới khẳng định
     await page.waitForFunction(() => document.querySelectorAll('tbody tr').length === 2, null, { timeout: 15000 });
     assert.equal(await page.locator('tbody tr').count(), 2);
