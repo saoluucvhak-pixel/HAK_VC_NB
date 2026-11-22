@@ -83,7 +83,7 @@
 
   /** Dòng giải thích + liên kết sang màn giá còn lại (DM Đơn giá · Báo cáo giá hợp đồng) — mỗi màn nói rõ vai trò của mình. */
   const PRICE_SCREENS = {
-    pricecodes: ['DM Đơn giá', 'Danh mục Đơn giá — Phân theo Phương thức đơn giá (Đơn giá cố định / Đơn giá điều chỉnh dầu) → Mã đơn giá (cha) → Đơn giá theo tuyến (con). Gán mã cho hợp đồng tại đây.'],
+    pricecodes: ['DM Đơn giá', 'Mã đơn giá chính là phương thức tính giá (Đơn giá cố định / Đơn giá điều chỉnh theo giá dầu); mỗi phương thức có bảng Đơn giá theo tuyến. Hợp đồng chọn phương thức khi lập hợp đồng.'],
     basis: ['Báo cáo giá hợp đồng', 'Chỉ xem: giá nào đang được áp cho từng hợp đồng / tuyến / ngày.']
   };
   D.priceScreenNote = (current) => h('p', { class: 'small muted', style: { margin: '0 0 8px' } }, (PRICE_SCREENS[current] || [])[1] || '', ' Xem thêm: ',
