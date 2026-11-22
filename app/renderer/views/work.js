@@ -167,12 +167,44 @@
     let trace = r.trace;
     if (saved && !trace) { const calc = (await D.api('periods.get', { periodId: saved.period_id })).results.find((c) => c.route_code === r.routeCode); trace = JSON.parse(calc.trace_json); r.calcId = calc.calc_id; }
     const steps = (trace && trace.steps) || [];
-    const body = h('div', {}, h('p', { class: 'small muted' }, `Tuyến ${r.routeCode} · phiên bản giá ${trace && trace.priceId}`),
-      h('ol', { class: 'trace' }, steps.map((s) => h('li', {}, h('b', {}, s.label || s.name), h('div', { class: 'f' }, s.formula), h('div', { class: 'v' }, `${s.expr || ''} = `, h('b', {}, s.unit === '%' ? D.vn(s.value * 100, 2) : D.vnAuto(Math.round(s.value * 1e6) / 1e6)), ` ${s.unit || ''}`)))),
-      r.calcId ? h('div', { class: 'btns' }, h('button', { class: 'btn', onclick: async () => { const t = await D.api('calc.tickets', { calcId: r.calcId }); D.modal({ title: `${t.total} phiếu cân cấu thành`, wide: true, body: D.table({ columns: TICKET_COLS, rows: t.items, footer: { ticket_no: `${t.total} phiếu`, net_kg: t.totals.kg } }) }); } }, 'Xem phiếu cân →'),
-        h('button', { class: 'btn', onclick: async () => { const t = await D.api('calc.fuel', { calcId: r.calcId }); D.modal({ title: `${t.total} dòng dầu`, wide: true, body: D.table({ columns: FUEL_COLS, rows: t.items, footer: { receive_date: `${t.total} dòng`, qty_liter: t.totals.liters } }) }); } }, 'Xem dòng dầu →')) : null,
-      h('p', { class: 'small muted' }, trace && trace.priceMethod === 'CO_DINH' ? 'Đơn giá cố định: dùng nguyên đơn giá trong bảng giá; tiền tới đồng (HALF_UP).' : 'Làm tròn: ĐG ký HĐ tới nghìn, đơn giá VC tới trăm (HALF_EVEN như Power Query); tiền tới đồng (HALF_UP).'));
-    D.modal({ title: 'Xem chi tiết tính', body, drawer: true });
+    const p1 = steps.filter((s) => s.part === 1);
+    const p2 = steps.filter((s) => s.part === 2 || !s.part);
+
+    const renderList = (list) => h('ol', { class: 'trace' }, list.map((s) => h('li', {}, h('b', {}, s.label || s.name), h('div', { class: 'f' }, s.formula), h('div', { class: 'v' }, `${s.expr || ''} = `, h('b', {}, s.unit === '%' ? D.vn(s.value * 100, 2) : D.vnAuto(Math.round(s.value * 1e6) / 1e6)), ` ${s.unit || ''}`))));
+
+    const content = p1.length && p2.length ? [
+      h('div', { class: 'card flush', style: { padding: '12px', marginBottom: '12px', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '8px' } },
+        h('h3', { style: { margin: '0 0 4px', fontSize: '13.5px', color: 'var(--brand)' } }, '1. CÔNG THỨC TÍNH ĐƠN GIÁ DỰ KIẾN KÝ HỢP ĐỒNG (Cơ sở danh mục)'),
+        h('p', { class: 'small muted', style: { margin: '0 0 8px' } }, 'Bóc tách chi phí cước và tiền dầu theo định mức cơ sở để xác định Đơn giá ký HĐ:'),
+        renderList(p1)
+      ),
+      h('div', { class: 'card flush', style: { padding: '12px', marginBottom: '12px', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '8px' } },
+        h('h3', { style: { margin: '0 0 4px', fontSize: '13.5px', color: 'var(--brand)' } }, '2. CÔNG THỨC TÍNH GIÁ KHI THỰC HIỆN KỲ (Liên hoàn bù trừ dầu phát sinh)'),
+        h('p', { class: 'small muted', style: { margin: '0 0 8px' } }, 'Tổng hợp phiếu cân + dầu thực nhận kỳ này, tính chênh lệch dầu thực tế:'),
+        renderList(p2)
+      ),
+      h('div', { class: 'slip', style: { padding: '10px 12px', background: 'var(--row-alt)', borderRadius: '8px', border: '1px solid var(--line)', marginBottom: '10px' } },
+        h('b', {}, 'MẮC XÍCH LIÊN HOÀN 2 CÔNG THỨC:'),
+        h('div', { style: { fontFamily: 'var(--mono)', fontSize: '12.5px', marginTop: '3px', color: 'var(--brand)' } },
+          'Đơn giá VC thực hiện = ĐG ký HĐ (từ Công thức 1) + ĐG CL Diesel (từ Công thức 2)'
+        ),
+        h('div', { style: { marginTop: '4px', fontSize: '13.5px' } },
+          '= ', h('b', {}, D.vn(r.contractPrice)), ' + ', h('b', {}, D.vn(r.fuelAdjustPrice, 2)), ' = ',
+          h('b', { class: 'money', style: { fontSize: '16px' } }, D.vn(r.transportPrice)), ' đ/tấn'
+        )
+      )
+    ] : [renderList(steps)];
+
+    const body = h('div', {},
+      h('p', { class: 'small muted', style: { marginBottom: '10px' } }, `Tuyến ${r.routeCode} · phiên bản giá ${trace && trace.priceId}`),
+      ...content,
+      r.calcId ? h('div', { class: 'btns', style: { margin: '10px 0' } },
+        h('button', { class: 'btn', onclick: async () => { const t = await D.api('calc.tickets', { calcId: r.calcId }); D.modal({ title: `${t.total} phiếu cân cấu thành`, wide: true, body: D.table({ columns: TICKET_COLS, rows: t.items, footer: { ticket_no: `${t.total} phiếu`, net_kg: t.totals.kg } }) }); } }, 'Xem phiếu cân →'),
+        h('button', { class: 'btn', onclick: async () => { const t = await D.api('calc.fuel', { calcId: r.calcId }); D.modal({ title: `${t.total} dòng dầu`, wide: true, body: D.table({ columns: FUEL_COLS, rows: t.items, footer: { receive_date: `${t.total} dòng`, qty_liter: t.totals.liters } }) }); } }, 'Xem dòng dầu →')
+      ) : null,
+      h('p', { class: 'small muted' }, trace && trace.priceMethod === 'CO_DINH' ? 'Đơn giá cố định: dùng nguyên đơn giá trong bảng giá; tiền tới đồng (HALF_UP).' : 'Làm tròn: ĐG ký HĐ tới nghìn, đơn giá VC tới trăm (HALF_EVEN như Power Query); tiền tới đồng (HALF_UP).')
+    );
+    D.modal({ title: 'Chi tiết liên hoàn 2 công thức tính giá', body, drawer: true });
   }
 
   const TICKET_COLS = D.TICKET_COLS = [{ key: 'ticket_no', label: 'Số phiếu' }, { key: 'weigh1_date', label: 'Ngày cân 1', fmt: 'date' }, { key: 'weigh1_time', label: 'Giờ cân 1' },

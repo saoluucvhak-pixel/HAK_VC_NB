@@ -101,7 +101,7 @@
         // Mẫu công thức tính chuẩn (Tương tự HAK_LUONG_OFFLINE formula-master/ctWizardPanel)
         const formulaBanner = h('div', { class: 'hint', style: { margin: '0 0 10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--card)' } },
           h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' } },
-            h('b', {}, method === 'CO_DINH' ? 'Mẫu công thức: Đơn giá cố định' : 'Mẫu công thức: Đơn giá điều chỉnh dầu (Chuẩn HAK Group)'),
+            h('b', {}, method === 'CO_DINH' ? 'Mẫu công thức: Đơn giá cố định' : 'CÔNG THỨC 1: TÍNH ĐƠN GIÁ DỰ KIẾN KÝ HỢP ĐỒNG'),
             h('span', { class: 'tag ' + (method === 'CO_DINH' ? 'info' : 'warn') }, method === 'CO_DINH' ? 'CỐ ĐỊNH' : 'ĐIỀU CHỈNH DẦU')
           ),
           h('div', { style: { fontFamily: 'var(--mono)', fontSize: '13px', color: 'var(--brand)', margin: '4px 0', wordBreak: 'break-all' } },
@@ -112,7 +112,7 @@
           h('div', { class: 'small muted', style: { marginTop: '4px' } },
             method === 'CO_DINH'
               ? 'Biến: DG_CO_DINH (đơn giá cố định đ/tấn áp dụng cho tuyến).'
-              : 'Quy tắc: Đơn giá dự kiến tính theo công thức và làm tròn để THAM KHẢO → Mặc định ĐG ký HĐ tự động lấy số này; nếu thương thảo giá khác thì điền thủ công thẳng vào ô ĐG ký hợp đồng (hai đơn giá không bắt buộc phải giống nhau).'
+              : 'Chuỗi liên hoàn 2 công thức: (1) Tính Đơn giá dự kiến tham khảo → Chốt ĐG ký HĐ (tự tính hoặc điền tay). (2) Khi thực hiện kỳ: ĐG VC thực hiện = ĐG ký HĐ (từ CT1) + ĐG CL Diesel (từ CT2 bù trừ dầu).'
           )
         );
 
@@ -150,7 +150,7 @@
               )
               : h('div', { class: 'slip', style: { padding: '8px 10px', background: 'var(--card)', borderRadius: '6px', border: '1px solid var(--line)', margin: '6px 0' } },
                 h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' } },
-                  h('b', {}, 'Giải thích bằng số thực tế (Công thức tính giá ký hợp đồng):'),
+                  h('b', {}, 'Giải thích số liệu CÔNG THỨC 1 (Tính Đơn giá ký hợp đồng):'),
                   manualContractPrice
                     ? h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
                         h('span', { class: 'tag warn', style: { fontSize: '11px' } }, 'Đang điền thủ công'),
@@ -179,6 +179,9 @@
                     '7. ĐƠN GIÁ KÝ HỢP ĐỒNG ÁP DỤNG: ',
                     h('b', { class: 'money', style: { fontSize: '16px' } }, D.vn(x.contractPrice)), ' đ/tấn ',
                     manualContractPrice ? h('span', { class: 'tag warn', style: { fontSize: '11px' } }, 'Thủ công') : h('span', { class: 'tag ok', style: { fontSize: '11px' } }, 'Tự động')
+                  ),
+                  h('div', { class: 'small muted', style: { gridColumn: '1 / -1', marginTop: '2px', fontStyle: 'italic' } },
+                    '↳ Kết quả ĐG ký HĐ này sẽ là đầu vào liên hoàn cho CÔNG THỨC 2 khi thực hiện kỳ: ĐG VC thực hiện = ĐG ký HĐ + ĐG CL Diesel.'
                   )
                 )
               );
