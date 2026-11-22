@@ -18,7 +18,7 @@
 - Chỉ nhãn trên màn hình renderer được đổi sang "ĐG ký HĐ" / "Đơn giá ký hợp đồng".
 
 ## Lưu ý nâng cấp
-- **Các nhà máy phải nâng cấp cùng đợt**: gói trao đổi danh mục có cột mới `price_method` của mã đơn giá; bản cũ nhận gói mới (hoặc ngược lại) có thể bỏ qua cột này.
+- **Các nhà máy phải nâng cấp cùng đợt**: gói trao đổi danh mục có cột mới `price_method` của mã đơn giá; bản cũ nhận gói có cột mới (hoặc ngược lại) sẽ **báo lỗi**, không tự bỏ qua cột — nâng cấp tất cả nhà máy trước khi trao đổi gói.
 - **Mã đơn giá cũ (tạo ở 1.5.x, cột hình thức rỗng) được suy hình thức từ các dòng giá của mã:**
   - không có dòng, hoặc mọi dòng là *Đơn giá cố định* → **Đơn giá cố định**;
   - mọi dòng còn lại (kể cả dòng có cột hình thức rỗng) → **Đơn giá theo giá dầu**;

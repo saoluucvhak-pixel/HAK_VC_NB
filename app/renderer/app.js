@@ -274,7 +274,7 @@
   ];
   // Menu nhóm (1.8.x): id màn và số phím tắt giữ nguyên. Thứ tự nhóm theo luồng làm việc: Danh mục → Nhập liệu (gồm Thuê vận chuyển) → Tính & chốt → Kết xuất (gồm Xuất dữ liệu gửi đối tác) → Đối chiếu dữ liệu.
   const NAV_GROUPS = [['start', 'Bắt đầu', ['dashboard', 'guide']], ['master', 'Danh mục', ['units', 'vehicles', 'routes', 'contracts', 'pricecodes']], ['input', 'Nhập liệu', ['tickets', 'fuel', 'subcontract']],
-    ['calc', 'Tính & chốt', ['calc', 'validation', 'bkvc', 'bkct']], ['out', 'Kết xuất', ['reports', 'basis', 'export_partner']], ['xchg', 'Đối chiếu & đồng bộ', ['reconcile', 'sync']], ['sys', 'Hệ thống', ['audit', 'settings']]];
+    ['calc', 'Tính & chốt', ['calc', 'validation', 'bkvc', 'bkct']], ['out', 'Kết xuất', ['reports', 'basis', 'export_partner']], ['xchg', 'Đối chiếu & đồng bộ', ['exchange', 'reconcile', 'sync']], ['sys', 'Hệ thống', ['audit', 'settings']]];
   const navClosedGet = () => { try { const o = JSON.parse(localStorage.getItem('dgvc.navClosed') || '{}'); return o && typeof o === 'object' ? o : {}; } catch { return {}; } };
   const navClosedSet = (o) => { try { localStorage.setItem('dgvc.navClosed', JSON.stringify(o)); } catch { /* không có localStorage: vẫn dùng được, chỉ không nhớ */ } };
 
@@ -285,11 +285,6 @@
   D.canLeave = async () => { const g = D.leaveGuard; if (!g) return true; const ok = await g(); if (ok) D.leaveGuard = null; return !!ok; };
   D.go = (view, params = {}) => {
     if (view === 'prices') view = 'pricecodes';
-    if (view === 'exchange') {
-      if (params && params.tab === 'import') view = 'subcontract';
-      else if (params && params.tab === 'export') view = 'export_partner';
-      else view = 'reconcile';
-    }
     const g = D.leaveGuard; const go = () => { D.leaveGuard = null; state.view = view; state.params = params; render(); };
     // về đăng nhập / khởi tạo (hết phiên, đăng xuất): gỡ mọi hộp thoại còn mở — trước đây lớp phủ nằm đè lên màn đăng nhập (rà soát 1.8.2)
     if (['login', 'setup'].includes(view)) for (const ov of document.querySelectorAll('.overlay')) ov.remove();
