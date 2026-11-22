@@ -76,17 +76,22 @@
         const all = Object.fromEntries(D.priceFormFields().map((f) => [f.key, f]));
         const date = { ...all.effectiveFrom, label: 'Ngày cập nhật (hiệu lực từ ngày)', hint: 'bản mới nhất không sau ngày tính có hiệu lực; bản cũ tự đóng' };
         const kmField = { key: 'distanceKm', label: 'Cự ly chuyến (km) — lấy từ Danh mục tuyến', readonly: true, hint: 'chỉ hiển thị; sửa ở Danh mục tuyến' };
-        let manualContractPrice = line ? Boolean(line.isManualContractPrice || (line.contract_price && line.contract_price !== line.formulaContractPrice)) : false;
+        // Thứ tự: đầu vào công thức → ĐG dự kiến (tự tính, chỉ đọc) → ĐG tham khảo (nhập tay) → so sánh → ĐG ký HĐ (nhập tay, mặc định = ĐG dự kiến)
+        let contractTouched = line ? Boolean(line.isManualContractPrice || (line.contract_price && line.contract_price !== line.formulaContractPrice)) : false;
+        let estimate = null;
 
         const priceFields = method === 'CO_DINH'
           ? [{ ...all.fixedPrice, required: true, hint: 'dùng nguyên số này làm đơn giá vận chuyển — không tính dầu, không làm tròn lại' }]
           : [
-            { ...all.newPrice, label: 'Đơn giá dự kiến ký hợp đồng / tấn (chưa VAT)', hint: 'đơn giá cước dự kiến để tính ĐG tham khảo; gồm dầu định mức' },
+            { ...all.newPrice, label: 'Đơn giá cước dự kiến (chưa VAT)', hint: 'đầu vào của công thức; gồm dầu định mức' },
             { ...all.fuelPriceExclVat },
             { ...all.fuelNormLPerKm },
             { ...all.avgLoadTon },
             { ...all.avgVolumeM3 },
-            { ...all.contractPrice, label: 'Đơn giá ký hợp đồng (chốt) / tấn', hint: 'mặc định tự động tính theo công thức làm tròn để tham khảo; có thể điền thủ công nếu chốt giá riêng' }
+            { key: 'estimatePrice', label: 'Đơn giá dự kiến ký hợp đồng (tự tính)', readonly: true, money: true, hint: 'tự tính khi nhập, đã làm tròn theo công thức — không nhập tay' },
+            { ...all.basePriceExclVat, label: 'Đơn giá tham khảo (chưa VAT) — nhập tay', hint: 'chỉ để so sánh với ĐG dự kiến, không dùng để tính' },
+            { ...all.basePriceSource, label: 'Nguồn đơn giá tham khảo', hint: 'bắt buộc khi có đơn giá tham khảo' },
+            { ...all.contractPrice, label: 'Đơn giá ký hợp đồng (nhập tay)', hint: 'ban đầu bằng ĐG dự kiến; sửa tay nếu chốt giá khác' }
           ];
         const fields = [
           ...(line ? [] : [{ key: 'routeCode', label: 'Tuyến (từ Danh mục tuyến)', type: 'select', options: D.routeOptions(false), required: true }]),
@@ -125,74 +130,67 @@
         };
         drawRouteRef(first);
         const initCp = line ? (line.contract_price || line.contractPrice || '') : '';
-        const f = D.form(fields, line ? { distanceKm: km(line.route_code), fixedPrice: line.fixed_price, newPrice: line.new_price, fuelPriceExclVat: line.fuel_price_excl_vat, fuelNormLPerKm: line.fuel_norm_l_per_km, avgLoadTon: line.avg_load_ton, avgVolumeM3: line.avg_volume_m3, contractPrice: initCp, effectiveFrom: line.effective_from, sourceNote: line.source_note } : { distanceKm: km(first), effectiveFrom: D.today() });
+        const f = D.form(fields, line ? { distanceKm: km(line.route_code), fixedPrice: line.fixed_price, newPrice: line.new_price, fuelPriceExclVat: line.fuel_price_excl_vat, fuelNormLPerKm: line.fuel_norm_l_per_km, avgLoadTon: line.avg_load_ton, avgVolumeM3: line.avg_volume_m3, contractPrice: initCp, basePriceExclVat: line.base_price_excl_vat, basePriceSource: line.base_price_source, effectiveFrom: line.effective_from, sourceNote: line.source_note } : { distanceKm: km(first), effectiveFrom: D.today() });
         if (f.inputs.routeCode) f.inputs.routeCode.addEventListener('change', () => { const rc = f.inputs.routeCode.value; f.inputs.distanceKm.value = km(rc); drawRouteRef(rc); });
-        if (f.inputs.contractPrice) f.inputs.contractPrice.addEventListener('input', () => { manualContractPrice = true; });
-
         const warn = h('div', { class: 'small', role: 'status', 'aria-live': 'polite', style: { marginTop: '8px' } });
+        const cmp = h('div', { class: 'slip', role: 'status', 'aria-live': 'polite', style: { padding: '8px 10px', margin: '0 0 10px', border: '1px solid var(--line)', borderRadius: '8px', background: 'var(--card)', display: 'none', gridColumn: '1 / -1' } });
+        const resetBtn = h('button', { type: 'button', class: 'btn small', style: { display: 'none', marginTop: '4px' }, onclick: () => { contractTouched = false; syncContract(); resetBtn.style.display = 'none'; } }, 'Dùng lại ĐG dự kiến');
+        const money = (k) => (f.inputs[k] ? D.parseMoney(f.inputs[k].value) : '');
+        const syncContract = () => {
+          if (method === 'CO_DINH' || !f.inputs.contractPrice) return;
+          if (!contractTouched && estimate != null) f.inputs.contractPrice.value = D.vnAuto(estimate);
+        };
+        const drawCmp = () => {
+          if (method === 'CO_DINH' || !f.inputs.basePriceExclVat) return;
+          const ref = money('basePriceExclVat');
+          if (!(ref > 0) || estimate == null) { cmp.style.display = 'none'; return; }
+          const diff = estimate - ref; const pct = diff / ref * 100;
+          const word = diff === 0 ? 'bằng' : diff > 0 ? 'cao hơn' : 'thấp hơn';
+          cmp.style.display = 'block';
+          cmp.replaceChildren(h('b', {}, 'So sánh: '), `ĐG dự kiến ký hợp đồng ${D.vn(estimate)} đ ${word} đơn giá tham khảo ${D.vn(ref)} đ`,
+            ...(diff === 0 ? ['.'] : [': chênh ', h('b', { class: 'money' }, `${diff > 0 ? '+' : '−'}${D.vn(Math.abs(diff))} đ`), ` (${diff > 0 ? '+' : '−'}${D.vn(Math.abs(pct), 2)}% so với tham khảo).`]));
+        };
         const check = async () => {
           const v = f.values(); const rc = line ? line.route_code : v.routeCode; const r = routeOf(rc); const msgs = [];
           if (r && !(r.trip_distance_km > 0)) msgs.push(`Cự ly chuyến của tuyến ${rc} chưa hợp lệ — sửa ở Danh mục tuyến trước khi áp dụng`);
           try {
-            const payload = { ...v, routeCode: rc, priceCode: code.price_code, priceMethod: method };
-            if (!manualContractPrice) delete payload.contractPrice;
-            const x = await D.api('prices.preview', { record: payload }, { quiet: true });
+            // ĐG dự kiến luôn tính từ công thức của engine (không gửi ĐG ký HĐ nhập tay, không gửi ĐG tham khảo)
+            const { contractPrice, basePriceExclVat, basePriceSource, estimatePrice, ...rest } = v;
+            const x = await D.api('prices.preview', { record: { ...rest, routeCode: rc, priceCode: code.price_code, priceMethod: method } }, { quiet: true });
             warn.className = 'small';
-
-            // Nếu người dùng chưa điền thủ công thì tự động điền ĐG ký HĐ theo công thức làm tròn
-            if (method !== 'CO_DINH' && f.inputs.contractPrice && !manualContractPrice) {
-              f.inputs.contractPrice.value = D.vnAuto(x.formulaContractPrice || x.contractPrice);
+            if (method === 'CO_DINH') {
+              warn.replaceChildren(...msgs.map((m) => h('div', { class: 'warn-line' }, '⚠ ' + m)), h('div', { class: 'muted', style: { marginTop: '4px' } }, 'Xem trước: đơn giá cố định = ', h('b', { class: 'money' }, D.vn(x.contractPrice)), ' đ (không tính dầu)'));
+              return;
             }
-
-            const explain = method === 'CO_DINH'
-              ? h('div', { class: 'slip', style: { padding: '8px 10px', background: 'var(--card)', borderRadius: '6px', border: '1px solid var(--line)', margin: '6px 0' } },
-                h('b', {}, 'Giải thích công thức: '), 'Đơn giá cố định áp dụng nguyên giá ', h('b', { class: 'money' }, D.vn(x.contractPrice)), ' đ/tấn (không tính biến động dầu).'
-              )
-              : h('div', { class: 'slip', style: { padding: '8px 10px', background: 'var(--card)', borderRadius: '6px', border: '1px solid var(--line)', margin: '6px 0' } },
-                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' } },
-                  h('b', {}, 'Giải thích số liệu CÔNG THỨC 1 (Tính Đơn giá ký hợp đồng):'),
-                  manualContractPrice
-                    ? h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
-                        h('span', { class: 'tag warn', style: { fontSize: '11px' } }, 'Đang điền thủ công'),
-                        h('button', {
-                          type: 'button',
-                          class: 'btn small',
-                          style: { fontSize: '11px', padding: '2px 8px' },
-                          title: 'Khôi phục tự tính theo công thức làm tròn tham khảo',
-                          onclick: () => {
-                            manualContractPrice = false;
-                            if (f.inputs.contractPrice) f.inputs.contractPrice.value = D.vnAuto(x.formulaContractPrice || x.contractPrice);
-                            check();
-                          }
-                        }, '↺ Lấy theo công thức')
-                      )
-                    : h('span', { class: 'tag ok', style: { fontSize: '11px' } }, 'Mặc định tự động tính')
-                ),
+            estimate = x.formulaContractPrice;
+            f.inputs.estimatePrice.value = D.vnAuto(estimate);
+            syncContract(); drawCmp();
+            warn.replaceChildren(...msgs.map((m) => h('div', { class: 'warn-line' }, '⚠ ' + m)),
+              h('div', { class: 'slip', style: { padding: '8px 10px', background: 'var(--card)', borderRadius: '6px', border: '1px solid var(--line)', margin: '6px 0' } },
                 h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '4px 12px', fontSize: '12.5px' } },
                   h('div', {}, '1. Tiền cước chuyến: ', h('b', {}, D.vn(x.tripPrice)), ' đ'),
                   h('div', {}, '2. Lượng dầu/chuyến: ', h('b', {}, D.vn(x.fuelPerTrip, 1)), ' lít'),
                   h('div', {}, '3. Tiền dầu/chuyến: ', h('b', {}, D.vn(x.fuelCostPerTrip)), ' đ'),
                   h('div', {}, '4. Tỷ lệ tiền dầu: ', h('b', {}, D.vn(x.fuelCostRatio * 100, 2)), '%'),
                   h('div', {}, '5. ĐG chưa dầu: ', h('b', {}, D.vn(x.priceNoDiesel, 2)), ' đ/tấn'),
-                  h('div', {}, '6. ĐG dự kiến theo công thức (làm tròn tham khảo): ', h('b', {}, D.vn(x.formulaContractPrice || x.contractPrice)), ' đ/tấn'),
-                  h('div', { style: { gridColumn: '1 / -1', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed var(--line)' } },
-                    '7. ĐƠN GIÁ KÝ HỢP ĐỒNG ÁP DỤNG: ',
-                    h('b', { class: 'money', style: { fontSize: '16px' } }, D.vn(x.contractPrice)), ' đ/tấn ',
-                    manualContractPrice ? h('span', { class: 'tag warn', style: { fontSize: '11px' } }, 'Thủ công') : h('span', { class: 'tag ok', style: { fontSize: '11px' } }, 'Tự động')
-                  ),
-                  h('div', { class: 'small muted', style: { gridColumn: '1 / -1', marginTop: '2px', fontStyle: 'italic' } },
-                    '↳ Kết quả ĐG ký HĐ này sẽ là đầu vào liên hoàn cho CÔNG THỨC 2 khi thực hiện kỳ: ĐG VC thực hiện = ĐG ký HĐ + ĐG CL Diesel.'
-                  )
+                  h('div', {}, '6. ĐG dự kiến ký hợp đồng (làm tròn): ', h('b', { class: 'money' }, D.vn(estimate)), ' đ/tấn')
                 )
-              );
-            warn.replaceChildren(...msgs.map((m) => h('div', { class: 'warn-line' }, '⚠ ' + m)), explain, h('div', { class: 'muted', style: { marginTop: '4px' } }, `Xem trước: ${method === 'CO_DINH' ? 'đơn giá cố định' : 'ĐG ký HĐ'} = `, h('b', { class: 'money' }, D.vn(x.contractPrice)), ' đ/tấn'));
+              ));
           } catch (e) {
+            estimate = null; if (f.inputs.estimatePrice) f.inputs.estimatePrice.value = ''; drawCmp();
             const errs = (e.details && e.details.errors) || [e.message];
             warn.replaceChildren(...msgs.concat(errs).map((m) => h('div', { class: 'warn-line' }, '⚠ ' + m)));
           }
         };
+        if (f.inputs.contractPrice) {
+          f.inputs.contractPrice.addEventListener('input', () => { contractTouched = true; resetBtn.style.display = ''; });
+          f.inputs.contractPrice.closest('label').append(resetBtn);
+          if (contractTouched) resetBtn.style.display = '';
+        }
+        if (f.inputs.basePriceSource) f.inputs.basePriceSource.closest('label').after(cmp);
         f.addEventListener('input', () => { clearTimeout(f._t); f._t = setTimeout(check, 300); });
         f.addEventListener('change', () => { clearTimeout(f._t); f._t = setTimeout(check, 100); });
+        setTimeout(check, 0);
 
         D.modal({
           title: line ? `Sửa công thức tính đơn giá ${line.price_id}` : `Thêm đơn giá ${method === 'CO_DINH' ? 'cố định' : 'điều chỉnh theo giá dầu'} — ${code.price_code}`,
@@ -201,7 +199,9 @@
           actions: [
             { label: 'Hủy', run: () => true },
             { label: 'Lưu', primary: true, run: async () => {
-              const { distanceKm, ...v } = f.values();
+              const { distanceKm, estimatePrice, ...v } = f.values();
+              // ĐG ký HĐ trùng đúng ĐG dự kiến → để trống (engine tự tính theo công thức); khác → lưu số nhập tay
+              if (method !== 'CO_DINH' && estimate != null && Number(v.contractPrice) === Number(estimate)) v.contractPrice = '';
               const miss = fields.filter((x) => x.required && x.key !== 'distanceKm' && (v[x.key] === '' || v[x.key] === null)).map((x) => x.label);
               if (miss.length) { D.toast(`Chưa nhập: ${miss.join(', ')}`, 'err'); return false; }
               if (line) await D.api('prices.updateDraft', { priceId: line.price_id, rowVersion: line.row_version, record: { ...v, priceMethod: method } });
@@ -321,7 +321,7 @@
             { key: 'price', label: isCd ? 'Đơn giá' : 'ĐG ký HĐ', num: true, render: (r) => {
               const v = unitPrice(r); if (v == null || v === '') return '—';
               const manual = lineMethod(r) !== 'CO_DINH' && (r.isManualContractPrice || (r.contract_price && r.contract_price !== r.formulaContractPrice));
-              return h('span', {}, h('span', { class: 'money' }, D.vn(v)), manual ? h('span', { class: 'tag warn', style: { marginLeft: '4px', fontSize: '10px' } }, 'Thủ công') : null);
+              return h('span', {}, h('span', { class: 'money' }, D.vn(v)), manual ? h('span', { class: 'tag warn', style: { display: 'block', width: 'fit-content', marginLeft: 'auto', fontSize: '10px' } }, 'Thủ công') : null);
             } },
             { key: 'uom', label: 'ĐVT', render: (r) => (r.uom === 'M3' ? 'đ/m³' : 'đ/tấn') },
             { key: 'effective_from', label: 'Ngày hiệu lực', fmt: 'date' },

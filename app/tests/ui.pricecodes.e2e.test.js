@@ -66,10 +66,40 @@ test('Giao diện HAKQN: DM Đơn giá — 2 phương thức có sẵn, thêm đ
     await tm.getByRole('combobox', { name: /^Tuyến/ }).selectOption('VC.007'); assert.equal(await tm.getByLabel(/Cự ly chuyến/).inputValue(), '144'); assert.equal(await tm.getByLabel(/Cự ly chuyến/).getAttribute('readonly') !== null, true);
     // cảnh báo sớm, trước khi lưu — chưa nhập đơn giá/định mức → báo ngay
     await tm.getByLabel(/ĐG dầu chưa VAT/).fill('15.500'); await tm.locator('[role=status]').getByText(/phải > 0/).first().waitFor();
-    await tm.getByLabel(/Đơn giá dự kiến ký hợp đồng/).fill('165.000'); await tm.getByLabel(/Định mức dầu/).fill('0.4'); await tm.getByLabel(/KL trung bình/).fill('18');
-    await tm.getByLabel(/Ngày cập nhật/).fill('2027-01-01'); await tm.locator('[role=status]').getByText(/Xem trước/).waitFor(); await tm.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã thêm dòng giá/);
+    await tm.getByLabel(/Đơn giá cước dự kiến/).fill('165.000'); await tm.getByLabel(/Định mức dầu/).fill('0.4'); await tm.getByLabel(/KL trung bình/).fill('18');
+    await tm.getByLabel(/Ngày cập nhật/).fill('2027-01-01');
+    // ĐG dự kiến ký hợp đồng tự tính (chỉ đọc), đúng số engine (prices.preview); ĐG ký HĐ mặc định = ĐG dự kiến
+    const est = tm.getByLabel(/Đơn giá dự kiến ký hợp đồng/); const cpf = tm.getByLabel(/Đơn giá ký hợp đồng/);
+    assert.equal(await est.getAttribute('readonly') !== null, true);
+    await page.waitForFunction(() => { const l = [...document.querySelectorAll('.modal label')].find((x) => /Đơn giá dự kiến ký hợp đồng/.test(x.textContent)); return l && l.querySelector('input').value !== ''; });
+    const pv = await page.evaluate(() => window.DGVC.api('prices.preview', { record: { routeCode: 'VC.007', priceCode: 'PT-TD', priceMethod: 'THEO_DAU', newPrice: 165000, fuelPriceExclVat: 15500, fuelNormLPerKm: 0.4, avgLoadTon: 18, effectiveFrom: '2027-01-01' } }));
+    const vnum = async (loc) => Number((await loc.inputValue()).replace(/\./g, '').replace(',', '.'));
+    const estimate = await vnum(est); assert.equal(estimate, pv.formulaContractPrice); assert.equal(await vnum(cpf), estimate, 'ĐG ký HĐ mặc định = ĐG dự kiến');
+    // đơn giá tham khảo (nhập tay) → khối so sánh chênh lệch + %
+    await tm.getByLabel(/^Đơn giá tham khảo/).fill(String(estimate - 5000).replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
+    await tm.getByText(/cao hơn đơn giá tham khảo/).waitFor(); await tm.getByText(/\+5\.000 đ/).waitFor({ timeout: 3000 });
+    await tm.getByLabel(/^Đơn giá tham khảo/).fill(String(estimate + 5000).replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
+    await tm.getByText(/thấp hơn đơn giá tham khảo/).waitFor(); await tm.getByText(/−5\.000 đ/).waitFor();
+    await tm.getByLabel(/^Đơn giá tham khảo/).fill(''); // không tham khảo → không cần nguồn; không sửa ĐG ký HĐ → lưu rỗng (tự tính)
+    await tm.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã thêm dòng giá/);
     const tr = page.locator('.pc-detail tbody tr', { hasText: 'VC.007' }).filter({ hasText: '2027' }); await tr.getByText('Nháp').waitFor();
+    assert.equal(ctx.store.all('PRICE_HISTORY').find((x) => x.price_code === 'PT-TD' && x.route_code === 'VC.007' && x.effective_from === '2027-01-01').contract_price || '', '', 'không sửa tay → contract_price rỗng');
     await tr.getByRole('button', { name: 'Áp dụng' }).click(); await toast(/Đã áp dụng/);
+    // sửa tay ĐG ký HĐ → lưu đúng số tay; nút "Dùng lại ĐG dự kiến" khôi phục
+    await page.locator('.pc-detail').getByRole('button', { name: 'Thêm đơn giá' }).click();
+    const t2 = page.locator('.modal', { hasText: 'Thêm đơn giá điều chỉnh theo giá dầu — PT-TD' });
+    await t2.getByRole('combobox', { name: /^Tuyến/ }).selectOption('VC.008'); await t2.getByLabel(/Đơn giá cước dự kiến/).fill('150.000'); await t2.getByLabel(/ĐG dầu chưa VAT/).fill('15.500'); await t2.getByLabel(/Định mức dầu/).fill('0.4'); await t2.getByLabel(/KL trung bình/).fill('18'); await t2.getByLabel(/Ngày cập nhật/).fill('2027-01-01');
+    await page.waitForFunction(() => { const l = [...document.querySelectorAll('.modal label')].find((x) => /Đơn giá ký hợp đồng \(nhập tay\)/.test(x.textContent)); return l && l.querySelector('input').value !== ''; });
+    const est2 = await vnum(t2.getByLabel(/Đơn giá dự kiến ký hợp đồng/)); await t2.getByLabel(/Đơn giá ký hợp đồng/).fill('123.000');
+    await t2.getByLabel(/Đơn giá cước dự kiến/).fill('151.000'); await page.waitForTimeout(900); assert.equal(await vnum(t2.getByLabel(/Đơn giá ký hợp đồng/)), 123000, 'đã sửa tay thì ngừng tự theo ĐG dự kiến');
+    await t2.getByRole('button', { name: 'Dùng lại ĐG dự kiến' }).click(); assert.equal(await vnum(t2.getByLabel(/Đơn giá ký hợp đồng/)), await vnum(t2.getByLabel(/Đơn giá dự kiến ký hợp đồng/)));
+    assert.notEqual(est2, 123000); await t2.getByLabel(/Đơn giá ký hợp đồng/).fill('123.000');
+    await t2.getByLabel(/^Đơn giá tham khảo/).fill('110.000'); await t2.getByLabel(/Nguồn đơn giá tham khảo/).fill('Bảng giá thử'); await t2.getByText(/So sánh/).waitFor();
+    for (const w of [1366, 910]) { await page.setViewportSize({ width: w, height: 800 }); if (process.env.SHOT_DIR) await page.screenshot({ path: path.join(process.env.SHOT_DIR, `price-form-${w}.png`) }); }
+    await page.setViewportSize({ width: 1366, height: 800 });
+    await t2.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã thêm dòng giá/);
+    assert.equal(Number(ctx.store.all('PRICE_HISTORY').find((x) => x.price_code === 'PT-TD' && x.route_code === 'VC.008' && x.effective_from === '2027-01-01').contract_price), 123000);
+    await page.locator('.pc-detail tbody tr', { hasText: 'VC.008' }).filter({ hasText: '2027' }).getByText('Thủ công').waitFor();
     await page.locator('.pc-detail').getByRole('columnheader', { name: /ĐG ký HĐ/ }).waitFor();
 
     // thuật ngữ: "Đơn giá ký hợp đồng"; không còn "Đơn giá hợp đồng" / "ĐG HĐ" ở các màn giá
