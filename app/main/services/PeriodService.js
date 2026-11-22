@@ -58,7 +58,7 @@ class PeriodService {
     return E.calculatePeriod({
       contract, allContracts: s.all('HOP_DONG'), contractVehicles: s.all('HOP_DONG_XE'), units: s.all('DON_VI'), routes: s.all('TUYEN_VC'), prices: s.all('PRICE_HISTORY'),
       tickets: s.all('PHIEU_CAN'), receipts: s.all('GIAO_NHAN_DAU'), ticketUsages: s.all('TRANSPORT_DETAIL'), fuelUsages: s.all('FUEL_DETAIL'),
-      periods: s.all('KY_TINH'), installUnitCode: s.unitCode, cfg, params,
+      periods: s.all('KY_TINH'), installUnitCode: s.unitCode, cfg, params, vehicles: s.all('XE'),
     });
   }
 
@@ -134,7 +134,7 @@ class PeriodService {
       }
       for (const l of out.bkvc.lines) {
         tx.insert('BKVC_LINE', { id: tx.nextId('BL', 7), period_id: pid, calc_id: calcIdOf.get(l.routeCode), contract_id: contractId, route_code: l.routeCode, seq: l.seq,
-          plate_no: l.plateNo, owner_unit_code: l.ownerUnitCode, trip_count: l.tripCount, kg: l.kg, ton: l.ton, unit_price: l.unitPrice, amount: l.amount,
+          plate_no: l.plateNo, owner_unit_code: l.ownerUnitCode, trip_count: l.tripCount, kg: l.kg, ton: l.ton, uom: l.uom || 'TAN', unit_price: l.unitPrice, amount: l.amount,
           vat_rate: l.vatRate, vat: l.vat, amount_incl_vat: l.amountInclVat, note: '', is_current: true });
       }
       // 4. kỳ nháp khác bị lấy phiếu → cần tính lại

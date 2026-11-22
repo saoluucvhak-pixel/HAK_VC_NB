@@ -194,10 +194,18 @@ function calculateConfirmationLine({ kg, unitPrice, vatRate }, cfg) {
   return { ton, amount, vat, amountInclVat: amount + vat };
 }
 
+/** Dòng BKVC cho tuyến M3: số lượng tính cước = m³ quy đổi từ danh sách xe; Thành tiền = ROUND(m³ × Đơn giá, 0). */
+function calculateConfirmationLineM3({ m3, unitPrice, vatRate }, cfg) {
+  const ton = roundDigits(m3, 2);
+  const amount = roundDigits(ton * unitPrice, cfg.roundMoneyDigits, cfg.roundMoneyMode);
+  const vat = roundDigits(amount * vatRate, cfg.roundMoneyDigits, cfg.roundMoneyMode);
+  return { ton, amount, vat, amountInclVat: amount + vat };
+}
+
 module.exports = {
   calculateTripPrice, calculateFuelConsumption, calculateFuelCost, calculateFuelCostRatio, calculatePriceNoDiesel,
   calculateContractPrice, computeContractPrice, computeFixedPrice, isFixedPrice,
   aggregateTrips, calculateTotalTon, calculateActualFuel, calculateFuelPrice, aggregateFuel,
   calculateStandardFuel, calculateFuelDifference, calculateFuelAdjustment, calculateTransportPrice,
-  calculateConfirmationLine, calculateInvoiceVat,
+  calculateConfirmationLine, calculateConfirmationLineM3, calculateInvoiceVat,
 };

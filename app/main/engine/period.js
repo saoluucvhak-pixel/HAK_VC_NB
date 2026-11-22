@@ -111,7 +111,7 @@ function scopeChecks({ tickets, cv, allContracts, contractVehicles, installUnitC
 
 function calculatePeriod(input) {
   const { contract, contractVehicles = [], units = [], routes = [], prices = [], tickets = [], receipts = [],
-          ticketUsages = [], fuelUsages = [], periods = [], installUnitCode, cfg } = input;
+          ticketUsages = [], fuelUsages = [], periods = [], vehicles = [], installUnitCode, cfg } = input;
   const p = { excludeTicketIds: [], excludeReceiptIds: [], overrides: [], moveFromDraft: false,
     ...Object.fromEntries(Object.entries(input.params || {}).filter(([, v]) => v !== undefined && v !== null)) }; // tham số bỏ trống → giữ mặc định
   const issues = []; const blocked = []; const affectedPeriods = new Set();
@@ -300,7 +300,7 @@ function calculatePeriod(input) {
 
   function finish() {
     const ok = results.filter((r) => r.resultStatus !== 'ERROR');
-    const bkvc = buildConfirmation(ok, chosen, units, input.cfg);
+    const bkvc = buildConfirmation(ok, chosen, units, input.cfg, vehicles, routes);
     return {
       canCalculate: !issues.some((i) => i.level === 'ERROR') && ok.length > 0,
       results, issues, blocked, affectedPeriods: [...affectedPeriods],
@@ -310,21 +310,37 @@ function calculatePeriod(input) {
 }
 
 /** Tầng C — BKVC: 1 dòng / xe (/ tuyến), đơn giá = đơn giá VC của tuyến; tổng = cộng các dòng đã làm tròn. */
-function buildConfirmation(results, tickets, units, cfg) {
+function buildConfirmation(results, tickets, units, cfg, vehicles = [], routes = []) {
   const priceOf = new Map(results.map((r) => [r.routeCode, r.transportPrice]));
+  const resultOf = new Map(results.map((r) => [r.routeCode, r]));
+  const routeByCode = new Map((routes || []).map((r) => [r.route_code, r]));
+  const vehMap = new Map((vehicles || []).map((v) => [v.plate_no, v]));
   const by = new Map();
   for (const t of tickets) {
     if (!priceOf.has(t.route_code)) continue;
     const k = cfg.bkvcGroupBy === 'PLATE' ? t.plate_no : `${t.plate_no}|${t.route_code}`;
-    if (!by.has(k)) by.set(k, { plateNo: t.plate_no, routeCode: t.route_code, ownerUnitCode: t.owner_unit_code, tripCount: 0, kg: 0 });
-    const b = by.get(k); b.tripCount += 1; b.kg += t.net_kg;
+    const route = routeByCode.get(t.route_code);
+    const isM3 = route && route.uom === 'M3';
+    const veh = vehMap.get(t.plate_no);
+    const rRes = resultOf.get(t.route_code);
+    if (!by.has(k)) by.set(k, { plateNo: t.plate_no, routeCode: t.route_code, ownerUnitCode: t.owner_unit_code, tripCount: 0, kg: 0, m3: 0, uom: isM3 ? 'M3' : 'TAN' });
+    const b = by.get(k);
+    b.tripCount += 1;
+    b.kg += (t.net_kg || 0);
+    if (isM3) {
+      const tripM3 = (veh && veh.volume_m3 > 0) ? veh.volume_m3 : (rRes && rRes.avgVolumeM3 > 0 ? rRes.avgVolumeM3 : 0);
+      b.m3 += tripM3;
+    }
   }
   let lines = [...by.values()];
   lines.sort(cfg.bkvcSort === 'TRIPS_DESC' ? (a, b) => b.tripCount - a.tripCount || (a.plateNo < b.plateNo ? -1 : 1)
                                           : (a, b) => (a.plateNo < b.plateNo ? -1 : a.plateNo > b.plateNo ? 1 : (a.routeCode < b.routeCode ? -1 : 1)));
   lines = lines.map((b, i) => {
     const unitPrice = priceOf.get(b.routeCode);
-    const c = F.calculateConfirmationLine({ kg: b.kg, unitPrice, vatRate: cfg.vatRate }, cfg);
+    const isM3 = b.uom === 'M3';
+    const c = isM3
+      ? F.calculateConfirmationLineM3({ m3: b.m3, unitPrice, vatRate: cfg.vatRate }, cfg)
+      : F.calculateConfirmationLine({ kg: b.kg, unitPrice, vatRate: cfg.vatRate }, cfg);
     return { seq: i + 1, ...b, ton: c.ton, unitPrice, amount: c.amount, vatRate: cfg.vatRate, vat: c.vat, amountInclVat: c.amountInclVat };
   });
   // VAT_ROUND_BASIS = TOTAL: VAT = làm tròn(tổng tiền hàng × thuế suất) như phần mềm hóa đơn (MISA); chênh với tổng VAT từng dòng dồn vào dòng cuối
@@ -334,9 +350,11 @@ function buildConfirmation(results, tickets, units, cfg) {
     const diff = vatTotal - lines.reduce((a, l) => a + l.vat, 0);
     if (diff) { const last = lines[lines.length - 1]; last.vat += diff; last.amountInclVat += diff; last.vatAdjust = diff; }
   }
-  const totals = lines.reduce((s, l) => ({ trips: s.trips + l.tripCount, kg: s.kg + l.kg, amount: s.amount + l.amount, vat: s.vat + l.vat, total: s.total + l.amountInclVat }),
-    { trips: 0, kg: 0, amount: 0, vat: 0, total: 0 });
-  totals.ton = totals.kg / 1000;
+  const totals = lines.reduce((s, l) => ({ trips: s.trips + l.tripCount, kg: s.kg + l.kg, ton: s.ton + l.ton, amount: s.amount + l.amount, vat: s.vat + l.vat, total: s.total + l.amountInclVat }),
+    { trips: 0, kg: 0, ton: 0, amount: 0, vat: 0, total: 0 });
+  if (!lines.some((l) => l.uom === 'M3')) {
+    totals.ton = totals.kg / 1000;
+  }
   const amountInWords = lines.length ? numberToVietnameseWords(totals.total, { thousand: cfg.amountWordsThousand, suffix: cfg.amountWordsSuffix }) : '';
   return { lines, totals, amountInWords };
 }

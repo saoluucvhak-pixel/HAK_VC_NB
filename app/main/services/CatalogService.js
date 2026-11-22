@@ -185,11 +185,10 @@ class CatalogService {
     }
     if (!isDate(p.effective_from)) bad.push('Ngày hiệu lực phải dạng yyyy-MM-dd');
     if (p.price_method === 'CO_DINH') {
-      // đơn giá cố định (bản 1.2.3): chỉ cần đơn giá đ/tấn; không dùng định mức, giá dầu, KL_TB
-      if (!(p.fixed_price > 0)) bad.push('Đơn giá cố định (đ/tấn, chưa VAT) phải > 0');
-      else if (p.fixed_price < 1000) bad.push(`Đơn giá cố định ${p.fixed_price} đ/tấn quá nhỏ (< 1.000) — kiểm tra dấu chấm ngăn cách nghìn (vd nhập 150000 hoặc 150.000)`);
-      else if (p.fixed_price > 1e9) bad.push('Đơn giá cố định quá lớn (> 1.000.000.000 đ/tấn) — kiểm tra lại số nhập');
-      if (route && route.uom === 'M3') bad.push('Tuyến tính theo M3 — đơn giá cố định chỉ áp cho tuyến tính theo tấn');
+      const uomLabel = route && route.uom === 'M3' ? 'đ/m³' : 'đ/tấn';
+      if (!(p.fixed_price > 0)) bad.push(`Đơn giá cố định (${uomLabel}, chưa VAT) phải > 0`);
+      else if (p.fixed_price < 1000) bad.push(`Đơn giá cố định ${p.fixed_price} ${uomLabel} quá nhỏ (< 1.000) — kiểm tra dấu chấm ngăn cách nghìn (vd nhập 150000 hoặc 150.000)`);
+      else if (p.fixed_price > 1e9) bad.push(`Đơn giá cố định quá lớn (> 1.000.000.000 ${uomLabel}) — kiểm tra lại số nhập`);
     } else {
       if (!(p.new_price > 0)) bad.push('Đơn giá mới phải > 0');
       if (!(p.fuel_price_excl_vat > 0)) bad.push('Đơn giá dầu (chưa VAT) phải > 0');

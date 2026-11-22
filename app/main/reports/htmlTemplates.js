@@ -17,6 +17,8 @@ thead{display:table-header-group}tr{page-break-inside:avoid}`;
 
 function bkvc(d) {
   const H = d.header; const S = d.signers; const T = d.totals;
+  const hasM3 = (d.lines || []).some((l) => l.uom === 'M3');
+  const qtyHdr = hasM3 ? 'Khối lượng (Tấn / m³)' : 'Khối lượng (Tấn)';
   const draft = H.status === 'NHAP' ? '<div class="wm">BẢN NHÁP — CHƯA XÁC NHẬN</div>' : '';
   const rows = d.lines.map((l) => `<tr><td class="c">${l.seq}</td><td class="nw">${esc(l.plate_no)}</td><td class="r">${vn(l.trip_count)}</td><td class="r">${vn(l.kg)}</td>
 <td class="r">${vn(l.ton, 2)}</td><td class="r">${vn(l.unit_price)}</td><td class="r">${vn(l.amount)}</td><td class="r">${vn(l.vat)}</td><td class="r">${vn(l.amount_incl_vat)}</td><td>${esc(l.note)}</td></tr>`).join('\n');
@@ -31,7 +33,7 @@ function bkvc(d) {
 <div class="top"><div><div class="b">${esc(H.carrier.unitName)}</div><div>${esc(H.carrier.address)}</div>${H.carrier.taxCode ? `<div>MST: ${esc(H.carrier.taxCode)}</div>` : ''}</div>
 <div class="i" style="text-align:right">${H.contractNo ? `Hợp đồng số: ${esc(H.contractNo)}<br>` : ''}Kỳ: ${esc(H.periodCode)}</div></div>
 <div class="title">${esc(H.title)}</div><div class="sub">${esc(H.periodText)}</div>
-<table><thead><tr><th>STT</th><th>Biển số xe</th><th>Số chuyến</th><th>Khối lượng (KG)</th><th>Khối lượng (Tấn)</th><th>Đơn giá</th><th>Thành tiền</th><th>VAT (${H.vatPct}%)</th><th>Thành tiền</th><th>Ghi chú</th></tr></thead>
+<table><thead><tr><th>STT</th><th>Biển số xe</th><th>Số chuyến</th><th>Khối lượng (KG)</th><th>${qtyHdr}</th><th>Đơn giá</th><th>Thành tiền</th><th>VAT (${H.vatPct}%)</th><th>Thành tiền</th><th>Ghi chú</th></tr></thead>
 <tbody>${rows}
 <tr class="b"><td colspan="2" class="c">TỔNG CỘNG</td><td class="r">${vn(T.trips)}</td><td class="r">${vn(T.kg)}</td><td class="r">${vn(T.ton, 2)}</td><td></td>
 <td class="r">${vn(T.amount)}</td><td class="r">${vn(T.vat)}</td><td class="r">${vn(T.total)}</td><td></td></tr></tbody></table>

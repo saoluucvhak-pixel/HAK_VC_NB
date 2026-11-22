@@ -102,12 +102,12 @@ class ReportService {
     const lines = s.find('BKVC_LINE', (l) => l.period_id === periodId && l.is_current).sort((a, b) => a.seq - b.seq);
     const rows = lines.map((l) => ({ seq: l.seq, plate_no: l.plate_no, route_code: l.route_code,
       description: fillTemplate(template, { BKS: l.plate_no, BKS_LIEN: l.plate_no.replace(/[-.\s]/g, ''), MA_TUYEN: l.route_code, TU_NGAY: dmy(p.date_from), DEN_NGAY: dmy(p.date_to), ...routePlaces(s.get('TUYEN_VC', l.route_code), l.route_code) }),
-      uom: 'Tấn', qty: l.ton, unit_price: l.unit_price, amount: l.amount, vat_rate_pct: Math.round(l.vat_rate * 1000) / 10, vat: l.vat, total: l.amount_incl_vat }));
+      uom: l.uom === 'M3' ? 'm³' : 'Tấn', qty: l.ton, unit_price: l.unit_price, amount: l.amount, vat_rate_pct: Math.round(l.vat_rate * 1000) / 10, vat: l.vat, total: l.amount_incl_vat }));
     const sum = (k) => rows.reduce((a, r) => a + r[k], 0);
     return { title: 'DIỄN GIẢI CƯỚC VẬN CHUYỂN ĐỂ VIẾT HÓA ĐƠN', subtitle: periodText, contractCode: contract.contract_code, status: p.status, template,
       templateSource: (contract.service_desc || '').trim() ? 'HOP_DONG' : 'CONFIG', buyer: signers.customer, seller: signers.carrier, placeDate,
       company: s.get('DON_VI', contract.carrier_unit_code), columns: INVOICE_COLUMNS, rows,
-      totalsRow: { description: 'TỔNG CỘNG', qty: lines.reduce((a, l) => a + l.kg, 0) / 1000, amount: sum('amount'), vat: sum('vat'), total: sum('total') } };
+      totalsRow: { description: 'TỔNG CỘNG', qty: lines.some((l) => l.uom === 'M3') ? lines.reduce((a, l) => a + l.ton, 0) : lines.reduce((a, l) => a + l.kg, 0) / 1000, amount: sum('amount'), vat: sum('vat'), total: sum('total') } };
   }
 
   /**

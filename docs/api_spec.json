@@ -5243,6 +5243,196 @@
    "writes": [],
    "audit": "EXPORT",
    "lock": false
+  },
+  {
+   "action": "subcontract.preview",
+   "group": "Nhập liệu",
+   "desc": "Đọc và trích xuất danh sách phiếu cân và dòng dầu từ file .json, .dgvc hoặc .xlsx để xem trước đợt thuê vận chuyển",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "filePath",
+     "string",
+     false,
+     "Đường dẫn file"
+    ],
+    [
+     "jsonContent",
+     "string",
+     false,
+     "Nội dung JSON"
+    ]
+   ],
+   "output": "{fileName, partnerSuggested, summary, tickets, fuelRows}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "subcontract.importBatch",
+   "group": "Nhập liệu",
+   "desc": "Nạp và lưu đợt thuê vận chuyển vào hệ thống",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "periodId",
+     "string",
+     false,
+     "Kỳ vận chuyển"
+    ],
+    [
+     "partnerName",
+     "string",
+     false,
+     "Tên đơn vị thuê"
+    ],
+    [
+     "batchName",
+     "string",
+     false,
+     "Tên đợt"
+    ],
+    [
+     "rentUnitPrice",
+     "number",
+     false,
+     "Đơn giá thuê (đ/tấn)"
+    ],
+    [
+     "fuelUnitPrice",
+     "number",
+     false,
+     "Đơn giá dầu (đ/lít)"
+    ],
+    [
+     "deductFuel",
+     "boolean",
+     false,
+     "Khấu trừ tiền dầu"
+    ],
+    [
+     "filePath",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "jsonContent",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{batchId, periodId, periodCode, contractId, partnerName, batchName, rentUnitPrice, fuelUnitPrice, deductFuel, summary, status}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "KY_TINH"
+   ],
+   "writes": [],
+   "audit": "IMPORT_SUBCONTRACT_BATCH",
+   "lock": false
+  },
+  {
+   "action": "subcontract.list",
+   "group": "Nhập liệu",
+   "desc": "Danh sách các đợt nạp thuê vận chuyển",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "periodId",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "contractId",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{batches:[{batchId, periodId, periodCode, partnerName, batchName, rentUnitPrice, fuelUnitPrice, deductFuel, summary, status}]}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "subcontract.get",
+   "group": "Nhập liệu",
+   "desc": "Chi tiết đợt nạp thuê vận chuyển kèm danh sách phiếu cân và dầu",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "batchId",
+     "string",
+     true,
+     "Mã đợt"
+    ]
+   ],
+   "output": "{batchId, periodId, periodCode, partnerName, batchName, summary, tickets, fuelRows, details}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "subcontract.delete",
+   "group": "Nhập liệu",
+   "desc": "Xóa đợt nạp thuê vận chuyển",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "batchId",
+     "string",
+     true,
+     "Mã đợt"
+    ]
+   ],
+   "output": "{ok, batchId}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "DELETE_SUBCONTRACT_BATCH",
+   "lock": false
   }
  ],
  "errors": [

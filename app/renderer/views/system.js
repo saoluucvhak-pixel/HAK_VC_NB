@@ -9,9 +9,21 @@
     const back = () => D.go('vehicles'); // sửa xe chỉ mở được từ màn Xe
     const u = await D.api('vehicles.usage', { plateNo: x.plate_no });
     const used = [u.tickets ? `${D.vn(u.tickets)} phiếu cân` : '', u.fuelRows ? `${D.vn(u.fuelRows)} dòng dầu` : '', u.contracts.length ? `hợp đồng ${u.contracts.join(', ')}` : '', u.periodLines ? 'kết quả kỳ tính' : ''].filter(Boolean);
-    const f = D.form([{ key: 'plateNo', label: 'Biển số', readonly: true }, { key: 'ownerUnitCode', label: 'Chủ xe (nhóm xe)', type: 'select', options: D.unitOptions() },
-      { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' }, { key: 'note', label: 'Ghi chú', full: true }],
-    { plateNo: x.plate_no, ownerUnitCode: x.owner_unit_code, fuelCode: x.fuel_code, note: x.note });
+    const f = D.form([
+      { key: 'plateNo', label: 'Biển số', readonly: true },
+      { key: 'ownerUnitCode', label: 'Chủ xe (nhóm xe)', type: 'select', options: D.unitOptions() },
+      { key: 'payloadTon', label: 'Trọng tải xe (tấn)', type: 'number', hint: 'vd 18 tấn' },
+      { key: 'volumeM3', label: 'Thể tích thùng (m³)', type: 'number', hint: 'vd 57.82 m³ — dùng quy đổi tuyến m³' },
+      { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' },
+      { key: 'note', label: 'Ghi chú', full: true }
+    ], {
+      plateNo: x.plate_no,
+      ownerUnitCode: x.owner_unit_code,
+      payloadTon: x.payload_ton != null ? x.payload_ton : '',
+      volumeM3: x.volume_m3 != null ? x.volume_m3 : '',
+      fuelCode: x.fuel_code,
+      note: x.note
+    });
     const info = h('p', { class: 'small', style: { margin: '10px 0 0' } }, used.length ? `Xe đang có: ${used.join(' · ')}.` : 'Xe chưa dùng ở đâu (chưa có phiếu cân, dòng dầu, hợp đồng).',
       u.canRename ? ' Sửa được biển số.' : ' Đã có phiếu cân / kỳ tính nên KHÔNG sửa được biển số — nếu nhập nhầm xe: thêm xe đúng rồi Ngừng dùng xe này.');
     const rename = () => D.formModal({ title: `Sửa biển số ${x.plate_no}`, fields: [{ key: 'newPlateNo', label: 'Biển số đúng', required: true, hint: 'vd 92H-00057' }, { key: 'reason', label: 'Lý do', full: true }], values: { reason: 'Nhập nhầm biển số' },
@@ -284,6 +296,8 @@
             columns: [
               { key: 'plate_no', label: 'Biển số' },
               { key: 'owner_unit_code', label: 'Chủ xe' },
+              { key: 'payload_ton', label: 'Trọng tải (tấn)', num: true, render: (r) => (r.payload_ton != null ? D.vnAuto(r.payload_ton) : '—') },
+              { key: 'volume_m3', label: 'Thể tích thùng (m³)', num: true, render: (r) => (r.volume_m3 != null ? D.vnAuto(r.volume_m3) : '—') },
               { key: 'fuel_code', label: 'Mã xe dầu' },
               { key: 'note', label: 'Ghi chú' },
               { key: 'is_active', label: 'Đang dùng', fmt: 'bool' }
@@ -296,7 +310,14 @@
           sfSlot.append(sfMount.el);
         }
         const vehPart = [
-          h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Xe vận chuyển'), D.writer() ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm xe', fields: [{ key: 'plateNo', label: 'Biển số', required: true, hint: 'vd 92H-00057' }, { key: 'ownerUnitCode', label: 'Chủ xe', type: 'select', options: D.unitOptions() }, { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' }], values: { ownerUnitCode: D.state.boot.install.unitCode },
+          h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Xe vận chuyển'), D.writer() ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm xe', fields: [
+            { key: 'plateNo', label: 'Biển số', required: true, hint: 'vd 92H-00057' },
+            { key: 'ownerUnitCode', label: 'Chủ xe', type: 'select', options: D.unitOptions() },
+            { key: 'payloadTon', label: 'Trọng tải xe (tấn)', type: 'number', hint: 'vd 18 tấn' },
+            { key: 'volumeM3', label: 'Thể tích thùng (m³)', type: 'number', hint: 'vd 57.82 m³' },
+            { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' },
+            { key: 'note', label: 'Ghi chú', full: true }
+          ], values: { ownerUnitCode: D.state.boot.install.unitCode },
             submit: async (x) => { reminder(await D.api('vehicles.save', { create: true, record: x })); D.go('vehicles'); } }) }, 'Thêm xe') : null),
           sfSlot,
           tableWrap,
@@ -353,7 +374,10 @@
         fields: [
           { key: 'plateNo', label: 'Biển số', required: true, hint: 'vd 92H-00057' },
           { key: 'ownerUnitCode', label: 'Chủ xe (Đơn vị cha)', type: 'select', options: D.unitOptions(), readonly: true },
-          { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' }
+          { key: 'payloadTon', label: 'Trọng tải xe (tấn)', type: 'number', hint: 'vd 18 tấn' },
+          { key: 'volumeM3', label: 'Thể tích thùng (m³)', type: 'number', hint: 'vd 57.82 m³' },
+          { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' },
+          { key: 'note', label: 'Ghi chú', full: true }
         ],
         values: { ownerUnitCode: unitCode },
         submit: async (x) => {

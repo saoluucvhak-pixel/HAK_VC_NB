@@ -232,21 +232,21 @@
               ),
               h('div', { style: { fontFamily: 'var(--mono)', marginTop: '4px', color: 'var(--brand)' } },
                 isCd
-                  ? 'ĐG ký HĐ = DG_CO_DINH (đ/tấn trọn gói, không tính dầu)'
+                  ? `ĐG ký HĐ = DG_CO_DINH (${r.uom === 'M3' ? 'đ/m³' : 'đ/tấn'} trọn gói, không tính dầu)`
                   : 'ĐG dự kiến (tham khảo) = ROUND( ((DG_CUOC × KL_TB) − (CU_LY × DINH_MUC × DG_DAU)) / KL_TB, −3 )'
               )
             ),
             isCd ? h('div', { class: 'card flush', style: { padding: '14px' } },
-              h('p', {}, 'Đơn giá vận chuyển cố định: ', h('b', { class: 'money', style: { fontSize: '18px' } }, D.vn(cp)), ' đ/tấn'),
-              h('p', { class: 'small muted', style: { margin: 0 } }, 'Tuyến chạy theo đơn giá trọn gói, hằng kỳ không giao nhận dầu và không tính chênh lệch dầu.')
+              h('p', {}, 'Đơn giá vận chuyển cố định: ', h('b', { class: 'money', style: { fontSize: '18px' } }, D.vn(cp)), ` ${r.uom === 'M3' ? 'đ/m³' : 'đ/tấn'}`),
+              h('p', { class: 'small muted', style: { margin: 0 } }, r.uom === 'M3' ? 'Tuyến tính theo m³ (quy đổi từ Thể tích thùng trong Danh sách xe), hằng kỳ không giao nhận dầu và không tính chênh lệch dầu.' : 'Tuyến chạy theo đơn giá trọn gói, hằng kỳ không giao nhận dầu và không tính chênh lệch dầu.')
             ) : h('ol', { class: 'trace' },
-              h('li', {}, h('b', {}, '(1) Đơn giá cước dự kiến (DG_CUOC)'), h('div', { class: 'v' }, `= ${D.vn(r.new_price)} đ/tấn`)),
-              h('li', {}, h('b', {}, '(2) Trọng tải bình quân / chuyến (KL_TB)'), h('div', { class: 'v' }, `= ${D.vn(r.avg_load_ton)} tấn`)),
+              h('li', {}, h('b', {}, '(1) Đơn giá cước dự kiến (DG_CUOC)'), h('div', { class: 'v' }, `= ${D.vn(r.new_price)} ${r.uom === 'M3' ? 'đ/m³' : 'đ/tấn'}`)),
+              h('li', {}, h('b', {}, `(2) ${r.uom === 'M3' ? 'Thể tích bình quân / chuyến' : 'Trọng tải bình quân / chuyến (KL_TB)'}`), h('div', { class: 'v' }, `= ${D.vn(r.uom === 'M3' ? (r.avg_volume_m3 || r.avg_load_ton) : r.avg_load_ton)} ${r.uom === 'M3' ? 'm³' : 'tấn'}`)),
               h('li', {}, h('b', {}, '(3) Cự ly chuyến khứ hồi (CU_LY)'), h('div', { class: 'v' }, `= ${t ? D.vnAuto(t.trip_distance_km) : '—'} km`)),
               h('li', {}, h('b', {}, '(4) Định mức tiêu hao dầu (DINH_MUC)'), h('div', { class: 'v' }, `= ${D.vn(r.fuel_norm_l_per_km, 1)} lít/km`)),
               h('li', {}, h('b', {}, '(5) Đơn giá dầu Diesel chưa VAT (DG_DAU)'), h('div', { class: 'v' }, `= ${D.vn(r.fuel_price_excl_vat)} đ/lít`)),
-              h('li', {}, h('b', {}, '(6) Đơn giá dự kiến theo công thức làm tròn (tham khảo)'), h('div', { class: 'v' }, `= ${D.vn(r.formulaContractPrice || r.contractPrice)} đ/tấn`)),
-              h('li', {}, h('b', {}, '(7) ĐƠN GIÁ KÝ HỢP ĐỒNG CHỐT ÁP DỤNG'), h('div', { class: 'v' }, `= `, h('b', { class: 'money', style: { fontSize: '18px' } }, D.vn(cp)), ' đ/tấn', isManual ? ' (Điền thủ công)' : ' (Tự động theo công thức)'))
+              h('li', {}, h('b', {}, '(6) Đơn giá dự kiến theo công thức làm tròn (tham khảo)'), h('div', { class: 'v' }, `= ${D.vn(r.formulaContractPrice || r.contractPrice)} ${r.uom === 'M3' ? 'đ/m³' : 'đ/tấn'}`)),
+              h('li', {}, h('b', {}, '(7) ĐƠN GIÁ KÝ HỢP ĐỒNG CHỐT ÁP DỤNG'), h('div', { class: 'v' }, `= `, h('b', { class: 'money', style: { fontSize: '18px' } }, D.vn(cp)), ` ${r.uom === 'M3' ? 'đ/m³' : 'đ/tấn'}`, isManual ? ' (Điền thủ công)' : ' (Tự động theo công thức)'))
             )
           )
         });

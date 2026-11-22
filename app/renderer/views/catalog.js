@@ -155,11 +155,11 @@
   };
 
   /** Ô nhập của dòng giá — dùng chung màn Đơn giá và màn Mã đơn giá (một định nghĩa, nhãn thống nhất). */
-  D.priceFormFields = () => [{ key: 'priceMethod', label: 'Phương thức đơn giá', type: 'select', full: true, options: [['THEO_DAU', 'Theo giá dầu — ĐG ký HĐ + chênh lệch dầu thực nhận (cách cũ)'], ['CO_DINH', 'Đơn giá cố định (đ/tấn) — không nhận dầu, không tính chênh lệch dầu']] },
+  D.priceFormFields = () => [{ key: 'priceMethod', label: 'Phương thức đơn giá', type: 'select', full: true, options: [['THEO_DAU', 'Theo giá dầu — ĐG ký HĐ + chênh lệch dầu thực nhận (cách cũ)'], ['CO_DINH', 'Đơn giá cố định (đ/tấn, đ/m³) — không nhận dầu, không tính chênh lệch dầu']] },
         { key: 'effectiveFrom', label: 'Hiệu lực từ ngày', type: 'date', required: true }, { key: 'contractId', label: 'Giá riêng cho hợp đồng', type: 'select', options: [['', '— giá chung —'], ...D.contractOptions()] },
-        { key: 'fixedPrice', label: 'Đơn giá cố định / tấn (chưa VAT)', money: true, hint: 'dùng nguyên số này làm đơn giá vận chuyển mọi kỳ — không làm tròn lại' },
-        { key: 'newPrice', label: 'Đơn giá cước dự kiến / tấn (chưa VAT)', money: true, required: true, hint: 'gồm dầu theo định mức; dùng tính ra ĐG dự kiến tham khảo' },
-        { key: 'contractPrice', label: 'Đơn giá ký hợp đồng (chốt) / tấn', money: true, hint: 'mặc định tự động tính theo công thức làm tròn; nếu không phù hợp thì điền thủ công' },
+        { key: 'fixedPrice', label: 'Đơn giá cố định (chưa VAT) [đ/tấn hoặc đ/m³]', money: true, hint: 'dùng nguyên số này làm đơn giá vận chuyển mọi kỳ — theo ĐVT của tuyến (Tấn hoặc M³)' },
+        { key: 'newPrice', label: 'Đơn giá cước dự kiến (chưa VAT) [đ/tấn hoặc đ/m³]', money: true, required: true, hint: 'gồm dầu theo định mức; dùng tính ra ĐG dự kiến tham khảo' },
+        { key: 'contractPrice', label: 'Đơn giá ký hợp đồng (chốt) [đ/tấn hoặc đ/m³]', money: true, hint: 'mặc định tự động tính theo công thức làm tròn; nếu không phù hợp thì điền thủ công' },
         { key: 'basePriceExclVat', label: 'Đơn giá tham khảo (chưa VAT)', money: true, hint: 'không dùng tính — chỉ để đối chiếu' },
         { key: 'basePriceSource', label: 'Nguồn đơn giá tham khảo', full: true, hint: 'bắt buộc khi có đơn giá tham khảo — vd: File Excel … · bảng … · cột … · ngày …' },
         { key: 'fuelPriceExclVat', label: 'ĐG dầu chưa VAT (danh mục)', money: true, required: true }, { key: 'fuelNormLPerKm', label: 'Định mức dầu (lít/km)', type: 'number', required: true, hint: '0,4 lít/km = 40 lít/100 km' },

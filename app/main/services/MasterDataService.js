@@ -17,7 +17,7 @@ const diffSummary = (before, patch) => Object.keys(patch).map((k) => `${k}: ${be
 
 const UNIT_FIELDS = ['unit_code', 'unit_name', 'short_name', 'unit_type', 'name_aliases', 'tax_code', 'address', 'legal_rep_name', 'legal_rep_salutation', 'legal_rep_title',
   'factory_name', 'email', 'phone', 'bank_name', 'bank_account', 'doc_display_name', 'sign_priority', 'accountant_name', 'fuel_prefix', 'note'];
-const VEH_FIELDS = ['plate_no', 'owner_unit_code', 'fuel_code', 'note'];
+const VEH_FIELDS = ['plate_no', 'owner_unit_code', 'fuel_code', 'note', 'payload_ton', 'volume_m3'];
 const CONTRACT_FIELDS = ['contract_id', 'contract_code', 'contract_no', 'customer_unit_code', 'carrier_unit_code', 'effective_from', 'effective_to', 'report_title', 'service_desc',
   'carrier_print_name', 'customer_print_name', 'sign_place', 'customer_signers_json', 'carrier_signers_json', 'note', 'price_code'];
 
@@ -95,9 +95,16 @@ class MasterDataService {
     if (record.plateNo) record.plateNo = String(record.plateNo).replace(/\s+/g, '').toUpperCase(); // bỏ mọi khoảng trắng (gõ "92h - 00057" vẫn nhận)
     const cfg = Object.fromEntries(this.store.all('CONFIG').map((c) => [c.config_key, c.config_value]));
     const re = new RegExp(cfg.PLATE_REGEX || '^\\d{2}[A-Z]{1,2}-\\d{4,5}$');
-    const rec = { ...record }; if (rec.plateNo) rec.plateKey = plateKey(rec.plateNo);
+    const rec = { ...record };
+    if (rec.plateNo) rec.plateKey = plateKey(rec.plateNo);
+    for (const k of ['payloadTon', 'volumeM3', 'payload_ton', 'volume_m3']) {
+      if (k in rec) {
+        const v = rec[k];
+        rec[k] = (v === '' || v === null || v === undefined) ? null : Number(v);
+      }
+    }
     return this._save('XE', 'plate_no', [...VEH_FIELDS, 'plate_key'], rec, { rowVersion, create, reason, user, label: 'Xe',
-      defaults: { fuel_code: '', note: '' },
+      defaults: { fuel_code: '', note: '', payload_ton: null, volume_m3: null },
       validate: (x) => {
         const bad = [];
         if (!re.test(x.plate_no || '')) bad.push(`Biển số không đúng dạng (vd 92H-00057): ${x.plate_no}`);

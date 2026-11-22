@@ -201,6 +201,16 @@
      "required": false
     },
     {
+     "name": "payload_ton",
+     "type": "NUM",
+     "required": false
+    },
+    {
+     "name": "volume_m3",
+     "type": "NUM",
+     "required": false
+    },
+    {
      "name": "created_at",
      "type": "DATETIME",
      "required": true
@@ -2046,6 +2056,11 @@
      "name": "ton",
      "type": "NUM",
      "required": true
+    },
+    {
+     "name": "uom",
+     "type": "TEXT",
+     "required": false
     },
     {
      "name": "unit_price",
