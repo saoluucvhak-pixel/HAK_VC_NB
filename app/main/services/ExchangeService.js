@@ -188,6 +188,7 @@ class ExchangeService {
         const id = r[pkOf(t)]; const local = s.get(t, id);
         if ((t === 'HOP_DONG' && !party(r)) || (t === 'HOP_DONG_XE' && !party((T.HOP_DONG || []).find((c) => c.contract_id === r.contract_id) || s.get('HOP_DONG', r.contract_id)))) { add(t, id, 'SKIP', r, { note: 'hợp đồng không liên quan đơn vị này' }); continue; }
         if (t === 'PRICE_HISTORY' && r.contract_id && !s.get('HOP_DONG', r.contract_id) && !(T.HOP_DONG || []).some((c) => c.contract_id === r.contract_id && party(c))) { add(t, id, 'SKIP', r, { note: 'giá riêng của hợp đồng không liên quan' }); continue; }
+        if (t === 'MA_DON_GIA' && (r.price_code === 'PT-CD' || r.price_code === 'PT-TD') && local) { add(t, id, 'SAME', r); continue; }
         if (!local) { add(t, id, 'NEW', r); continue; }
         if (sameContent(local, r)) { add(t, id, 'SAME', r); continue; }
         if (t === 'PRICE_HISTORY') {
