@@ -364,6 +364,12 @@ class CatalogService {
     return new AppError('VALIDATION_FAILED', `Mã ${priceCode} là ${PRICE_METHOD_LABEL[method].toLowerCase()} — không thêm dòng ${PRICE_METHOD_LABEL[lineM] ? PRICE_METHOD_LABEL[lineM].toLowerCase() : lineM} (tạo mã đúng hình thức)`);
   }
 
+  /** Số dòng giá / hợp đồng cũ còn chờ chuyển vào PT-TD (để sao lưu an toàn TRƯỚC khi chuyển lần đầu). */
+  legacyMigrationPending() {
+    return { prices: this.store.all('PRICE_HISTORY').filter((p) => (!p.price_code || p.price_code === '') && (!p.contract_id || p.contract_id === '')).length,
+      contracts: this.store.all('HOP_DONG').filter((h) => !h.price_code || h.price_code === '').length };
+  }
+
   /** Nâng cấp một lần khi mở kho: ghi price_method cho mã cũ còn rỗng theo quy tắc suy ra; chuyển dữ liệu cũ vào PT-TD (THEO_DAU). */
   async backfillCodeMethods({ user = { username: 'system' } } = {}) {
     this.ensureDefaultMethods(user);
