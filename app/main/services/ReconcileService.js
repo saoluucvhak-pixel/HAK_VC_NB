@@ -17,6 +17,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { AppError } = require('../../shared/errors');
 const { buildCoverage, ticketUsage, excludedTickets, CLOSED } = require('./periodCoverage');
+const { normTickets, normFuels, extractFromObj, fuelDate } = require('../import/partnerNorm');
 
 const CORE = [['weigh1_time', 'Giờ cân 1'], ['weigh2_date', 'Ngày cân 2'], ['weigh2_time', 'Giờ cân 2'], ['weight1_kg', 'Cân lần 1'], ['weight2_kg', 'Cân lần 2'], ['net_kg', 'KL hàng'], ['route_code', 'Mã tuyến']];
 const STATUS_TEXT = { NHAP: 'nháp', DA_XAC_NHAN: 'đã xác nhận', DA_KHOA: 'đã khóa' };
@@ -106,14 +107,15 @@ class ReconcileService {
   async _theirs(filePath) {
     if (!filePath || !fs.existsSync(filePath)) throw new AppError('VALIDATION_FAILED', 'Chọn file cần đối chiếu');
     const ext = path.extname(filePath).toLowerCase();
+    // MỌI đường đọc (gói .dgvc, .json, file đợt đã nạp) đi qua CÙNG bộ chuẩn hóa — cùng file ra cùng kết quả (dầu lấy receive_date trước)
     if (ext === '.dgvc') {
       const pkg = this.exchange ? this.exchange.read(filePath) : JSON.parse(require('node:zlib').gunzipSync(fs.readFileSync(filePath)));
       const h = pkg.header || {};
-      const list = (pkg.tables.PHIEU_CAN || pkg.tables.tickets || []).filter((t) => !t.is_deleted);
-      const fuelRows = (pkg.tables.GIAO_NHAN_DAU || pkg.tables.fuel || []).filter((f) => !f.is_deleted);
-      if (!list.length && !fuelRows.length) throw new AppError('VALIDATION_FAILED', 'Gói không có phiếu cân hoặc dầu');
+      const ex = extractFromObj(pkg);
+      const tickets = normTickets(ex.tickets); const fuelRows = normFuels(ex.fuelRows);
+      if (!tickets.length && !fuelRows.length) throw new AppError('VALIDATION_FAILED', 'Gói không có phiếu cân hoặc dầu');
       const kind = { DANH_MUC: 'gói Danh mục', PHIEU_CAN: 'gói Phiếu cân', KY_TINH: 'gói Kỳ tính' }[h.packageType] || 'gói';
-      return { fileName: path.basename(filePath), sourceText: `${kind} của ${h.sourceUnitCode || 'đối tác'} (${h.createdBy || ''}, ${String(h.createdAt || '').slice(0, 10)})`, sourceUnit: h.sourceUnitCode || '', tickets: list, fuelRows, unreadable: [] };
+      return { fileName: path.basename(filePath), sourceText: `${kind} của ${h.sourceUnitCode || 'đối tác'} (${h.createdBy || ''}, ${String(h.createdAt || '').slice(0, 10)})`, sourceUnit: h.sourceUnitCode || '', tickets, fuelRows, unreadable: [] };
     }
     if (ext === '.json') {
       const raw = fs.readFileSync(filePath);
@@ -127,62 +129,39 @@ class ReconcileService {
           throw new AppError('VALIDATION_FAILED', `Không đọc được file JSON ${path.basename(filePath)}: ${e.message}`);
         }
       }
-      let list = [];
-      let fuelRows = [];
-      let srcUnit = '';
+      const ex = extractFromObj(data);
       let srcText = `file JSON: ${path.basename(filePath)}`;
-      if (data.tables) {
-        list = (data.tables.PHIEU_CAN || data.tables.tickets || []).filter((t) => !t.is_deleted);
-        fuelRows = (data.tables.GIAO_NHAN_DAU || data.tables.fuel || []).filter((f) => !f.is_deleted);
-        if (data.header) {
-          srcUnit = data.header.sourceUnitCode || '';
-          srcText = `Gói ${data.header.packageType || 'dữ liệu'} của ${srcUnit || 'đối tác'}`;
-        }
-      } else if (Array.isArray(data)) {
-        list = data;
-      } else {
-        list = data.tickets || data.PHIEU_CAN || [];
-        fuelRows = data.fuel || data.fuelRows || data.GIAO_NHAN_DAU || [];
-        srcUnit = data.partnerName || data.sourceUnit || '';
-        if (data.batchName) srcText = `${data.batchName} (${srcUnit || 'Đơn vị thuê'})`;
-      }
-      const normTickets = list.filter((t) => !t.is_deleted).map((t, idx) => ({
-        ticket_no: String(t.ticket_no ?? t.ticketNo ?? `PH-${idx + 1}`).trim(),
-        weigh1_date: String(t.weigh1_date ?? t.date ?? t.weighDate ?? '').slice(0, 10),
-        weigh1_time: String(t.weigh1_time ?? t.time ?? t.weighTime ?? '').slice(0, 8),
-        weigh2_date: String(t.weigh2_date ?? t.weigh2Date ?? '').slice(0, 10),
-        weigh2_time: String(t.weigh2_time ?? t.weigh2Time ?? '').slice(0, 8),
-        plate_no: String(t.plate_no ?? t.plateNo ?? '').trim().toUpperCase(),
-        weight1_kg: t.weight1_kg != null ? num(t.weight1_kg) : null,
-        weight2_kg: t.weight2_kg != null ? num(t.weight2_kg) : null,
-        net_kg: num(t.net_kg ?? t.netKg ?? t.weightKg ?? 0) || 0,
-        route_code: String(t.route_code ?? t.routeCode ?? '').trim(),
-        owner_unit_code: String(t.owner_unit_code ?? t.owner ?? '').trim(),
-        _rowNo: t._rowNo || idx + 1
-      })).filter((t) => t.ticket_no && t.plate_no);
-
-      const normFuel = fuelRows.filter((f) => !f.is_deleted).map((f, idx) => ({
-        receipt_no: String(f.receipt_no ?? f.receiptNo ?? `D-${idx + 1}`).trim(),
-        receipt_date: String(f.receipt_date ?? f.issue_date ?? f.date ?? '').slice(0, 10),
-        plate_no: String(f.plate_no ?? f.plateNo ?? '').trim().toUpperCase(),
-        qty_liter: num(f.qty_liter ?? f.qtyLiter ?? f.liter ?? f.liters ?? 0) || 0,
-        note: String(f.note ?? '').trim()
-      })).filter((f) => f.plate_no);
-
-      return { fileName: path.basename(filePath), sourceText: srcText, sourceUnit: srcUnit, tickets: normTickets, fuelRows: normFuel, unreadable: [] };
+      let srcUnit = ex.partner || '';
+      if (ex.header) {
+        srcUnit = ex.header.sourceUnitCode || '';
+        srcText = `Gói ${ex.header.packageType || 'dữ liệu'} của ${srcUnit || 'đối tác'}`;
+      } else if (data && !Array.isArray(data) && data.batchName) srcText = `${data.batchName} (${srcUnit || 'Đơn vị thuê'})`;
+      return { fileName: path.basename(filePath), sourceText: srcText, sourceUnit: srcUnit, tickets: normTickets(ex.tickets), fuelRows: normFuels(ex.fuelRows), unreadable: [] };
     }
-    if (!['.xlsx', '.xlsm', '.xls'].includes(ext)) throw new AppError('VALIDATION_FAILED', 'Chỉ đối chiếu được file .json, gói .dgvc hoặc file Excel phiếu cân');
-    const r = await this.importService.readTickets({ filePath });
+    if (!['.xlsx', '.xlsm', '.xls'].includes(ext)) throw new AppError('VALIDATION_FAILED', 'Chỉ đối chiếu được file .json, gói .dgvc hoặc file Excel (mẫu phiếu cân / mẫu dầu)');
+    if (!this.importService) throw new AppError('VALIDATION_FAILED', 'ImportService chưa được khởi tạo để đọc Excel');
+    const r = await this.importService.readPartnerExcel({ filePath });
     const ok = (x) => x.record.ticket_no && x.record.weigh1_date && x.record.plate_no && typeof x.record.net_kg === 'number' && x.record.net_kg > 0;
-    return { fileName: r.fileName, sourceText: `file Excel, sheet "${r.sheet}"`, sourceUnit: '', tickets: r.rows.filter(ok).map((x) => ({ ...x.record, _rowNo: x.rowNo })), fuelRows: [],
-      unreadable: r.rows.filter((x) => !ok(x)).map((x) => ({ rowNo: x.rowNo, ticketNo: x.record.ticket_no, note: x.errors.join('; ') })) };
+    const unreadable = []; let tickets = []; let fuelRows = [];
+    const parts = [];
+    if (r.tickets) {
+      tickets = r.tickets.rows.filter(ok).map((x) => ({ ...x.record, _rowNo: x.rowNo }));
+      for (const x of r.tickets.rows.filter((y) => !ok(y))) unreadable.push({ rowNo: x.rowNo, ticketNo: x.record.ticket_no, note: x.errors.join('; ') });
+      parts.push(`phiếu cân (sheet "${r.tickets.sheet}")`);
+    }
+    if (r.fuel) {
+      fuelRows = r.fuel.rows.filter((x) => !x.errors.length).map((x) => ({ ...x.record, _rowNo: x.rowNo }));
+      for (const x of r.fuel.rows.filter((y) => y.errors.length)) unreadable.push({ rowNo: x.rowNo, ticketNo: '', note: `Dầu: ${x.errors.join('; ')}` });
+      parts.push(`dầu (sheet "${r.fuel.sheet}")`);
+    }
+    return { fileName: r.fileName, sourceText: `file Excel ${parts.join(' + ')}`, sourceUnit: '', tickets: normTickets(tickets), fuelRows: normFuels(fuelRows), unreadable };
   }
 
-  async compare({ filePath, batchId, periodId = '', contractId = '', dateFrom = '', dateTo = '', allPlates = false, rentUnitPrice, fuelUnitPrice, deductFuel = true }) {
+  async compare({ filePath, batchId, periodId = '', contractId = '', dateFrom = '', dateTo = '', allPlates = false, rentUnitPrice, fuelUnitPrice, deductFuel }) {
     let resolvedFilePath = filePath;
     let resolvedRentPrice = rentUnitPrice != null ? Number(rentUnitPrice) : 0;
     let resolvedFuelPrice = fuelUnitPrice != null ? Number(fuelUnitPrice) : 0;
-    let resolvedDeductFuel = deductFuel !== false;
+    let resolvedDeductFuel = deductFuel == null ? true : deductFuel !== false; // không gửi → dùng giá trị đã lưu của đợt (nếu có), rồi mới mặc định có trừ dầu
     let batch = null;
 
     if (batchId && this.subcontract) {
@@ -207,7 +186,7 @@ class ReconcileService {
     }
 
     const th = await this._theirs(resolvedFilePath);
-    const fDate = (f) => f.receipt_date || f.receive_date || f.issue_date || f.date || '';
+    const fDate = fuelDate; // CÙNG hàm với đường đợt đã nạp: receive_date ?? receipt_date ?? issue_date ?? date
     const dates = [...th.tickets.map((t) => t.weigh1_date), ...(th.fuelRows || []).map(fDate)].filter(Boolean).sort();
     const from = dateFrom || dates[0] || ''; const to = dateTo || dates[dates.length - 1] || '';
     const contractPlates = contractId ? new Set(this.store.find('HOP_DONG_XE', (v) => v.contract_id === contractId).map((v) => v.plate_no)) : null;

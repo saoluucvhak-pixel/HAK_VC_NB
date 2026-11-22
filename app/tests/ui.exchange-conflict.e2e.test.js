@@ -57,7 +57,7 @@ test('Giao diện HAKQN: gói kỳ cùng kỳ từ máy khác → xung đột c�
     await open(fa);
     await page.getByRole('button', { name: 'Nhập gói' }).last().click();
     await page.locator('.modal').getByRole('button', { name: 'Đồng ý' }).click();
-    await toast(/Đã nhập gói/);
+    await toast(/Đã nhập gói/); await page.getByRole('button', { name: 'Mở đối chiếu' }).waitFor(); // sau khi nhập xong có nút sang Đối chiếu
     await open(fb);
     await page.getByText(/Xung đột \(1\)/).waitFor();
     const row = page.locator('tr', { hasText: 'Đơn giá' }); assert.match(await row.textContent(), /88\.900.*96\.900/);

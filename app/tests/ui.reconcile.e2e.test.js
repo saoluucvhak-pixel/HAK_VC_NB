@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Giao diện — Đối chiếu dữ liệu (bản cài ĐH): chốt kỳ 18–23/09 → xe A gửi về muộn 1 phiếu ngày 20/09 → import thấy cảnh báo "nhập muộn"
- * → menu Đối chiếu dữ liệu có số nhắc, liệt kê "Về muộn", nút mở đúng kỳ → tab Đối chiếu với đơn vị khác: chọn file Excel phiếu cân của xe A.
+ * → menu Đối chiếu dữ liệu có số nhắc, liệt kê "Về muộn", nút mở đúng kỳ → tab Đối chiếu 3 tiêu chí: chọn file Excel phiếu cân của xe A.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -89,8 +89,8 @@ test('Giao diện ĐH: phiếu cân về muộn được phát hiện và đối
 
     // đối chiếu với file của xe A
     await nav('Đối chiếu dữ liệu');
-    await page.getByRole('tab', { name: 'Đối chiếu với đơn vị khác' }).click();
-    await page.getByRole('tab', { name: 'Đối chiếu với đơn vị khác', selected: true }).waitFor();
+    await page.getByRole('tab', { name: 'Đối chiếu 3 tiêu chí' }).click();
+    await page.getByRole('tab', { name: 'Đối chiếu 3 tiêu chí', selected: true }).waitFor();
     const theirs = await ticketFile(path.join(tmp, 'xeA_phieu_can.xlsx'), [
       ['99001', '20/09/2026', '10:00:00', '20/09/2026', '10:20:00', '92H-00192', 14000, 32000, 18000, 'VC.007'],
       ['99009', '20/09/2026', '22:00:00', '20/09/2026', '22:20:00', '92H-00192', 14000, 31000, 17000, 'VC.007'],

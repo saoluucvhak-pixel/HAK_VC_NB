@@ -61,26 +61,29 @@ class ImportTemplates {
   constructor(store) { this.store = store; }
 
   /** Dữ liệu danh mục đưa vào file mẫu. */
-  _catalog(importType, contractId) {
+  _catalog(importType, contractId, partner = false) {
     const s = this.store;
     const unit = s.get('DON_VI', s.unitCode) || {};
     let contract = null; let plates;
     const routes = s.all('TUYEN_VC').filter((r) => r.is_active).sort((a, b) => a.route_code.localeCompare(b.route_code, 'vi', { numeric: true }));
     if (importType === 'GIAO_NHAN_DAU') {
-      contract = s.get('HOP_DONG', contractId);
-      if (!contract) throw new AppError('VALIDATION_FAILED', 'Chọn hợp đồng để tạo file mẫu bảng kê dầu');
-      const ids = new Set(s.find('HOP_DONG_XE', (x) => x.contract_id === contractId && (!x.effective_to || x.effective_to >= new Date().toISOString().slice(0, 10))).map((x) => x.plate_no));
-      plates = s.all('XE').filter((x) => ids.has(x.plate_no));
+      contract = contractId ? s.get('HOP_DONG', contractId) : null;
+      if (!contract && !(partner && !contractId)) throw new AppError('VALIDATION_FAILED', 'Chọn hợp đồng để tạo file mẫu bảng kê dầu');
+      if (contract) {
+        const ids = new Set(s.find('HOP_DONG_XE', (x) => x.contract_id === contractId && (!x.effective_to || x.effective_to >= new Date().toISOString().slice(0, 10))).map((x) => x.plate_no));
+        plates = s.all('XE').filter((x) => ids.has(x.plate_no));
+      } else plates = s.all('XE').filter((x) => x.is_active !== false); // mẫu gửi / nhận của ĐỐI TÁC để đối chiếu: không gắn hợp đồng
     } else plates = s.all('XE').filter((x) => x.is_active !== false);
     plates.sort((a, b) => a.plate_no.localeCompare(b.plate_no));
     const units = s.all('DON_VI').filter((u) => u.is_active).sort((a, b) => (a.sign_priority || 99) - (b.sign_priority || 99));
     return { unit, contract, routes, plates, units };
   }
 
-  async build({ importType, contractId = '', targetPath }) {
+  /** partner=true (chỉ với dầu): mẫu cho file ĐỐI CHIẾU với đối tác — không cần chọn hợp đồng, liệt kê mọi xe đang dùng. */
+  async build({ importType, contractId = '', targetPath, partner = false }) {
     if (!COLS[importType]) throw new AppError('VALIDATION_FAILED', `importType không hợp lệ: ${importType}`);
     if (!targetPath) throw new AppError('VALIDATION_FAILED', 'Chọn nơi lưu file mẫu');
-    const cat = this._catalog(importType, contractId);
+    const cat = this._catalog(importType, contractId, partner);
     const cols = COLS[importType]; const n = cols.length;
     const wb = new ExcelJS.Workbook();
     wb.creator = 'DGVC — Đơn giá vận chuyển dăm'; wb.created = new Date();
@@ -96,7 +99,7 @@ class ImportTemplates {
     ws.getCell('A1').font = { name: FONT, bold: true, size: 14, color: { argb: C.white } }; ws.getCell('A1').fill = fill(C.green);
     ws.getCell('A1').alignment = { vertical: 'middle', indent: 1 }; ws.getRow(1).height = 28;
     const sub = importType === 'GIAO_NHAN_DAU'
-      ? `Hợp đồng ${cat.contract.contract_code} · Bên vận chuyển ${cat.contract.carrier_unit_code} → bên thuê ${cat.contract.customer_unit_code} · ${cat.plates.length} xe`
+      ? (cat.contract ? `Hợp đồng ${cat.contract.contract_code} · Bên vận chuyển ${cat.contract.carrier_unit_code} → bên thuê ${cat.contract.customer_unit_code} · ${cat.plates.length} xe` : `Mẫu bảng kê dầu gửi / nhận với đối tác để đối chiếu · ${cat.plates.length} xe`)
       : `Đơn vị: ${cat.unit.unit_name || cat.unit.unit_code || ''}`;
     ws.getCell('A2').value = `${sub} · Mẫu tạo ngày ${dmy(today)}`;
     ws.getCell('A2').font = { name: FONT, size: 10, color: { argb: C.dark } }; ws.getCell('A2').fill = fill(C.cream); ws.getCell('A2').alignment = { indent: 1 };
@@ -147,7 +150,7 @@ class ImportTemplates {
       'Màn hình xem trước chia OK / Cảnh báo / Lỗi / Trùng. Phiếu đã có (cùng số phiếu, ngày cân 1, biển số) tự bỏ qua — import lại cùng file không nhân đôi.',
       'Tích "Chấp nhận các dòng cảnh báo" nếu đã kiểm tra → Xác nhận import. Dòng lỗi không được nhập — sửa file rồi import lại.',
     ] : [
-      `Nhập bảng kê dầu của hợp đồng ${cat.contract.contract_code} vào sheet ${SHEET[importType]} từ dòng ${FIRST}.`,
+      cat.contract ? `Nhập bảng kê dầu của hợp đồng ${cat.contract.contract_code} vào sheet ${SHEET[importType]} từ dòng ${FIRST}.` : `Nhập bảng kê dầu vào sheet ${SHEET[importType]} từ dòng ${FIRST}. Dùng ở Đối chiếu dữ liệu → Đối chiếu 3 tiêu chí → Chọn file (chỉ cần Ngày nhận dầu, Biển số xe, Số lượng).`,
       'Cột có dấu * là bắt buộc. Đơn giá dầu là giá CHƯA VAT. Cột "Thành tiền (tự tính)" chỉ để đối chiếu.',
       'Lưu file (.xlsx). Trong phần mềm: Giao nhận dầu → chọn đúng hợp đồng → Import từ Excel → chọn file.',
       'Dòng giống hệt nhau (cùng ngày, xe, số lít) bị cảnh báo NGHI TRÙNG. Khi tính giá có nút "Bỏ khỏi kỳ" / "Không trùng".',
