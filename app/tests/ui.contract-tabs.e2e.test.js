@@ -1,6 +1,6 @@
 'use strict';
 /** Rà soát #39 — màn Hợp đồng cha–con: đổi thẻ KHÔNG mất chữ đang gõ; rời màn / chọn hợp đồng khác khi còn thay đổi chưa lưu → hỏi trước; thẻ đi bằng phím mũi tên;
- *  bảng Nguồn giá mặc định chỉ tuyến của hợp đồng (#38). */
+ *  bảng tuyến + đơn giá của hợp đồng (#38). */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -44,16 +44,10 @@ test('Giao diện ĐH: Hợp đồng — giữ chữ khi đổi thẻ, hỏi tr�
     assert.equal(await page.getByRole('tab', { name: 'Xe của hợp đồng' }).getAttribute('aria-controls'), 'ct-panel-vehicles');
     await page.keyboard.press('End'); assert.match(await page.locator('[role=tab][aria-selected=true]').innerText(), /Kỳ tính/);
 
-    // bảng nguồn giá: mặc định chỉ tuyến của hợp đồng, có nút xem cả tuyến khác
-    await page.getByRole('tab', { name: 'Mã đơn giá' }).click();
+    // thẻ "Tuyến và đơn giá vận chuyển": bảng tuyến + đơn giá của hợp đồng, không còn nút "Xem cả N tuyến khác"
+    await page.getByRole('tab', { name: 'Tuyến và đơn giá vận chuyển' }).click();
     await page.locator('#ct-panel-price table tbody tr').first().waitFor();
-    const more = page.getByRole('button', { name: /Xem cả \d+ tuyến khác/ });
-    // 1.9.0: giá chung cũ nằm trong mã mặc định PT-TD → thường mọi tuyến đã thuộc hợp đồng, nút chỉ hiện khi còn tuyến ngoài mã
-    if (await more.count()) {
-      const before = await page.locator('#ct-panel-price table tbody tr').count();
-      await more.click();
-      assert.ok(await page.locator('#ct-panel-price table tbody tr').count() > before, 'xem cả tuyến khác → nhiều dòng hơn');
-    }
+    assert.equal(await page.getByRole('button', { name: /Xem cả \d+ tuyến khác/ }).count(), 0);
 
     // rời màn khi còn thay đổi chưa lưu → hỏi; Hủy = ở lại, chữ còn
     await nav('Danh mục tuyến');

@@ -1,5 +1,5 @@
 'use strict';
-/** Kiểm tra mô hình cha-con: Hợp đồng (cha) -> Mã đơn giá (con của HĐ, cha của đơn giá) -> Tuyến vận chuyển & Đơn giá (con của mã đơn giá) */
+/** Kiểm tra mô hình cha-con: Hợp đồng (cha) -> thẻ Tuyến và đơn giá vận chuyển (một bảng, không gán mã) */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -9,7 +9,7 @@ const { FILE, KETOAN, rid } = require('./install');
 
 const CHROME = process.env.CHROMIUM_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 
-test('Giao diện Hợp đồng cha-con: Hợp đồng -> Mã đơn giá -> Tuyến & Đơn giá', { skip: !fs.existsSync(CHROME) && 'không có Chromium', timeout: 300000 }, async () => {
+test('Giao diện Hợp đồng cha-con: Hợp đồng -> Tuyến và đơn giá vận chuyển', { skip: !fs.existsSync(CHROME) && 'không có Chromium', timeout: 300000 }, async () => {
   const { chromium } = require('playwright-core');
   const srv = await start({ port: 0, quiet: true });
   const browser = await chromium.launch({ executablePath: CHROME });
@@ -38,34 +38,16 @@ test('Giao diện Hợp đồng cha-con: Hợp đồng -> Mã đơn giá -> Tuy�
     const d = page.locator('.ct-detail', { hasText: 'Hợp đồng HAKQN-QS' });
     await d.waitFor();
 
-    // 2. Chuyển sang thẻ Mã đơn giá
-    await d.getByRole('tab', { name: 'Mã đơn giá' }).click();
-
-    // Kiểm tra cấu trúc phân cấp:
-    // Cấp 2: Bảng con Mã đơn giá vận chuyển
-    await page.getByRole('heading', { name: '1. Mã đơn giá vận chuyển (bảng con của hợp đồng)' }).waitFor();
-    await page.getByText(/Hợp đồng vận chuyển là bảng cha liên kết với mã đơn giá con/).waitFor();
-
-    // Cấp 3: Bảng con Tuyến vận chuyển & Đơn giá
-    await page.getByRole('heading', { name: '2. Tuyến vận chuyển & Đơn giá (bảng con của mã đơn giá)' }).waitFor();
-    await page.getByText(/Tuyến vận chuyển trong hợp đồng được lấy từ "mã đơn giá" cha của đơn giá/).waitFor();
-
-    // Kiểm tra các cột trong bảng: Mã tuyến, Tên tuyến, Cự ly (km), Có phiếu cân, Đơn giá, Nguồn giá, Hình thức
-    const table = page.locator('#ct-panel-price table');
+    // 2. Chuyển sang thẻ "Tuyến và đơn giá vận chuyển" (một bảng, không còn khái niệm gán mã)
+    await d.getByRole('tab', { name: 'Tuyến và đơn giá vận chuyển' }).click();
+    await page.getByRole('heading', { name: 'Tuyến và đơn giá đang áp dụng của hợp đồng' }).waitFor();
+    const table = page.locator('#ct-panel-price table').first();
     await table.waitFor();
-    await table.locator('th', { hasText: 'Mã tuyến' }).waitFor();
-    await table.locator('th', { hasText: 'Tên tuyến' }).waitFor();
-    await table.locator('th', { hasText: 'Cự ly (km)' }).waitFor();
-    await table.locator('th', { hasText: 'Có phiếu cân' }).waitFor();
-    await table.locator('th', { hasText: 'Đơn giá' }).waitFor();
-    await table.locator('th', { hasText: 'Nguồn giá' }).waitFor();
-    await table.locator('th', { hasText: 'Hình thức' }).waitFor();
+    for (const t of ['Tuyến', 'Tên tuyến', 'Cự ly (km)', 'Phương thức', 'Đơn giá', 'ĐVT', 'Hiệu lực từ', 'Nguồn']) await table.locator('th', { hasText: t }).first().waitFor();
+    await page.getByRole('button', { name: 'Thêm đơn giá' }).waitFor();
+    for (const t of [/Gán mã/, /Đổi mã/, /Bỏ gán/, /Tạo mã đơn giá/, /Chọn đơn giá có sẵn/, /Đổi ở DM Đơn giá/]) assert.equal(await page.getByRole('button', { name: t }).count(), 0, `không còn nút ${t}`);
 
-    // Nút thao tác ở Mã đơn giá: Gán mã đơn giá…, Đổi ở DM Đơn giá →
-    await page.getByRole('button', { name: /Gán mã đơn giá…|Đổi mã cho HĐ…/ }).waitFor();
-    await page.getByRole('button', { name: /Đổi ở (DM Đơn giá|Mã đơn giá) →/ }).waitFor();
-
-    console.log('TEST PASSED: Mô hình cha-con Hợp đồng -> Mã đơn giá -> Tuyến & Đơn giá hoạt động hoàn hảo!');
+    console.log('TEST PASSED: Hợp đồng -> Tuyến và đơn giá vận chuyển');
   } finally {
     await browser.close();
     await srv.close();
