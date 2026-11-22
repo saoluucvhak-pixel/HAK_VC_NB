@@ -5570,12 +5570,6 @@
    "code": "INTERNAL",
    "level": 500,
    "meaning": "Lỗi chương trình — đã ghi logs/, trả requestId để tra"
-  },
-  {
-   "code": "W_OVERLOAD",
-   "level": "WARNING",
-   "message": "Phiếu cân có khối lượng vượt trọng tải đăng kiểm của xe",
-   "usedIn": "periods"
   }
  ],
  "issues": [
@@ -6082,6 +6076,12 @@
    "level": "ERROR",
    "message": "Không sửa số phiếu / ngày cân 1 / biển số — xóa mềm rồi nhập lại",
    "usedIn": "tickets.update"
+  },
+  {
+   "code": "W_OVERLOAD",
+   "level": "WARNING",
+   "message": "Phiếu cân có khối lượng vượt trọng tải đăng kiểm của xe",
+   "usedIn": "periods"
   }
  ]
 }

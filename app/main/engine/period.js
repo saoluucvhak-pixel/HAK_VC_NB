@@ -27,7 +27,9 @@ const effectiveAt = (row, d) => row.effective_from <= d && (!row.effective_to ||
 function selectPriceVersion(prices, routeCode, contractId, dateFrom, dateTo, cfg, priceCode = '') {
   const usable = prices.filter((p) => p.route_code === routeCode && p.status !== 'DRAFT');
   const pick = (d) => {
-    const coded = priceCode ? usable.filter((p) => p.price_code === priceCode && effectiveAt(p, d)) : [];
+    const isDefaultTd = priceCode === 'PT-TD';
+    const isDefaultCd = priceCode === 'PT-CD';
+    const coded = priceCode ? usable.filter((p) => (p.price_code === priceCode || (isDefaultTd && (!p.price_code || p.price_code === '') && !p.contract_id && p.price_method !== 'CO_DINH') || (isDefaultCd && (!p.price_code || p.price_code === '') && !p.contract_id && p.price_method === 'CO_DINH')) && effectiveAt(p, d)) : [];
     const own = usable.filter((p) => !p.price_code && p.contract_id === contractId && effectiveAt(p, d));
     const gen = usable.filter((p) => !p.price_code && !p.contract_id && effectiveAt(p, d));
     const list = coded.length ? coded : own.length ? own : gen;

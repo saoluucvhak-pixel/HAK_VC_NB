@@ -9,6 +9,9 @@ on:
         description: 'Tạo GitHub Release (tag v<phiên bản>) kèm bộ cài'
         type: boolean
         default: false
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -96,7 +99,7 @@ jobs:
             app/dist/DGVC-Setup-${{ env.VERSION }}.exe
             app/dist/DGVC-Setup-${{ env.VERSION }}.exe.sha256
       - name: Tạo GitHub Release
-        if: ${{ inputs.publish && success() }}
+        if: ${{ (inputs.publish || startsWith(github.ref, 'refs/tags/v')) && success() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

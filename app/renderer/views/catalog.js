@@ -169,7 +169,7 @@
   D.views.prices = {
     async render(p) {
       const pcs = await D.api('pricecodes.list', {}, { quiet: true }).catch(() => ({ items: [] }));
-      let activeCode = p.priceCode || '';
+      let activeCode = p.priceCode !== undefined ? p.priceCode : ((pcs.items || []).some((c) => c.price_code === 'PT-TD') ? 'PT-TD' : '');
       const selCode = h('select', { 'aria-label': 'Mã đơn giá (Bảng cha)' },
         h('option', { value: '', selected: !activeCode }, '— Giá chung / Giá riêng HĐ (Cách cũ) —'),
         (pcs.items || []).map((c) => h('option', { value: c.price_code, selected: c.price_code === activeCode }, `${c.price_code} · ${c.price_name} (${c.priceMethodLabel} · ${c.unit_code})`))

@@ -9,9 +9,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { loadDataFolder } = require('../tests/helpers');
 
-const TABLES = ['DON_VI', 'XE', 'TUYEN_VC', 'PRICE_HISTORY', 'HOP_DONG', 'HOP_DONG_XE', 'CONFIG', 'USERS'];
+const TABLES = ['DON_VI', 'XE', 'TUYEN_VC', 'PRICE_HISTORY', 'HOP_DONG', 'HOP_DONG_XE', 'CONFIG', 'USERS', 'MA_DON_GIA'];
 const all = {}; for (const t of TABLES) all[t] = new Map();
-const pk = { DON_VI: 'unit_code', XE: 'plate_no', TUYEN_VC: 'route_code', PRICE_HISTORY: 'price_id', HOP_DONG: 'contract_id', HOP_DONG_XE: 'id', CONFIG: 'config_key', USERS: 'username' };
+const pk = { DON_VI: 'unit_code', XE: 'plate_no', TUYEN_VC: 'route_code', PRICE_HISTORY: 'price_id', HOP_DONG: 'contract_id', HOP_DONG_XE: 'id', CONFIG: 'config_key', USERS: 'username', MA_DON_GIA: 'price_code' };
 for (const inst of ['HAKQN', 'DH', 'HAK']) {
   const { rows } = loadDataFolder(inst);
   for (const t of TABLES) for (const r of rows[t] || []) if (!all[t].has(r[pk[t]])) all[t].set(r[pk[t]], r);

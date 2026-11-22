@@ -422,9 +422,10 @@
         const d = await D.api('pricecodes.list');
         tree.replaceChildren();
 
-        // Tự động chọn mã đầu tiên nếu chưa chọn
+        // Tự động chọn mã PT-TD hoặc mã đầu tiên nếu chưa chọn
         if (!sel && d.items && d.items.length) {
-          sel = d.items[0].price_code;
+          const td = d.items.find((x) => x.price_code === 'PT-TD');
+          sel = td ? td.price_code : d.items[0].price_code;
         }
 
         const renderCodeItem = (c) => h('button', {

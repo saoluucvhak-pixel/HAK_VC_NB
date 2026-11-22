@@ -165,8 +165,15 @@ class CatalogService {
 
   listPrices({ routeCode = '', contractId, status = '', priceCode = '' } = {}) {
     const cfg = this._cfg();
-    // dòng giá thuộc MÃ ĐƠN GIÁ chỉ hiện khi hỏi đúng mã đó — danh sách giá chung / giá riêng hợp đồng giữ nguyên như cũ
-    const items = this.store.find('PRICE_HISTORY', (p) => (p.price_code || '') === (priceCode || '') && (!routeCode || p.route_code === routeCode) && (contractId === undefined || (p.contract_id || '') === contractId) && (!status || p.status === status))
+    const isDefaultTd = priceCode === 'PT-TD';
+    const isDefaultCd = priceCode === 'PT-CD';
+    // dòng giá thuộc MÃ ĐƠN GIÁ chỉ hiện khi hỏi đúng mã đó — dòng giá cũ (chưa gán mã) tự động vào mã PT-TD hoặc PT-CD theo hình thức
+    const items = this.store.find('PRICE_HISTORY', (p) => {
+      const matchCode = priceCode
+        ? (p.price_code === priceCode || (isDefaultTd && (!p.price_code || p.price_code === '') && !p.contract_id && p.price_method !== 'CO_DINH') || (isDefaultCd && (!p.price_code || p.price_code === '') && !p.contract_id && p.price_method === 'CO_DINH'))
+        : (!p.price_code || p.price_code === '');
+      return matchCode && (!routeCode || p.route_code === routeCode) && (contractId === undefined || (p.contract_id || '') === contractId) && (!status || p.status === status);
+    })
       .sort((a, b) => a.route_code.localeCompare(b.route_code, 'vi', { numeric: true }) || (a.contract_id || '').localeCompare(b.contract_id || '') || a.version_no - b.version_no)
       .map((p) => { const r = this.store.get('TUYEN_VC', p.route_code); return { ...p, contractPrice: r ? E.computeContractPrice(r, p, cfg).contractPrice : null }; });
     return { items, total: items.length };
@@ -315,12 +322,12 @@ class CatalogService {
     const inScope = (v, d) => v.effective_from <= d && (!v.effective_to || v.effective_to >= d);
     const used = new Set();
     if (byPlate.size) for (const t of this.store.all('PHIEU_CAN')) { const vs = !t.is_deleted && byPlate.get(t.plate_no); if (vs && vs.some((v) => inScope(v, t.weigh1_date))) used.add(t.route_code); }
-    const priced = new Set(prices.filter((p) => (code && p.price_code === code) || (!p.price_code && p.contract_id === contractId)).map((p) => p.route_code));
+    const priced = new Set(prices.filter((p) => (code && (p.price_code === code || (code === 'PT-TD' && !p.price_code && !p.contract_id && p.price_method !== 'CO_DINH'))) || (!p.price_code && p.contract_id === contractId)).map((p) => p.route_code));
     const items = [];
     for (const r of this.store.all('TUYEN_VC').filter((x) => x.is_active).sort((a, b) => a.route_code.localeCompare(b.route_code, 'vi', { numeric: true }))) {
       const sel = E.selectPriceVersion(prices, r.route_code, contractId, today, today, cfg, code);
       if (!sel.price) continue; // tuyến chưa có giá hiệu lực: không có nguồn để nêu
-      const p = sel.price; const source = code && p.price_code === code ? 'CODE' : p.contract_id ? 'CONTRACT' : 'GENERAL';
+      const p = sel.price; const source = code && (p.price_code === code || (code === 'PT-TD' && !p.price_code && !p.contract_id)) ? 'CODE' : p.contract_id ? 'CONTRACT' : 'GENERAL';
       const inUse = used.has(r.route_code);
       let contractPrice = p.fixed_price;
       if (p.price_method !== 'CO_DINH') {
@@ -331,7 +338,7 @@ class CatalogService {
           contractPrice = p.new_price;
         }
       }
-      items.push({ routeCode: r.route_code, routeName: r.route_name, source, priceCode: p.price_code || '', priceMethod: lineMethod(p), priceId: p.price_id, inUse, inContract: inUse || priced.has(r.route_code), contractPrice });
+      items.push({ routeCode: r.route_code, routeName: r.route_name, source, priceCode: p.price_code || (source === 'CODE' ? code : ''), priceMethod: lineMethod(p), priceId: p.price_id, inUse, inContract: inUse || priced.has(r.route_code), contractPrice });
     }
     items.sort((a, b) => Number(b.inContract) - Number(a.inContract)); // tuyến của hợp đồng lên đầu (sort ổn định, giữ thứ tự mã tuyến)
     const mine = items.filter((x) => x.inContract);
@@ -357,12 +364,39 @@ class CatalogService {
     return new AppError('VALIDATION_FAILED', `Mã ${priceCode} là ${PRICE_METHOD_LABEL[method].toLowerCase()} — không thêm dòng ${PRICE_METHOD_LABEL[lineM] ? PRICE_METHOD_LABEL[lineM].toLowerCase() : lineM} (tạo mã đúng hình thức)`);
   }
 
-  /** Nâng cấp một lần khi mở kho: ghi price_method cho mã cũ còn rỗng theo quy tắc suy ra; mã HON_HOP KHÔNG ghi (để người dùng tách). */
+  /** Nâng cấp một lần khi mở kho: ghi price_method cho mã cũ còn rỗng theo quy tắc suy ra; chuyển dữ liệu cũ vào PT-TD (THEO_DAU). */
   async backfillCodeMethods({ user = { username: 'system' } } = {}) {
+    this.ensureDefaultMethods(user);
+
+    // Chuyển toàn bộ dữ liệu đơn giá cũ (chưa gán mã, không gắn riêng hợp đồng) vào Đơn giá hình thức điều chỉnh dầu (PT-TD)
+    const legacyPrices = this.store.all('PRICE_HISTORY').filter((p) => (!p.price_code || p.price_code === '') && (!p.contract_id || p.contract_id === ''));
+    if (legacyPrices.length) {
+      await this.store.transaction((tx) => {
+        for (const p of legacyPrices) {
+          tx.update('PRICE_HISTORY', p.price_id, {
+            price_code: 'PT-TD',
+            price_method: p.price_method || 'THEO_DAU'
+          });
+          tx.audit('PRICE_LEGACY_MIGRATION', 'PRICE_HISTORY', p.price_id, { price_code: p.price_code, price_method: p.price_method }, { price_code: 'PT-TD', price_method: p.price_method || 'THEO_DAU' }, { reason: 'Chuyển dữ liệu cũ vào Đơn giá hình thức điều chỉnh dầu (PT-TD)' });
+        }
+      }, { user: user.username });
+    }
+
+    // Gán mã đơn giá điều chỉnh dầu PT-TD cho hợp đồng cũ chưa có mã
+    const legacyContracts = this.store.all('HOP_DONG').filter((h) => !h.price_code || h.price_code === '');
+    if (legacyContracts.length) {
+      await this.store.transaction((tx) => {
+        for (const h of legacyContracts) {
+          tx.update('HOP_DONG', h.contract_id, { price_code: 'PT-TD' });
+          tx.audit('CONTRACT_PRICE_CODE_MIGRATION', 'HOP_DONG', h.contract_id, { price_code: h.price_code }, { price_code: 'PT-TD' }, { reason: 'Gán mã PT-TD cho hợp đồng cũ' });
+        }
+      }, { user: user.username });
+    }
+
     const todo = this.store.all('MA_DON_GIA').filter((c) => !c.price_method).map((c) => ({ c, m: this._codeMethod(c) }));
     const mixed = todo.filter((x) => x.m === 'HON_HOP').map((x) => x.c.price_code); const set = todo.filter((x) => x.m !== 'HON_HOP');
     if (set.length) await this.store.transaction((tx) => { for (const { c, m } of set) { tx.update('MA_DON_GIA', c.price_code, { price_method: m }); tx.audit('PRICE_CODE_METHOD_BACKFILL', 'MA_DON_GIA', c.price_code, { price_method: '' }, { price_method: m }, { reason: 'Nâng cấp 1.7.0: suy hình thức của mã cũ từ các dòng giá' }); } }, { user: user.username });
-    return { updated: set.map((x) => x.c.price_code), mixed };
+    return { updated: set.map((x) => x.c.price_code), mixed, legacyPrices: legacyPrices.length, legacyContracts: legacyContracts.length };
   }
 
   ensureDefaultMethods(user = { username: 'system' }) {
@@ -402,7 +436,7 @@ class CatalogService {
   }
 
   /** Cây cha–con: đơn vị → các mã đơn giá. Đơn vị không có mã vẫn hiện (để tạo mã đầu tiên). */
-  listPriceCodes({ unitCode = '', includeClosed = true, ensureDefaults = false } = {}) {
+  listPriceCodes({ unitCode = '', includeClosed = true, ensureDefaults = true } = {}) {
     if (ensureDefaults) this.ensureDefaultMethods();
     const codes = this.store.all('MA_DON_GIA').filter((c) => (!unitCode || c.unit_code === unitCode) && (includeClosed || c.status === 'ACTIVE')).map((c) => this._codeView(c))
       .sort((a, b) => a.price_code.localeCompare(b.price_code, 'vi', { numeric: true }));
