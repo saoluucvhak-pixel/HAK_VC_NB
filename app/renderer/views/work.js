@@ -190,7 +190,7 @@
         ),
         h('div', { style: { marginTop: '4px', fontSize: '13.5px' } },
           '= ', h('b', {}, D.vn(r.contractPrice)), ' + ', h('b', {}, D.vn(r.fuelAdjustPrice, 2)), ' = ',
-          h('b', { class: 'money', style: { fontSize: '16px' } }, D.vn(r.transportPrice)), ' đ/tấn'
+          h('b', { class: 'money', style: { fontSize: '16px' } }, D.vn(r.transportPrice)), ` ${r.uom === 'M3' ? 'đ/m³' : 'đ/tấn'}`
         )
       )
     ] : [renderList(steps)];

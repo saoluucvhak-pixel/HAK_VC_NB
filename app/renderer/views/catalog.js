@@ -528,6 +528,8 @@
                     { key: 'pick', label: '', render: (r) => h('input', { type: 'checkbox', checked: picked.has(r.plate_no), onchange: (e) => (e.target.checked ? picked.add(r.plate_no) : picked.delete(r.plate_no)) }) },
                     { key: 'plate_no', label: 'Biển số', render: (r) => h('b', { class: 'mono' }, r.plate_no) },
                     { key: 'owner_unit_code', label: 'Chủ xe (Đơn vị)' },
+                    { key: 'payload_ton', label: 'Trọng tải (tấn)', num: true, render: (r) => (r.payload_ton != null ? D.vnAuto(r.payload_ton) : '—') },
+                    { key: 'volume_m3', label: 'Thể tích (m³)', num: true, render: (r) => (r.volume_m3 != null ? D.vnAuto(r.volume_m3) : '—') },
                     { key: 'kind', label: 'Phân loại', render: (r) => (r.owner_unit_code === me ? D.tag('ok', 'Xe của công ty') : D.tag('info', `Xe thuê đối tác (${r.owner_unit_code})`)) },
                     { key: 'fuel_code', label: 'Mã xe dầu' }
                   ] }));

@@ -405,6 +405,8 @@
             empty: `Đơn vị ${unitCode} chưa có xe nào trong danh mục`,
             columns: [
               { key: 'plate_no', label: 'Biển số' },
+              { key: 'payload_ton', label: 'Trọng tải (tấn)', num: true, render: (r) => (r.payload_ton != null ? D.vnAuto(r.payload_ton) : '—') },
+              { key: 'volume_m3', label: 'Thể tích thùng (m³)', num: true, render: (r) => (r.volume_m3 != null ? D.vnAuto(r.volume_m3) : '—') },
               { key: 'fuel_code', label: 'Mã xe dầu' },
               { key: 'note', label: 'Ghi chú' },
               { key: 'is_active', label: 'Đang dùng', fmt: 'bool' }
