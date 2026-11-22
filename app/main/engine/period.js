@@ -32,7 +32,8 @@ function selectPriceVersion(prices, routeCode, contractId, dateFrom, dateTo, cfg
     const coded = priceCode ? usable.filter((p) => (p.price_code === priceCode || (isDefaultTd && (!p.price_code || p.price_code === '') && !p.contract_id && p.price_method !== 'CO_DINH') || (isDefaultCd && (!p.price_code || p.price_code === '') && !p.contract_id && p.price_method === 'CO_DINH')) && effectiveAt(p, d)) : [];
     const own = usable.filter((p) => !p.price_code && p.contract_id === contractId && effectiveAt(p, d));
     const gen = usable.filter((p) => !p.price_code && !p.contract_id && effectiveAt(p, d));
-    const list = coded.length ? coded : own.length ? own : gen;
+    // Mã MẶC ĐỊNH (PT-TD/PT-CD) chỉ là cách gọi tên của giá chung cũ → giữ thứ tự 1.6.0: giá RIÊNG hợp đồng > giá chung. Mã do người dùng tạo vẫn: dòng của mã > giá riêng > giá chung.
+    const list = (isDefaultTd || isDefaultCd) ? (own.length ? own : coded.length ? coded : gen) : (coded.length ? coded : own.length ? own : gen);
     return list.sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0] || null;
   };
   const date = cfg.priceVersionDate === 'PERIOD_START' ? dateFrom : dateTo;
@@ -331,9 +332,10 @@ function buildConfirmation(results, tickets, units, cfg, vehicles = [], routes =
     if (!priceOf.has(t.route_code)) continue;
     const k = cfg.bkvcGroupBy === 'PLATE' ? t.plate_no : `${t.plate_no}|${t.route_code}`;
     const route = routeByCode.get(t.route_code);
-    const isM3 = route && route.uom === 'M3';
     const veh = vehMap.get(t.plate_no);
     const rRes = resultOf.get(t.route_code);
+    // Tính theo m³ CHỈ khi tuyến ĐVT m³ VÀ đơn giá là CỐ ĐỊNH (đ/m³). Đơn giá THEO GIÁ DẦU luôn là đ/tấn (chia KL_TB kể cả tuyến M3 — như Excel/1.6.0) → tính theo tấn.
+    const isM3 = !!(route && route.uom === 'M3' && rRes && rRes.priceMethod === 'CO_DINH');
     if (!by.has(k)) by.set(k, { plateNo: t.plate_no, routeCode: t.route_code, ownerUnitCode: t.owner_unit_code, tripCount: 0, kg: 0, m3: 0, uom: isM3 ? 'M3' : 'TAN' });
     const b = by.get(k);
     b.tripCount += 1;

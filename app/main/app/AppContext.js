@@ -213,6 +213,8 @@ class AppContext {
         try { await this.svc.backup.backup({ kind: 'safety', note: 'truoc-doi-dinh-dang-1.2.5', user: { username: 'system' } }); this.compacted = await store.compact(); }
         catch (e) { this.compactError = e.message; }
       }
+      // chuyển dữ liệu giá cũ vào PT-TD: kho ĐÃ CÓ kỳ tính → sao lưu an toàn TRƯỚC khi chuyển lần đầu (kỳ đã chốt không đổi số, nhưng luôn có đường lui)
+      try { const pend = this.svc.catalog.legacyMigrationPending(); if ((pend.prices || pend.contracts) && store.all('KY_TINH').length) await this.svc.backup.backup({ kind: 'safety', note: 'truoc-chuyen-pt-td', user: { username: 'system' } }); } catch { /* không có sao lưu vẫn chuyển được, nhưng không chặn mở kho */ }
       try { this.codeMethodBackfill = await this.svc.catalog.backfillCodeMethods({ user: { username: 'system' } }); } catch { /* không chặn mở kho */ } // 1.7.0: suy hình thức cho mã đơn giá cũ
       return this.migrateConfig();
     })().catch(() => null);
