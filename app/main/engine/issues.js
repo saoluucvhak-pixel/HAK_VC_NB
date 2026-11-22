@@ -51,6 +51,7 @@ const ISSUE = {
   W_TICKET_RESTORE:       ['WARNING', 'Phiếu {ticketNo} đã bị xóa trước đây — import lại sẽ KHÔI PHỤC phiếu{changes}'],
   W_TICKET_DESCRIPTIVE_DIFF: ['INFO', 'Dòng {rowNo}: phiếu {ticketNo} đã có — khác ở cột mô tả ({fields}); giữ bản đang có'],
   W_KG_MISMATCH:          ['WARNING', 'Phiếu {ticketNo}: KL hàng {netKg} ≠ |Cân lần 2 − Cân lần 1| ({diffKg})'],
+  W_OVERLOAD:             ['WARNING', 'Xe {plateNo}: Phiếu cân {ticketNo} có khối lượng {netKg} kg vượt trọng tải đăng kiểm ({payloadTon} tấn = {payloadKg} kg, vượt +{diffKg} kg)'],
   W_OVERNIGHT:            ['WARNING', '{count} phiếu cân qua đêm (ngày cân 2 ≠ ngày cân 1) — kỳ tính theo Ngày cân 1'],
   W_BEFORE_PERIOD:        ['WARNING', 'Dòng dầu {receiptId} nhận ngày {date}, trước Từ ngày của kỳ (vẫn tính — "tính hết bảng kê")'],
   W_AFTER_PERIOD:         ['WARNING', 'Dòng dầu {receiptId} nhận ngày {date}, sau Đến ngày của kỳ (vẫn tính — "tính hết bảng kê")'],

@@ -116,6 +116,181 @@ class MasterDataService {
   }
   setVehicleActive({ plateNo, active, rowVersion, reason, user }) { return this._setActive('XE', plateNo, active, 'Xe', { rowVersion, reason, user }); }
 
+  /**
+   * Xem trước nạp danh mục xe từ file Excel (.xlsx / .xlsm / .csv).
+   * Tự động nhận diện cột: Biển số, Trọng tải (tấn), Thể tích thùng (m³), Chủ xe, Mã xe dầu, Ghi chú.
+   */
+  async previewImportVehicles({ filePath, sheetName }) {
+    if (!filePath) throw new AppError('VALIDATION_FAILED', 'Thiếu đường dẫn file Excel');
+    const { openWorkbook } = require('../import/excelReader');
+    const wb = await openWorkbook(filePath);
+    const sheet = sheetName || wb.sheets[0].name;
+    const all = wb.rows(sheet);
+    if (!all || !all.length) throw new AppError('VALIDATION_FAILED', `Sheet "${sheet}" không có dữ liệu`);
+
+    const norm = (s) => (s == null ? '' : String(s).toLowerCase().replace(/[đĐ]/g, 'd').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, ''));
+
+    let hIdx = -1;
+    let colMap = {};
+    for (let i = 0; i < Math.min(all.length, 15); i++) {
+      const row = all[i] || [];
+      const m = {};
+      row.forEach((cell, colIdx) => {
+        const n = norm(cell);
+        if (m.plate_no === undefined && (n.includes('bienso') || n === 'bks' || n.includes('bksxe') || n === 'plate' || n === 'plateno' || n.includes('soxe'))) m.plate_no = colIdx;
+        else if (m.payload_ton === undefined && (n.includes('trongtai') || n.includes('taitrong') || n === 'payload' || n === 'payloadton' || n === 'tan')) m.payload_ton = colIdx;
+        else if (m.volume_m3 === undefined && (n.includes('thetich') || n === 'm3' || n === 'volumem3' || n === 'volume')) m.volume_m3 = colIdx;
+        else if (m.owner_unit_code === undefined && (n.includes('chuxe') || n.includes('donvi') || n.includes('congty') || n === 'owner' || n === 'ownerunitcode')) m.owner_unit_code = colIdx;
+        else if (m.fuel_code === undefined && (n.includes('maxedau') || n.includes('madau') || n === 'fuelcode')) m.fuel_code = colIdx;
+        else if (m.note === undefined && (n.includes('ghichu') || n === 'note')) m.note = colIdx;
+      });
+      if (m.plate_no !== undefined) {
+        hIdx = i;
+        colMap = m;
+        break;
+      }
+    }
+
+    if (hIdx === -1) {
+      throw new AppError('VALIDATION_FAILED', `Không tìm thấy cột Biển số (hoặc BKS) trong file Excel "${wb.fileName}"`);
+    }
+
+    const cfg = Object.fromEntries(this.store.all('CONFIG').map((c) => [c.config_key, c.config_value]));
+    const re = new RegExp(cfg.PLATE_REGEX || '^\\d{2}[A-Z]{1,2}-\\d{4,5}$');
+    const units = this.store.all('DON_VI');
+    const unitCodes = new Set(units.map((u) => u.unit_code));
+    const defaultOwner = this.store.unitCode || (units[0] && units[0].unit_code) || 'DH';
+
+    const parseNum = (v) => {
+      if (v === null || v === undefined || v === '') return null;
+      if (typeof v === 'number') return Number.isNaN(v) ? null : v;
+      const s = String(v).trim().replace(/\s+/g, '').replace(',', '.');
+      const n = parseFloat(s);
+      return Number.isNaN(n) ? null : n;
+    };
+
+    const rows = [];
+    let insertCount = 0;
+    let updateCount = 0;
+    let errorCount = 0;
+
+    for (let r = hIdx + 1; r < all.length; r++) {
+      const line = all[r] || [];
+      if (line.every((c) => c === null || c === undefined || String(c).trim() === '')) continue;
+
+      const rawPlate = line[colMap.plate_no];
+      const cleanPlate = rawPlate != null ? String(rawPlate).replace(/\s+/g, '').toUpperCase() : '';
+      const payloadTon = colMap.payload_ton !== undefined ? parseNum(line[colMap.payload_ton]) : null;
+      const volumeM3 = colMap.volume_m3 !== undefined ? parseNum(line[colMap.volume_m3]) : null;
+      let rawOwner = colMap.owner_unit_code !== undefined && line[colMap.owner_unit_code] != null ? String(line[colMap.owner_unit_code]).trim().toUpperCase() : '';
+      const fuelCode = colMap.fuel_code !== undefined && line[colMap.fuel_code] != null ? String(line[colMap.fuel_code]).trim() : '';
+      const note = colMap.note !== undefined && line[colMap.note] != null ? String(line[colMap.note]).trim() : '';
+
+      let ownerUnitCode = rawOwner;
+      if (!ownerUnitCode) {
+        ownerUnitCode = defaultOwner;
+      } else if (!unitCodes.has(ownerUnitCode)) {
+        const nOwner = norm(rawOwner);
+        const matched = units.find((u) => norm(u.unit_code) === nOwner || norm(u.short_name) === nOwner)
+          || (nOwner.length >= 3 ? units.find((u) => norm(u.unit_name).includes(nOwner)) : null);
+        if (matched) ownerUnitCode = matched.unit_code;
+      }
+
+      const errors = [];
+      if (!cleanPlate) errors.push('Thiếu biển số xe');
+      else if (!re.test(cleanPlate)) errors.push(`Biển số không đúng định dạng: ${cleanPlate}`);
+
+      if (ownerUnitCode && !unitCodes.has(ownerUnitCode)) {
+        errors.push(`Chủ xe "${rawOwner}" không có trong danh mục đơn vị`);
+      }
+
+      if (payloadTon !== null && (payloadTon <= 0 || payloadTon > 100)) {
+        errors.push(`Trọng tải ${payloadTon} tấn không hợp lệ (phải từ 0 đến 100)`);
+      }
+      if (volumeM3 !== null && (volumeM3 <= 0 || volumeM3 > 200)) {
+        errors.push(`Thể tích thùng ${volumeM3} m³ không hợp lệ (phải từ 0 đến 200)`);
+      }
+
+      const existing = cleanPlate ? this.store.get('XE', cleanPlate) : null;
+      const action = errors.length ? 'ERROR' : existing ? 'UPDATE' : 'INSERT';
+
+      if (action === 'INSERT') insertCount++;
+      else if (action === 'UPDATE') updateCount++;
+      else errorCount++;
+
+      rows.push({
+        rowNo: r + 1,
+        plateNo: cleanPlate,
+        payloadTon,
+        volumeM3,
+        ownerUnitCode,
+        fuelCode: fuelCode || (existing ? existing.fuel_code : ''),
+        note: note || (existing ? existing.note : ''),
+        action,
+        status: action,
+        error: errors.join('; '),
+        isExisting: !!existing,
+      });
+    }
+
+    return {
+      fileName: wb.fileName,
+      sheet,
+      totalRows: rows.length,
+      insertCount,
+      updateCount,
+      errorCount,
+      rows,
+    };
+  }
+
+  /**
+   * Xác nhận nạp danh mục xe từ danh sách đã xem trước vào kho dữ liệu.
+   */
+  async importVehicles({ rows = [], user }) {
+    if (!Array.isArray(rows) || !rows.length) throw new AppError('VALIDATION_FAILED', 'Không có dữ liệu xe để nạp');
+    const valid = rows.filter((r) => r.action !== 'ERROR' && r.plateNo);
+    if (!valid.length) throw new AppError('VALIDATION_FAILED', 'Không có dòng xe hợp lệ nào để nạp');
+
+    let inserted = 0;
+    let updated = 0;
+
+    await this.store.transaction((tx) => {
+      for (const r of valid) {
+        const existing = tx.get('XE', r.plateNo);
+        if (existing) {
+          const patch = {};
+          if (r.payloadTon !== undefined && r.payloadTon !== null) patch.payload_ton = r.payloadTon;
+          if (r.volumeM3 !== undefined && r.volumeM3 !== null) patch.volume_m3 = r.volumeM3;
+          if (r.ownerUnitCode) patch.owner_unit_code = r.ownerUnitCode;
+          if (r.fuelCode !== undefined) patch.fuel_code = r.fuelCode;
+          if (r.note !== undefined) patch.note = r.note;
+          tx.update('XE', r.plateNo, patch);
+          updated++;
+        } else {
+          tx.insert('XE', {
+            plate_no: r.plateNo,
+            plate_key: plateKey(r.plateNo),
+            owner_unit_code: r.ownerUnitCode,
+            fuel_code: r.fuelCode || '',
+            note: r.note || '',
+            payload_ton: r.payloadTon ?? null,
+            volume_m3: r.volumeM3 ?? null,
+            is_active: true,
+          });
+          inserted++;
+        }
+      }
+      tx.audit('IMPORT_VEHICLES_EXCEL', 'XE', 'BATCH', null, {
+        total: valid.length,
+        inserted,
+        updated,
+      });
+    }, { user: user ? (user.username || user) : 'system' });
+
+    return { ok: true, total: valid.length, inserted, updated };
+  }
+
   /** Xe đang được dùng ở đâu (để biết có đổi biển số / xóa được không). */
   vehicleUsage({ plateNo }) {
     const s = this.store;

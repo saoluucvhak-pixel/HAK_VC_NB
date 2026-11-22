@@ -309,8 +309,90 @@
           sfMount = D.smartFilter.mount(sfCfg);
           sfSlot.append(sfMount.el);
         }
+        const importVehiclesExcel = async () => {
+          const filePath = await D.pickFile({
+            title: 'Chọn file Excel danh mục xe (.xlsx, .xlsm, .csv)',
+            filters: [{ name: 'File Excel', extensions: ['xlsx', 'xlsm', 'csv'] }]
+          });
+          if (!filePath) return;
+
+          let preview;
+          try {
+            preview = await D.api('vehicles.previewImport', { filePath });
+          } catch (err) {
+            D.toast(D.errorText(err), 'err');
+            return;
+          }
+
+          if (!preview.rows || !preview.rows.length) {
+            D.toast('File Excel không có dòng dữ liệu xe nào', 'warn');
+            return;
+          }
+
+          const kpis = h('div', { class: 'kpis', style: { marginBottom: '12px' } },
+            kpi('Tổng số xe', D.vn(preview.totalRows)),
+            kpi('Thêm mới', D.vn(preview.insertCount), 'chưa có trong danh mục', preview.insertCount ? 'main' : ''),
+            kpi('Cập nhật', D.vn(preview.updateCount), 'đã có (sẽ cập nhật Trọng tải / Thể tích / Chủ xe)', preview.updateCount ? 'warn' : ''),
+            kpi('Dòng lỗi', D.vn(preview.errorCount), preview.errorCount ? 'sẽ bỏ qua khi nạp' : 'không có lỗi', preview.errorCount ? 'bad' : 'ok')
+          );
+
+          const table = D.table({
+            rows: preview.rows,
+            maxHeight: '48vh',
+            empty: 'Không có dòng dữ liệu',
+            columns: [
+              { key: 'rowNo', label: 'Dòng', num: true },
+              { key: 'plateNo', label: 'Biển số', render: (r) => h('b', { class: 'mono' }, r.plateNo) },
+              { key: 'payloadTon', label: 'Trọng tải (tấn)', num: true, render: (r) => (r.payloadTon != null ? D.vnAuto(r.payloadTon) : '—') },
+              { key: 'volumeM3', label: 'Thể tích (m³)', num: true, render: (r) => (r.volumeM3 != null ? D.vnAuto(r.volumeM3) : '—') },
+              { key: 'ownerUnitCode', label: 'Chủ xe' },
+              { key: 'fuelCode', label: 'Mã xe dầu' },
+              { key: 'action', label: 'Hành động', render: (r) => {
+                if (r.action === 'INSERT') return D.tag('ok', 'Thêm mới');
+                if (r.action === 'UPDATE') return D.tag('warn', 'Cập nhật');
+                return D.tag('bad', `Lỗi: ${r.error}`);
+              } }
+            ]
+          });
+
+          const validRows = preview.rows.filter((r) => r.action !== 'ERROR');
+
+          D.modal({
+            title: `Xem trước nạp danh mục xe từ file "${preview.fileName}"`,
+            wide: true,
+            body: h('div', {},
+              h('p', { class: 'small muted', style: { margin: '0 0 10px' } },
+                `Hệ thống nhận diện được ${preview.totalRows} xe từ sheet "${preview.sheet}". Bấm "Xác nhận nạp" để lưu vào danh mục xe.`
+              ),
+              kpis,
+              table
+            ),
+            actions: [
+              { label: 'Hủy', run: () => true },
+              {
+                label: `Xác nhận nạp (${validRows.length} xe)`,
+                primary: true,
+                disabled: !validRows.length,
+                run: async () => {
+                  try {
+                    const res = await D.api('vehicles.import', { rows: validRows });
+                    D.toast(`Đã nạp thành công ${res.total} xe (Thêm mới: ${res.inserted}, Cập nhật: ${res.updated})`, 'ok');
+                    D.go('vehicles');
+                    return true;
+                  } catch (err) {
+                    D.toast(D.errorText(err), 'err');
+                    return false;
+                  }
+                }
+              }
+            ]
+          });
+        };
+
         const vehPart = [
-          h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Xe vận chuyển'), D.writer() ? h('button', { class: 'btn', onclick: () => D.formModal({ title: 'Thêm xe', fields: [
+          h('div', { class: 'head' }, h('h2', { class: 'grow' }, 'Xe vận chuyển'), D.writer() ? h('div', { class: 'btns', style: { margin: 0 } },
+            h('button', { class: 'btn', onclick: importVehiclesExcel }, 'Nạp từ Excel'),
+            h('button', { class: 'btn primary', onclick: () => D.formModal({ title: 'Thêm xe', fields: [
             { key: 'plateNo', label: 'Biển số', required: true, hint: 'vd 92H-00057' },
             { key: 'ownerUnitCode', label: 'Chủ xe', type: 'select', options: D.unitOptions() },
             { key: 'payloadTon', label: 'Trọng tải xe (tấn)', type: 'number', hint: 'vd 18 tấn' },
@@ -318,7 +400,8 @@
             { key: 'fuelCode', label: 'Mã xe trong bảng kê dầu', hint: 'vd DH_92H00057' },
             { key: 'note', label: 'Ghi chú', full: true }
           ], values: { ownerUnitCode: D.state.boot.install.unitCode },
-            submit: async (x) => { reminder(await D.api('vehicles.save', { create: true, record: x })); D.go('vehicles'); } }) }, 'Thêm xe') : null),
+            submit: async (x) => { reminder(await D.api('vehicles.save', { create: true, record: x })); D.go('vehicles'); } }) }, 'Thêm xe')
+          ) : null),
           sfSlot,
           tableWrap,
           D.writer() ? h('p', { class: 'small muted' }, 'Bấm vào 1 xe để sửa chủ xe, mã xe dầu, ghi chú, sửa biển số nhập nhầm, ngừng dùng hoặc xóa xe nhập nhầm.') : null

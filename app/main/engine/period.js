@@ -136,6 +136,7 @@ function calculatePeriod(input) {
   const tUse = usageIndex(ticketUsages, contract.contract_id, p.periodId, 'ticket_id');
   const dateOf = (t) => (input.cfg.periodDateField === 'WEIGH2_DATE' ? t.weigh2_date : t.weigh1_date);
   const routeByCode = new Map(routes.map((r) => [r.route_code, r]));
+  const vehMap = new Map((vehicles || []).map((v) => [v.plate_no, v]));
   let overnight = 0;
   for (const t of tickets) {
     if (t.is_deleted || !inRange(dateOf(t), p.dateFrom, p.dateTo) || !inContract(t.plate_no, t.weigh1_date)) continue;
@@ -155,6 +156,14 @@ function calculatePeriod(input) {
     if (t.weigh1_date !== t.weigh2_date) overnight += 1;
     if (t.weight1_kg != null && t.weight2_kg != null && Math.abs(t.net_kg - Math.abs(t.weight2_kg - t.weight1_kg)) > input.cfg.kgCheckTolerance) {
       issues.push(issue('W_KG_MISMATCH', { ticketNo: t.ticket_no, netKg: t.net_kg, diffKg: Math.abs(t.weight2_kg - t.weight1_kg) }, t.ticket_id));
+    }
+    const veh = vehMap.get(t.plate_no);
+    if (veh && veh.payload_ton > 0) {
+      const payloadKg = veh.payload_ton * 1000;
+      if (t.net_kg > payloadKg) {
+        const diffKg = Math.round((t.net_kg - payloadKg) * 100) / 100;
+        issues.push(issue('W_OVERLOAD', { ticketNo: t.ticket_no, plateNo: t.plate_no, netKg: t.net_kg, payloadKg, diffKg, payloadTon: veh.payload_ton }, t.ticket_id));
+      }
     }
     chosen.push(t);
   }

@@ -5433,6 +5433,71 @@
    "writes": [],
    "audit": "DELETE_SUBCONTRACT_BATCH",
    "lock": false
+  },
+  {
+   "action": "vehicles.previewImport",
+   "group": "Danh mục",
+   "desc": "Xem trước danh sách xe nạp từ file Excel (tự động nhận diện Trọng tải, Thể tích m³, Chủ xe, Mã xe dầu)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "filePath",
+     "string",
+     true,
+     "Đường dẫn file Excel"
+    ],
+    [
+     "sheetName",
+     "string",
+     false,
+     "Tên sheet (tùy chọn)"
+    ]
+   ],
+   "output": "{fileName, sheet, totalRows, insertCount, updateCount, errorCount, rows}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "DON_VI",
+    "XE"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "vehicles.import",
+   "group": "Danh mục",
+   "desc": "Xác nhận nạp/cập nhật danh sách xe từ kết quả xem trước vào danh mục",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "rows",
+     "array",
+     true,
+     "Danh sách xe từ xem trước"
+    ]
+   ],
+   "output": "{ok, total, inserted, updated}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [],
+   "writes": [
+    "XE",
+    "AUDIT_LOG"
+   ],
+   "audit": "IMPORT_VEHICLES_EXCEL",
+   "lock": false
   }
  ],
  "errors": [
@@ -5505,6 +5570,12 @@
    "code": "INTERNAL",
    "level": 500,
    "meaning": "Lỗi chương trình — đã ghi logs/, trả requestId để tra"
+  },
+  {
+   "code": "W_OVERLOAD",
+   "level": "WARNING",
+   "message": "Phiếu cân có khối lượng vượt trọng tải đăng kiểm của xe",
+   "usedIn": "periods"
   }
  ],
  "issues": [
