@@ -28,7 +28,9 @@ function buildFormulaTrace(r, cfg) {
     ['fuelCostPerTrip', 'Tiền dầu/chuyến', 'ĐG dầu chưa VAT (danh mục) × Tiêu hao NL/chuyến', `${fmt(r.fuelPriceCatalog)} × ${fmt(r.fuelPerTrip, 1)}`, r.fuelCostPerTrip, 'đ'],
     ['fuelCostRatio', 'Tỷ lệ tiêu hao dầu', 'Tiền dầu / ĐG 1 chuyến', `${fmt(r.fuelCostPerTrip)} / ${fmt(r.tripPrice)}`, r.fuelCostRatio, '%'],
     ['priceNoDiesel', 'ĐGVC chưa diesel', '(ĐG 1 chuyến − Tiền dầu) / KL_TB', `(${fmt(r.tripPrice)} − ${fmt(r.fuelCostPerTrip)}) / ${fmt(r.avgLoadTon)}`, r.priceNoDiesel, 'đ/tấn'],
-    ['contractPrice', 'ĐG HĐ', `ROUND(ĐGVC chưa diesel; ${cfg.roundContractDigits}) [${cfg.roundPriceMode}]`, `ROUND(${fmt(r.priceNoDiesel, 2)}; ${cfg.roundContractDigits})`, r.contractPrice, 'đ/tấn'],
+    r.isManualContractPrice
+      ? ['contractPrice', 'ĐG HĐ (Điền thủ công)', 'Số thỏa thuận chốt hợp đồng (không bắt buộc bằng công thức)', `Thủ công: ${fmt(r.contractPrice)} (công thức tham khảo: ${fmt(r.formulaContractPrice)})`, r.contractPrice, 'đ/tấn']
+      : ['contractPrice', 'ĐG HĐ', `ROUND(ĐGVC chưa diesel; ${cfg.roundContractDigits}) [${cfg.roundPriceMode}]`, `ROUND(${fmt(r.priceNoDiesel, 2)}; ${cfg.roundContractDigits})`, r.contractPrice, 'đ/tấn'],
     ['tripCount', 'Số chuyến', 'số phiếu cân', `${r.tripCount} phiếu`, r.tripCount, 'chuyến', 'calc.tickets'],
     ['totalTon', 'Tổng khối lượng', 'Σ KL hàng (KG) / 1000', `${fmt(r.totalKg, dec(r.totalKg))} / 1000`, r.totalTon, 'tấn', 'calc.tickets'],
     ['actualFuelLiter', 'Dầu thực nhận', 'Σ số lượng bảng kê dầu của hợp đồng',

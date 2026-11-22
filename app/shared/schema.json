@@ -459,6 +459,11 @@
      "required": false
     },
     {
+     "name": "contract_price",
+     "type": "NUM",
+     "required": false
+    },
+    {
      "name": "price_code",
      "type": "TEXT",
      "required": false

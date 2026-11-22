@@ -62,7 +62,11 @@ function computeContractPrice(route, price, cfg) {
   a.fuelCostPerTrip = calculateFuelCost(a);
   a.fuelCostRatio = calculateFuelCostRatio(a);
   a.priceNoDiesel = calculatePriceNoDiesel(a);
-  a.contractPrice = calculateContractPrice(a, cfg);
+  a.formulaContractPrice = calculateContractPrice(a, cfg);
+  const rawCp = price.contract_price !== undefined ? price.contract_price : price.contractPrice;
+  const hasManual = rawCp !== '' && rawCp !== null && rawCp !== undefined && !Number.isNaN(Number(rawCp)) && Number(rawCp) > 0;
+  a.contractPrice = hasManual ? Number(rawCp) : a.formulaContractPrice;
+  a.isManualContractPrice = hasManual && Number(rawCp) !== a.formulaContractPrice;
   a.priceMethod = 'THEO_DAU';
   return a;
 }
@@ -78,7 +82,7 @@ function computeFixedPrice(route, price) {
   const fixed = Number(price.fixed_price);
   return { priceMethod: 'CO_DINH', fixedPrice: fixed, uom: route.uom, tripDistanceKm: route.trip_distance_km,
     newPrice: 0, fuelPriceCatalog: 0, avgLoadTon: 0, avgVolumeM3: null, fuelNormLPerKm: 0,
-    tripPrice: 0, fuelPerTrip: 0, fuelCostPerTrip: 0, fuelCostRatio: 0, priceNoDiesel: fixed, contractPrice: fixed };
+    tripPrice: 0, fuelPerTrip: 0, fuelCostPerTrip: 0, fuelCostRatio: 0, priceNoDiesel: fixed, contractPrice: fixed, formulaContractPrice: fixed };
 }
 
 // ───────────────────────────── Tầng B — Tổng hợp kỳ (QR_DGVC (2)) ─────────────────────────────

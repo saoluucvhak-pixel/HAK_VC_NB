@@ -89,7 +89,7 @@ test('Giao diện HAKQN: Mã đơn giá — tạo mã, thêm dòng cố định,
     await tm.getByRole('combobox', { name: /^Tuyến/ }).selectOption('VC.007'); assert.equal(await tm.getByLabel(/Cự ly chuyến/).inputValue(), '144'); assert.equal(await tm.getByLabel(/Cự ly chuyến/).getAttribute('readonly') !== null, true);
     // B8: cảnh báo sớm, trước khi lưu — chưa nhập đơn giá/định mức → báo ngay
     await tm.getByLabel(/ĐG dầu chưa VAT/).fill('15.500'); await tm.locator('[role=status]').getByText(/phải > 0/).first().waitFor();
-    await tm.getByLabel(/Đơn giá ký hợp đồng/).fill('165.000'); await tm.getByLabel(/Định mức dầu/).fill('0.4'); await tm.getByLabel(/KL trung bình/).fill('18');
+    await tm.getByLabel(/Đơn giá dự kiến ký hợp đồng/).fill('165.000'); await tm.getByLabel(/Định mức dầu/).fill('0.4'); await tm.getByLabel(/KL trung bình/).fill('18');
     await tm.getByLabel(/Ngày cập nhật/).fill('2026-01-01'); await tm.locator('[role=status]').getByText(/Xem trước/).waitFor(); await tm.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã thêm dòng giá/);
     await page.locator('.pc-detail tbody tr', { hasText: 'VC.007' }).getByRole('button', { name: 'Áp dụng' }).click(); await toast(/Đã áp dụng/);
     // chọn đơn giá CÓ SẴN đưa vào mã (mã theo giá dầu chỉ liệt kê giá theo giá dầu)

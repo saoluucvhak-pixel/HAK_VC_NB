@@ -25,7 +25,7 @@ const ROUTE_FIELDS = ['route_code', 'route_name', 'distance_km', 'trip_distance_
 const localToday = () => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 const ROUTE_CALC_FIELDS = ['distance_km', 'trip_distance_km', 'uom'];
 const PRICE_FIELDS = ['route_code', 'contract_id', 'effective_from', 'base_price_excl_vat', 'base_price_source', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fuel_norm_l_per_km',
-  'avg_load_ton', 'avg_volume_m3', 'source_note', 'price_method', 'fixed_price', 'price_code'];
+  'avg_load_ton', 'avg_volume_m3', 'source_note', 'price_method', 'fixed_price', 'price_code', 'contract_price'];
 const snake = (k) => k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
 const toSnake = (o = {}) => Object.fromEntries(Object.entries(o).map(([k, v]) => [snake(k), v]));
 const canUnlock = (u) => u && (u.role === 'ADMIN' || u.canUnlock);
@@ -40,7 +40,7 @@ const moneyOrEmpty = (v) => {
   if (/^\d+([.,]\d+)?$/.test(s)) return Number(s.replace(',', '.'));
   return NaN;
 };
-const MONEY_FIELDS = ['base_price_excl_vat', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fixed_price'];
+const MONEY_FIELDS = ['base_price_excl_vat', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fixed_price', 'contract_price'];
 
 class CatalogService {
   constructor(store) { this.store = store; }
@@ -202,7 +202,7 @@ class CatalogService {
   _normPrice(record) {
     const p = toSnake(record);
     for (const k of Object.keys(p)) if (!PRICE_FIELDS.includes(k)) delete p[k];
-    for (const k of ['base_price_excl_vat', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fuel_norm_l_per_km', 'avg_load_ton', 'avg_volume_m3', 'fixed_price']) if (k in p) p[k] = MONEY_FIELDS.includes(k) ? moneyOrEmpty(p[k]) : numOrEmpty(p[k]);
+    for (const k of ['base_price_excl_vat', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fuel_norm_l_per_km', 'avg_load_ton', 'avg_volume_m3', 'fixed_price', 'contract_price']) if (k in p) p[k] = MONEY_FIELDS.includes(k) ? moneyOrEmpty(p[k]) : numOrEmpty(p[k]);
     if ('price_method' in p) p.price_method = p.price_method === 'CO_DINH' ? 'CO_DINH' : 'THEO_DAU';
     if (p.price_method === 'CO_DINH') {
       // các cột bắt buộc của cách tính theo giá dầu không dùng → ghi 0 (bảng giá vẫn đủ cột, xem lại thấy rõ là không dùng)
