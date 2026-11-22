@@ -151,6 +151,11 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | `contracts.setActive` | Ngừng / dùng lại hợp đồng (không xóa) — `rowVersion` bắt buộc | A/K | 🔒 HOP_DONG | UPDATE |
 | `contracts.suggestVehicles` | Gợi ý phạm vi xe = xe bên VC + xe của các HĐ mà bên VC là bên thuê | A/K |  |  |
 | `contracts.routeSources` | Từng tuyến của hợp đồng kèm nguồn giá (CODE / CONTRACT / GENERAL) — chỉ đọc | A/K/X |  |  |
+| `contracts.routePrices` | Từng tuyến của hợp đồng kèm dòng đơn giá đang áp dụng (HOP_DONG / PHUONG_THUC / CHUNG) — chỉ đọc | A/K/X |  |  |
+| `contracts.priceChoices` | Các đơn giá chọn được cho hợp đồng (PT-CD / PT-TD): theo `routeCode` hoặc đúng một `priceId` — chỉ đọc | A/K/X |  |  |
+| `contracts.addPrice` | Thêm đơn giá cho hợp đồng: chọn `priceId` → dòng giá riêng của hợp đồng, áp dụng ngay (một giao dịch); giữ E_PRICE_DATE_OVERLAP / E_PRICE_USED | A/K | 🔒 PRICE_HISTORY | PRICE_CREATE + PRICE_ACTIVATE |
+| `contracts.removePrice` | Gỡ đơn giá riêng của hợp đồng chưa dùng ở kỳ nào (đã dùng → E_PRICE_USED) | A/K | 🔒 PRICE_HISTORY | PRICE_REMOVE |
+| `contracts.fuelStats` | Thống kê chỉ đọc giao nhận dầu theo hợp đồng, theo tuyến | A/K/X |  |  |
 | `contracts.resolveSigners` | Người ký 2 bên theo sign_priority (hoặc giá trị ghi đè) | A/K/X |  |  |
 
 ### 4.7. Phiếu cân

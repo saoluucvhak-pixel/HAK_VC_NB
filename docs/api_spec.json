@@ -1731,6 +1731,209 @@
    "lock": false
   },
   {
+   "action": "contracts.routePrices",
+   "group": "Hợp đồng",
+   "desc": "Từng tuyến của hợp đồng kèm dòng đơn giá ĐANG ÁP DỤNG hôm nay (đúng dòng bộ chọn giá của engine chọn): source = HOP_DONG (giá riêng của hợp đồng) | PHUONG_THUC (dòng PT-CD/PT-TD) | CHUNG (giá chung cũ). Chỉ đọc",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{items:[{routeCode, routeName, distanceKm, uom, priceId, priceCode, priceMethod, priceMethodLabel, contractPrice, fixedPrice, effectiveFrom, status, source, inUse}], total}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "HOP_DONG",
+    "TUYEN_VC",
+    "PRICE_HISTORY",
+    "PHIEU_CAN",
+    "HOP_DONG_XE"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "contracts.priceChoices",
+   "group": "Hợp đồng",
+   "desc": "Các dòng đơn giá có thể chọn cho hợp đồng (ACTIVE, thuộc PT-CD/PT-TD kể cả giá chung cũ): theo tuyến (routeCode) hoặc đúng một dòng (priceId, kèm routeCode của nó); không truyền thì trả tất cả. Chỉ đọc",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "routeCode",
+     "string",
+     false,
+     "chọn tuyến trước → các đơn giá của tuyến"
+    ],
+    [
+     "priceId",
+     "string",
+     false,
+     "chọn đơn giá trước → tuyến tự xác định"
+    ]
+   ],
+   "output": "{items:[{routeCode, routeName, distanceKm, uom, priceId, priceCode, priceMethod, priceMethodLabel, contractPrice, fixedPrice, effectiveFrom, status, chosenForContract}], total, routeCode}",
+   "errors": [
+    "NOT_FOUND",
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "HOP_DONG",
+    "TUYEN_VC",
+    "PRICE_HISTORY"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "contracts.addPrice",
+   "group": "Hợp đồng",
+   "desc": "Thêm đơn giá cho hợp đồng: chọn một dòng đơn giá (priceId, của PT-CD/PT-TD) → tạo dòng giá RIÊNG của hợp đồng, giữ hình thức cố định / theo dầu của nguồn và áp dụng ngay (một giao dịch). routeCode (nếu gửi) phải đúng tuyến của đơn giá. Giữ chốt chặn: trùng / lùi ngày hiệu lực → E_PRICE_DATE_OVERLAP, kỳ đã xác nhận/khóa giữ số → E_PRICE_USED",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "priceId",
+     "string",
+     true,
+     "đơn giá nguồn"
+    ],
+    [
+     "routeCode",
+     "string",
+     false,
+     "tuyến; trống = lấy theo đơn giá"
+    ],
+    [
+     "effectiveFrom",
+     "date",
+     false,
+     "mặc định hôm nay"
+    ]
+   ],
+   "output": "{record, contractPrice, closed, affectedPeriods, warnings}",
+   "errors": [
+    "NOT_FOUND",
+    "VALIDATION_FAILED",
+    "BUSINESS_RULE:E_PRICE_DATE_OVERLAP",
+    "BUSINESS_RULE:E_PRICE_USED"
+   ],
+   "reads": [
+    "HOP_DONG",
+    "TUYEN_VC",
+    "PRICE_HISTORY"
+   ],
+   "writes": [
+    "PRICE_HISTORY",
+    "KY_TINH"
+   ],
+   "audit": "PRICE_CREATE/PRICE_ACTIVATE",
+   "lock": true
+  },
+  {
+   "action": "contracts.removePrice",
+   "group": "Hợp đồng",
+   "desc": "Gỡ đơn giá RIÊNG của hợp đồng chưa dùng ở kỳ nào (xóa dòng; mở lại bản riêng trước nếu có). Đã dùng → E_PRICE_USED (thêm đơn giá mới thay vì xóa); chỉ gỡ được bản mới nhất của tuyến",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "priceId",
+     "string",
+     true,
+     "đơn giá riêng của hợp đồng"
+    ]
+   ],
+   "output": "{removed, routeCode, reopened, affectedPeriods}",
+   "errors": [
+    "NOT_FOUND",
+    "VALIDATION_FAILED",
+    "BUSINESS_RULE:E_PRICE_USED"
+   ],
+   "reads": [
+    "HOP_DONG",
+    "PRICE_HISTORY",
+    "TRANSPORT_CALCULATION"
+   ],
+   "writes": [
+    "PRICE_HISTORY",
+    "KY_TINH"
+   ],
+   "audit": "PRICE_REMOVE",
+   "lock": true
+  },
+  {
+   "action": "contracts.fuelStats",
+   "group": "Hợp đồng",
+   "desc": "Thống kê CHỈ ĐỌC giao nhận dầu của hợp đồng theo tuyến (số lần, lít, thành tiền chưa VAT, ngày đầu/cuối); không nhập dầu ở màn Hợp đồng",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "contractId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{contractId, items:[{routeCode, routeName, receipts, liters, amount, avgFuelPrice, firstDate, lastDate}], total, totals:{receipts, liters, amount}}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "HOP_DONG",
+    "GIAO_NHAN_DAU",
+    "TUYEN_VC"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
    "action": "contracts.usage",
    "group": "Hợp đồng",
    "desc": "Hợp đồng đang dùng ở đâu (kỳ tính, dòng dầu, lô import, giá riêng, phạm vi xe) — biết có sửa mã / hai bên, xóa được không",
