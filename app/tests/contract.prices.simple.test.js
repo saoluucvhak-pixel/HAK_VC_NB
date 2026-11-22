@@ -7,6 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { install, storageKinds, KETOAN, rid } = require('./install');
 const { CatalogService } = require('../main/services/CatalogService');
+const { MasterDataService } = require('../main/services/MasterDataService');
 const E = require('../main/engine');
 
 const W = { dateFrom: '2026-09-18', dateTo: '2026-09-23', routeCode: 'VC.007' };
@@ -172,6 +173,21 @@ for (const kind of storageKinds()) {
     const x = items.find((i) => i.routeCode === 'VC.007');
     for (const k of ['routeCode', 'routeName', 'distanceKm', 'uom', 'priceId', 'priceCode', 'priceMethod', 'priceMethodLabel', 'contractPrice', 'effectiveFrom', 'status', 'source']) assert.ok(x[k] !== undefined && x[k] !== null, k);
     assert.throws(() => cat.contractRoutePrices({ contractId: 'KHONG-CO' }), (e) => e.code === 'NOT_FOUND');
+    store.close();
+  });
+  test(`${tag} cảnh báo W_CONTRACT_PRICE_NOT_PREFERRED: hợp đồng đang dùng mã tự tạo (bản cũ) có dòng cho tuyến → thêm đơn giá riêng vẫn lưu nhưng báo tuyến vẫn tính theo mã`, async () => {
+    const { store, contractId } = await install('DH', { withData: false, kind });
+    const cat = new CatalogService(store); const md = new MasterDataService(store);
+    const cdId = await fixedSource(cat);
+    const unit = store.get('HOP_DONG', contractId).customer_unit_code;
+    await cat.savePriceCode({ create: true, record: { priceCode: 'DG-CU-01', unitCode: unit, priceName: 'Mã tự tạo bản cũ' }, user: KETOAN });
+    const l = await cat.addCodeLine({ priceCode: 'DG-CU-01', record: { routeCode: 'VC.007', effectiveFrom: '2026-01-01', fixedPrice: 120000 }, user: KETOAN });
+    await cat.activatePrice({ priceId: l.record.price_id, rowVersion: l.record.row_version, user: KETOAN });
+    await md.saveContract({ record: { contractId, priceCode: 'DG-CU-01' }, rowVersion: store.get('HOP_DONG', contractId).row_version, user: KETOAN });
+    const add = await cat.addContractPrice({ contractId, routeCode: 'VC.007', priceId: cdId, effectiveFrom: '2026-09-01', user: KETOAN });
+    const w = add.warnings.find((x) => x.code === 'W_CONTRACT_PRICE_NOT_PREFERRED');
+    assert.ok(w, 'phải có cảnh báo'); assert.match(w.message, /DG-CU-01/); assert.match(w.message, /VC\.007/);
+    assert.equal(add.record.contract_id, contractId, 'dòng giá riêng vẫn được lưu'); assert.equal(add.record.status, 'ACTIVE');
     store.close();
   });
 }

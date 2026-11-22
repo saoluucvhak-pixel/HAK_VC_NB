@@ -94,7 +94,8 @@ test('Giao diện ĐH: Đối chiếu với đối tác — file mẫu, Excel d�
 
     // ── Các đợt đã nạp: nhãn "chỉ là bản sao", đối chiếu theo đợt cho ra cùng dầu, xóa đợt
     await page.getByRole('tab', { name: 'Các đợt đã nạp' }).click(); await page.getByText(/không vào kỳ/).first().waitFor();
-    await page.locator('tbody tr').nth(1).waitFor(); // chờ đủ dòng (bảng nạp bất đồng bộ) rồi mới đếm — tránh chập chờn khi máy tải
+    // bảng nạp bất đồng bộ và có thể dựng lại giữa chừng: chờ tới khi thật sự đủ 2 dòng (không chờ "≥ 2 dòng" của bảng cũ) rồi mới khẳng định
+    await page.waitForFunction(() => document.querySelectorAll('tbody tr').length === 2, null, { timeout: 15000 });
     assert.equal(await page.locator('tbody tr').count(), 2);
     await page.locator('tbody tr', { hasText: 'Dầu đối tác 1' }).getByRole('button', { name: 'Đối chiếu' }).click();
     await page.getByRole('tab', { name: 'Đối chiếu 3 tiêu chí', selected: true }).waitFor();
