@@ -65,7 +65,7 @@ test('Giao diện HAKQN: menu nhóm + Hợp đồng cha–con', { skip: !fs.exis
     await d.getByRole('tab', { name: 'Xe của hợp đồng' }).click(); const plates = ctx.store.find('HOP_DONG_XE', (v) => v.contract_id === contractId).length;
     assert.equal((await d.getByLabel('Phạm vi xe').inputValue()).split('\n').filter(Boolean).length, plates);
     await d.getByRole('tab', { name: /Kỳ tính \(1\)/ }).click(); await d.getByRole('button', { name: 'Mở kỳ' }).waitFor();
-    await d.getByRole('tab', { name: 'Mã đơn giá' }).click(); await d.getByText(/Mã đơn giá: PT-TD/).waitFor(); // 1.9.0: hợp đồng cũ tự gán mã mặc định PT-TD (không còn "Giá chung (cách cũ)")
+    await d.getByRole('tab', { name: 'Tuyến và đơn giá vận chuyển' }).click(); await d.getByRole('heading', { name: 'Tuyến và đơn giá đang áp dụng của hợp đồng' }).waitFor();
     await shot('hop-dong-cha-con');
     // chọn nhanh liên tiếp: kết quả cũ không ghi đè — hợp đồng cuối cùng được chọn là hợp đồng hiển thị
     const codes = await page.locator('.ct-items button .mono').allInnerTexts(); assert.ok(codes.length >= 1);
