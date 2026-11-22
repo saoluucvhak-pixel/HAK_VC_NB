@@ -1662,3 +1662,13 @@ Mã kiểm tra mới: `W_TICKET_LATE` (import phiếu cân có ngày thuộc k�
 - `tickets.softDeleteMany` / `fuel.softDeleteMany` trả thêm `notFound` (mã không tồn tại) và `alreadyDeleted` (đã xóa từ trước).
 - Bỏ `docs/schema_sqlite.sql` (lệch schema chạy; nguồn đúng là `app/shared/schema.json`). CALCULATION_RULES: Q10 làm tròn ToEven đã chốt.
 - CI job `test` cài Chromium + poppler và yêu cầu `# skipped 0`.
+
+## Bổ sung — Luồng làm việc với đối tác (gộp menu, đọc dầu thống nhất, chống nạp trùng)
+Không thêm action mới; đổi tham số / kết quả của các action có sẵn. Số tiền tính giá, kỳ đã xác nhận / khóa KHÔNG đổi.
+- `exchange.exportPackage` (PHIEU_CAN): dòng dầu kèm gói được lọc theo cột thật `receive_date` (trước đây lọc `receipt_date || issue_date` nên gói không bao giờ có dầu).
+- `exchange.previewPackage` / `importPackage`: gói PHIEU_CAN có dầu (không có kỳ) nay xử lý `GIAO_NHAN_DAU` — mới / đã có (cùng nội dung) / nghi trùng `POSSIBLE_DUPLICATE` (mặc định bỏ qua, dùng dòng đã có, nhớ ánh xạ `FUEL_DUP_REMAP`) / bỏ qua do thiếu danh mục (kết quả `fuelSkipped[{note,count}]`, `fuelInPackage`). Mã dòng dầu trùng mã dòng của máy này nhưng khác nội dung → đổi mã `<mã>@<đơn vị gửi>.<mã máy>`, không ghi đè. `ticketsOnly` vẫn bỏ qua dầu.
+- `reconcile.compare`: mọi đường đọc (.dgvc, .json, đợt đã lưu) dùng CHUNG bộ chuẩn hóa `main/import/partnerNorm.js` (ngày dầu = `receive_date ?? receipt_date ?? issue_date ?? date`); Excel nhận cả mẫu phiếu cân (NL_VC), mẫu dầu (NL_GIAONHANDAU) hoặc cả hai sheet (`ImportService.readPartnerExcel` / `readFuel`); `deductFuel` không gửi → dùng giá trị đã lưu của đợt.
+- `import.template`: tham số `partner` (chỉ GIAO_NHAN_DAU) — mẫu dầu để đối chiếu với đối tác, không cần `contractId`.
+- `subcontract.preview`: kết quả thêm `fileSha256`, `contentSig`, `unreadable[]`, `duplicates[{batchId,batchName,createdAt,reason: SAME_FILE|SAME_TICKETS}]`.
+- `subcontract.importBatch`: tham số `clientRequestId` (cùng mã → cùng một đợt), `confirmDuplicate`; trùng SHA-256 file hoặc trùng toàn bộ khóa phiếu với đợt đã có → lỗi `BUSINESS_RULE` `E_BATCH_DUPLICATE` (`details.duplicates`) cho tới khi người dùng xác nhận. File đợt ghi kiểu tạm rồi đổi tên; không ghi được nhật ký thì hoàn tác đợt. `subcontract.delete` ghi nhật ký TRƯỚC khi xóa (lỗi nhật ký không còn bị nuốt).
+- Giao diện: một cổng "Trao đổi dữ liệu" (Nhập gói .dgvc / .json · Xuất gói · Lịch sử gói) và "Đối chiếu dữ liệu" (Kiểm tra nội bộ · Đối chiếu 3 tiêu chí · Các đợt đã nạp). Id màn cũ `subcontract` / `export_partner` là bí danh qua `D.go`.

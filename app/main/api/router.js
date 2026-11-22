@@ -114,7 +114,7 @@ const ROUTES = {
   'import.cancel': [null, (ctx, p, s) => ctx.svc.import.cancel({ ...p, user: s.user.username })],
   'import.list': [null, (ctx) => ctx.svc.query.imports()],
   'import.template': [null, (ctx, p) => {
-    const name = p.importType === 'GIAO_NHAN_DAU' ? `Mau_Import_GiaoNhanDau_${p.contractId || ''}.xlsx` : `Mau_Import_PhieuCan_${ctx.store.unitCode}.xlsx`;
+    const name = p.importType === 'GIAO_NHAN_DAU' ? `Mau_Import_GiaoNhanDau_${p.contractId || 'DoiTac'}.xlsx` : `Mau_Import_PhieuCan_${ctx.store.unitCode}.xlsx`;
     return ctx.svc.templates.build({ ...p, targetPath: p.targetPath || path.join(ctx.store.root, 'exports', name) });
   }],
   // kỳ tính

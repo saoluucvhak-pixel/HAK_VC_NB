@@ -3062,7 +3062,7 @@
   {
    "action": "import.template",
    "group": "Import",
-   "desc": "Tạo FILE EXCEL MẪU để import theo danh mục hiện tại của bản cài: sheet nhập liệu (tiêu đề đúng tên cột phần mềm nhận, cột bắt buộc có *, định dạng ô, danh sách chọn tuyến / xe / đơn vị, tô màu ô thiếu / KL lệch), HUONG_DAN, DANH_MUC, VI_DU",
+   "desc": "Tạo FILE EXCEL MẪU để import theo danh mục hiện tại của bản cài: sheet nhập liệu (tiêu đề đúng tên cột phần mềm nhận, cột bắt buộc có *, định dạng ô, danh sách chọn tuyến / xe / đơn vị, tô màu ô thiếu / KL lệch), HUONG_DAN, DANH_MUC, VI_DU · partner=true: mẫu dầu cho file của đối tác ở màn Đối chiếu dữ liệu (đọc lại bằng reconcile.compare / subcontract.preview)",
    "roles": [
     "ADMIN",
     "KE_TOAN"
@@ -3086,6 +3086,12 @@
      "string",
      false,
      "từ dialog.saveFile; trống = thư mục exports"
+    ],
+    [
+     "partner",
+     "boolean",
+     false,
+     "chỉ với GIAO_NHAN_DAU: mẫu dầu để ĐỐI CHIẾU với đối tác — không cần contractId, liệt kê mọi xe đang dùng"
     ]
    ],
    "output": "{path, sizeBytes, sheet, firstDataRow, columns[{header, required}]}",
@@ -5094,7 +5100,7 @@
   {
    "action": "exchange.exportPackage",
    "group": "Trao đổi",
-   "desc": "Xuất gói .dgvc (JSON nén + SHA-256): DANH_MUC (đơn vị, xe, tuyến, giá, HĐ liên quan), PHIEU_CAN (theo khoảng ngày / xe), KY_TINH (kỳ đã xác nhận/khóa + chi tiết + BKVC)",
+   "desc": "Xuất gói .dgvc (JSON nén + SHA-256): DANH_MUC (đơn vị, xe, tuyến, giá, HĐ liên quan), PHIEU_CAN (theo khoảng ngày / xe, kèm dòng giao nhận dầu lọc theo receive_date), KY_TINH (kỳ đã xác nhận/khóa + chi tiết + BKVC)",
    "roles": [
     "ADMIN",
     "KE_TOAN"
@@ -5173,7 +5179,7 @@
   {
    "action": "exchange.previewPackage",
    "group": "Trao đổi",
-   "desc": "Đọc gói, kiểm SHA-256 + schemaVersion, so với dữ liệu hiện có → mới / cập nhật / giống / xung đột / thay bản cũ (chỉ khi CÙNG máy gửi gửi lại) / từ chối. Kỳ cùng hợp đồng + khoảng ngày đã nhận từ MÁY KHÁC → xung đột; kỳ có phiếu cân / dòng dầu đã tính ở kỳ khác → từ chối; mã trùng nhưng khác kỳ → đổi mã, lưu riêng. KHÔNG ghi",
+   "desc": "Đọc gói, kiểm SHA-256 + schemaVersion, so với dữ liệu hiện có → mới / cập nhật / giống / xung đột / thay bản cũ (chỉ khi CÙNG máy gửi gửi lại) / từ chối. Kỳ cùng hợp đồng + khoảng ngày đã nhận từ MÁY KHÁC → xung đột; kỳ có phiếu cân / dòng dầu đã tính ở kỳ khác → từ chối; mã trùng nhưng khác kỳ → đổi mã, lưu riêng. KHÔNG ghi · Gói PHIEU_CAN có dầu: dòng dầu cũng được xem trước (mới / đã có / nghi trùng POSSIBLE_DUPLICATE / bỏ qua do thiếu danh mục — fuelSkipped); mã dòng dầu trùng nhưng khác nội dung thì đổi mã, không ghi đè",
    "roles": [
     "ADMIN",
     "KE_TOAN"
@@ -5359,7 +5365,7 @@
   {
    "action": "reconcile.compare",
    "group": "Đối chiếu",
-   "desc": "Đối chiếu phiếu cân của đơn vị khác (gói .dgvc có phiếu cân hoặc file Excel phiếu cân) với phiếu cân bên mình theo số phiếu + ngày cân 1 + biển số; không ghi gì",
+   "desc": "Đối chiếu dữ liệu của đối tác (gói .dgvc, .json, file Excel mẫu phiếu cân / mẫu dầu, hoặc đợt đã lưu) với dữ liệu bên mình: phiếu cân theo số phiếu + ngày cân 1 + biển số, dầu nhận theo ngày + biển số, đơn giá & thực trả; không ghi gì",
    "roles": [
     "ADMIN",
     "KE_TOAN",
@@ -5367,12 +5373,6 @@
    ],
    "scope": "",
    "input": [
-    [
-     "filePath",
-     "string",
-     true,
-     "từ dialog.openFile"
-    ],
     [
      "dateFrom",
      "date",
@@ -5390,6 +5390,24 @@
      "boolean",
      false,
      "so cả xe không có trong file (mặc định chỉ xe có trong file)"
+    ],
+    [
+     "filePath",
+     "string",
+     false,
+     "file đối tác (.xlsx phiếu cân / dầu / cả hai sheet, .json, .dgvc) — hoặc dùng batchId"
+    ],
+    [
+     "batchId",
+     "string",
+     false,
+     "đợt đối tác đã lưu (subcontract.list) thay cho filePath"
+    ],
+    [
+     "deductFuel",
+     "boolean",
+     false,
+     "không gửi → dùng giá trị đã lưu của đợt; không có đợt → mặc định có trừ dầu"
     ]
    ],
    "output": "{source{fileName, sourceText, rows, unreadable, duplicates}, dateFrom, dateTo, summary{KHOP,LECH,KHAC_SO_PHIEU,THIEU_BEN_MINH,THIEU_BEN_KIA}, totals, rows[{kind, date, plateNo, ticketNo, theirTicketNo, mineKg, theirKg, diffKg, fields, periodCode}], byPlate, matched, problems}",
@@ -5450,7 +5468,7 @@
   {
    "action": "subcontract.preview",
    "group": "Nhập liệu",
-   "desc": "Đọc và trích xuất danh sách phiếu cân và dòng dầu từ file .json, .dgvc hoặc .xlsx để xem trước đợt thuê vận chuyển",
+   "desc": "Đọc và trích xuất phiếu cân + dòng dầu từ file .json, .dgvc hoặc .xlsx (mẫu phiếu cân NL_VC, mẫu dầu NL_GIAONHANDAU hoặc cả hai sheet) để xem trước đợt của đối tác; báo các đợt đã nạp trùng file / trùng khóa phiếu",
    "roles": [
     "ADMIN",
     "KE_TOAN"
@@ -5470,10 +5488,11 @@
      "Nội dung JSON"
     ]
    ],
-   "output": "{fileName, partnerSuggested, summary, tickets, fuelRows}",
+   "output": "{fileName, fileSha256, contentSig, partnerSuggested, summary, tickets, fuelRows, unreadable[{sheet,rowNo,note}], duplicates[{batchId,batchName,createdAt,reason:SAME_FILE|SAME_TICKETS}]}",
    "errors": [
     "VALIDATION_FAILED",
-    "NOT_FOUND"
+    "NOT_FOUND",
+    "BUSINESS_RULE:E_MAPPING_REQUIRED"
    ],
    "reads": [],
    "writes": [],
@@ -5483,7 +5502,7 @@
   {
    "action": "subcontract.importBatch",
    "group": "Nhập liệu",
-   "desc": "Nạp và lưu đợt thuê vận chuyển vào hệ thống",
+   "desc": "Lưu một đợt dữ liệu của đối tác (bản sao phục vụ đối chiếu — không vào kỳ). Chống trùng: cùng clientRequestId → một kết quả; trùng SHA-256 file hoặc trùng toàn bộ khóa phiếu với đợt đã có → E_BATCH_DUPLICATE (giao diện hỏi xác nhận, gửi lại confirmDuplicate=true). Ghi file đợt kiểu tạm rồi đổi tên; không ghi được nhật ký thì hoàn tác đợt",
    "roles": [
     "ADMIN",
     "KE_TOAN"
@@ -5494,7 +5513,7 @@
      "periodId",
      "string",
      false,
-     "Kỳ vận chuyển"
+     "Kỳ vận chuyển liên quan (tùy chọn)"
     ],
     [
      "partnerName",
@@ -5537,12 +5556,26 @@
      "string",
      false,
      ""
+    ],
+    [
+     "confirmDuplicate",
+     "boolean",
+     false,
+     "đã xác nhận nạp thêm dù trùng đợt cũ (sau lỗi E_BATCH_DUPLICATE)"
+    ],
+    [
+     "clientRequestId",
+     "string",
+     false,
+     "mã chống bấm 2 lần — cùng mã trả cùng một đợt"
     ]
    ],
    "output": "{batchId, periodId, periodCode, contractId, partnerName, batchName, rentUnitPrice, fuelUnitPrice, deductFuel, summary, status}",
    "errors": [
     "VALIDATION_FAILED",
-    "NOT_FOUND"
+    "NOT_FOUND",
+    "BUSINESS_RULE:E_BATCH_DUPLICATE",
+    "BUSINESS_RULE:E_MAPPING_REQUIRED"
    ],
    "reads": [
     "KY_TINH"
@@ -5554,7 +5587,7 @@
   {
    "action": "subcontract.list",
    "group": "Nhập liệu",
-   "desc": "Danh sách các đợt nạp thuê vận chuyển",
+   "desc": "Danh sách các đợt dữ liệu của đối tác đã nạp",
    "roles": [
     "ADMIN",
     "KE_TOAN",
@@ -5613,7 +5646,7 @@
   {
    "action": "subcontract.delete",
    "group": "Nhập liệu",
-   "desc": "Xóa đợt nạp thuê vận chuyển",
+   "desc": "Xóa một đợt đối tác (chỉ xóa bản sao dùng để đối chiếu). Ghi nhật ký trước khi xóa; lỗi nhật ký thì không xóa",
    "roles": [
     "ADMIN",
     "KE_TOAN"

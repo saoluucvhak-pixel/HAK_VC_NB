@@ -1,9 +1,8 @@
 'use strict';
 /**
  * Test E2E giao diện:
- *  - Nhập dữ liệu thuê vận chuyển (Menu Nhập liệu)
- *  - Xuất dữ liệu VC gửi đối tác (Menu Kết xuất)
- *  - Đối chiếu 3 tiêu chuẩn (Menu Đối chiếu & đồng bộ)
+ *  - (đã gộp menu) Đối chiếu với đối tác: Đối chiếu 3 tiêu chí + Các đợt đã nạp (nhóm Đối tác)
+ *  - (đã gộp menu) Xuất gói gửi đối tác nằm ở Trao đổi dữ liệu → Xuất gói
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -42,40 +41,39 @@ test('E2E Giao diện: Nhập dữ liệu thuê VC, Xuất gửi đối tác và
     await page.getByRole('button', { name: 'Vào phần mềm' }).click();
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
 
-    // 1. Kiểm tra màn hình "Nhập dữ liệu thuê VC" trong menu Nhập liệu
-    await nav('Nhập dữ liệu thuê VC');
-    await page.getByRole('heading', { name: 'Nhập dữ liệu thuê vận chuyển' }).waitFor();
-    await page.getByRole('tab', { name: 'Nạp đợt mới' }).waitFor();
-    await page.getByRole('tab', { name: 'Danh sách các đợt đã nạp' }).waitFor();
-    await page.getByText('Gán vào Kỳ vận chuyển của công ty').waitFor();
-    await page.getByText('Đơn giá thuê (VNĐ / tấn)').waitFor();
-
-    // Chuyển tab danh sách đợt
-    await page.getByRole('tab', { name: 'Danh sách các đợt đã nạp' }).click();
-    await page.getByText('Chưa có đợt thuê vận chuyển nào').waitFor();
-
-    // 2. Kiểm tra màn hình "Xuất dữ liệu VC gửi đối tác" trong menu Kết xuất
-    await nav('Xuất dữ liệu VC gửi đối tác');
-    await page.getByRole('heading', { name: 'Xuất dữ liệu vận chuyển gửi đối tác' }).waitFor();
-    await page.getByRole('tab', { name: 'Xuất theo Kỳ tính đã chốt' }).waitFor();
-    await page.getByRole('tab', { name: 'Xuất theo Khoảng ngày phiếu cân' }).waitFor();
-    await page.getByRole('tab', { name: 'Lịch sử đã xuất' }).waitFor();
-
-    await page.getByRole('tab', { name: 'Xuất theo Khoảng ngày phiếu cân' }).click();
-    await page.getByLabel('Từ ngày').waitFor();
-    await page.getByLabel('Đến ngày').waitFor();
-    await page.getByRole('button', { name: 'Xuất phiếu cân gửi đối tác' }).waitFor();
-
-    // 3. Kiểm tra màn hình "Đối chiếu dữ liệu"
+    // 1. (đã gộp menu) "Nhập dữ liệu thuê VC" → màn "Đối chiếu dữ liệu": thẻ Đối chiếu 3 tiêu chí có ô chọn file, Các đợt đã nạp quản lý đợt
+    assert.equal(await page.locator('nav button', { hasText: 'Nhập dữ liệu thuê VC' }).count(), 0, 'đã bỏ mục menu riêng');
     await nav('Đối chiếu dữ liệu');
     await page.getByRole('heading', { name: 'Đối chiếu dữ liệu' }).waitFor();
-    await page.getByRole('tab', { name: 'Phiếu cân chưa tính vào kỳ' }).waitFor();
-    await page.getByRole('tab', { name: 'Đối chiếu với đơn vị khác' }).waitFor();
+    await page.getByRole('tab', { name: 'Kiểm tra nội bộ' }).waitFor();
+    await page.getByRole('tab', { name: 'Đối chiếu 3 tiêu chí' }).waitFor();
+    await page.getByRole('tab', { name: 'Các đợt đã nạp' }).waitFor();
 
-    await page.getByRole('tab', { name: 'Đối chiếu với đơn vị khác' }).click();
-    await page.getByText('1. Chọn Đợt thuê vận chuyển đã nạp').waitFor();
+    await page.getByRole('tab', { name: 'Đối chiếu 3 tiêu chí' }).click();
+    await page.getByText('1. Chọn đợt đối tác đã lưu').waitFor();
     await page.getByText('2. Hoặc gán Kỳ tính công ty').waitFor();
     await page.getByRole('button', { name: 'Chọn file…' }).waitFor();
+    await page.getByRole('button', { name: 'Lưu thành đợt…' }).waitFor();
+
+    // Chuyển thẻ danh sách đợt
+    await page.getByRole('tab', { name: 'Các đợt đã nạp' }).click();
+    await page.getByText('Chưa có đợt nào được lưu').waitFor();
+
+    // 2. (đã gộp menu) "Xuất dữ liệu VC gửi đối tác" → màn "Trao đổi dữ liệu", tab Xuất gói (kỳ đã chốt + khoảng ngày phiếu cân)
+    assert.equal(await page.locator('nav button', { hasText: 'Xuất dữ liệu VC gửi đối tác' }).count(), 0, 'đã bỏ mục menu riêng');
+    await nav('Trao đổi dữ liệu');
+    await page.getByRole('heading', { name: 'Trao đổi dữ liệu' }).waitFor();
+    await page.getByRole('tab', { name: 'Nhập gói' }).waitFor();
+    await page.getByRole('tab', { name: 'Lịch sử gói' }).waitFor();
+    await page.getByRole('tab', { name: 'Xuất gói' }).click();
+    const type = page.locator('label.field', { hasText: 'Loại gói' }).locator('select');
+    await type.selectOption('KY_TINH'); await page.getByText('Kỳ cần gửi (gói Kỳ tính)').waitFor();
+    await type.selectOption('PHIEU_CAN');
+    await page.getByLabel('Phiếu cân từ ngày').waitFor();
+    await page.getByLabel('đến ngày').waitFor();
+    await page.getByLabel('Biển số xe (cách nhau dấu phẩy; trống = mọi xe)').waitFor();
+    await page.getByLabel('Định dạng file').waitFor();
+    await page.getByRole('button', { name: 'Xuất gói', exact: true }).waitFor();
 
     assert.deepEqual(errors, []);
   } finally {

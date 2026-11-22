@@ -54,7 +54,9 @@ class ExchangeService {
       if (!dateFrom || !dateTo) throw new AppError('VALIDATION_FAILED', 'Chọn khoảng ngày phiếu cân');
       const pl = new Set(plates.map((p) => p.toUpperCase()));
       tables.PHIEU_CAN = s.find('PHIEU_CAN', (t) => !t.is_deleted && t.weigh1_date >= dateFrom && t.weigh1_date <= dateTo && (!pl.size || pl.has(t.plate_no)));
-      const fuelInWindow = s.find('GIAO_NHAN_DAU', (f) => !f.is_deleted && (f.receipt_date || f.issue_date || '') >= dateFrom && (f.receipt_date || f.issue_date || '') <= dateTo && (!pl.size || pl.has(f.plate_no)));
+      // cột ngày thật của GIAO_NHAN_DAU là receive_date (receipt_date / issue_date chỉ là tên cũ — dự phòng)
+      const fuelDay = (f) => f.receive_date || f.receipt_date || f.issue_date || '';
+      const fuelInWindow = s.find('GIAO_NHAN_DAU', (f) => !f.is_deleted && fuelDay(f) >= dateFrom && fuelDay(f) <= dateTo && (!pl.size || pl.has(f.plate_no)));
       if (fuelInWindow.length) tables.GIAO_NHAN_DAU = fuelInWindow;
       if (!tables.PHIEU_CAN.length) throw new AppError('VALIDATION_FAILED', 'Không có phiếu cân nào trong khoảng đã chọn');
       Object.assign(header, { dateFrom, dateTo });
@@ -133,12 +135,22 @@ class ExchangeService {
    */
   _remap(T0, h) {
     const s = this.store; const src = h.sourceInstallId; const T = { ...T0 };
-    if (!(T0.KY_TINH || []).length) return T;
+    if (!(T0.KY_TINH || []).length && !(T0.GIAO_NHAN_DAU || []).length) return T;
     const tag = `${h.sourceUnitCode}.${String(src).replace(/^INS-/, '').slice(0, 4)}`;
     const alt = (id) => `${id}@${tag}`;
     const ownerP = (pid) => { const p = s.get('KY_TINH', pid); return !p ? null : p.origin === 'IMPORTED' ? p.origin_install_id : 'LOCAL'; };
     // cùng mã bản cài (2 máy cùng đơn vị) → cùng dãy số: mã đến có thể trùng mã máy này sẽ sinh sau → luôn đổi mã (trừ bản cũ cùng máy gửi)
     const sameSpace = h.sourceUnitCode === s.installCode;
+    if (!(T0.KY_TINH || []).length) {
+      // gói không có kỳ (gói Phiếu cân kèm dầu): mã dòng dầu của máy gửi có thể TRÙNG mã dòng dầu của máy này nhưng khác nội dung (hai máy cùng đánh số)
+      // → đổi mã dòng đến để KHÔNG ghi đè dòng của máy này (kỳ đã xác nhận / khóa không đổi số). Cùng nội dung → giữ mã (ra "Đã có").
+      T.GIAO_NHAN_DAU = (T0.GIAO_NHAN_DAU || []).map((r) => {
+        const l = s.get('GIAO_NHAN_DAU', r.receipt_id);
+        const clash = l ? !sameContent({ ...l, import_batch_id: '' }, { ...r, import_batch_id: '' }) : sameSpace;
+        return clash ? { ...r, receipt_id: alt(r.receipt_id) } : r;
+      });
+      return T;
+    }
     const pmap = new Map();
     for (const p of T0.KY_TINH) {
       // cùng hợp đồng + cùng mã kỳ (cùng khoảng ngày, tuyến) đã có → đó là CÙNG kỳ: gắn vào kỳ đang có (thay nếu cùng máy gửi, xung đột nếu khác máy)
@@ -204,6 +216,17 @@ class ExchangeService {
         else add(t, id, 'CONFLICT', r, { changes: diff(local, r), note: stampOf(r) === stampOf(local) ? 'hai bên cùng sửa' : 'bản cài này sửa sau', default: 'KEEP' });
       }
     }
+    // dòng dầu trong gói không có kỳ: chỉ nhận khi máy này đã có hợp đồng / xe / tuyến / đơn vị tương ứng (khóa ngoại) và năm chưa lưu trữ
+    const fuelBlocker = (r) => {
+      if (s.archivedThrough && Number(String(r.receive_date).slice(0, 4)) <= s.archivedThrough) return `dòng dầu thuộc năm ${String(r.receive_date).slice(0, 4)} đã lưu trữ ở máy này`;
+      const c = s.get('HOP_DONG', r.contract_id);
+      if (!c) return `hợp đồng ${r.contract_id} chưa có ở máy này — nhập gói Danh mục trước rồi nhập lại gói để nhận dầu`;
+      if (!party(c)) return `hợp đồng ${c.contract_code} không liên quan đơn vị này`;
+      for (const [col, tb] of [['plate_no', 'XE'], ['route_code', 'TUYEN_VC'], ['giver_unit_code', 'DON_VI'], ['owner_unit_code', 'DON_VI']]) {
+        if (r[col] && !s.get(tb, r[col])) return `${col === 'plate_no' ? 'xe' : col === 'route_code' ? 'tuyến' : 'đơn vị'} ${r[col]} chưa có ở máy này — nhập gói Danh mục trước rồi nhập lại gói để nhận dầu`;
+      }
+      return '';
+    };
     // phiếu cân: theo ticket_id; khác số liệu cốt lõi → xung đột
     for (const r of T.PHIEU_CAN || []) {
       const local = s.get('PHIEU_CAN', r.ticket_id);
@@ -258,7 +281,8 @@ class ExchangeService {
       else if (p.calc_version > local.calc_version || p.status !== local.status) add('KY_TINH', p.period_id, 'REPLACE', p, { note: `lần tính ${local.calc_version} → ${p.calc_version}, ${local.status} → ${p.status}` });
       else add('KY_TINH', p.period_id, 'SAME', p);
     }
-    if (T.KY_TINH && T.KY_TINH.length && periodsOk) {
+    const fuelOnly = !ticketsOnly && !(T.KY_TINH || []).length && (T.GIAO_NHAN_DAU || []).length > 0; // gói Phiếu cân kèm dầu
+    if ((T.KY_TINH && T.KY_TINH.length && periodsOk) || fuelOnly) {
       const keep = new Set(plan.filter((x) => x.table === 'KY_TINH' && ['NEW', 'REPLACE', 'CONFLICT'].includes(x.action)).map((x) => x.id));
       const dep = new Set(plan.filter((x) => x.table === 'KY_TINH' && x.action === 'CONFLICT').map((x) => x.id)); // phụ thuộc lựa chọn ở kỳ
       const rPeriods = new Map(); for (const d of T.FUEL_DETAIL || []) { if (!rPeriods.has(d.receipt_id)) rPeriods.set(d.receipt_id, new Set()); rPeriods.get(d.receipt_id).add(d.period_id); }
@@ -277,6 +301,10 @@ class ExchangeService {
         for (const r of T[t] || []) {
           const id = r[pkOf(t)];
           if (t !== 'GIAO_NHAN_DAU' && !keep.has(r.period_id)) { add(t, id, 'SAME', r); continue; }
+          if (fuelOnly && t === 'GIAO_NHAN_DAU') {
+            const why = fuelBlocker(r);
+            if (why) { add(t, id, 'SKIP', r, { note: why }); continue; }
+          }
           const l = s.get(t, id);
           const periodsOf = t === 'GIAO_NHAN_DAU' ? [...(rPeriods.get(id) || [])] : [r.period_id];
           const onlyIf = periodsOf.length && periodsOf.every((x) => dep.has(x)) ? periodsOf : null;
@@ -304,7 +332,9 @@ class ExchangeService {
       role: roleText(h, s), summary, conflicts: plan.filter((x) => x.action === 'CONFLICT').map(({ table, id, changes, note, default: d, kind, supersedeCodes }) => ({ table, id, changes, note, default: d, kind, supersedeCodes })),
       rejected: plan.filter((x) => x.action === 'REJECT').map(({ table, id, note }) => ({ table, id, note })), totals: pkgTotals(T),
       canImport: !plan.some((x) => x.action === 'REJECT'), ticketsOnly, ticketsInPackage: (pkg.tables.PHIEU_CAN || []).length,
-      remapped: (T.KY_TINH || []).filter((p) => /@/.test(p.period_id)).map((p) => p.period_code) };
+      remapped: (T.KY_TINH || []).filter((p) => /@/.test(p.period_id)).map((p) => p.period_code),
+      fuelInPackage: (pkg.tables.GIAO_NHAN_DAU || []).length,
+      fuelSkipped: Object.entries(plan.filter((x) => x.table === 'GIAO_NHAN_DAU' && x.action === 'SKIP' && x.note).reduce((m, x) => { m[x.note] = (m[x.note] || 0) + 1; return m; }, {})).map(([note, count]) => ({ note, count })) };
     this.staged.set(previewId, { pkg, plan, filePath, sig: this._sig(plan), user: user && user.username });
     return result;
   }

@@ -137,8 +137,16 @@
       if (tab === 'import') {
         const res = h('div');
         const pick = async () => {
-          const fp = await D.pickFile({ title: 'Chọn gói .dgvc', filters: [{ name: 'Gói DGVC', extensions: ['dgvc'] }] }); if (!fp) return;
+          const fp = await D.pickFile({ title: 'Chọn gói .dgvc hoặc .json', filters: [{ name: 'Gói DGVC (.dgvc) hoặc .json', extensions: ['dgvc', 'json'] }] }); if (!fp) return;
           await show(fp, false);
+        };
+        const done = (r) => {
+          const line = (t, c) => `${{ PHIEU_CAN: 'Phiếu cân', GIAO_NHAN_DAU: 'Dòng dầu', KY_TINH: 'Kỳ tính', HOP_DONG: 'Hợp đồng' }[t] || t}: ${Object.entries(c).map(([a, n]) => `${(ACT[a] || [, a])[1]} ${D.vn(n)}`).join(', ')}`;
+          res.innerHTML = '';
+          res.append(h('div', { class: 'card ok-card' }, h('h2', {}, 'Đã nhập gói'), h('p', { class: 'small' }, Object.entries(r.counts || {}).map(([t, c]) => line(t, c)).join(' · ') || 'Không có dòng nào thay đổi.'),
+            h('div', { class: 'btns' }, h('button', { class: 'btn primary', onclick: () => D.go('reconcile', { tab: 'compare' }) }, 'Mở đối chiếu'),
+              h('button', { class: 'btn', onclick: () => D.go('exchange', { tab: 'history' }) }, 'Xem lịch sử gói'), h('button', { class: 'btn', onclick: () => D.go('exchange', { tab: 'import' }) }, 'Nhập gói khác'))));
+          res.scrollIntoView({ block: 'start', behavior: 'smooth' });
         };
         const show = async (fp, ticketsOnly) => {
           const pv = await D.api('exchange.previewPackage', { filePath: fp, ticketsOnly });
@@ -149,7 +157,7 @@
             h('p', { class: 'small' }, `Người lập ${hd.createdBy} · ${D.dt(hd.createdAt)} · ${D.vn(pv.sizeBytes / 1024, 1)} KB · `, h('span', { class: 'tag ok' }, 'Toàn vẹn SHA-256: đúng')), h('p', { class: 'small muted' }, pv.role)),
           h('div', { class: 'card' }, h('h2', {}, 'Tóm tắt'), pv.totals.periods.length ? h('div', {}, h('p', {}, `Kỳ: ${pv.totals.periods.join(', ')}`), h('p', {}, `${D.vn(pv.totals.trips)} chuyến · ${D.vn(pv.totals.ton, 2)} tấn · đơn giá ${pv.totals.prices.map((x) => D.vn(x.transportPrice)).join(' · ')}`),
             h('p', {}, 'Tổng thanh toán: ', h('span', { class: 'money' }, D.vn(pv.totals.totalInclVat))))
-            : h('p', {}, Object.entries(pv.totals.catalog).map(([t, n]) => `${t}: ${n}`).join(' · ') || `${pv.totals.tickets} phiếu cân`))),
+            : h('p', {}, Object.entries(pv.totals.catalog).map(([t, n]) => `${t}: ${n}`).join(' · ') || `${pv.totals.tickets} phiếu cân${pv.fuelInPackage && !pv.ticketsOnly ? ` · ${pv.fuelInPackage} dòng dầu` : ''}`))),
           h('div', { class: 'card flush' }, D.table({ rows: Object.entries(pv.summary).map(([t, s]) => ({ t, ...s })), columns: [{ key: 't', label: 'Bảng' }, ...Object.keys(ACT).map((k) => ({ key: k, label: ACT[k][1], fmt: 'int' }))] })),
           h('details', { class: 'card small' }, h('summary', {}, h('b', {}, 'Các chữ trong bảng nghĩa là gì?')), h('ul', { style: { margin: '8px 0 0 18px', padding: 0 } },
             h('li', {}, h('b', {}, 'Mới'), ': máy này chưa có — thêm vào.'), h('li', {}, h('b', {}, 'Đã có'), ': giống hệt dữ liệu đang có — bỏ qua.'),
@@ -162,6 +170,7 @@
             pv.ticketsInPackage && !pv.ticketsOnly ? h('div', { class: 'btns' }, h('button', { class: 'btn primary', onclick: () => show(fp, true) }, `Chỉ nhập ${D.vn(pv.ticketsInPackage)} phiếu cân trong gói`),
               h('span', { class: 'small muted' }, 'Phiếu đã có tự bỏ qua; phiếu thuộc kỳ đã chốt sẽ hiện ở Đối chiếu dữ liệu.')) : null) : null,
           pv.ticketsOnly ? h('div', { class: 'card small' }, h('b', {}, 'Chỉ nhập phiếu cân'), ' trong gói — bỏ qua kỳ tính, dầu, danh mục.') : null,
+          pv.fuelSkipped && pv.fuelSkipped.length ? h('div', { class: 'card small' }, h('b', {}, 'Dòng dầu chưa nhận được'), h('ul', { style: { margin: '6px 0 0 18px', padding: 0 } }, pv.fuelSkipped.map((x) => h('li', {}, `${D.vn(x.count)} dòng: ${x.note}`)))) : null,
           pv.conflicts.length ? h('div', { class: 'card' }, h('h2', {}, `Xung đột (${pv.conflicts.length}) — chọn giữ bản này hay lấy bản đến`), pv.conflicts.map((c) => {
             const sup = c.kind === 'SUPERSEDE'; const dup = c.kind === 'POSSIBLE_DUPLICATE'; // nghi trùng dòng dầu: SKIP (mặc định) / KEEP
             const sel = dup ? h('select', { 'aria-label': 'Xử lý dòng dầu nghi trùng', onchange: (e) => { decisions[`${c.table}:${c.id}`] = e.target.value; } }, h('option', { value: 'SKIP' }, 'Bỏ qua (đã có ở máy này)'), h('option', { value: 'KEEP' }, 'Vẫn nhập (ghi thêm)'))
@@ -175,30 +184,59 @@
           })) : null,
           h('div', { class: 'btns sticky-act' }, h('button', { class: 'btn primary', disabled: !pv.canImport || !D.writer(), onclick: async () => {
             if (!(await D.confirm({ title: 'Nhập gói', message: 'APP tự sao lưu an toàn trước khi ghi. Tiếp tục?' }))) return;
-            const r = await D.api('exchange.importPackage', { previewId: pv.previewId, decisions }); D.toast(`Đã nhập gói · sao lưu an toàn: ${r.safetyBackup || '—'}`, 'ok', 8000); await D.refreshBoot(); D.go('exchange', { tab: 'history' });
+            const r = await D.api('exchange.importPackage', { previewId: pv.previewId, decisions }); D.toast(`Đã nhập gói · sao lưu an toàn: ${r.safetyBackup || '—'}`, 'ok', 8000); await D.refreshBoot(); done(r);
           } }, 'Nhập gói')));
           res.style.scrollMarginTop = '90px'; res.scrollIntoView({ block: 'start', behavior: 'smooth' }); // chọn gói mới → cuộn tới kết quả, thấy ngay nút Nhập gói
         };
-        body.append(h('div', { class: 'card' }, h('p', {}, 'Nhận gói .dgvc do nhà máy khác gửi: kỳ tính (bên vận chuyển gửi bên thuê), danh mục (nhà máy nào sửa danh mục cũng gửi được), phiếu cân.'), (D.writer() ? h('button', { class: 'btn primary', onclick: pick }, 'Chọn gói…') : h('p', { class: 'small muted' }, 'Vai trò Chỉ xem không nhận gói.'))), res);
+        body.append(h('div', { class: 'card' }, h('p', {}, 'Nhận gói .dgvc hoặc .json do nhà máy / đối tác gửi: kỳ tính (bên vận chuyển gửi bên thuê), danh mục (nhà máy nào sửa danh mục cũng gửi được), phiếu cân kèm dầu.'), (D.writer() ? h('button', { class: 'btn primary', onclick: pick }, 'Chọn gói…') : h('p', { class: 'small muted' }, 'Vai trò Chỉ xem không nhận gói.'))), res,
+          h('details', { class: 'card small' }, h('summary', {}, h('b', {}, 'Đối tác gửi gì → làm gì?')), h('ul', { style: { margin: '8px 0 0 18px', padding: 0 } },
+            h('li', {}, h('b', {}, 'Gói Kỳ tính / Danh mục / Phiếu cân (.dgvc hoặc .json)'), ': nhập ở đây (Chọn gói…) — ghi vào máy này sau khi xem trước.'),
+            h('li', {}, h('b', {}, 'File Excel phiếu cân hoặc Excel dầu, hoặc muốn chỉ SO SÁNH mà không ghi vào máy'), ': vào ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); D.go('reconcile', { tab: 'compare' }); } }, 'Đối chiếu dữ liệu → Đối chiếu 3 tiêu chí'), ' → Chọn file (có nút tải file mẫu).'))));
       } else if (tab === 'export') {
-        const f = D.form([{ key: 'packageType', label: 'Loại gói', type: 'select', options: [['DANH_MUC', 'Danh mục (đơn vị, xe, tuyến, mã đơn giá, đơn giá, hợp đồng)'], ['KY_TINH', 'Kỳ tính vận chuyển đã xác nhận / đã khóa (gửi bên thuê mình)'], ['PHIEU_CAN', 'Phiếu cân & Dầu nhận theo khoảng ngày (đối chiếu 2 chiều)']] },
-          { key: 'targetUnitCode', label: 'Gửi cho nhà máy', type: 'select', options: [['', '— tất cả —'], ...D.state.boot.units.filter((u) => u.unit_code !== D.state.boot.install.unitCode).map((u) => [u.unit_code, `${u.unit_code} · ${u.unit_name}`])] },
-          { key: 'dateFrom', label: 'Phiếu cân từ ngày', type: 'date' }, { key: 'dateTo', label: 'đến ngày', type: 'date' }], { packageType: 'DANH_MUC' });
+        const kind0 = ['DANH_MUC', 'KY_TINH', 'PHIEU_CAN'].includes(p.kind) ? p.kind : 'DANH_MUC';
+        const f = D.form([{ key: 'packageType', label: 'Loại gói', type: 'select', options: [['DANH_MUC', 'Danh mục (đơn vị, xe, tuyến, mã đơn giá, đơn giá, hợp đồng)'], ['KY_TINH', 'Kỳ tính vận chuyển đã chốt — xác nhận / khóa (gửi bên thuê mình)'], ['PHIEU_CAN', 'Phiếu cân & dầu nhận theo khoảng ngày (đối chiếu 2 chiều)']] },
+          { key: 'targetUnitCode', label: 'Gửi cho nhà máy / đối tác', type: 'select', options: [['', '— tất cả —'], ...D.state.boot.units.filter((u) => u.unit_code !== D.state.boot.install.unitCode).map((u) => [u.unit_code, `${u.unit_code} · ${u.unit_name}`])] },
+          { key: 'dateFrom', label: 'Phiếu cân từ ngày', type: 'date' }, { key: 'dateTo', label: 'đến ngày', type: 'date' },
+          { key: 'plates', label: 'Biển số xe (cách nhau dấu phẩy; trống = mọi xe)', type: 'text', placeholder: 'Ví dụ: 92H-00057, 92H-00133', full: true },
+          { key: 'format', label: 'Định dạng file', type: 'select', options: [['dgvc', 'Gói nén .dgvc (khuyên dùng)'], ['json', 'File .json (mở xem được bằng trình soạn thảo)']] }], { packageType: kind0, format: 'dgvc' });
         const periods = (await D.api('periods.list', {})).items.filter((x) => x.origin === 'LOCAL' && x.role === 'CARRIER' && ['DA_XAC_NHAN', 'DA_KHOA'].includes(x.status));
         const checks = periods.map((x) => ({ x, c: h('input', { type: 'checkbox', value: x.period_id }) }));
-        body.append(h('div', { class: 'card' }, f, h('h2', { style: { marginTop: '14px' } }, 'Kỳ (với gói Kỳ tính)'), checks.length ? h('div', {}, checks.map(({ x, c }) => h('label', { class: 'check' }, c, `${x.period_code} → ${x.customer}`))) : h('p', { class: 'muted small' }, 'Chưa có kỳ đã xác nhận để gửi.'),
+        const kyBox = h('div', {}, h('h2', { style: { marginTop: '14px' } }, 'Kỳ cần gửi (gói Kỳ tính)'), checks.length ? h('div', {}, checks.map(({ x, c }) => h('label', { class: 'check' }, c, `${x.period_code} → ${x.customer}`))) : h('p', { class: 'muted small' }, 'Chưa có kỳ đã xác nhận để gửi.'));
+        const labelOf = (k) => f.inputs[k].closest('label');
+        const noteEl = h('p', { class: 'small muted', 'aria-live': 'polite' });
+        const sync = () => {
+          const t = f.inputs.packageType.value; noteEl.textContent = note[t];
+          for (const k of ['dateFrom', 'dateTo', 'plates']) labelOf(k).hidden = t !== 'PHIEU_CAN';
+          kyBox.hidden = t !== 'KY_TINH';
+        };
+        const note = { DANH_MUC: 'Gói danh mục cập nhật đơn vị, xe, tuyến, đơn giá, hợp đồng ở nhà máy nhận.', KY_TINH: 'Gói kỳ tính chứa kết quả tính cước, bảng kê sản lượng, phiếu cân và dầu của kỳ đã chốt — bên thuê nhập để xem / in lại (không sửa được).', PHIEU_CAN: 'Gói phiếu cân kèm dòng giao nhận dầu trong khoảng ngày — đối tác kiểm tra trước khi lập kỳ, hoặc nạp vào Đối chiếu dữ liệu.' };
+        f.inputs.packageType.addEventListener('change', sync); sync();
+        body.append(h('div', { class: 'card' }, h('p', { class: 'small muted', style: { marginTop: 0 } }, 'Một cổng duy nhất để gửi dữ liệu cho nhà máy / đối tác: chọn loại gói, bấm Xuất gói. Kỳ đã xác nhận / khóa chỉ được gửi đi, không bị đổi số.'), f,
+          noteEl, kyBox,
           h('div', { class: 'btns', style: { marginTop: '14px' } }, h('button', { class: 'btn primary', disabled: !D.writer(), onclick: async () => {
-            const v = f.values(); const periodIds = checks.filter((k) => k.c.checked).map((k) => k.x.period_id);
-            const target = window.dgvc ? await D.pickFile({ title: 'Lưu gói', save: true, defaultPath: 'goi.dgvc' }) : '';
-            const r = await D.api('exchange.exportPackage', { ...v, periodIds, targetPath: target || undefined });
+            const v = f.values(); const type = v.packageType; const ext = v.format === 'json' ? 'json' : 'dgvc';
+            const req = { packageType: type, targetUnitCode: v.targetUnitCode }; let base = 'GOI_DANH_MUC';
+            if (type === 'KY_TINH') {
+              const picked = checks.filter((k) => k.c.checked).map((k) => k.x);
+              if (!picked.length) { D.toast('Chọn ít nhất 1 kỳ cần gửi', 'warn'); return; }
+              req.periodIds = picked.map((x) => x.period_id); base = `GOI_KY_TINH_${picked[0].period_code}${picked.length > 1 ? `_va_${picked.length - 1}_ky` : ''}`.replace(/[/#\\\\]/g, '_');
+            } else if (type === 'PHIEU_CAN') {
+              if (!v.dateFrom || !v.dateTo) { D.toast('Chọn khoảng ngày phiếu cân cần xuất', 'warn'); return; }
+              req.dateFrom = v.dateFrom; req.dateTo = v.dateTo; req.plates = v.plates ? v.plates.split(',').map((x) => x.trim()).filter(Boolean) : []; base = `GOI_PHIEU_CAN_${v.dateFrom}_${v.dateTo}`;
+            }
+            const target = window.dgvc ? await D.pickFile({ title: 'Lưu gói', save: true, defaultPath: `${base}.${ext}`, filters: [{ name: ext.toUpperCase(), extensions: [ext] }] }) : '';
+            if (window.dgvc && !target) return;
+            const r = await D.api('exchange.exportPackage', { ...req, targetPath: target || undefined });
             D.toast(`Đã xuất gói ${r.file}${r.remindersMarked ? ` · đánh dấu ${r.remindersMarked} thay đổi danh mục đã gửi ${v.targetUnitCode}` : ''}`, 'ok', 9000);
+            if (window.dgvc) D.api('system.openPath', { path: r.file }, { quiet: true }).catch(() => {});
+            D.go('exchange', { tab: 'history' });
           } }, 'Xuất gói'))));
       } else {
         const d = await D.api('exchange.list');
         body.append(h('div', { class: 'card flush' }, D.table({ rows: d.items, columns: [{ key: 'created_at', label: 'Lúc', fmt: 'datetime' }, { key: 'direction', label: 'Chiều' }, { key: 'package_type', label: 'Loại' },
           { key: 'source_unit_code', label: 'Từ' }, { key: 'target_unit_code', label: 'Cho' }, { key: 'file_name', label: 'File' }, { key: 'counts_json', label: 'Số dòng' }, { key: 'created_by', label: 'Người' }] })));
       }
-      return D.page('Trao đổi dữ liệu', 'Gói .dgvc giữa các nhà máy', [], tabs, body);
+      return D.page('Trao đổi dữ liệu', 'Gói .dgvc / .json với nhà máy và đối tác — nhập · xuất · lịch sử', [], tabs, body);
     },
   };
 
