@@ -14,6 +14,8 @@
   const routeOf = (code) => (D.state.boot.routes || []).find((r) => r.route_code === code);
   const uomText = (u) => (u === 'M3' ? 'đ/m³' : 'đ/tấn');
   const range = (from, to) => `${D.dmy(from)} → ${to ? D.dmy(to) : 'đang hiệu lực'}`;
+  /** Cột Hiệu lực của dòng đơn giá: ngày bắt đầu chính là cột Ngày cập nhật nên chỉ ghi ngày kết thúc. */
+  const until = (r) => (r.status === 'DRAFT' ? 'chưa áp dụng' : r.effectiveTo ? `đến ${D.dmy(r.effectiveTo)}` : 'đang hiệu lực');
 
   D.views.pricecodes = {
     async render(p) {
@@ -241,14 +243,14 @@
         const v = r.price; const isCd = r.methodCode === 'CO_DINH';
         const rl = raw.get(r.priceId); const manual = !isCd && rl && (rl.isManualContractPrice || (rl.contract_price && rl.contract_price !== rl.formulaContractPrice));
         if (v == null) return '—';
-        return h('span', {}, h('span', { class: 'money' }, D.vn(v)), h('div', { class: 'small muted' }, `${uomText(r.uom)} · ${isCd ? 'cố định' : 'theo giá dầu'}`),
+        return h('span', {}, h('span', { class: 'money' }, D.vn(v)), h('div', { class: 'small muted' }, uomText(r.uom)),
           manual ? h('span', { class: 'tag warn', style: { display: 'block', width: 'fit-content', marginLeft: 'auto', fontSize: '10px' } }, 'Thủ công') : null);
       };
 
       // ── Ngăn phụ CHỈ XEM: Hình thức giá của đơn giá đang chọn ──
       const guide = () => h('div', { class: 'xv-guide', role: 'note' },
         h('b', {}, 'Chỉ để xem. '), 'Thêm / sửa / xóa hình thức ở ', h('b', {}, 'Danh mục › Hình thức giá'), '.',
-        h('div', { style: { marginTop: '6px' } }, h('button', { class: 'btn small', 'aria-label': 'Mở màn Hình thức giá', onclick: () => D.go('forms', { formId: (rows.find((x) => x.priceId === sel) || {}).formId || '' }) }, 'Mở Hình thức giá')));
+        h('div', { style: { marginTop: '6px' } }, h('button', { class: 'btn small', onclick: () => D.go('forms', { formId: (rows.find((x) => x.priceId === sel) || {}).formId || '' }) }, 'Mở Hình thức giá')));
       const drawSide = () => {
         const r = rows.find((x) => x.priceId === sel);
         if (!r) { side.replaceChildren(h('h2', { class: 'xv-h' }, 'Hình thức giá của đơn giá này'), guide(), h('p', { class: 'muted', style: { margin: '10px 0 0' } }, 'Chọn một dòng ở bảng đơn giá để xem hình thức giá của nó.')); return; }
@@ -275,13 +277,13 @@
         const table = D.table({
           rows: list, empty: rows.length ? 'Không có đơn giá phù hợp bộ lọc' : 'Chưa có đơn giá nào — bấm "Thêm đơn giá"',
           columns: [
-            { key: 'updateDate', label: 'Ngày cập nhật', render: (r) => D.dmy(r.updateDate) },
+            { key: 'updateDate', label: 'Ngày cập nhật', render: (r) => h('span', { class: 'nw' }, D.dmy(r.updateDate)) },
             { key: 'priceId', label: 'Mã đơn giá', render: (r) => h('div', {}, h('b', { class: 'mono' }, r.priceId), r.contractId && !r.priceCode ? h('div', { class: 'small muted' }, 'giá riêng HĐ') : null) },
             { key: 'routeCode', label: 'Tuyến', render: (r) => h('div', {}, h('b', { class: 'mono' }, r.routeCode), h('div', { class: 'small muted' }, r.routeName)) },
-            { key: 'method', label: 'Hình thức giá', render: (r) => (r.methodCode === 'CO_DINH' ? D.tag('info', 'Cố định') : D.tag('mute', 'Điều chỉnh dầu')) },
+            { key: 'method', label: 'Hình thức giá', render: (r) => (r.methodCode === 'CO_DINH' ? D.tag('info', 'Cố định') : D.tag('mute', 'Theo dầu')) },
             { key: 'km', label: 'Cự ly chuyến', title: 'km, đi và về', num: true, render: (r) => { const t = routeOf(r.routeCode); return t ? D.vnAuto(t.trip_distance_km) : ''; } },
             { key: 'price', label: 'ĐG ký HĐ', num: true, render: priceCell },
-            { key: 'eff', label: 'Hiệu lực', render: (r) => (r.status === 'DRAFT' ? h('span', { class: 'small muted' }, 'Chưa áp dụng') : range(r.effectiveFrom, r.effectiveTo)) },
+            { key: 'eff', label: 'Hiệu lực', render: (r) => until(r) },
             { key: 'status', label: 'Trạng thái', render: (r) => D.tag(r.status) },
             { key: 'x', label: 'Thao tác', render: (r) => { const rl = raw.get(r.priceId); return h('span', { class: 'btns' },
               h('button', { class: 'btn small', 'aria-label': `Xem công thức ${r.priceId}`, title: 'Xem chi tiết cách tính', onclick: () => viewFormula(legacyOf(r)) }, 'Xem'),

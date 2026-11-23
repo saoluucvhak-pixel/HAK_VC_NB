@@ -315,16 +315,17 @@ table.t.info td.mono { white-space: normal; overflow-wrap: anywhere; word-break:
 @media (max-width: 1100px) { .sf-sum .sf-act { margin-left: 0; flex-basis: 100%; justify-content: flex-start; } }
 
 /* ===== Danh mục Hình thức giá / Đơn giá: bố cục chính–phụ (xem chéo chỉ-xem) ===== */
-.xv-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 16px; align-items: start; margin-top: 12px; }
-@media (max-width: 1279px) { .xv-layout { grid-template-columns: minmax(0, 1fr); } }
+.xv-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; margin-top: 12px; }
+@media (min-width: 1280px) { .xv-layout { grid-template-columns: minmax(0, 1fr) minmax(290px, 330px); } .xv-layout.xv-wide-side { grid-template-columns: minmax(0, 1fr) minmax(380px, 430px); } }
 .xv-main, .xv-side { min-width: 0; }
 .xv-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .xv-h { margin: 0 0 6px; font-size: 16px; overflow-wrap: anywhere; }
 .xv-guide { padding: 10px 12px; border: 1px solid var(--brand); border-radius: 8px; background: var(--brand-soft); color: var(--brand-text); font-size: 13.5px; line-height: 1.45; }
-.xv-formula { white-space: pre-line; overflow-wrap: anywhere; font-size: 13px; line-height: 1.45; min-width: 160px; }
+.xv-formula { white-space: pre-line; overflow-wrap: break-word; font-size: 13px; line-height: 1.45; min-width: 160px; }
 .xv-box { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--row-alt); }
 .xv-kv { padding: 7px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
-.xv-tbl table.t td, .xv-tbl table.t th { white-space: normal; vertical-align: top; padding: .45rem .5rem; overflow-wrap: anywhere; }
+.xv-tbl table.t td, .xv-tbl table.t th { white-space: normal; vertical-align: top; padding: .45rem .5rem; overflow-wrap: break-word; word-break: normal; }
+.xv-tbl .nw, .xv-tbl .money { white-space: nowrap; }
 .xv-tbl table.t th { font-size: .68rem; letter-spacing: .02em; }
 .xv-tbl table.t td.num, .xv-tbl table.t th.num { white-space: normal; }
 .xv-tbl table.t .btns { gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
@@ -332,3 +333,7 @@ table.t.info td.mono { white-space: normal; overflow-wrap: anywhere; word-break:
 .xv-tbl-side .tbl-wrap { max-height: 50vh; }
 table.t tbody tr.click:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 table.t tbody tr.sel td { background: var(--brand-soft); }
+.xv-tbl table.t { font-size: .8rem; } .xv-tbl table.t td, .xv-tbl table.t th { padding: .4rem .35rem; }
+.xv-tbl table.t td .mono, .xv-tbl table.t td.mono { overflow-wrap: normal; }
+.xv-tbl table.t .tag { white-space: normal; padding: 1px 8px; }
+@media (max-width: 1000px) { .xv-tbl table.t { font-size: .76rem; } .xv-tbl table.t th { font-size: .62rem; letter-spacing: 0; } .xv-tbl table.t td, .xv-tbl table.t th { padding: .3rem .22rem; } .xv-tbl table.t .btn.small { padding: 3px 6px; min-height: 28px; } .xv-tbl table.t .tag { padding: 1px 6px; font-size: .68rem; } }

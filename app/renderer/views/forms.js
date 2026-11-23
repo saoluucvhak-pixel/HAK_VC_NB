@@ -10,7 +10,8 @@
   const METHODS = [['CO_DINH', 'Đơn giá cố định (CO_DINH)'], ['THEO_DAU', 'Đơn giá điều chỉnh theo giá dầu (THEO_DAU)']];
   const uomText = (u) => (u === 'M3' ? 'đ/m³' : 'đ/tấn');
   const validity = (r) => h('div', {}, h('span', {}, `từ ${D.dmy(r.catalogDate)}`), ' → ', r.effectiveTo ? h('span', {}, D.dmy(r.effectiveTo)) : h('b', {}, 'đang hiệu lực'));
-  const lineValidity = (r) => (r.status === 'DRAFT' ? 'Chưa áp dụng' : `${D.dmy(r.effectiveFrom)} → ${r.effectiveTo ? D.dmy(r.effectiveTo) : 'đang hiệu lực'}`);
+  /** Cột Hiệu lực của dòng đơn giá: ngày bắt đầu chính là cột Ngày cập nhật nên chỉ ghi ngày kết thúc. */
+  const lineValidity = (r) => (r.status === 'DRAFT' ? 'chưa áp dụng' : r.effectiveTo ? `đến ${D.dmy(r.effectiveTo)}` : 'đang hiệu lực');
 
   /** Bảng bấm được bằng chuột và bàn phím (Tab / Enter / Space) — dùng chung cho các màn chính–phụ. */
   D.clickableRows = (tableEl, rows, keyOf, selected, onPick) => {
@@ -34,7 +35,7 @@
 
       const guide = () => h('div', { class: 'xv-guide', role: 'note' },
         h('b', {}, 'Chỉ để xem. '), 'Thêm / sửa / xóa đơn giá ở ', h('b', {}, 'Danh mục › Đơn giá'), '.',
-        h('div', { style: { marginTop: '6px' } }, h('button', { class: 'btn small', 'aria-label': 'Mở màn Đơn giá', onclick: () => D.go('pricecodes') }, 'Mở Đơn giá')));
+        h('div', { style: { marginTop: '6px' } }, h('button', { class: 'btn small', onclick: () => D.go('pricecodes') }, 'Mở Đơn giá')));
 
       const loadList = async () => {
         const tok = guard.next();
@@ -108,7 +109,7 @@
         const table = D.table({
           rows, empty: 'Chưa có hình thức giá nào',
           columns: [
-            { key: 'catalogDate', label: 'Ngày cập nhật', render: (r) => D.dmy(r.catalogDate) },
+            { key: 'catalogDate', label: 'Ngày cập nhật', render: (r) => h('span', { class: 'nw' }, D.dmy(r.catalogDate)) },
             { key: 'methodCode', label: 'Mã hình thức', render: (r) => h('div', {}, h('b', {}, r.methodLabel), h('div', { class: 'small muted mono' }, r.methodCode), r.formName && r.formName !== r.methodLabel ? h('div', { class: 'small' }, r.formName) : null) },
             { key: 'formulaText', label: 'Công thức tính giá', render: (r) => h('div', { class: 'xv-formula' }, r.formulaText || '—') },
             { key: 'eff', label: 'Hiệu lực', render: (r) => h('div', {}, validity(r), h('div', { style: { marginTop: '3px' } }, r.status === 'ACTIVE' ? D.tag('ok', 'Đang dùng') : D.tag('mute', 'Hết hiệu lực'))) },
@@ -139,8 +140,8 @@
         const table = D.table({
           rows: d.lines || [], empty: 'Chưa có đơn giá nào dùng hình thức này',
           columns: [
-            { key: 'updateDate', label: 'Ngày cập nhật', render: (x) => D.dmy(x.updateDate) },
-            { key: 'priceId', label: 'Mã đơn giá', render: (x) => h('span', { class: 'mono' }, x.priceId) },
+            { key: 'updateDate', label: 'Ngày cập nhật', render: (x) => h('span', { class: 'nw' }, D.dmy(x.updateDate)) },
+            { key: 'priceId', label: 'Mã đơn giá', render: (x) => h('span', { class: 'mono small' }, x.priceId) },
             { key: 'routeCode', label: 'Tuyến', render: (x) => h('div', {}, h('b', { class: 'mono' }, x.routeCode), h('div', { class: 'small muted' }, x.routeName)) },
             { key: 'price', label: 'Đơn giá', num: true, render: (x) => (x.price == null ? '—' : h('span', {}, h('span', { class: 'money' }, D.vn(x.price)), h('div', { class: 'small muted' }, uomText(x.uom)))) },
             { key: 'eff', label: 'Hiệu lực', render: (x) => lineValidity(x) },
@@ -157,7 +158,7 @@
       closedBox.addEventListener('change', () => { showClosed = closedBox.checked; loadList(); });
       const page = D.page('Hình thức giá', 'Danh mục › Hình thức giá — mã hình thức, công thức mô tả và hiệu lực; đơn giá nằm ở Danh mục › Đơn giá',
         [w ? h('button', { class: 'btn primary', onclick: addForm }, 'Thêm hình thức') : null],
-        h('div', { class: 'xv-layout' }, mainCard, side));
+        h('div', { class: 'xv-layout xv-wide-side' }, mainCard, side));
       await loadList();
       await drawSide();
       return page;
