@@ -29,7 +29,8 @@
           { a: 'Gói phiếu cân kèm dầu (.dgvc / .json)', b: 'Trao đổi dữ liệu → Nhập gói (hoặc Đối chiếu dữ liệu nếu chỉ muốn so sánh)', c: 'Nhập: ghi phiếu + dầu (trùng dầu nhập tay thì hỏi). Đối chiếu: không ghi gì' },
           { a: 'Gói danh mục (.dgvc / .json)', b: 'Trao đổi dữ liệu → Nhập gói', c: 'Cập nhật đơn vị, xe, tuyến, đơn giá, hợp đồng' },
           { a: 'Excel phiếu cân hoặc Excel dầu (file mẫu)', b: 'Đối chiếu dữ liệu → Đối chiếu 3 tiêu chí → Chọn file (có nút Tải file mẫu Excel)', c: 'So 3 tiêu chí; có thể "Lưu thành đợt" để dùng lại. Đợt không vào kỳ' }]),
-        h('div', { class: 'btns' }, link('Mở Trao đổi dữ liệu', 'exchange'), link('Mở Đối chiếu dữ liệu', 'reconcile', { tab: 'compare' }))),
+        h('p', { class: 'small muted' }, 'Công ty thuê đơn vị khác vận chuyển: xem hướng dẫn 3 bước và các đợt đã nạp ở mục ', b('Báo cáo thuê vận chuyển'), ' (menu "Đối tác").'),
+        h('div', { class: 'btns' }, link('Mở Báo cáo thuê vận chuyển', 'rentreport'), link('Mở Trao đổi dữ liệu', 'exchange'), link('Mở Đối chiếu dữ liệu', 'reconcile', { tab: 'compare' }))),
       h('div', { class: 'card' }, h('h2', {}, 'Cuối ngày làm việc'), h('p', {}, 'Vào ', b('Cài đặt → Dữ liệu & sao lưu'), ' để sao lưu ra USB / thư mục Google Drive. Mọi thay đổi quan trọng đều được ghi ở ', b('Lịch sử thao tác'), '.'), link('Mở Cài đặt', 'settings')));
   }
 
