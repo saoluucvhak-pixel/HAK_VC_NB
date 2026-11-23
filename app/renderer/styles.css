@@ -289,6 +289,13 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .ct-compact table.t td { padding: .4rem .35rem; }
 .ct-compact table.t td .tag { white-space: normal; text-align: center; }
 .ct-compact table.t td .btn.small { padding: 4px 8px; min-height: 30px; }
+@media (max-width: 1279px) { .ct-routes table.t th:nth-child(3), .ct-routes table.t td:nth-child(3), .ct-routes table.t th:nth-child(6), .ct-routes table.t td:nth-child(6) { display: none; } } /* màn hẹp: bớt cột Cự ly, ĐVT (xem ở màn rộng) để thấy nút Gỡ */
+
+/* ô chứa đường dẫn dài (Cài đặt › Thông tin) tự xuống dòng, không làm tràn ngang trang */
+table.t.info td.mono { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+
+/* ô chọn công ty từ danh mục dưới ô nhập tên (form Hợp đồng) */
+.field .unit-pick-sel { margin-top: 4px; font-size: .84rem; min-height: 32px; }
 @media (max-width: 999px) { .ct-routes table.t th:nth-child(3), .ct-routes table.t td:nth-child(3), .ct-routes table.t th:nth-child(6), .ct-routes table.t td:nth-child(6) { display: none; } } /* màn hẹp: bớt cột Cự ly, ĐVT (xem ở màn rộng) để thấy nút Gỡ */
 
 /* Bộ lọc thông minh: khoảng ngày "Từ ngày [..] Đến ngày [..]" luôn đi liền nhau, không tách dòng giữa nhãn và ô ngày; cả khối xuống dòng cùng nhau khi hẹp */
@@ -306,10 +313,3 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .sfdr .chip input[type=date] { width: 128px; padding-left: 6px; padding-right: 6px; font-size: .84rem; }
 @media (max-width: 860px) { .sfdr { flex-wrap: wrap; } }
 @media (max-width: 1100px) { .sf-sum .sf-act { margin-left: 0; flex-basis: 100%; justify-content: flex-start; } }
-@media (max-width: 1279px) { .ct-routes table.t th:nth-child(3), .ct-routes table.t td:nth-child(3), .ct-routes table.t th:nth-child(6), .ct-routes table.t td:nth-child(6) { display: none; } } /* màn hẹp: bớt cột Cự ly, ĐVT (xem ở màn rộng) để thấy nút Gỡ */
-
-/* ô chứa đường dẫn dài (Cài đặt › Thông tin) tự xuống dòng, không làm tràn ngang trang */
-table.t.info td.mono { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
-
-/* ô chọn công ty từ danh mục dưới ô nhập tên (form Hợp đồng) */
-.field .unit-pick-sel { margin-top: 4px; font-size: .84rem; min-height: 32px; }
