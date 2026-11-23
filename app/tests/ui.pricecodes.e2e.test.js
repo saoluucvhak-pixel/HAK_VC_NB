@@ -115,9 +115,13 @@ test('Giao diện HAKQN: DM Đơn giá — 2 phương thức có sẵn, thêm đ
       const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); assert.ok(over <= 1, `tràn ngang ${over}px ở ${w}px`);
       const tbl = await page.evaluate(() => { const box = document.querySelector('.pc-detail table').parentElement; return box.scrollWidth - box.clientWidth; }); assert.ok(tbl <= 1, `bảng đơn giá phải cuộn ngang ${tbl}px ở ${w}px`);
     }
-    // mã cũ tự tạo (từ bản trước) vẫn liệt kê như một phương thức bình thường, không có nút tạo mã
-    await ctx.store.transaction((tx) => { tx.insert('MA_DON_GIA', { price_code: 'DG-CU-01', unit_code: unit, price_name: 'Mã cũ tự tạo', status: 'ACTIVE', note: '' }); }, { user: 'test' });
-    await nav('DM Đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: /DG-CU-01/ }).click(); await page.locator('.pc-tree').getByText(/mã tự tạo ở bản cũ/).waitFor();
+    // mã cũ tự tạo (từ bản trước): mã RỖNG bị ẩn, không còn ghi chú "mã tự tạo ở bản cũ"; mã còn dòng giá vẫn hiện (dữ liệu không mất); không có nút tạo mã
+    await ctx.store.transaction((tx) => { tx.insert('MA_DON_GIA', { price_code: 'DG-CU-01', unit_code: unit, price_name: 'Mã cũ rỗng', status: 'ACTIVE', note: '' }); }, { user: 'test' });
+    await ctx.svc.catalog.savePriceCode({ create: true, record: { priceCode: 'DG-CU-02', unitCode: unit, priceName: 'Mã cũ có dòng giá' }, user: KETOAN });
+    await ctx.svc.catalog.addCodeLine({ priceCode: 'DG-CU-02', record: { routeCode: 'VC.007', effectiveFrom: '2026-01-01', fixedPrice: 120000 }, user: KETOAN });
+    await nav('DM Đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: /DG-CU-02/ }).click();
+    assert.equal(await page.locator('.pc-tree').getByRole('button', { name: /DG-CU-01/ }).count(), 0, 'mã cũ rỗng phải ẩn');
+    assert.equal(await page.locator('.pc-tree').getByText(/mã tự tạo ở bản cũ/).count(), 0, 'không còn ghi chú về mã cũ');
     assert.equal(await page.getByRole('button', { name: /Tạo mã/ }).count(), 0);
     // vai trò XEM không thấy nút thêm/sửa/áp dụng
     const xem = await page.evaluate(() => window.DGVC.api('users.save', { record: { username: 'xem.qn', fullName: 'Người xem', role: 'XEM', unitCode: 'HAKQN' } })); // 1.6.1: nhận mã kích hoạt một lần
