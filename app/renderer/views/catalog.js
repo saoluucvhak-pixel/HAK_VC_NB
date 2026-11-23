@@ -81,9 +81,9 @@
     },
   };
 
-  /** Dòng giải thích + liên kết sang màn giá còn lại (DM Đơn giá · Báo cáo giá hợp đồng) — mỗi màn nói rõ vai trò của mình. */
+  /** Dòng giải thích + liên kết sang màn giá còn lại (Đơn giá · Báo cáo giá hợp đồng) — mỗi màn nói rõ vai trò của mình. */
   const PRICE_SCREENS = {
-    pricecodes: ['DM Đơn giá', 'Mã đơn giá chính là phương thức tính giá (Đơn giá cố định / Đơn giá điều chỉnh theo giá dầu); mỗi phương thức có bảng Đơn giá theo tuyến. Hợp đồng chọn phương thức khi lập hợp đồng.'],
+    pricecodes: ['Đơn giá', 'Danh mục đơn giá theo tuyến; mỗi đơn giá có Hình thức giá (Đơn giá cố định / Đơn giá điều chỉnh theo giá dầu) chọn từ Danh mục › Hình thức giá. Hợp đồng chọn đơn giá khi lập hợp đồng.'],
     basis: ['Báo cáo giá hợp đồng', 'Chỉ xem: giá nào đang được áp cho từng hợp đồng / tuyến / ngày.']
   };
   D.priceScreenNote = (current) => h('p', { class: 'small muted', style: { margin: '0 0 8px' } }, (PRICE_SCREENS[current] || [])[1] || '', ' Xem thêm: ',
@@ -368,7 +368,7 @@
             selPrice.replaceChildren(h('option', { value: '' }, list.length ? '-- Chọn đơn giá --' : '-- Chưa có đơn giá đang áp dụng --'),
               ...list.map((x) => h('option', { value: x.priceId, selected: x.priceId === keepId }, `${rc ? '' : `${x.routeCode} · `}${priceTxt(x)} · hiệu lực từ ${x.effectiveFrom}${x.chosenForContract ? ' · tuyến đã có giá riêng' : ''}`)));
             if (!keepId && list.length === 1) selPrice.value = list[0].priceId;
-            hint.textContent = rc && !list.length ? `Tuyến ${rc} chưa có đơn giá đang áp dụng — tạo đơn giá ở màn DM Đơn giá trước.` : (rc ? `${list.length} đơn giá đang áp dụng của tuyến ${rc}.` : 'Chưa chọn tuyến: liệt kê mọi đơn giá chọn được; chọn đơn giá thì tuyến tự điền.');
+            hint.textContent = rc && !list.length ? `Tuyến ${rc} chưa có đơn giá đang áp dụng — tạo đơn giá ở màn Đơn giá (Danh mục › Đơn giá) trước.` : (rc ? `${list.length} đơn giá đang áp dụng của tuyến ${rc}.` : 'Chưa chọn tuyến: liệt kê mọi đơn giá chọn được; chọn đơn giá thì tuyến tự điền.');
           };
           selRoute.addEventListener('change', () => drawPrices(''));
           selPrice.addEventListener('change', () => { const x = all.find((y) => y.priceId === selPrice.value); if (x) { selRoute.value = x.routeCode; drawPrices(x.priceId); } });

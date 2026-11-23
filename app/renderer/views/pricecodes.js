@@ -1,74 +1,32 @@
 'use strict';
 /**
- * DM Đơn giá — Mô hình CHA–CON đơn giản:
- * - Cha: Mã đơn giá CHÍNH LÀ Phương thức tính giá. Chỉ có sẵn 2 dòng: PT-CD (Đơn giá cố định), PT-TD (Đơn giá điều chỉnh theo giá dầu).
- *   Không tạo/sửa/đóng mã ở đây (mã tự tạo ở bản cũ nếu còn thì vẫn liệt kê để dữ liệu không mất).
- * - Con: MỘT bảng "Đơn giá theo tuyến" của phương thức đang chọn (mỗi đơn giá 1 tuyến). Gán mã cho hợp đồng làm ở màn Hợp đồng.
+ * Danh mục › Đơn giá (màn chính–phụ). Danh mục phẳng `prices.catalog`: mỗi dòng = một đơn giá của một tuyến, kèm Hình thức giá.
+ * - Chính: thêm đơn giá (chọn Hình thức giá từ danh mục → mở form cố định / theo giá dầu như trước), sửa nháp, áp dụng, xem công thức. Dòng đã áp dụng / đã dùng không sửa tại chỗ — thêm bản mới (ngày cập nhật = ngày hiệu lực).
+ * - Phụ (bấm một dòng): "Hình thức giá của đơn giá này" — CHỈ XEM; thêm / sửa / xóa hình thức ở Danh mục › Hình thức giá.
+ * Mã PT-CD / PT-TD (hai mã hình thức mặc định ở phía máy chủ) vẫn là cửa ghi dòng giá — giao diện chỉ đổi lối vào, không đổi logic tính giá.
  */
 (function () {
   const D = window.DGVC; const { h } = D;
-  const METHOD_LABEL = { CO_DINH: 'Đơn giá cố định', THEO_DAU: 'Đơn giá điều chỉnh dầu' };
   const lineMethod = (r) => (r.price_method === 'CO_DINH' ? 'CO_DINH' : 'THEO_DAU');
-  const METHOD = (r) => (r.price_method === 'CO_DINH' ? D.tag('info', 'Cố định') : h('span', { class: 'small muted' }, 'Điều chỉnh dầu'));
+  const METHOD_LABEL = { CO_DINH: 'Đơn giá cố định', THEO_DAU: 'Đơn giá điều chỉnh theo giá dầu' };
+  const CODE_OF = { CO_DINH: 'PT-CD', THEO_DAU: 'PT-TD' };
+  const STATUS_OPTS = [{ value: 'DRAFT', label: 'Nháp' }, { value: 'ACTIVE', label: 'Đang dùng' }, { value: 'CLOSED', label: 'Đã đóng' }];
   const routeOf = (code) => (D.state.boot.routes || []).find((r) => r.route_code === code);
+  const uomText = (u) => (u === 'M3' ? 'đ/m³' : 'đ/tấn');
+  const range = (from, to) => `${D.dmy(from)} → ${to ? D.dmy(to) : 'đang hiệu lực'}`;
 
   D.views.pricecodes = {
     async render(p) {
-      const w = D.writer(); let sel = p.code || p.priceCode || ''; const guard = D.latest();
-      const tree = h('aside', { class: 'card pc-tree', 'aria-label': 'Phương thức và mã đơn giá' });
-      const detail = h('section', { class: 'pc-detail', 'aria-live': 'polite' });
-      const again = async (code) => { if (code !== undefined) sel = code; await loadTree(); await loadDetail(); };
-
-      // ── Cha: tạo / sửa mã phương thức đơn giá ──
-      const METHOD_HINT = { CO_DINH: 'Mỗi tuyến một đơn giá đ/tấn cố định, dùng nguyên số — không tính dầu.', THEO_DAU: 'Đơn giá điều chỉnh dầu: đơn giá ký hợp đồng + chênh lệch giá dầu thực tế.' };
-      const methodCards = (value, locked) => {
-        const name = `pc-method-${Math.random().toString(36).slice(2, 7)}`;
-        const cards = Object.entries(METHOD_LABEL).map(([m, label]) => h('label', { class: 'pc-card' },
-          h('input', { type: 'radio', name, value: m, checked: m === value, disabled: locked }),
-          h('b', {}, label),
-          h('span', { class: 'small muted' }, METHOD_HINT[m])
-        ));
-        const group = h('div', { class: 'pc-cards', role: 'radiogroup', 'aria-label': 'Phương thức đơn giá' }, cards);
-        group.value = () => (group.querySelector('input:checked') || {}).value || value;
-        return group;
-      };
-
-      const codeForm = (method, rec, onSaved, defUnit) => {
-        const locked = !!rec && (rec.lineCount > 0 || rec.contracts.length > 0);
-        const mixed = !!rec && rec.priceMethod === 'HON_HOP';
-        const cards = methodCards(rec ? rec.priceMethod : (method || 'CO_DINH'), locked);
-        const installUnit = (D.state.boot.install || {}).unitCode || '';
-        const fields = [
-          { key: 'priceCode', label: 'Mã đơn giá', required: true, readonly: !!rec, hint: rec ? 'không đổi được' : 'vd PT-CD, PT-TD, DG-2026 (chữ HOA, số, . _ -)' },
-          { key: 'unitCode', label: 'Đơn vị', type: 'select', options: D.unitOptions(), required: false, hint: 'áp dụng chung hoặc cho đối tác cụ thể' },
-          { key: 'priceName', label: 'Tên mã đơn giá / Phương thức', required: true, full: true },
-          { key: 'note', label: 'Ghi chú', full: true }
-        ];
-        const f = D.form(fields, rec ? { priceCode: rec.price_code, unitCode: rec.unit_code, priceName: rec.price_name, note: rec.note } : { unitCode: defUnit || installUnit || '' });
-        D.modal({
-          title: rec ? `Sửa mã ${rec.price_code}` : 'Tạo mã đơn giá',
-          body: h('div', {},
-            h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, mixed ? 'Mã này có cả dòng cố định và điều chỉnh dầu (tạo ở bản cũ) — hãy tách thành 2 mã.' : locked ? 'Phương thức đơn giá không đổi được khi mã đã có dòng giá hoặc đã gán hợp đồng.' : 'Chọn phương thức đơn giá:'),
-            cards,
-            f
-          ),
-          actions: [
-            { label: 'Hủy', run: () => true },
-            { label: 'Lưu', primary: true, run: async () => {
-              const v = { ...f.values(), ...(mixed ? {} : { priceMethod: cards.value() }) };
-              const miss = fields.filter((x) => x.required && (v[x.key] === '' || v[x.key] === null)).map((x) => x.label);
-              if (miss.length) { D.toast(`Chưa nhập: ${miss.join(', ')}`, 'err'); return false; }
-              const r = await D.api('pricecodes.save', rec ? { record: v, rowVersion: rec.row_version } : { create: true, record: v });
-              for (const x of r.warnings || []) D.toast(x.message, 'info', 9000);
-              D.toast(rec ? 'Đã lưu mã đơn giá' : `Đã tạo mã ${v.priceCode} — thêm dòng giá để áp dụng`, 'ok');
-              if (onSaved) await onSaved(v.priceCode.trim().toUpperCase());
-              else await again(v.priceCode.trim().toUpperCase());
-              return true;
-            } }
-          ]
-        });
-      };
-      D.codeForm = codeForm;
+      p = p || {};
+      const w = D.writer(); const guard = D.latest();
+      let rows = []; let forms = []; let raw = new Map(); let sel = p.priceId || '';
+      const startMethod = p.methodCode || (p.code === 'PT-CD' ? 'CO_DINH' : p.code === 'PT-TD' ? 'THEO_DAU' : '');
+      let sfState = D.sf.normalize({ one: startMethod ? { method: startMethod } : {} });
+      let sfInfo = { kept: 0, total: 0 }; let sfMount = null;
+      const mainCard = h('section', { class: 'card flush xv-main xv-tbl', 'aria-label': 'Danh mục đơn giá' });
+      const side = h('aside', { class: 'card xv-side', 'aria-label': 'Hình thức giá của đơn giá này (chỉ xem)', 'aria-live': 'polite' });
+      const filterCard = h('div', { class: 'card' });
+      const again = async () => { await load(); };
 
       // ── Con: Thêm / sửa đơn giá theo tuyến (Thiết lập công thức tính giá ký hợp đồng) ──
       const lineForm = (code, line, onSaved) => {
@@ -255,130 +213,128 @@
       };
       D.viewFormula = viewFormula;
 
-      // ── Con: chọn đơn giá CÓ SẴN đưa vào mã ──
-      const pickExisting = async (code, onSaved) => {
-        const d = await D.api('prices.list', { status: 'ACTIVE' });
-        const dc = await D.api('prices.list', { status: 'ACTIVE', priceCode: code.priceMethod === 'CO_DINH' ? 'PT-CD' : 'PT-TD' });
-        d.items = [...(d.items || []), ...(dc.items || []).filter((x) => x.price_code !== code.price_code && !(d.items || []).some((y) => y.price_id === x.price_id))];
-        // 1.9.0: giá chung cũ đã nằm trong mã mặc định PT-TD/PT-CD → vẫn là "đơn giá có sẵn" để sao chép sang mã khác
-        const rows = (d.items || []).filter((x) => (!x.price_code || ((x.price_code === 'PT-TD' || x.price_code === 'PT-CD') && !x.contract_id && x.price_code !== code.price_code)) && (x.price_method || 'THEO_DAU') === code.priceMethod);
-        const chosen = new Set(); const date = h('input', { type: 'date', value: D.today(), 'aria-label': 'Hiệu lực từ ngày' });
-        const table = D.table({ rows, empty: `Chưa có ${METHOD_LABEL[code.priceMethod].toLowerCase()} đang dùng để chọn`, maxHeight: '50vh', columns: [
-          { key: 'pick', label: '', render: (r) => h('input', { type: 'checkbox', 'aria-label': `Chọn ${r.price_id}`, onchange: (e) => (e.target.checked ? chosen.add(r.price_id) : chosen.delete(r.price_id)) }) },
-          { key: 'route_code', label: 'Tuyến' },
-          { key: 'contract_id', label: 'Phạm vi', render: (r) => (r.contract_id ? D.tag('info', `HĐ ${r.contract_id}`) : h('span', { class: 'small muted' }, 'Giá chung')) },
-          { key: 'price_method', label: 'Phương thức', render: METHOD },
-          { key: 'v', label: 'Đơn giá', num: true, render: (r) => D.vnAuto(r.price_method === 'CO_DINH' ? r.fixed_price : r.contractPrice) },
-          { key: 'effective_from', label: 'Từ ngày', fmt: 'date' }
-        ] });
+      // ── Chọn Hình thức giá từ danh mục rồi mở đúng form cố định / theo giá dầu ──
+      const pickForm = () => {
+        const act = forms.filter((f) => f.status === 'ACTIVE');
+        if (!act.length) { D.toast('Danh mục Hình thức giá chưa có dòng đang hiệu lực — thêm ở Danh mục › Hình thức giá', 'err'); return; }
+        const select = h('select', { 'aria-label': 'Hình thức giá' }, act.map((f) => h('option', { value: f.formId }, `${f.methodLabel} — ${f.formName} (từ ${D.dmy(f.catalogDate)})`)));
+        const formula = h('div', { class: 'xv-formula xv-box', role: 'status', 'aria-live': 'polite' });
+        const draw = () => { const f = act.find((x) => x.formId === select.value); formula.replaceChildren(h('b', {}, 'Công thức tính giá: '), f ? (f.formulaText || '—') : ''); };
+        select.addEventListener('change', draw); draw();
         D.modal({
-          title: `Chọn đơn giá có sẵn đưa vào mã ${code.price_code}`,
-          wide: true,
+          title: 'Thêm đơn giá — chọn Hình thức giá',
           body: h('div', {},
-            h('p', { class: 'small' }, 'Tích chọn các đơn giá; app SAO CHÉP vào mã này thành dòng NHÁP (đơn giá gốc không đổi). Sau đó bấm "Áp dụng" từng dòng.'),
-            h('label', { class: 'field', style: { maxWidth: '220px' } }, h('span', {}, 'Hiệu lực từ ngày'), date),
-            table
-          ),
-          actions: [
-            { label: 'Hủy', run: () => true },
-            { label: 'Đưa vào mã', primary: true, run: async () => {
-              if (!chosen.size) { D.toast('Chưa chọn đơn giá nào', 'err'); return false; }
-              let n = 0;
-              for (const id of chosen) {
-                try { await D.api('pricecodes.addLine', { priceCode: code.price_code, fromPriceId: id, record: { effectiveFrom: date.value } }); n++; }
-                catch { /* ignore individual error */ }
-              }
-              if (n) D.toast(`Đã đưa ${n} dòng vào mã (NHÁP)`, 'ok');
-              if (onSaved) await onSaved();
-              else await again();
-              return true;
-            } }
-          ]
+            h('p', { class: 'small muted', style: { margin: '0 0 8px' } }, 'Hình thức giá lấy từ Danh mục › Hình thức giá. Chọn xong, nhập tuyến và số liệu ở bước tiếp theo.'),
+            h('label', { class: 'field' }, h('span', {}, 'Hình thức giá *'), select), formula),
+          actions: [{ label: 'Hủy', run: () => true }, { label: 'Tiếp tục', primary: true, run: () => {
+            const f = act.find((x) => x.formId === select.value); if (!f) return false;
+            setTimeout(() => lineForm({ price_code: CODE_OF[f.methodCode], priceMethod: f.methodCode }, null, again), 0);
+            return true;
+          } }]
         });
       };
-      D.pickExisting = pickExisting;
 
+      const legacyOf = (r) => raw.get(r.priceId) || ({ price_id: r.priceId, price_method: r.methodCode, route_code: r.routeCode, routeName: r.routeName, uom: r.uom, fixed_price: r.fixedPrice, contractPrice: r.contractPrice, new_price: r.newPrice,
+        avg_load_ton: r.avgLoadTon, avg_volume_m3: r.avgVolumeM3, fuel_norm_l_per_km: r.fuelNormLPerKm, fuel_price_excl_vat: r.fuelPriceExclVat, row_version: r.rowVersion });
+      const codeOf = (r) => ({ price_code: (raw.get(r.priceId) || {}).price_code || CODE_OF[r.methodCode], priceMethod: r.methodCode });
+      const priceCell = (r) => {
+        const v = r.price; const isCd = r.methodCode === 'CO_DINH';
+        const rl = raw.get(r.priceId); const manual = !isCd && rl && (rl.isManualContractPrice || (rl.contract_price && rl.contract_price !== rl.formulaContractPrice));
+        if (v == null) return '—';
+        return h('span', {}, h('span', { class: 'money' }, D.vn(v)), h('div', { class: 'small muted' }, `${uomText(r.uom)} · ${isCd ? 'cố định' : 'theo giá dầu'}`),
+          manual ? h('span', { class: 'tag warn', style: { display: 'block', width: 'fit-content', marginLeft: 'auto', fontSize: '10px' } }, 'Thủ công') : null);
+      };
 
-      const STD = ['PT-CD', 'PT-TD'];
-      const unitPrice = (r) => (lineMethod(r) === 'CO_DINH' ? r.fixed_price : r.contractPrice);
+      // ── Ngăn phụ CHỈ XEM: Hình thức giá của đơn giá đang chọn ──
+      const guide = () => h('div', { class: 'xv-guide', role: 'note' },
+        h('b', {}, 'Chỉ để xem. '), 'Thêm / sửa / xóa hình thức ở ', h('b', {}, 'Danh mục › Hình thức giá'), '.',
+        h('div', { style: { marginTop: '6px' } }, h('button', { class: 'btn small', 'aria-label': 'Mở màn Hình thức giá', onclick: () => D.go('forms', { formId: (rows.find((x) => x.priceId === sel) || {}).formId || '' }) }, 'Mở Hình thức giá')));
+      const drawSide = () => {
+        const r = rows.find((x) => x.priceId === sel);
+        if (!r) { side.replaceChildren(h('h2', { class: 'xv-h' }, 'Hình thức giá của đơn giá này'), guide(), h('p', { class: 'muted', style: { margin: '10px 0 0' } }, 'Chọn một dòng ở bảng đơn giá để xem hình thức giá của nó.')); return; }
+        const f = forms.find((x) => x.formId === r.formId);
+        const kv = (k, v) => h('div', { class: 'xv-kv' }, h('div', { class: 'small muted' }, k), h('div', {}, v));
+        side.replaceChildren(
+          h('h2', { class: 'xv-h' }, 'Hình thức giá của đơn giá này'),
+          h('p', { class: 'small', style: { margin: '0 0 8px' } }, `Đơn giá ${r.priceId} · tuyến ${r.routeCode}`),
+          guide(),
+          h('div', { style: { marginTop: '10px' } },
+            kv('Mã hình thức', h('span', {}, h('b', {}, r.methodLabel), ' ', h('span', { class: 'mono small muted' }, r.methodCode))),
+            kv('Tên hình thức', r.formName || '—'),
+            kv('Ngày cập nhật', f ? D.dmy(f.catalogDate) : '—'),
+            kv('Hiệu lực', f ? range(f.catalogDate, f.effectiveTo) : '—'),
+            kv('Công thức tính giá', h('div', { class: 'xv-formula' }, r.formulaText || '—'))));
+      };
 
-      // ── Con: MỘT bảng Đơn giá theo tuyến của phương thức đang chọn ──
-      async function loadDetail() {
-        const tok = guard.next();
-        if (!sel) { detail.replaceChildren(h('div', { class: 'card' }, h('p', { class: 'muted', style: { margin: 0 } }, 'Chọn một phương thức bên trái để xem đơn giá theo tuyến.'))); return; }
-        let d;
-        try { d = await D.api('pricecodes.get', { priceCode: sel }); }
-        catch { sel = ''; return loadDetail(); }
-        if (!guard.ok(tok)) return;
-        const c = d.record; const closed = c.status !== 'ACTIVE'; const mixed = c.priceMethod === 'HON_HOP'; const noEdit = closed || mixed;
-        const lines = d.lines || [];
-        const isCd = c.priceMethod === 'CO_DINH';
+      const pick = (r) => { sel = r.priceId; drawMain(); drawSide(); };
+
+      function drawMain() {
+        const res = D.sf.filterRows(rows, sfCfg, sfState);
+        sfInfo = { kept: res.kept, total: res.total, unsupported: res.unsupported };
+        const list = res.rows;
         const table = D.table({
-          rows: lines,
-          empty: `${c.price_name} chưa có đơn giá nào — bấm "Thêm đơn giá" để thêm theo tuyến.`,
+          rows: list, empty: rows.length ? 'Không có đơn giá phù hợp bộ lọc' : 'Chưa có đơn giá nào — bấm "Thêm đơn giá"',
           columns: [
-            { key: 'route_code', label: 'Tuyến', render: (r) => h('b', { class: 'mono' }, r.route_code) },
-            { key: 'routeName', label: 'Tên tuyến', wrap: true },
-            { key: 'km', label: 'Cự ly chuyến', title: 'km, đi và về', num: true, render: (r) => { const t = routeOf(r.route_code); return t ? D.vnAuto(t.trip_distance_km) : ''; } },
-            { key: 'price', label: isCd ? 'Đơn giá' : 'ĐG ký HĐ', num: true, render: (r) => {
-              const v = unitPrice(r); if (v == null || v === '') return '—';
-              const manual = lineMethod(r) !== 'CO_DINH' && (r.isManualContractPrice || (r.contract_price && r.contract_price !== r.formulaContractPrice));
-              return h('span', {}, h('span', { class: 'money' }, D.vn(v)), manual ? h('span', { class: 'tag warn', style: { display: 'block', width: 'fit-content', marginLeft: 'auto', fontSize: '10px' } }, 'Thủ công') : null);
-            } },
-            { key: 'uom', label: 'ĐVT', render: (r) => (r.uom === 'M3' ? 'đ/m³' : 'đ/tấn') },
-            { key: 'effective_from', label: 'Ngày hiệu lực', fmt: 'date' },
-            { key: 'status', label: 'Trạng thái', fmt: 'tag' },
-            { key: 'x', label: 'Thao tác', render: (r) => h('span', { class: 'btns' },
-              h('button', { class: 'btn small', title: 'Xem chi tiết cách tính', onclick: () => viewFormula(r) }, 'Xem'),
-              w && r.status === 'DRAFT' ? [
-                h('button', { class: 'btn small', disabled: mixed, title: mixed ? c.methodWarning : '', onclick: () => lineForm(c, r) }, 'Sửa'),
-                h('button', { class: 'btn small primary', disabled: mixed, title: mixed ? c.methodWarning : '', onclick: async () => {
-                  const x = await D.api('prices.activate', { priceId: r.price_id, rowVersion: r.row_version });
+            { key: 'updateDate', label: 'Ngày cập nhật', render: (r) => D.dmy(r.updateDate) },
+            { key: 'priceId', label: 'Mã đơn giá', render: (r) => h('div', {}, h('b', { class: 'mono' }, r.priceId), r.contractId && !r.priceCode ? h('div', { class: 'small muted' }, 'giá riêng HĐ') : null) },
+            { key: 'routeCode', label: 'Tuyến', render: (r) => h('div', {}, h('b', { class: 'mono' }, r.routeCode), h('div', { class: 'small muted' }, r.routeName)) },
+            { key: 'method', label: 'Hình thức giá', render: (r) => (r.methodCode === 'CO_DINH' ? D.tag('info', 'Cố định') : D.tag('mute', 'Điều chỉnh dầu')) },
+            { key: 'km', label: 'Cự ly chuyến', title: 'km, đi và về', num: true, render: (r) => { const t = routeOf(r.routeCode); return t ? D.vnAuto(t.trip_distance_km) : ''; } },
+            { key: 'price', label: 'ĐG ký HĐ', num: true, render: priceCell },
+            { key: 'eff', label: 'Hiệu lực', render: (r) => (r.status === 'DRAFT' ? h('span', { class: 'small muted' }, 'Chưa áp dụng') : range(r.effectiveFrom, r.effectiveTo)) },
+            { key: 'status', label: 'Trạng thái', render: (r) => D.tag(r.status) },
+            { key: 'x', label: 'Thao tác', render: (r) => { const rl = raw.get(r.priceId); return h('span', { class: 'btns' },
+              h('button', { class: 'btn small', 'aria-label': `Xem công thức ${r.priceId}`, title: 'Xem chi tiết cách tính', onclick: () => viewFormula(legacyOf(r)) }, 'Xem'),
+              w && rl && r.status === 'DRAFT' ? [
+                h('button', { class: 'btn small', 'aria-label': `Sửa ${r.priceId}`, onclick: () => lineForm(codeOf(r), rl, again) }, 'Sửa'),
+                h('button', { class: 'btn small primary', 'aria-label': `Áp dụng ${r.priceId}`, onclick: async () => {
+                  const x = await D.api('prices.activate', { priceId: r.priceId, rowVersion: r.rowVersion });
                   for (const m of x.warnings || []) D.toast(m.message, 'info', 9000);
-                  D.toast(`Đã áp dụng ${r.price_id}`, 'ok');
+                  D.toast(`Đã áp dụng ${r.priceId}`, 'ok');
                   await again();
                 } }, 'Áp dụng')
-              ] : null
-            ) }
+              ] : null); } }
           ]
         });
-        detail.replaceChildren(h('div', { class: 'card' },
-          h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' } },
-            h('h2', { style: { margin: 0 } }, 'Đơn giá theo tuyến'),
-            w ? h('button', { class: 'btn small primary', disabled: noEdit, title: mixed ? c.methodWarning : '', onclick: () => lineForm(c) }, 'Thêm đơn giá') : null
-          ),
-          h('p', { class: 'small muted', style: { margin: '0 0 8px' } }, `${c.price_code} · ${c.price_name} — ${D.vn(c.lineCount)} đơn giá (${D.vn(c.activeLines)} đang áp dụng, ${D.vn(c.draftLines)} nháp). Mỗi đơn giá áp dụng cho 1 tuyến.${c.note ? ` Ghi chú: ${c.note}` : ''}`),
-          mixed ? h('p', { class: 'warn-line', role: 'alert' }, '⚠ ' + c.methodWarning) : null,
-          h('div', { style: { overflowX: 'auto' } }, table)
-        ));
+        D.clickableRows(table, list, (r) => r.priceId, sel, pick);
+        mainCard.replaceChildren(h('div', { class: 'xv-bar' }, h('span', { class: 'small muted grow' }, 'Bấm một dòng để xem hình thức giá của đơn giá đó (ngăn bên cạnh, chỉ xem). Dòng đã áp dụng hoặc đã dùng không sửa tại chỗ — thêm đơn giá mới (ngày cập nhật sau).')), table);
+        if (sfMount) sfMount.refresh();
       }
 
-      // ── Cha: 2 phương thức có sẵn (+ mã cũ nếu còn) ──
-      async function loadTree() {
-        const d = await D.api('pricecodes.list');
-        // mã tự tạo ở bản cũ: mã RỖNG (không dòng giá, không hợp đồng dùng) thì ẩn cho gọn; mã còn dữ liệu vẫn hiện để dữ liệu không mất
-        const items = [...(d.items || [])].filter((x) => STD.includes(x.price_code) || x.lineCount > 0 || (x.contracts || []).length > 0).sort((a, b) => (STD.indexOf(a.price_code) < 0 ? 9 : STD.indexOf(a.price_code)) - (STD.indexOf(b.price_code) < 0 ? 9 : STD.indexOf(b.price_code)) || a.price_code.localeCompare(b.price_code, 'vi', { numeric: true }));
-        if (!sel && items.length) sel = (items.find((x) => x.price_code === 'PT-TD') || items[0]).price_code;
-        tree.replaceChildren(
-          h('h2', { style: { margin: '0 0 10px', fontSize: '16px' } }, 'Phương thức tính giá'),
-          ...items.map((c) => h('button', { class: 'pc-code', 'aria-current': String(c.price_code === sel), onclick: async () => { sel = c.price_code; await loadTree(); await loadDetail(); } },
-            h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'center' } }, h('b', { class: 'mono' }, c.price_code), c.priceMethod === 'CO_DINH' ? D.tag('info', 'Cố định') : c.priceMethod === 'HON_HOP' ? D.tag('warn', 'Hỗn hợp') : D.tag('mute', 'Theo dầu')),
-            h('div', { class: 'small', style: { marginTop: '2px' } }, STD.includes(c.price_code) ? (c.priceMethod === 'CO_DINH' ? 'Đơn giá cố định' : 'Đơn giá điều chỉnh theo giá dầu') : c.price_name),
-            h('div', { class: 'small muted', style: { marginTop: '2px' } }, `${D.vn(c.lineCount)} đơn giá · ${D.vn(c.activeLines)} đang dùng`)
-          ))
-        );
+      const sfCfg = {
+        screenId: 'pricecodes', searchPlaceholder: 'Tìm không dấu: mã đơn giá, mã tuyến, tên tuyến…', qAttrs: { 'aria-label': 'Tìm đơn giá theo mã hoặc tuyến' },
+        quickFields: ['q', 'method', 'route', 'status'], advancedFields: ['q', 'method', 'route', 'status'],
+        fields: [
+          { key: 'method', label: 'Hình thức giá', type: 'enum', options: () => (forms.length ? [...new Map(forms.map((f) => [f.methodCode, f.methodLabel]))] : Object.entries(METHOD_LABEL)).map(([value, label]) => ({ value, label })), match: (r, v) => r.methodCode === v },
+          { key: 'route', label: 'Tuyến', type: 'enum', options: () => D.routeOptions(false).map(([value, label]) => ({ value, label })), match: (r, v) => r.routeCode === v },
+          { key: 'status', label: 'Trạng thái', type: 'enum', options: STATUS_OPTS, match: (r, v) => r.status === v }
+        ],
+        matchQ: (r, q) => D.sf.hay([r.priceId, r.routeCode, r.routeName, r.methodLabel]).indexOf(q) >= 0,
+        state: { get: () => sfState, set: (s) => { sfState = s; } },
+        dataSource: () => sfInfo, onApply: () => drawMain(), onReset: () => drawMain(), scopeFallback: () => 'Tất cả đơn giá'
+      };
+
+      async function loadRaw() {
+        const cl = await D.api('pricecodes.list', {}, { quiet: true }).catch(() => ({ items: [] }));
+        const codes = (cl.items || []).filter((c) => c.price_code === 'PT-CD' || c.price_code === 'PT-TD' || c.lineCount > 0);
+        const got = await Promise.all(codes.map((c) => D.api('pricecodes.get', { priceCode: c.price_code }, { quiet: true }).catch(() => ({ lines: [] }))));
+        const m = new Map(); for (const g of got) for (const l of g.lines || []) m.set(l.price_id, l); return m;
+      }
+      async function load() {
+        const tok = guard.next();
+        const [cat, fl, rawMap] = await Promise.all([D.api('prices.catalog', {}), D.api('forms.list', { includeClosed: true }), loadRaw()]);
+        if (!guard.ok(tok)) return;
+        rows = cat.items || []; forms = fl.items || []; raw = rawMap;
+        if (sel && !rows.some((x) => x.priceId === sel)) sel = '';
+        drawMain(); drawSide();
       }
 
-      const page = D.page(
-        'DM Đơn giá',
-        'Mã đơn giá chính là phương thức tính giá → mỗi phương thức có bảng đơn giá theo tuyến',
-        [],
-        D.priceScreenNote('pricecodes'),
-        h('div', { class: 'pc-layout' }, tree, detail)
-      );
-
-      await loadTree();
-      await loadDetail();
+      sfMount = D.sf ? D.smartFilter.mount(sfCfg) : null;
+      if (sfMount) filterCard.append(sfMount.el);
+      const page = D.page('Đơn giá', 'Danh mục › Đơn giá — mã đơn giá theo tuyến và hình thức giá; thêm / sửa / áp dụng ở đây, hình thức giá xem ở ngăn bên cạnh',
+        [w ? h('button', { class: 'btn primary', onclick: pickForm }, 'Thêm đơn giá') : null],
+        D.priceScreenNote('pricecodes'), filterCard, h('div', { class: 'xv-layout' }, mainCard, side));
+      await load();
       return page;
     },
   };

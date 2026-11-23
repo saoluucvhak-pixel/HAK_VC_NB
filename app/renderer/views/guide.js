@@ -8,6 +8,7 @@
 
   // ── 1. Quy trình hằng kỳ ──
   const STEPS = [
+    ['Hình thức giá & Đơn giá (khi đổi bảng giá)', 'pricecodes', ['Danh mục › ', b('Hình thức giá'), ': mã hình thức (cố định / điều chỉnh theo giá dầu) và công thức mô tả — thêm dòng mới thì dòng cũ tự hết hiệu lực. Danh mục › ', b('Đơn giá'), ': ', b('Thêm đơn giá'), ' → chọn ', b('Hình thức giá'), ' → nhập số → ', b('Áp dụng'), '. Bấm một dòng để xem chéo (chỉ xem); thêm / sửa / xóa chỉ ở màn chính.']],
     ['Phiếu cân', 'tickets', ['Bấm ', b('Import từ Excel'), ' → chọn file trạm cân (hoặc file mẫu NL_VC). Xem trước → tích ', b('Chấp nhận các dòng cảnh báo'), ' → ', b('Xác nhận import'), '. Cần file mẫu: bấm ', b('Tải file mẫu'), '.']],
     ['Giao nhận dầu', 'fuel', ['Chỉ cần với hợp đồng có tuyến ', b('theo giá dầu'), ' (xem mục "Giá áp dụng" trong màn Hợp đồng; toàn tuyến cố định thì không cần nhập dầu). Chọn hợp đồng → ', b('Import từ Excel'), ' (bảng kê dầu) hoặc ', b('Nhập tay'), '. Mỗi hợp đồng chỉ có 1 bên giao dầu (cột Đơn vị).']],
     ['Tính giá vận chuyển', 'calc', ['Chọn hợp đồng, ', b('Từ ngày – Đến ngày'), ', tuyến, thuế suất GTGT → ', b('Xem trước'), ' → ', b('TÍNH GIÁ'), '. Kỳ được lưu ở trạng thái ', b('Nháp'), '. Bấm vào đơn giá để xem chi tiết tính (15 bước).']],
