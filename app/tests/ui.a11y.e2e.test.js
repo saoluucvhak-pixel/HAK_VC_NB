@@ -39,7 +39,7 @@ test('Giao diện: màn nhỏ không tràn, Enter/Xóa lọc ở bộ lọc, h�
     // 1) màn nhỏ: không tràn ngang trang
     for (const [w, h] of [[1093, 614], [910, 512]]) {
       await page.setViewportSize({ width: w, height: h });
-      for (const v of ['Tổng quan', 'Phiếu cân', 'Giao nhận dầu', 'Danh mục tuyến', 'Hợp đồng vận chuyển', 'Đơn giá', 'Tính giá vận chuyển', 'Bảng xác nhận KL', 'Chi tiết vận chuyển', 'Báo cáo', 'Trao đổi dữ liệu', 'Lịch sử thao tác', 'Cài đặt']) {
+      for (const v of ['Tổng quan', 'Phiếu cân', 'Giao nhận dầu', 'Danh mục tuyến', 'Hợp đồng vận chuyển', 'Hình thức giá', 'Đơn giá', 'Tính giá vận chuyển', 'Bảng xác nhận KL', 'Chi tiết vận chuyển', 'Báo cáo', 'Trao đổi dữ liệu', 'Lịch sử thao tác', 'Cài đặt']) {
         await nav(v);
         const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth }));
         assert.ok(o.sw <= o.vw + 1, `${v} @${w}px tràn ngang: ${o.sw} > ${o.vw}`);

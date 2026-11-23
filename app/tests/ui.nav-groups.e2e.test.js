@@ -33,10 +33,10 @@ test('Giao diện HAKQN: menu nhóm + Hợp đồng cha–con', { skip: !fs.exis
 
     // nhóm: nút có aria-expanded; mặc định mở hết; mọi mục còn trong menu; số phím tắt giữ nguyên
     for (const g of ['Bắt đầu', 'Danh mục', 'Nhập liệu', 'Tính & chốt', 'Kết xuất', 'Đối tác', 'Hệ thống']) assert.equal(await group(g).getAttribute('aria-expanded'), 'true', g);
-    for (const label of ['Tổng quan', 'Hướng dẫn & quy trình', 'Phiếu cân', 'Giao nhận dầu', 'Danh mục tuyến', 'Hợp đồng vận chuyển', 'DM Đơn giá', 'Báo cáo giá hợp đồng', 'Tính giá vận chuyển', 'Bảng xác nhận KL', 'Chi tiết vận chuyển', 'Kiểm tra dữ liệu', 'Báo cáo', 'Trao đổi dữ liệu', 'Đối chiếu dữ liệu', 'Nhắc sửa danh mục', 'Lịch sử thao tác', 'Cài đặt', 'Công ty & đối tác', 'Xe vận chuyển']) {
+    for (const label of ['Tổng quan', 'Hướng dẫn & quy trình', 'Phiếu cân', 'Giao nhận dầu', 'Danh mục tuyến', 'Hợp đồng vận chuyển', 'Hình thức giá', 'Đơn giá', 'Báo cáo giá hợp đồng', 'Tính giá vận chuyển', 'Bảng xác nhận KL', 'Chi tiết vận chuyển', 'Kiểm tra dữ liệu', 'Báo cáo', 'Trao đổi dữ liệu', 'Đối chiếu dữ liệu', 'Nhắc sửa danh mục', 'Lịch sử thao tác', 'Cài đặt', 'Công ty & đối tác', 'Xe vận chuyển']) {
       assert.ok(await item(label).count() >= 1, `mục menu ${label}`); }
     const hot = async (label) => (await page.locator('nav .nav-items button', { hasText: label }).first().locator('.n').innerText()).trim();
-    assert.deepEqual([await hot('Tổng quan'), await hot('Phiếu cân'), await hot('Giao nhận dầu'), await hot('Danh mục tuyến'), await hot('DM Đơn giá'), await hot('Tính giá vận chuyển'), await hot('Cài đặt')], ['1', '2', '3', '4', '5', '6', '11']);
+    assert.deepEqual([await hot('Tổng quan'), await hot('Phiếu cân'), await hot('Giao nhận dầu'), await hot('Danh mục tuyến'), await hot('Đơn giá'), await hot('Tính giá vận chuyển'), await hot('Cài đặt')], ['1', '2', '3', '4', '5', '6', '11']);
     // gộp menu: nhóm Nhập liệu = Phiếu cân + Giao nhận dầu; nhóm Đối tác = Trao đổi dữ liệu + Đối chiếu dữ liệu + Nhắc sửa danh mục; hai mục cũ đã bỏ khỏi menu
     const itemsOf = async (gid) => (await page.locator(`#nav-g-${gid} .nav-txt`).allInnerTexts()).map((x) => x.trim());
     assert.deepEqual(await itemsOf('input'), ['Phiếu cân', 'Giao nhận dầu']);
