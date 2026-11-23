@@ -153,7 +153,7 @@ test('Bảng màu: tương phản chữ/nền >= 4.5:1 ở 4 bảng x sáng/tố
       for (const [k] of SKINS) {
         await page.evaluate((s) => { localStorage.setItem('dgvc.skin', s); window.DGVC.applyTheme(); }, k);
         const tag = `${k}/${theme}`;
-        for (const nav of ['Tổng quan', 'Phiếu cân', 'DM Đơn giá']) { await page.locator('nav button', { hasText: nav }).first().click(); await page.waitForTimeout(500); await measure(tag); }
+        for (const nav of ['Tổng quan', 'Phiếu cân', 'Đơn giá']) { await page.locator('nav button', { hasText: nav }).first().click(); await page.waitForTimeout(500); await measure(tag); }
         // hộp thoại + thông báo
         await page.evaluate(() => { const D = window.DGVC; const b = D.h('div', {}, D.h('label', {}, 'Tên mẫu', D.h('input', { value: 'Giá trị mẫu' })), D.h('p', {}, 'Nội dung hộp thoại mẫu.')); D.modal({ title: 'Hộp thoại mẫu', body: b, actions: [{ label: 'Đóng', run: () => true }, { label: 'Lưu', primary: true, run: () => true }] }); D.toast('Thông báo mặc định', 'info', 60000); D.toast('Đã lưu xong', 'ok', 60000); D.toast('Có lỗi mẫu', 'err', 60000); });
         await page.waitForTimeout(200); await measure(tag);

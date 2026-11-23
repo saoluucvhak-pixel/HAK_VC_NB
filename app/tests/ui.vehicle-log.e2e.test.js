@@ -42,7 +42,7 @@ test('Giao diện: Nhật trình xe theo tháng / quý', { skip: !fs.existsSync(
       await toast(/Đã import \d+ dòng/);
       await page.getByRole('dialog', { name: title, exact: true }).waitFor({ state: 'hidden' });
     }
-    await page.locator('nav button', { hasText: 'Báo cáo', hasNotText: 'giá hợp đồng' }).click();
+    await page.locator('nav .nav-txt', { hasText: /^Báo cáo$/ }).click(); // đúng mục "Báo cáo" (không lẫn "Báo cáo giá hợp đồng", "Báo cáo thuê vận chuyển")
     await page.getByRole('tab', { name: 'Nhật trình xe' }).click();
     await page.getByRole('tab', { name: 'Nhật trình xe', selected: true }).waitFor();
     await field('Xe').locator('select').selectOption('92H-00192');
