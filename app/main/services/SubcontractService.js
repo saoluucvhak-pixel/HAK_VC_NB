@@ -470,12 +470,13 @@ class SubcontractService {
     const before = { rentUnitPrice: cur.rentUnitPrice, fuelUnitPrice: cur.fuelUnitPrice, deductFuel: cur.deductFuel !== false };
     const after = { ...before, ...next };
     if (after.rentUnitPrice === before.rentUnitPrice && after.fuelUnitPrice === before.fuelUnitPrice && after.deductFuel === before.deductFuel) throw new AppError('VALIDATION_FAILED', 'Không có thay đổi nào để lưu');
-    // nhật ký TRƯỚC khi lưu: lỗi nhật ký thì không đổi gì
-    await this.store.transaction((tx) => { tx.audit('UPDATE_SUBCONTRACT_TERMS', 'SUBCONTRACT_BATCH', batchId, before, after, { reason: why }); }, { user: user ? user.username : 'system' });
+    // ghi file TRƯỚC (lỗi ghi thì chưa có nhật ký sai); nhật ký lỗi thì HOÀN TÁC file — không để đổi giá mà không có dấu vết
     const list = this._readBatches(); const i = list.findIndex((b) => b.batchId === batchId);
     if (i < 0) throw new AppError('NOT_FOUND', `Đợt ${batchId} vừa bị xóa`);
+    const prev = list.map((b) => ({ ...b }));
     list[i] = { ...list[i], ...after, rowVersion: (list[i].rowVersion || 1) + 1 };
     this._writeBatches(list);
+    try { await this.store.transaction((tx) => { tx.audit('UPDATE_SUBCONTRACT_TERMS', 'SUBCONTRACT_BATCH', batchId, before, after, { reason: why }); }, { user: user ? user.username : 'system' }); } catch (e) { this._writeBatches(prev); throw e; }
     return this._computeBatch(list[i]).row;
   }
 

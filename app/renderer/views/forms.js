@@ -25,6 +25,10 @@
     });
   };
 
+  // tên dòng hình thức trùng nghĩa với nhãn hệ thống (vd "Đơn giá điều chỉnh theo giá dầu" ~ "Đơn giá điều chỉnh dầu") thì không in lặp
+  const normName = (s) => String(s || '').toLowerCase().replace(/\btheo giá\b/g, '').replace(/\s+/g, ' ').trim();
+  const sameName = (a, b) => normName(a) === normName(b);
+
   D.views.forms = {
     async render(p) {
       const w = D.writer(); const guard = D.latest();
@@ -102,7 +106,7 @@
         } catch (e) { D.toast(e.message, 'err', 14000); }
       };
 
-      const pick = async (r) => { sel = r.formId; drawMain(); await drawSide(); };
+      const pick = async (r) => { sel = r.formId; drawMain(); await drawSide(); D.revealSide(side); };
 
       function drawMain() {
         const rows = items;
@@ -110,7 +114,7 @@
           rows, empty: 'Chưa có hình thức giá nào',
           columns: [
             { key: 'catalogDate', label: 'Ngày cập nhật', render: (r) => h('span', { class: 'nw' }, D.dmy(r.catalogDate)) },
-            { key: 'methodCode', label: 'Mã hình thức', render: (r) => h('div', {}, h('b', {}, r.methodLabel), h('div', { class: 'small muted mono' }, r.methodCode), r.formName && r.formName !== r.methodLabel ? h('div', { class: 'small' }, r.formName) : null) },
+            { key: 'methodCode', label: 'Mã hình thức', render: (r) => h('div', {}, h('b', {}, r.methodLabel), h('div', { class: 'small muted mono' }, r.methodCode), r.formName && !sameName(r.formName, r.methodLabel) ? h('div', { class: 'small' }, r.formName) : null) },
             { key: 'formulaText', label: 'Công thức tính giá', render: (r) => h('div', { class: 'xv-formula' }, r.formulaText || '—') },
             { key: 'eff', label: 'Hiệu lực', render: (r) => h('div', {}, validity(r), h('div', { style: { marginTop: '3px' } }, r.status === 'ACTIVE' ? D.tag('ok', 'Đang dùng') : D.tag('mute', 'Hết hiệu lực'))) },
             { key: 'cnt', label: 'Đơn giá', num: true, render: (r) => h('div', {}, h('b', {}, D.vn(r.priceLineCount)), h('div', { class: 'small muted' }, `${D.vn(r.activeLineCount)} đang dùng`)) },

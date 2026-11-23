@@ -1655,7 +1655,9 @@
    ],
    "output": "{removed, routeCode, wasDraft, reopened[], affectedPeriods[], warnings[]}",
    "errors": [
-    "BUSINESS_RULE:E_PRICE_DATE_OVERLAP"
+    "NOT_FOUND",
+    "VALIDATION_FAILED",
+    "BUSINESS_RULE:E_PRICE_USED"
    ],
    "reads": [
     "PRICE_HISTORY"
@@ -1663,7 +1665,7 @@
    "writes": [
     "PRICE_HISTORY"
    ],
-   "audit": "PRICE_ACTIVATE",
+   "audit": "PRICE_REMOVE",
    "lock": true
   },
   {

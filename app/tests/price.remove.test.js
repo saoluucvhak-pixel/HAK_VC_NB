@@ -32,4 +32,17 @@ for (const kind of storageKinds()) {
     await rejects(cat.removePriceLine({ priceId: 'KHONG-CO', user: KETOAN }), 'NOT_FOUND');
     store.close();
   });
+
+  test(`[${kind}] prices.remove rồi thêm lại ĐÚNG ngày cũ được (dùng lại dòng đã xóa, không vướng khóa duy nhất)`, async () => {
+    const { store } = await install('DH', { kind, withData: false });
+    const cat = new CatalogService(store); await cat.backfillCodeMethods({ user: { username: 'system' } });
+    const mk = async (from, price) => (await cat.addCodeLine({ priceCode: 'PT-CD', record: { routeCode: 'VC.007', fixedPrice: price, effectiveFrom: from }, user: KETOAN })).record;
+    const a = await mk('2026-03-01', 91000); await cat.activatePrice({ priceId: a.price_id, rowVersion: a.row_version, user: KETOAN });
+    await cat.removePriceLine({ priceId: a.price_id, user: KETOAN });
+    const again = await mk('2026-03-01', 92000); // trước đây: VALIDATION_FAILED trùng khóa (tuyến + hợp đồng + mã + ngày)
+    assert.equal(again.price_id, a.price_id, 'dùng lại chính dòng đã xóa'); assert.equal(again.status, 'DRAFT'); assert.equal(again.fixed_price, 92000);
+    const on = await cat.activatePrice({ priceId: again.price_id, rowVersion: again.row_version, user: KETOAN }); assert.ok(on);
+    assert.equal(store.get('PRICE_HISTORY', a.price_id).status, 'ACTIVE');
+    store.close();
+  });
 }

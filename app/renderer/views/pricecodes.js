@@ -268,7 +268,7 @@
             kv('Công thức tính giá', h('div', { class: 'xv-formula' }, r.formulaText || '—'))));
       };
 
-      const pick = (r) => { sel = r.priceId; drawMain(); drawSide(); };
+      const pick = (r) => { sel = r.priceId; drawMain(); drawSide(); D.revealSide(side); };
 
       function drawMain() {
         const res = D.sf.filterRows(rows, sfCfg, sfState);

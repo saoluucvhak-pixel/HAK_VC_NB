@@ -182,6 +182,8 @@
     if (/^\d+([.,]\d+)?$/.test(s)) return Number(s.replace(',', '.'));
     return NaN;
   };
+  /** Màn hẹp (< 1280 px): ngăn xem chéo nằm DƯỚI bảng — sau khi chọn dòng thì cuộn tới ngăn để người dùng thấy ngay. */
+  D.revealSide = (el) => { try { if (el && window.innerWidth < 1280 && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* không cuộn được thì bỏ qua */ } };
   /** Ô chọn công ty từ Danh mục công ty & đối tác để điền nhanh vào ô tên (vd tên in trên chứng từ); vẫn sửa tay được. */
   const unitPicker = (inp) => {
     const units = (state.boot && state.boot.units) || [];
@@ -249,7 +251,11 @@
       let rs = rows.slice();
       if (sortKey) rs.sort((a, b) => { const x = a[sortKey]; const y = b[sortKey]; return (x > y ? 1 : x < y ? -1 : 0) * (asc ? 1 : -1); });
       if (!rs.length) body.append(h('tr', {}, h('td', { colspan: columns.length, class: 'empty' }, empty)));
-      for (const r of rs) body.append(h('tr', { class: onRow ? 'click' : '', onclick: onRow ? () => onRow(r) : null }, columns.map((c) => h('td', { class: `${isNum(c) ? 'num' : ''} ${c.wrap ? 'wrap' : ''}` }, cell(c, r)))));
+      for (const r of rs) {
+        const tr = h('tr', { class: onRow ? 'click' : '', onclick: onRow ? () => onRow(r) : null }, columns.map((c) => h('td', { class: `${isNum(c) ? 'num' : ''} ${c.wrap ? 'wrap' : ''}` }, cell(c, r))));
+        if (onRow) { tr.tabIndex = 0; tr.addEventListener('keydown', (e) => { if (e.target !== tr) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRow(r); } }); } // dòng bấm được cũng dùng được bằng bàn phím
+        body.append(tr);
+      }
     };
     const head = h('thead', {}, h('tr', {}, columns.map((c) => h('th', { class: `${isNum(c) ? 'num' : ''} ${c.render ? '' : 'sortable'}`, style: c.width ? { width: c.width } : null,
       onclick: c.render ? null : () => { asc = sortKey === c.key ? !asc : true; sortKey = c.key; draw(); } }, c.label))));

@@ -250,6 +250,14 @@ class CatalogService {
   }
 
   /** Dựng bản ghi phiên bản giá NHÁP (kiểm hợp lệ + chống điền lùi ngày) — chưa ghi. Dùng chung createPriceVersion và addCodeLine (gộp giao dịch). */
+  /** Thêm dòng giá; nếu cùng (tuyến, hợp đồng, mã, ngày hiệu lực) có dòng ĐÃ XÓA (đóng, hiệu lực kết thúc trước ngày bắt đầu) thì dùng lại chính dòng đó (khóa duy nhất không cho hai dòng trùng) — bên nhận gói trao đổi nhận bản cập nhật. */
+  _insertOrRevive(tx, rec) {
+    const dead = this.store.find('PRICE_HISTORY', (x) => isVoidLine(x) && x.route_code === rec.route_code && (x.contract_id || '') === (rec.contract_id || '') && (x.price_code || '') === (rec.price_code || '') && x.effective_from === rec.effective_from)[0];
+    if (!dead) return tx.insert('PRICE_HISTORY', rec);
+    const patch = {}; for (const k of PRICE_FIELDS) patch[k] = rec[k];
+    Object.assign(patch, { status: rec.status || 'DRAFT', effective_to: '', is_used: false });
+    return tx.update('PRICE_HISTORY', dead.price_id, patch).after;
+  }
   _buildPriceVersion(record) {
     const p = this._normPrice(record); const route = this.store.get('TUYEN_VC', p.route_code);
     this._validatePrice(p, route);
@@ -268,7 +276,7 @@ class CatalogService {
     const { rec, route } = this._buildPriceVersion(record);
     this._assertLineMatchesCode(rec); // rà soát 1.8.2: dòng thuộc mã đơn giá phải đúng hình thức của mã (trước đây chỉ kiểm ở sửa nháp / áp dụng)
     const out = await this.store.transaction((tx) => {
-      const r = tx.insert('PRICE_HISTORY', rec);
+      const r = this._insertOrRevive(tx, rec);
       tx.audit('PRICE_CREATE', 'PRICE_HISTORY', r.price_id, null, r);
       return r;
     }, { user: user.username });
@@ -747,7 +755,7 @@ class CatalogService {
     if (adopt) { // chèn dòng + đổi hình thức mã trong MỘT giao dịch: lỗi ở bước nào cũng không để lại dòng nháp thừa
       const { rec: built, route } = this._buildPriceVersion(rec);
       const out = await this.store.transaction((tx) => {
-        const r = tx.insert('PRICE_HISTORY', built); tx.audit('PRICE_CREATE', 'PRICE_HISTORY', r.price_id, null, r);
+        const r = this._insertOrRevive(tx, built); tx.audit('PRICE_CREATE', 'PRICE_HISTORY', r.price_id, null, r);
         const { before, after } = tx.update('MA_DON_GIA', priceCode, { price_method: adopt }, { expectedRowVersion: c.row_version });
         tx.audit('PRICE_CODE_UPDATE', 'MA_DON_GIA', priceCode, before, after, { reason: 'Mã còn trống nhận hình thức giá của dòng sao chép đầu tiên' });
         return r;

@@ -61,7 +61,7 @@
         markSel();
       };
       const markSel = () => { for (const tr of out.querySelectorAll('tbody tr')) { const on = !!selCode && (tr.children[1] || {}).textContent === selCode; tr.classList.toggle('sel', on); if (on) tr.setAttribute('aria-selected', 'true'); else tr.removeAttribute('aria-selected'); } };
-      const selectRoute = (r) => { selCode = r.route_code; layout.dataset.sel = '1'; markSel(); drawSide(r); };
+      const selectRoute = (r) => { selCode = r.route_code; layout.dataset.sel = '1'; markSel(); drawSide(r); D.revealSide(side); };
       const closeSide = () => { selCode = ''; layout.dataset.sel = '0'; side.replaceChildren(); markSel(); };
       const drawSide = async (r) => {
         const code = r.route_code; let d;
