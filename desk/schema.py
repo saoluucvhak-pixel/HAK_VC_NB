@@ -95,6 +95,17 @@ TABLES = [
         ("price_method", "ENUM:CO_DINH|THEO_DAU", False, "Hình thức giá của mã: CO_DINH (đơn giá cố định) | THEO_DAU (theo giá dầu); trống (mã 1.5.0) = CO_DINH; không đổi khi mã đã có dòng/hợp đồng — bản 1.7.0", ""),
         ("note", "TEXT", False, "", ""),
      ], True),
+    ("HINH_THUC_GIA", "Danh mục", "Hình thức giá (danh mục): mô tả công thức theo mã hình thức CO_DINH|THEO_DAU, có ngày cập nhật (= hiệu lực từ); chỉ để hiển thị — KHÔNG ảnh hưởng cách tính giá. Dòng giá nối tới hình thức qua PRICE_HISTORY.price_method", "form_id", ["method_code+catalog_date"],
+     {}, [
+        ("form_id", "TEXT", True, "PK — HT-CD-yyyymmdd | HT-TD-yyyymmdd (mã hình thức + ngày cập nhật)", ""),
+        ("method_code", "ENUM:CO_DINH|THEO_DAU", True, "mã hình thức giá (khóa nối với PRICE_HISTORY.price_method)", ""),
+        ("form_name", "TEXT", True, "tên hình thức: Đơn giá cố định | Đơn giá điều chỉnh theo giá dầu", ""),
+        ("formula_text", "TEXT", False, "công thức tính giá — chỉ mô tả; trống = tự sinh theo mã hình thức", ""),
+        ("catalog_date", "DATE", True, "ngày cập nhật = hiệu lực từ; hạt giống 2000-01-01", ""),
+        ("effective_to", "DATE", False, "hiệu lực đến; dòng cùng mã mới hơn đóng dòng cũ = ngày mới − 1; dòng gỡ: < catalog_date", ""),
+        ("status", "ENUM:ACTIVE|CLOSED", True, "", ""),
+        ("note", "TEXT", False, "", ""),
+     ], True),
     ("HOP_DONG", "Danh mục", "Hợp đồng vận chuyển 2 bên (bên vận chuyển lập tính toán)", "contract_id", ["contract_code"],
      {"customer_unit_code": "DON_VI.unit_code", "carrier_unit_code": "DON_VI.unit_code"}, [
         ("contract_id", "TEXT", True, "PK", ""),

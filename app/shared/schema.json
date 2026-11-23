@@ -585,6 +585,96 @@
     }
    ]
   },
+  "HINH_THUC_GIA": {
+   "group": "Danh mục",
+   "description": "Hình thức giá (danh mục): mô tả công thức theo mã hình thức CO_DINH|THEO_DAU, có ngày cập nhật (= hiệu lực từ) và hiệu lực đến; chỉ để hiển thị — KHÔNG ảnh hưởng cách tính giá. Dòng giá nối tới hình thức qua PRICE_HISTORY.price_method",
+   "pk": "form_id",
+   "unique": [
+    [
+     "method_code",
+     "catalog_date"
+    ]
+   ],
+   "partialUnique": [],
+   "fk": {},
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "form_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "method_code",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "CO_DINH",
+      "THEO_DAU"
+     ]
+    },
+    {
+     "name": "form_name",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "formula_text",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "catalog_date",
+     "type": "DATE",
+     "required": true
+    },
+    {
+     "name": "effective_to",
+     "type": "DATE",
+     "required": false
+    },
+    {
+     "name": "status",
+     "type": "ENUM",
+     "required": true,
+     "enum": [
+      "ACTIVE",
+      "CLOSED"
+     ]
+    },
+    {
+     "name": "note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
   "HOP_DONG": {
    "group": "Danh mục",
    "description": "Hợp đồng vận chuyển 2 bên (bên vận chuyển lập tính toán)",

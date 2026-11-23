@@ -700,6 +700,37 @@
    "lock": false
   },
   {
+   "action": "routes.priceLines",
+   "group": "Danh mục",
+   "desc": "Đơn giá của một tuyến (chỉ đọc), kèm hình thức giá có hiệu lực tại ngày hiệu lực của từng dòng — dùng cho ngăn xem chéo ở Danh mục tuyến",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "routeCode",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{route:{routeCode, routeName, distanceKm, uom, isActive}, items:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "TUYEN_VC",
+    "PRICE_HISTORY",
+    "HINH_THUC_GIA"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
    "action": "routes.save",
    "group": "Danh mục",
    "desc": "Thêm / sửa tuyến",
@@ -1057,6 +1088,196 @@
    "errors": [],
    "reads": [
     "PRICE_HISTORY"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "forms.list",
+   "group": "Đơn giá",
+   "desc": "Danh mục Hình thức giá (chỉ liệt kê dòng chưa gỡ): sắp theo mã hình thức rồi ngày cập nhật giảm dần; kèm số đơn giá dùng hình thức (tính theo ngày hiệu lực của đơn giá). Công thức chỉ để hiển thị — KHÔNG ảnh hưởng cách tính giá",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "includeClosed",
+     "boolean",
+     false,
+     "mặc định true — false: chỉ dòng đang hiệu lực"
+    ],
+    [
+     "methodCode",
+     "enum(CO_DINH|THEO_DAU)",
+     false,
+     "lọc theo mã hình thức"
+    ]
+   ],
+   "output": "{items:[{formId, methodCode, methodLabel, formName, formulaText, catalogDate, effectiveTo, status, priceLineCount, activeLineCount, note, rowVersion}], total}",
+   "errors": [],
+   "reads": [
+    "HINH_THUC_GIA",
+    "PRICE_HISTORY"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "forms.get",
+   "group": "Đơn giá",
+   "desc": "Chi tiết một hình thức giá + các đơn giá đang dùng hình thức này (price_method = mã hình thức và hiệu lực từ nằm trong thời gian hiệu lực của dòng hình thức) — chỉ xem",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "formId",
+     "string",
+     true,
+     "vd HT-CD-20000101"
+    ]
+   ],
+   "output": "{record:{formId, methodCode, methodLabel, formName, formulaText, catalogDate, effectiveTo, status, priceLineCount, activeLineCount, note, rowVersion}, lines:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}]}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "HINH_THUC_GIA",
+    "PRICE_HISTORY",
+    "TUYEN_VC"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "forms.save",
+   "group": "Đơn giá",
+   "desc": "Thêm dòng hình thức mới (create=true: {methodCode, catalogDate?, formName?, formulaText?, note?}; ngày mặc định hôm nay, KHÔNG điền lùi — phải sau ngày dòng đang hiệu lực cùng mã; dòng cũ tự đóng: hiệu lực đến = ngày mới − 1, trạng thái CLOSED, cùng một giao dịch) hoặc sửa tên / công thức mô tả / ghi chú ({formId, …} + rowVersion; không đổi mã hình thức và ngày cập nhật). Công thức chỉ mô tả, không đổi cách tính giá; có nhắc sửa giống ở nhà máy khác",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "record",
+     "object",
+     true,
+     "{formId? (khi sửa), methodCode, catalogDate, formName, formulaText, note} (camelCase)"
+    ],
+    [
+     "create",
+     "boolean",
+     false,
+     "true = thêm dòng mới"
+    ],
+    [
+     "rowVersion",
+     "integer",
+     false,
+     "bắt buộc khi sửa"
+    ]
+   ],
+   "output": "{record:{formId, methodCode, methodLabel, formName, formulaText, catalogDate, effectiveTo, status, priceLineCount, activeLineCount, note, rowVersion}, closed:[formId dòng cũ đã đóng], warnings}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND",
+    "CONFLICT_VERSION"
+   ],
+   "reads": [
+    "HINH_THUC_GIA",
+    "PRICE_HISTORY"
+   ],
+   "writes": [
+    "HINH_THUC_GIA",
+    "SYNC_REMINDER"
+   ],
+   "audit": "FORM_CREATE/FORM_UPDATE/FORM_CLOSE",
+   "lock": true
+  },
+  {
+   "action": "forms.remove",
+   "group": "Đơn giá",
+   "desc": "Xóa hình thức giá chưa dùng = ĐÓNG dòng (hiệu lực kết thúc trước ngày bắt đầu, ẩn khỏi danh sách; không xóa cứng để gói trao đổi Danh mục mang được) và mở lại dòng trước. Chỉ dòng mới nhất của mã, không còn đơn giá nào dùng, và không phải dòng duy nhất của mã; còn dùng → BUSINESS_RULE:E_FORM_IN_USE kèm hướng dẫn",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "formId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{removed, methodCode, reopened:[formId], warnings}",
+   "errors": [
+    "NOT_FOUND",
+    "BUSINESS_RULE:E_FORM_IN_USE",
+    "BUSINESS_RULE:E_FORM_NOT_LATEST",
+    "BUSINESS_RULE:E_FORM_LAST"
+   ],
+   "reads": [
+    "HINH_THUC_GIA",
+    "PRICE_HISTORY"
+   ],
+   "writes": [
+    "HINH_THUC_GIA",
+    "SYNC_REMINDER"
+   ],
+   "audit": "FORM_REMOVE",
+   "lock": true
+  },
+  {
+   "action": "prices.catalog",
+   "group": "Đơn giá",
+   "desc": "Danh mục Đơn giá phẳng (chỉ đọc): ngày cập nhật (= hiệu lực từ) · mã đơn giá (priceId; priceCode nếu có) · tuyến + tên tuyến · hình thức giá (mã, tên, công thức của dòng hình thức có hiệu lực tại ngày hiệu lực của đơn giá) · giá theo hình thức (price) · hiệu lực · trạng thái. Không gồm dòng giá riêng đã gỡ",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "routeCode",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "methodCode",
+     "enum(CO_DINH|THEO_DAU)",
+     false,
+     ""
+    ],
+    [
+     "status",
+     "enum(DRAFT|ACTIVE|CLOSED)",
+     false,
+     ""
+    ]
+   ],
+   "output": "{items:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "PRICE_HISTORY",
+    "TUYEN_VC",
+    "HINH_THUC_GIA",
+    "CONFIG"
    ],
    "writes": [],
    "audit": null,

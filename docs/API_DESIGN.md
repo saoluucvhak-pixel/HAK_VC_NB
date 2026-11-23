@@ -120,6 +120,7 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | `vehicles.save` | Thêm / sửa xe | A/K | 🔒 XE | CREATE/UPDATE |
 | `vehicles.setActive` | Ngừng / dùng lại xe (không xóa cứng) | A/K | 🔒 XE | SET_ACTIVE |
 | `routes.list` | Danh sách tuyến | A/K/X |  |  |
+| `routes.priceLines` | Đơn giá của một tuyến kèm hình thức giá có hiệu lực (chỉ xem) | A/K/X |  |  |
 | `routes.nextCode` | Mã tuyến gợi ý kế tiếp (VC.nnn) — chỉ gợi ý, trùng khi lưu → DUPLICATE | A/K |  |  |
 | `routes.save` | Thêm / sửa tuyến (kèm `catalogDate` — ngày cập nhật) | A/K | 🔒 TUYEN_VC | CREATE/UPDATE |
 | `routes.setActive` | Ngừng / dùng lại tuyến (không xóa cứng) | A/K | 🔒 TUYEN_VC | SET_ACTIVE |
@@ -130,6 +131,11 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | Action | Mô tả | Quyền | Ghi | Audit |
 |---|---|---|---|---|
 | `prices.list` | Lịch sử phiên bản giá theo tuyến (+ hợp đồng) | A/K/X |  |  |
+| `prices.catalog` | Danh mục Đơn giá phẳng (ngày cập nhật, mã đơn giá, tuyến, hình thức giá + công thức, giá, hiệu lực, trạng thái); lọc tuyến / hình thức / trạng thái | A/K/X |  |  |
+| `forms.list` | Danh mục Hình thức giá (CO_DINH / THEO_DAU theo ngày cập nhật, hiệu lực, số đơn giá dùng) | A/K/X |  |  |
+| `forms.get` | Chi tiết hình thức giá + các đơn giá đang dùng (chỉ xem) | A/K/X |  |  |
+| `forms.save` | Thêm dòng hình thức mới (đóng dòng cũ cùng mã, không điền lùi) / sửa mô tả; công thức chỉ mô tả | A/K | 🔒 HINH_THUC_GIA | FORM_CREATE/UPDATE/CLOSE |
+| `forms.remove` | Xóa hình thức chưa dùng = đóng dòng (không xóa cứng) | A/K | 🔒 HINH_THUC_GIA | FORM_REMOVE |
 | `pricecodes.list` | Cây Hình thức giá → Mã đơn giá (và theo Đơn vị) | A/K/X |  |  |
 | `pricecodes.get` | Chi tiết mã đơn giá: thông tin + dòng giá theo tuyến | A/K/X |  |  |
 | `pricecodes.save` | Tạo / sửa mã đơn giá (cha) kèm hình thức giá | A/K | 🔒 MA_DON_GIA | PRICE_CODE_CREATE/UPDATE |
@@ -530,6 +536,18 @@ Luật sửa (chốt 25/09/2026 — tuyến sửa được, bổ sung được):
 - **Đọc:** TUYEN_VC
 - **Ghi:** TUYEN_VC · AUDIT `CREATE/UPDATE`
 
+#### `routes.priceLines`
+
+Đơn giá của một tuyến (chỉ đọc), kèm hình thức giá có hiệu lực tại ngày hiệu lực của từng dòng — dùng cho ngăn xem chéo ở Danh mục tuyến. Quyền: ADMIN, KE_TOAN, XEM.
+
+| Tham số | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `routeCode` | string | ✔ |  |
+
+- **Trả về:** `{route:{routeCode, routeName, distanceKm, uom, isActive}, items:[đơn giá phẳng — như prices.catalog], total}`
+- **Lỗi:** `NOT_FOUND`
+- **Đọc:** TUYEN_VC, PRICE_HISTORY, HINH_THUC_GIA
+
 #### `routes.setActive`
 
 Ngừng / dùng lại tuyến (không xóa cứng). Quyền: ADMIN, KE_TOAN.
@@ -568,6 +586,78 @@ Lịch sử phiên bản giá theo tuyến (+ hợp đồng). Quyền: ADMIN, KE
 
 - **Trả về:** `{items:[PRICE_HISTORY + contractPrice tính sẵn]}`
 - **Đọc:** PRICE_HISTORY
+
+#### `prices.catalog`
+
+Danh mục Đơn giá phẳng (chỉ đọc) cho cả màn Đơn giá, ngăn "đơn giá của hình thức" và ngăn "đơn giá của tuyến". Không gồm dòng giá riêng đã gỡ. Quyền: ADMIN, KE_TOAN, XEM.
+
+| Tham số | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `routeCode` | string |  |  |
+| `methodCode` | enum(CO_DINH/THEO_DAU) |  |  |
+| `status` | enum(DRAFT/ACTIVE/CLOSED) |  |  |
+
+Hình thức của một dòng giá = dòng HINH_THUC_GIA cùng mã (price_method) có hiệu lực tại effective_from của dòng giá (ngày trước dòng sớm nhất → dòng sớm nhất). `price` = đơn giá cố định (CO_DINH) hoặc đơn giá ký hợp đồng (THEO_DAU). Sắp theo ngày cập nhật giảm dần, tuyến, mã.
+
+- **Trả về:** `{items:[{updateDate (= effectiveFrom), priceId (mã đơn giá), priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}`
+- **Lỗi:** `VALIDATION_FAILED`
+- **Đọc:** PRICE_HISTORY, TUYEN_VC, HINH_THUC_GIA, CONFIG
+
+#### `forms.list`
+
+Danh mục Hình thức giá (chỉ liệt kê dòng chưa gỡ). Quyền: ADMIN, KE_TOAN, XEM.
+
+| Tham số | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `includeClosed` | boolean |  | mặc định true — false: chỉ dòng đang hiệu lực |
+| `methodCode` | enum(CO_DINH/THEO_DAU) |  |  |
+
+Hạt giống 2 dòng mặc định ngày 2000-01-01 (`HT-CD-20000101` Đơn giá cố định, `HT-TD-20000101` Đơn giá điều chỉnh theo giá dầu) khi mở kho. Mã dòng = `HT-CD|TD-yyyymmdd` theo mã hình thức + ngày cập nhật. Sắp theo mã hình thức, ngày cập nhật giảm dần. **Công thức chỉ để hiển thị** — cách tính giá do bộ tính cố định theo mã hình thức, không đọc bảng này.
+
+- **Trả về:** `{items:[{formId, methodCode, methodLabel, formName, formulaText, catalogDate, effectiveTo, status, priceLineCount, activeLineCount, note, rowVersion}], total}`
+- **Đọc:** HINH_THUC_GIA, PRICE_HISTORY
+
+#### `forms.get`
+
+Chi tiết một hình thức giá + các đơn giá đang dùng hình thức này (chỉ xem). Quyền: ADMIN, KE_TOAN, XEM.
+
+| Tham số | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `formId` | string | ✔ | vd HT-CD-20000101 |
+
+- **Trả về:** `{record:{như forms.list}, lines:[đơn giá phẳng — như prices.catalog]}`
+- **Lỗi:** `NOT_FOUND`
+- **Đọc:** HINH_THUC_GIA, PRICE_HISTORY, TUYEN_VC
+
+#### `forms.save`
+
+Thêm dòng hình thức mới hoặc sửa mô tả. Quyền: ADMIN, KE_TOAN.
+
+| Tham số | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `record` | object | ✔ | {formId? (khi sửa), methodCode, catalogDate, formName, formulaText, note} (camelCase) |
+| `create` | boolean |  | true = thêm dòng mới |
+| `rowVersion` | integer |  | bắt buộc khi sửa |
+
+Thêm: mã hình thức hợp lệ (CO_DINH | THEO_DAU); ngày cập nhật dạng yyyy-MM-dd (mặc định hôm nay) phải SAU ngày của dòng đang hiệu lực cùng mã (không điền lùi); dòng cũ tự đóng trong cùng giao dịch (hiệu lực đến = ngày mới − 1, trạng thái CLOSED). Sửa: chỉ tên / công thức mô tả / ghi chú, không đổi mã hình thức và ngày cập nhật. Công thức chỉ mô tả — không đổi kết quả tính giá. Có nhắc sửa giống ở nhà máy khác (`I_SYNC_REMINDER`).
+
+- **Trả về:** `{record, closed:[formId dòng cũ đã đóng], warnings}`
+- **Lỗi:** `VALIDATION_FAILED`, `NOT_FOUND`, `CONFLICT_VERSION`, `FORBIDDEN`
+- **Đọc:** HINH_THUC_GIA, PRICE_HISTORY
+- **Ghi:** HINH_THUC_GIA, SYNC_REMINDER · AUDIT `FORM_CREATE/FORM_UPDATE/FORM_CLOSE`
+
+#### `forms.remove`
+
+Xóa hình thức giá chưa dùng = ĐÓNG dòng (hiệu lực kết thúc trước ngày bắt đầu, ẩn khỏi danh sách; không xóa cứng để gói trao đổi Danh mục mang được) và mở lại dòng trước. Quyền: ADMIN, KE_TOAN.
+
+| Tham số | Kiểu | Bắt buộc | Ghi chú |
+|---|---|---|---|
+| `formId` | string | ✔ |  |
+
+- **Trả về:** `{removed, methodCode, reopened:[formId], warnings}`
+- **Lỗi:** `NOT_FOUND`, `BUSINESS_RULE:E_FORM_IN_USE` (còn đơn giá dùng — thêm dòng hình thức mới hoặc sửa đơn giá ở Danh mục › Đơn giá), `BUSINESS_RULE:E_FORM_NOT_LATEST` (chỉ xóa dòng mới nhất của mã), `BUSINESS_RULE:E_FORM_LAST` (dòng duy nhất của mã)
+- **Đọc:** HINH_THUC_GIA, PRICE_HISTORY
+- **Ghi:** HINH_THUC_GIA, SYNC_REMINDER · AUDIT `FORM_REMOVE`
 
 #### `prices.preview`
 
