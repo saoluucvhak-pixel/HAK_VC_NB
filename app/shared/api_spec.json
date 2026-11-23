@@ -2420,6 +2420,12 @@
      "string",
      false,
      "vd `weigh1_date:desc`"
+    ],
+    [
+     "importedSince",
+     "datetime",
+     false,
+     "chỉ phiếu nhập vào máy từ thời điểm này (giờ UTC, ISO); bộ lọc \"mới nhập hôm nay\""
     ]
    ],
    "output": "{items:[PHIEU_CAN + usageByContract:[{contractCode, periodCode, state}]], total, sums:{trips, kg}}",

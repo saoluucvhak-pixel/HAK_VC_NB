@@ -698,6 +698,7 @@ Tra cứu phiếu cân. Quyền: ADMIN, KE_TOAN, XEM.
 | `contractId` | string |  | kèm trạng thái sử dụng theo HĐ này |
 | `usage` | enum(CHUA_TINH/DA_DUA_VAO_KY/DA_XAC_NHAN/DA_KHOA) |  | cần contractId |
 | `hasFlags` | boolean |  |  |
+| `importedSince` | datetime |  | chỉ phiếu nhập vào máy từ thời điểm này (giờ UTC, ISO); bộ lọc "mới nhập hôm nay" |
 | `q` | string |  | số phiếu / biển số |
 | `page` | integer |  | mặc định 1 |
 | `pageSize` | integer |  | mặc định 100, tối đa 1000 |
