@@ -85,6 +85,35 @@ test('Giao diện HAKQN: form dòng đơn giá — ô ĐVT tính giá, nhãn m³
     await lm.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã thêm dòng giá/);
     const fx = ctx.store.all('PRICE_HISTORY').find((x) => x.price_code === 'PT-CD' && x.route_code === 'VC.008' && x.effective_from === '2027-01-01');
     assert.equal(fx.calc_basis, 'M3', 'dòng cố định trên tuyến tấn chọn m³ → lưu ĐVT m³'); assert.equal(fx.fixed_price, 50000);
+
+    // ── Định dạng số: ngăn nghìn '.', thập phân ',' khi gõ và khi mở lại; không mất độ chính xác ──
+    const MAIN = 'section[aria-label="Danh mục đơn giá"]';
+    await nav('Đơn giá'); await addVia(/giá dầu/i);
+    const nm = page.locator('.modal', { hasText: 'Thêm đơn giá điều chỉnh theo giá dầu — PT-TD' });
+    await nm.getByRole('combobox', { name: /^Tuyến/ }).selectOption('VC.008');
+    const typeInto = async (loc, text) => { await loc.click(); await loc.fill(''); await loc.pressSequentially(text); };
+    const cuoc = nm.getByLabel(/Đơn giá cước dự kiến/); const dau = nm.getByLabel(/ĐG dầu chưa VAT/); const kl = nm.getByLabel(/^\(2\) KL_TB/); const dm = nm.getByLabel(/Định mức dầu/); const tk = nm.getByLabel(/^Đơn giá tham khảo/);
+    await typeInto(cuoc, '165000'); assert.equal(await cuoc.inputValue(), '165.000', 'gõ 165000 → 165.000');
+    await typeInto(dau, '15500'); assert.equal(await dau.inputValue(), '15.500');
+    await typeInto(kl, '12,5'); assert.equal(await kl.inputValue(), '12,5', 'gõ 12,5 giữ 12,5 (không thành 125)');
+    await typeInto(dm, '0,4'); assert.equal(await dm.inputValue(), '0,4', 'định mức 0,4 không thành 4');
+    await typeInto(tk, '1234567'); assert.equal(await tk.inputValue(), '1.234.567'); await typeInto(tk, '170000'); assert.equal(await tk.inputValue(), '170.000');
+    await nm.getByLabel(/Nguồn đơn giá tham khảo/).fill('Bảng giá thử'); await nm.getByLabel(/Ngày cập nhật/).fill('2027-03-01');
+    await nm.getByText(/cao hơn \(1\) DG_CUOC/).waitFor(); await nm.getByText(/\+5\.000 đ \(\+3,03%\)/).waitFor();
+    await nm.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã thêm dòng giá/);
+    const nr = ctx.store.all('PRICE_HISTORY').find((x) => x.price_code === 'PT-TD' && x.route_code === 'VC.008' && x.effective_from === '2027-03-01');
+    assert.equal(nr.new_price, 165000); assert.equal(nr.fuel_price_excl_vat, 15500); assert.equal(nr.avg_load_ton, 12.5); assert.equal(nr.fuel_norm_l_per_km, 0.4); assert.equal(nr.base_price_excl_vat, 170000);
+    // bảng dòng đơn giá có cột tham khảo + chênh lệch (tham khảo − DG_CUOC)
+    const trw = page.locator(`${MAIN} tbody tr`, { hasText: 'VC.008' }).filter({ hasText: '01/03/2027' });
+    await trw.getByText('170.000').waitFor(); await trw.getByText('+5.000 đ').waitFor(); await trw.getByText('(+3,03%)').waitFor();
+    await page.locator(MAIN).getByRole('columnheader', { name: /Đơn giá tham khảo/ }).waitFor(); await page.locator(MAIN).getByRole('columnheader', { name: /Chênh lệch \(tham khảo − DG_CUOC\)/ }).waitFor();
+    // mở lại để sửa: hiển thị đúng định dạng
+    await trw.getByRole('button', { name: /^Sửa/ }).click();
+    const em = page.locator('.modal', { hasText: 'Sửa công thức tính đơn giá' });
+    assert.equal(await em.getByLabel(/Đơn giá cước dự kiến/).inputValue(), '165.000'); assert.equal(await em.getByLabel(/ĐG dầu chưa VAT/).inputValue(), '15.500');
+    assert.equal(await em.getByLabel(/^\(2\) KL_TB/).inputValue(), '12,5'); assert.equal(await em.getByLabel(/Định mức dầu/).inputValue(), '0,4'); assert.equal(await em.getByLabel(/^Đơn giá tham khảo/).inputValue(), '170.000');
+    await em.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã lưu dòng giá nháp/);
+    const nr2 = ctx.store.get('PRICE_HISTORY', nr.price_id); assert.equal(nr2.avg_load_ton, 12.5); assert.equal(nr2.fuel_norm_l_per_km, 0.4); assert.equal(nr2.new_price, 165000);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await srv.close(); }
 });

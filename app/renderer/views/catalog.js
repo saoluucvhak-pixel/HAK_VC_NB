@@ -195,8 +195,8 @@
         { key: 'contractPrice', label: 'Đơn giá ký hợp đồng (chốt) [đ/tấn hoặc đ/m³]', money: true, hint: 'mặc định tự động tính theo công thức làm tròn; nếu không phù hợp thì điền thủ công' },
         { key: 'basePriceExclVat', label: 'Đơn giá tham khảo (chưa VAT)', money: true, hint: 'không dùng tính — chỉ để đối chiếu' },
         { key: 'basePriceSource', label: 'Nguồn đơn giá tham khảo', full: true, hint: 'bắt buộc khi có đơn giá tham khảo — vd: File Excel … · bảng … · cột … · ngày …' },
-        { key: 'fuelPriceExclVat', label: 'ĐG dầu chưa VAT (danh mục)', money: true, required: true }, { key: 'fuelNormLPerKm', label: 'Định mức dầu (lít/km)', type: 'number', required: true, hint: '0,4 lít/km = 40 lít/100 km' },
-        { key: 'avgLoadTon', label: 'KL trung bình (tấn)', type: 'number', required: true }, { key: 'avgVolumeM3', label: 'Thể tích TB (m³) — tuyến M3', type: 'number' }, { key: 'sourceNote', label: 'Căn cứ', full: true }];
+        { key: 'fuelPriceExclVat', label: 'ĐG dầu chưa VAT (danh mục)', money: true, required: true }, { key: 'fuelNormLPerKm', label: 'Định mức dầu (lít/km)', decimal: true, required: true, hint: '0,4 lít/km = 40 lít/100 km' },
+        { key: 'avgLoadTon', label: 'KL trung bình (tấn)', decimal: true, required: true }, { key: 'avgVolumeM3', label: 'Thể tích TB (m³) — tuyến M3', decimal: true }, { key: 'sourceNote', label: 'Căn cứ', full: true }];
 
   // ───────── Đơn giá (Theo dõi Cha–Con: Mã đơn giá → Đơn giá có cột Tuyến) ─────────
   D.views.prices = {

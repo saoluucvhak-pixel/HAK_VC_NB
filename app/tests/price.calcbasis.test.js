@@ -121,7 +121,8 @@ for (const kind of storageKinds()) {
     assert.equal(snap.calc_basis, 'M3'); assert.equal(snap.total_m3, r.tripCount * VOL); assert.equal(snap.uom, 'M3'); assert.equal(snap.transport_price, r.transportPrice);
     await periods.confirm({ periodId: pid, user: KETOAN });
     // sửa dòng giá sau khi chốt không làm đổi bản in lại
-    const rs = new ReportService(store, { pdfRenderer: HAS_PDF ? chromiumPdfRenderer({ executablePath: CHROME }) : undefined });
+    const render = HAS_PDF ? chromiumPdfRenderer({ executablePath: CHROME }) : undefined;
+    const rs = new ReportService(store, { pdfRenderer: render });
     const sheet = rs.pricingSheet({ periodId: pid }); const rows = sheet.routes[0].sections.flatMap((s) => s.rows); const row = (no) => rows.find((x) => x.no === no);
     assert.equal(row(13).unit, 'm³'); assert.equal(Number(row(13).value.replace(/\./g, '').replace(',', '.')), r.tripCount * VOL);
     assert.equal(row(18).unit, 'đ/m³'); assert.equal(row(19).unit, 'đ/m³'); assert.equal(row(20).unit, 'đ/m³'); assert.ok(row(18).expr.endsWith(`/ ${String(r.tripCount * VOL).replace(/\B(?=(\d{3})+(?!\d))/g, '.')},00`), row(18).expr);
@@ -138,8 +139,8 @@ for (const kind of storageKinds()) {
     const wb2 = new ExcelJS.Workbook(); await wb2.xlsx.readFile(bx); const tot = []; wb2.worksheets[0].eachRow((rw) => { if (rw.getCell(1).value === 'TỔNG CỘNG') tot.push(rw.getCell(5).value); });
     assert.deepEqual(tot, [r.tripCount * VOL], 'Excel BKVC: tổng số lượng = Σ m³');
     if (HAS_PDF) {
-      const pf = path.join(OUT, `ps-${kind}.pdf`); await rs.export({ report: 'PRICING_SHEET', format: 'PDF', params: { periodId: pid }, targetPath: pf });
-      const txt = execFileSync('pdftotext', ['-layout', pf, '-']).toString(); assert.ok(txt.includes('đ/m³') && txt.includes('Tổng thể tích vận chuyển'), 'PDF: nhãn m³');
+      const pf = path.join(OUT, `ps-${kind}.pdf`);
+      try { await rs.export({ report: 'PRICING_SHEET', format: 'PDF', params: { periodId: pid }, targetPath: pf }); const txt = execFileSync('pdftotext', ['-layout', pf, '-']).toString(); assert.ok(txt.includes('đ/m³') && txt.includes('Tổng thể tích vận chuyển'), 'PDF: nhãn m³'); } finally { await render.close(); }
     }
     // in lại sau khi đổi giá nguồn: bản chụp không đổi
     await store.transaction((tx) => tx.update('PRICE_HISTORY', line.price_id, { new_price: 999999 }), { user: 'test' });

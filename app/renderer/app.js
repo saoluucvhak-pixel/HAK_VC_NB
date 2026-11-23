@@ -179,6 +179,7 @@
   D.parseMoney = (v) => {
     const s = String(v ?? '').trim().replace(/\s/g, ''); if (!s) return '';
     if (/^\d{1,3}([.,]\d{3})+$/.test(s)) return Number(s.replace(/[.,]/g, ''));
+    if (/^\d{1,3}(\.\d{3})+,\d+$/.test(s)) return Number(s.replace(/\./g, '').replace(',', '.')); // 1.234,5
     if (/^\d+([.,]\d+)?$/.test(s)) return Number(s.replace(',', '.'));
     return NaN;
   };
@@ -192,6 +193,33 @@
     sel.addEventListener('change', () => { const u = units.find((x) => x.unit_code === sel.value); if (u) { inp.value = nameOf(u); inp.dispatchEvent(new Event('input', { bubbles: true })); } sel.value = ''; });
     return sel;
   };
+  /** Số hiển thị kiểu vi-VN, KHÔNG làm tròn (tối đa 6 số lẻ): 150000 → "150.000"; 0,4 → "0,4"; dùng cho ô nhập số của form. */
+  const exactFmt = new Intl.NumberFormat('vi-VN', { useGrouping: true, minimumFractionDigits: 0, maximumFractionDigits: 6 });
+  D.vnExact = (x) => (x === '' || x === null || x === undefined || Number.isNaN(Number(x)) ? '' : exactFmt.format(Number(x)));
+  /** Đọc số kiểu vi-VN trong ô form: ',' là thập phân, '.' là ngăn nghìn khi đúng nhóm 3 chữ số (150.000), còn lại '.' là thập phân (0.4). Rỗng → ''; chữ lạ → NaN. */
+  D.parseVn = (v) => {
+    const s = String(v ?? '').trim().replace(/\s/g, ''); if (!s) return '';
+    if (/^\d+(\.\d{3})*(,\d+)?$/.test(s) && /^\d{1,3}(\.\d{3})*(,\d+)?$|^\d+(,\d+)?$/.test(s)) return Number(s.replace(/\./g, '').replace(',', '.'));
+    if (/^\d+\.\d+$/.test(s)) return Number(s);
+    return NaN;
+  };
+  /** Định dạng số đang gõ: nghìn '.', thập phân ','. Ô tiền: '.' luôn là ngăn nghìn. Ô số thập phân: '.' cuối nhóm không đủ 3 chữ số = dấu thập phân (gõ 0.4 → 0,4). */
+  D.liveNumber = (s, decimal) => {
+    s = String(s).replace(/[^\d.,]/g, ''); let ip; let fp = null; const ci = s.indexOf(',');
+    if (ci >= 0) { ip = s.slice(0, ci).replace(/\./g, ''); fp = s.slice(ci + 1).replace(/[.,]/g, ''); }
+    else if (decimal && s.includes('.')) { const parts = s.split('.'); const last = parts[parts.length - 1]; if (parts.length === 2 && last.length !== 3) { ip = parts[0]; fp = last; } else ip = parts.join(''); }
+    else ip = s.replace(/\./g, '');
+    ip = ip.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    if (fp !== null && ip === '') ip = '0';
+    return fp === null ? ip : `${ip},${fp}`;
+  };
+  const attachLiveNumber = (inp, decimal) => inp.addEventListener('input', () => {
+    const before = inp.value; const caret = inp.selectionStart == null ? before.length : inp.selectionStart;
+    const sig = (before.slice(0, caret).match(/[\d,]/g) || []).length; const next = D.liveNumber(before, decimal);
+    if (next === before) return;
+    inp.value = next; let n = 0; let pos = next.length; if (sig === 0) pos = 0; else for (let i = 0; i < next.length; i++) { if (/[\d,]/.test(next[i])) n++; if (n === sig) { pos = i + 1; break; } }
+    try { inp.setSelectionRange(pos, pos); } catch { /* ô không hỗ trợ đặt con trỏ */ }
+  });
   D.form = (fields, values = {}) => {
     const inputs = {};
     const el = h('div', { class: 'form' }, fields.map((f) => {
@@ -199,14 +227,17 @@
       if (f.type === 'select') inp = h('select', { disabled: f.readonly }, (typeof f.options === 'function' ? f.options() : f.options).map(([v, t]) => h('option', { value: v, selected: String(values[f.key] ?? '') === String(v) }, t)));
       else if (f.type === 'textarea') { inp = h('textarea', { rows: f.rows || 3, readonly: f.readonly }); inp.value = values[f.key] ?? ''; }
       else if (f.type === 'check') { inp = h('input', { type: 'checkbox', checked: !!values[f.key], disabled: f.readonly }); return h('label', { class: `check ${f.full ? 'field full' : ''}` }, inp, f.label); }
-      else if (f.money) inp = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', value: values[f.key] === '' || values[f.key] === undefined || values[f.key] === null ? '' : D.vnAuto(values[f.key]), readonly: f.readonly, placeholder: f.placeholder || 'vd 150.000' });
+      else if (f.money || f.decimal) {
+        inp = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', value: values[f.key] === '' || values[f.key] === undefined || values[f.key] === null ? '' : D.vnExact(values[f.key]), readonly: f.readonly, placeholder: f.placeholder || (f.money ? 'vd 150.000' : 'vd 12,5') });
+        if (!f.readonly) attachLiveNumber(inp, !!f.decimal);
+      }
       else inp = h('input', { type: f.type || 'text', value: values[f.key] ?? '', step: f.step || (f.type === 'number' ? 'any' : null), readonly: f.readonly, placeholder: f.placeholder || '' });
       inputs[f.key] = inp;
       return h('label', { class: `field ${f.full ? 'full' : ''}` }, h('span', {}, f.label + (f.required ? ' *' : '')), inp, f.unitPick && !f.readonly ? unitPicker(inp) : null, f.hint ? h('span', { class: 'hint' }, f.hint) : null);
     }).map((node, i) => { const f = fields[i]; if (f.type === 'check') inputs[f.key] = node.querySelector('input'); return node; }));
     el.values = () => Object.fromEntries(fields.map((f) => {
       const i = inputs[f.key]; if (f.type === 'check') return [f.key, i.checked];
-      const v = i.value; if (f.money) return [f.key, D.parseMoney(v)]; if (f.type === 'number') return [f.key, v === '' ? '' : Number(v)]; return [f.key, v];
+      const v = i.value; if (f.money || f.decimal) return [f.key, D.parseVn(v)]; if (f.type === 'number') return [f.key, v === '' ? '' : Number(v)]; return [f.key, v];
     }));
     el.inputs = inputs;
     return el;

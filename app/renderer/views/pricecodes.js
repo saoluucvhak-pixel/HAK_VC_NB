@@ -25,7 +25,7 @@
       const startMethod = p.methodCode || (p.code === 'PT-CD' ? 'CO_DINH' : p.code === 'PT-TD' ? 'THEO_DAU' : '');
       let sfState = D.sf.normalize({ one: startMethod ? { method: startMethod } : {} });
       let sfInfo = { kept: 0, total: 0 }; let sfMount = null;
-      const mainCard = h('section', { class: 'card flush xv-main xv-tbl', 'aria-label': 'Danh mục đơn giá' });
+      const mainCard = h('section', { class: 'card flush xv-main xv-tbl pcl', 'aria-label': 'Danh mục đơn giá' });
       const side = h('aside', { class: 'card xv-side', 'aria-label': 'Hình thức giá của đơn giá này (chỉ xem)', 'aria-live': 'polite' });
       const filterCard = h('div', { class: 'card' });
       const again = async () => { await load(); };
@@ -50,7 +50,7 @@
             { ...all.fuelNormLPerKm, label: '(4) DINH_MUC — Định mức dầu (lít/km)', hint: '0,4 lít/km = 40 lít/100 km' },
             { ...all.fuelPriceExclVat, label: '(5) DG_DAU — ĐG dầu chưa VAT (đ/lít)', hint: 'đầu vào của công thức' },
             { key: 'estimatePrice', label: '(6) Đơn giá dự kiến ký hợp đồng (tự tính theo công thức)', readonly: true, money: true, hint: 'tự tính khi nhập (1)–(5), đã làm tròn — không nhập tay' },
-            { ...all.basePriceExclVat, label: 'Đơn giá tham khảo (chưa VAT) — nhập tay', hint: 'chỉ để so sánh với (6), không dùng để tính' },
+            { ...all.basePriceExclVat, label: 'Đơn giá tham khảo (chưa VAT) — nhập tay', hint: 'chỉ để so sánh với (1) DG_CUOC, không dùng để tính' },
             { ...all.basePriceSource, label: 'Nguồn đơn giá tham khảo', hint: 'bắt buộc khi có đơn giá tham khảo' },
             { ...all.contractPrice, label: '(7) Đơn giá ký hợp đồng (nhập tay)', hint: 'ban đầu bằng (6); sửa tay nếu chốt giá khác' }
           ];
@@ -120,7 +120,7 @@
         const warn = h('div', { class: 'small', role: 'status', 'aria-live': 'polite', style: { marginTop: '8px' } });
         const cmp = h('div', { class: 'slip', role: 'status', 'aria-live': 'polite', style: { padding: '8px 10px', margin: '0 0 10px', border: '1px solid var(--line)', borderRadius: '8px', background: 'var(--card)', display: 'none', gridColumn: '1 / -1' } });
         const resetBtn = h('button', { type: 'button', class: 'btn small', style: { display: 'none', marginTop: '4px' }, onclick: () => { contractTouched = false; syncContract(); resetBtn.style.display = 'none'; } }, 'Dùng lại ĐG dự kiến');
-        const money = (k) => (f.inputs[k] ? D.parseMoney(f.inputs[k].value) : '');
+        const money = (k) => (f.inputs[k] ? D.parseVn(f.inputs[k].value) : '');
         const syncContract = () => {
           if (method === 'CO_DINH' || !f.inputs.contractPrice) return;
           if (!contractTouched && estimate != null) f.inputs.contractPrice.value = D.vnAuto(estimate);
@@ -128,12 +128,13 @@
         const drawCmp = () => {
           if (method === 'CO_DINH' || !f.inputs.basePriceExclVat) return;
           const ref = money('basePriceExclVat');
-          if (!(ref > 0) || estimate == null) { cmp.style.display = 'none'; return; }
-          const diff = estimate - ref; const pct = diff / ref * 100;
+          const cuoc = money('newPrice'); // đơn giá tham khảo so với (1) DG_CUOC (không phải với (6))
+          if (!(ref > 0) || !(cuoc > 0)) { cmp.style.display = 'none'; return; }
+          const diff = ref - cuoc; const pct = diff / cuoc * 100;
           const word = diff === 0 ? 'bằng' : diff > 0 ? 'cao hơn' : 'thấp hơn';
           cmp.style.display = 'block';
-          cmp.replaceChildren(h('b', {}, 'So sánh: '), `ĐG dự kiến ký hợp đồng ${D.vn(estimate)} đ ${word} đơn giá tham khảo ${D.vn(ref)} đ`,
-            ...(diff === 0 ? ['.'] : [': chênh ', h('b', { class: 'money' }, `${diff > 0 ? '+' : '−'}${D.vn(Math.abs(diff))} đ`), ` (${diff > 0 ? '+' : '−'}${D.vn(Math.abs(pct), 2)}% so với tham khảo).`]));
+          cmp.replaceChildren(h('b', {}, 'So sánh: '), `đơn giá tham khảo ${D.vn(ref)} đ ${word} (1) DG_CUOC ${D.vn(cuoc)} đ`,
+            ...(diff === 0 ? ['.'] : [': chênh ', h('b', { class: 'money' }, `${diff > 0 ? '+' : '−'}${D.vn(Math.abs(diff))} đ`), ` (${diff > 0 ? '+' : '−'}${D.vn(Math.abs(pct), 2)}%).`]));
         };
         const check = async () => {
           const v = f.values(); const rc = line ? line.route_code : v.routeCode; const r = routeOf(rc); const msgs = [];
@@ -173,6 +174,7 @@
           if (contractTouched) resetBtn.style.display = '';
         }
         if (f.inputs.basePriceSource) f.inputs.basePriceSource.closest('label').after(cmp);
+        if (f.inputs.newPrice) f.inputs.newPrice.addEventListener('input', drawCmp);
         f.addEventListener('input', () => { clearTimeout(f._t); f._t = setTimeout(check, 300); });
         f.addEventListener('change', () => { clearTimeout(f._t); f._t = setTimeout(check, 100); });
         setTimeout(check, 0);
@@ -290,7 +292,10 @@
             kv('Tên hình thức', r.formName || '—'),
             kv('Ngày cập nhật', f ? D.dmy(f.catalogDate) : '—'),
             kv('Hiệu lực', f ? range(f.catalogDate, f.effectiveTo) : '—'),
-            kv('Công thức tính giá', h('div', { class: 'xv-formula' }, r.formulaText || '—'))));
+            kv('Công thức tính giá', h('div', { class: 'xv-formula' }, r.formulaText || '—')),
+            ...(() => { const x = raw.get(r.priceId); if (!x || r.methodCode === 'CO_DINH' || !(Number(x.base_price_excl_vat) > 0) || !(Number(x.new_price) > 0)) return [];
+              const d = Number(x.base_price_excl_vat) - Number(x.new_price); const pc = d / Number(x.new_price) * 100; const sg = d > 0 ? '+' : d < 0 ? '−' : '';
+              return [kv('Đơn giá tham khảo', `${D.vn(x.base_price_excl_vat)} đ`), kv('Chênh lệch (tham khảo − DG_CUOC)', `${sg}${D.vn(Math.abs(d))} đ (${sg}${D.vn(Math.abs(pc), 2)}%)`)]; })()));
       };
 
       const pick = (r) => { sel = r.priceId; drawMain(); drawSide(); D.revealSide(side); };
@@ -308,6 +313,11 @@
             { key: 'method', label: 'Hình thức giá', render: (r) => (r.methodCode === 'CO_DINH' ? D.tag('info', 'Cố định') : D.tag('mute', 'Theo dầu')) },
             { key: 'km', label: 'Cự ly chuyến', title: 'km, đi và về', num: true, render: (r) => { const t = routeOf(r.routeCode); return t ? D.vnAuto(t.trip_distance_km) : ''; } },
             { key: 'price', label: 'ĐG ký HĐ', num: true, render: priceCell },
+            { key: 'refPrice', label: 'Đơn giá tham khảo', num: true, render: (r) => { const x = raw.get(r.priceId); return x && r.methodCode !== 'CO_DINH' && Number(x.base_price_excl_vat) > 0 ? D.vn(x.base_price_excl_vat) : '—'; } },
+            { key: 'refDiff', label: 'Chênh lệch (tham khảo − DG_CUOC)', num: true, render: (r) => {
+              const x = raw.get(r.priceId); if (!x || r.methodCode === 'CO_DINH' || !(Number(x.base_price_excl_vat) > 0) || !(Number(x.new_price) > 0)) return '—';
+              const d = Number(x.base_price_excl_vat) - Number(x.new_price); const pc = d / Number(x.new_price) * 100; const sg = d > 0 ? '+' : d < 0 ? '−' : '';
+              return h('span', {}, h('div', {}, `${sg}${D.vn(Math.abs(d))} đ`), h('div', { class: 'small muted' }, `(${sg}${D.vn(Math.abs(pc), 2)}%)`)); } },
             { key: 'eff', label: 'Hiệu lực', render: (r) => until(r) },
             { key: 'status', label: 'Trạng thái', render: (r) => D.tag(r.status) },
             { key: 'x', label: 'Thao tác', render: (r) => { const rl = raw.get(r.priceId); return h('span', { class: 'btns' },
