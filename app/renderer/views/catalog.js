@@ -284,7 +284,7 @@
     { key: 'carrierUnitCode', label: 'Bên vận chuyển', type: 'select', options: D.unitOptions(), readonly: !canParties }, { key: 'customerUnitCode', label: 'Bên thuê', type: 'select', options: D.unitOptions(), readonly: !canParties },
     { key: 'effectiveFrom', label: 'Hiệu lực từ', type: 'date', required: true }, { key: 'effectiveTo', label: 'Hiệu lực đến', type: 'date' },
     { key: 'signPlace', label: 'Nơi lập BKVC', hint: 'vd Quế Sơn Trung' }, { key: 'reportTitle', label: 'Tiêu đề BKVC' },
-    { key: 'carrierPrintName', label: 'Tên bên vận chuyển in trên chứng từ', hint: 'trống = "Tên ghi trên chứng từ" của đơn vị' }, { key: 'customerPrintName', label: 'Tên bên thuê in trên chứng từ', hint: 'trống = "Tên ghi trên chứng từ" của đơn vị' },
+    { key: 'carrierPrintName', label: 'Tên bên vận chuyển in trên chứng từ', unitPick: true, hint: 'trống = "Tên ghi trên chứng từ" của đơn vị' }, { key: 'customerPrintName', label: 'Tên bên thuê in trên chứng từ', unitPick: true, hint: 'trống = "Tên ghi trên chứng từ" của đơn vị' },
     { key: 'serviceDesc', label: 'Mẫu diễn giải cước để viết hóa đơn', type: 'textarea', full: true, hint: 'Chỗ trống: {BKS} {DIEM_DI} {DIEM_DEN} {TUYEN} {MA_TUYEN} {TU_NGAY} {DEN_NGAY}. Trống = mẫu chung "Cước vận chuyển dăm gỗ từ {DIEM_DI} đến {DIEM_DEN} bằng xe thùng BKS : {BKS}"' },
     { key: 'note', label: 'Ghi chú', full: true }];
   const cVal = (c) => ({ contractCode: c.contract_code, contractNo: c.contract_no, carrierUnitCode: c.carrier_unit_code, customerUnitCode: c.customer_unit_code, effectiveFrom: c.effective_from, effectiveTo: c.effective_to,

@@ -293,3 +293,6 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 
 /* ô chứa đường dẫn dài (Cài đặt › Thông tin) tự xuống dòng, không làm tràn ngang trang */
 table.t.info td.mono { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+
+/* ô chọn công ty từ danh mục dưới ô nhập tên (form Hợp đồng) */
+.field .unit-pick-sel { margin-top: 4px; font-size: .84rem; min-height: 32px; }
