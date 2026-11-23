@@ -42,6 +42,9 @@ const moneyOrEmpty = (v) => {
 };
 const MONEY_FIELDS = ['base_price_excl_vat', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fixed_price', 'contract_price'];
 
+/** Dòng giá đã GỠ (không xóa cứng để gói trao đổi mang được trạng thái): đóng với hiệu lực kết thúc trước ngày bắt đầu → không khớp ngày nào. */
+const isVoidLine = (x) => x.status === 'CLOSED' && !!x.effective_to && x.effective_to < x.effective_from;
+
 class CatalogService {
   constructor(store) { this.store = store; }
 
@@ -198,10 +201,15 @@ class CatalogService {
       else if (p.fixed_price > 1e9) bad.push(`Đơn giá cố định quá lớn (> 1.000.000.000 ${uomLabel}) — kiểm tra lại số nhập`);
     } else {
       if (!(p.new_price > 0)) bad.push('Đơn giá mới phải > 0');
+      else if (p.new_price < 1000) bad.push(`Đơn giá cước dự kiến ${p.new_price} đ quá nhỏ (< 1.000) — kiểm tra dấu chấm ngăn cách nghìn (vd nhập 150000 hoặc 150.000)`);
       if (!(p.fuel_price_excl_vat > 0)) bad.push('Đơn giá dầu (chưa VAT) phải > 0');
       if (!(p.fuel_norm_l_per_km > 0)) bad.push('Định mức dầu (lít/km) phải > 0');
       if (!(p.avg_load_ton > 0)) bad.push('KL trung bình (tấn) phải > 0');
       if (route && route.uom === 'M3' && !(p.avg_volume_m3 > 0)) bad.push('Tuyến tính theo M3 — Thể tích TB phải > 0');
+      if (!bad.length && route) { // các số hợp lệ từng ô nhưng công thức ra đơn giá ≤ 0 (vd nhập thiếu 3 chữ số 0 ở đơn giá cước): báo ngay, không để ra −17.000
+        const a = E.computeContractPrice(route, p, this._cfg());
+        if (!(a.contractPrice > 0)) bad.push(`Đơn giá ký hợp đồng tính theo công thức = ${a.contractPrice} (≤ 0) — kiểm tra đơn giá cước, định mức dầu, giá dầu, KL trung bình`);
+      }
     }
     if (bad.length) throw new AppError('VALIDATION_FAILED', bad.join('; '), { errors: bad });
   }
@@ -235,7 +243,7 @@ class CatalogService {
     const p = this._normPrice(record); const route = this.store.get('TUYEN_VC', p.route_code);
     this._validatePrice(p, route);
     const same = this.store.find('PRICE_HISTORY', (x) => x.route_code === p.route_code && (x.contract_id || '') === p.contract_id && (x.price_code || '') === (p.price_code || ''));
-    const lastActive = same.filter((x) => x.status !== 'DRAFT').sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0];
+    const lastActive = same.filter((x) => x.status !== 'DRAFT' && !isVoidLine(x)).sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0];
     if (lastActive && p.effective_from <= lastActive.effective_from) {
       throw businessError('E_PRICE_DATE_OVERLAP', `Ngày hiệu lực ${p.effective_from} phải sau phiên bản đang dùng ${lastActive.price_id} (từ ${lastActive.effective_from})`);
     }
@@ -434,7 +442,10 @@ class CatalogService {
     const out = await this.store.transaction((tx) => {
       const closed = [];
       for (const x of prev) { tx.update('PRICE_HISTORY', x.price_id, { effective_to: to, status: 'CLOSED' }); closed.push({ priceId: x.price_id, effectiveTo: to }); }
-      const r = tx.insert('PRICE_HISTORY', rec);
+      // thêm lại đúng ngày của một dòng đã gỡ: dùng lại chính dòng đó (khóa duy nhất tuyến + hợp đồng + ngày hiệu lực) → bên nhận gói nhận bản cập nhật, không phải bản trùng khóa
+      const dead = this.store.find('PRICE_HISTORY', (x) => isVoidLine(x) && x.route_code === rec.route_code && x.contract_id === contractId && !x.price_code && x.effective_from === rec.effective_from)[0];
+      let r;
+      if (dead) { const patch = {}; for (const k of PRICE_FIELDS) patch[k] = rec[k]; Object.assign(patch, { status: 'ACTIVE', effective_to: '', is_used: false }); r = tx.update('PRICE_HISTORY', dead.price_id, patch).after; } else r = tx.insert('PRICE_HISTORY', rec);
       for (const pid of draftPeriods) tx.update('KY_TINH', pid, { needs_recalc: true });
       tx.audit('PRICE_CREATE', 'PRICE_HISTORY', r.price_id, null, r, { reason: `Thêm đơn giá cho hợp đồng ${c.contract_code || contractId} từ ${priceId}` });
       tx.audit('PRICE_ACTIVATE', 'PRICE_HISTORY', r.price_id, { status: 'DRAFT' }, { status: 'ACTIVE', closed });
@@ -455,23 +466,25 @@ class CatalogService {
   async removeContractPrice({ contractId, priceId, user }) {
     const c = this._needContract(contractId);
     const p = this.store.get('PRICE_HISTORY', priceId); if (!p) throw new AppError('NOT_FOUND', `Không có đơn giá ${priceId}`);
+    if (isVoidLine(p)) throw new AppError('NOT_FOUND', `Đơn giá ${priceId} đã được gỡ trước đó`);
     if (p.contract_id !== contractId || p.price_code) throw new AppError('VALIDATION_FAILED', `Đơn giá ${priceId} không phải đơn giá riêng của hợp đồng ${c.contract_code || contractId} — không gỡ ở đây`);
     const calcs = this.store.find('TRANSPORT_CALCULATION', (x) => x.is_current && x.price_id === priceId);
     const periods = [...new Set(calcs.map((x) => x.period_id))].map((id) => this.store.get('KY_TINH', id)).filter((k) => k && k.status !== 'HUY');
     const hard = periods.filter((k) => k.status !== 'NHAP');
     if (p.is_used || hard.length) throw businessError('E_PRICE_USED', `Đơn giá ${priceId} đã dùng ở ${hard.length ? `kỳ ${hard.map((k) => k.period_code).join(', ')}` : 'kỳ đã xác nhận'} — không xóa; hãy thêm đơn giá mới (ngày hiệu lực sau) thay thế`);
-    const same = this.store.find('PRICE_HISTORY', (x) => x.price_id !== priceId && x.route_code === p.route_code && x.contract_id === contractId && !x.price_code);
+    const same = this.store.find('PRICE_HISTORY', (x) => x.price_id !== priceId && x.route_code === p.route_code && x.contract_id === contractId && !x.price_code && !isVoidLine(x));
     if (same.some((x) => x.version_no > p.version_no)) throw businessError('E_PRICE_USED', `Đơn giá ${priceId} không phải bản mới nhất của tuyến ${p.route_code} — gỡ bản mới nhất trước`);
     const before = same.filter((x) => x.status !== 'DRAFT' && x.version_no < p.version_no && x.effective_to === addDays(p.effective_from, -1));
     const drafts = periods.filter((k) => k.status === 'NHAP').map((k) => k.period_id);
-    await this.store.transaction((tx) => {
+    const w = await this.store.transaction((tx) => {
       for (const x of before) tx.update('PRICE_HISTORY', x.price_id, { effective_to: '', status: 'ACTIVE' });
-      tx.remove('PRICE_HISTORY', priceId);
+      // không xóa cứng: gói Danh mục chỉ cập nhật/thêm, không mang lệnh xóa → đóng dòng (hiệu lực kết thúc trước ngày bắt đầu) để máy nhận cũng thôi dùng
+      tx.update('PRICE_HISTORY', priceId, { status: 'CLOSED', effective_to: addDays(p.effective_from, -1) });
       for (const pid of drafts) tx.update('KY_TINH', pid, { needs_recalc: true });
       tx.audit('PRICE_REMOVE', 'PRICE_HISTORY', priceId, p, { reopened: before.map((x) => x.price_id) }, { reason: `Gỡ đơn giá riêng khỏi hợp đồng ${contractId}` });
-      remindTx(tx, this.store, { entity: 'PRICE_HISTORY', entityId: priceId, action: 'PRICE_REMOVE', summary: `Gỡ đơn giá riêng ${priceId} (HĐ ${contractId}, tuyến ${p.route_code})` });
+      return remindTx(tx, this.store, { entity: 'PRICE_HISTORY', entityId: priceId, action: 'PRICE_REMOVE', summary: `Gỡ đơn giá riêng ${priceId} (HĐ ${contractId}, tuyến ${p.route_code})` });
     }, { user: user.username });
-    return { removed: priceId, routeCode: p.route_code, reopened: before.map((x) => x.price_id), affectedPeriods: drafts, warnings: [] };
+    return { removed: priceId, routeCode: p.route_code, reopened: before.map((x) => x.price_id), affectedPeriods: drafts, warnings: w ? [w] : [] };
   }
 
   /** Thống kê CHỈ ĐỌC giao nhận dầu của hợp đồng theo tuyến (bỏ dòng đã xóa). Không có thao tác ghi — dầu nhập ở màn Giao nhận dầu. */

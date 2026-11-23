@@ -467,7 +467,7 @@
         }
       } else {
         const i = D.state.boot.install; const hl = await D.api('system.health', {}, { quiet: true }).catch(() => null);
-        body.append(h('div', { class: 'card' }, h('table', { class: 't' }, h('tbody', {}, [['Phiên bản APP', i.appVersion], ['Bản cài', `${i.unitCode} · ${i.unitName}`], ['Mã bản cài', i.installId], ['Thư mục dữ liệu', i.dataFolder], ['schemaVersion', i.schemaVersion], ['dataVersion', i.dataVersion],
+        body.append(h('div', { class: 'card' }, h('table', { class: 't info' }, h('tbody', {}, [['Phiên bản APP', i.appVersion], ['Bản cài', `${i.unitCode} · ${i.unitName}`], ['Mã bản cài', i.installId], ['Thư mục dữ liệu', i.dataFolder], ['schemaVersion', i.schemaVersion], ['dataVersion', i.dataVersion],
           ['Số file dữ liệu', hl ? hl.files : '']].map(([k, v]) => h('tr', {}, h('td', {}, k), h('td', { class: 'mono' }, v)))))));
       }
       if (only) return only === 'units' ? D.page('Công ty & đối tác', 'Danh mục · Công ty vận chuyển và công ty đối tác', [], body) : D.page('Xe vận chuyển', 'Danh mục · Xe vận chuyển', [], body);

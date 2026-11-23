@@ -319,7 +319,7 @@
           columns: [
             { key: 'route_code', label: 'Tuyến', render: (r) => h('b', { class: 'mono' }, r.route_code) },
             { key: 'routeName', label: 'Tên tuyến', wrap: true },
-            { key: 'km', label: 'Cự ly (km)', num: true, render: (r) => { const t = routeOf(r.route_code); return t ? D.vnAuto(t.trip_distance_km) : ''; } },
+            { key: 'km', label: 'Cự ly chuyến', title: 'km, đi và về', num: true, render: (r) => { const t = routeOf(r.route_code); return t ? D.vnAuto(t.trip_distance_km) : ''; } },
             { key: 'price', label: isCd ? 'Đơn giá' : 'ĐG ký HĐ', num: true, render: (r) => {
               const v = unitPrice(r); if (v == null || v === '') return '—';
               const manual = lineMethod(r) !== 'CO_DINH' && (r.isManualContractPrice || (r.contract_price && r.contract_price !== r.formulaContractPrice));
