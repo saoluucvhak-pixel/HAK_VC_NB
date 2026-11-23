@@ -96,11 +96,11 @@
       const show = (res, saved) => {
         out.innerHTML = '';
         const r0 = res.results || []; const sum = (k) => r0.reduce((a, r) => a + (r[k] || 0), 0);
-        out.append(h('div', { class: 'kpis' }, kpi('Số chuyến', D.vn(sum('tripCount'))), kpi('Tổng khối lượng (tấn)', D.vn(sum('totalTon'), 2)), kpi('Dầu thực nhận (lít)', D.vnAuto(sum('actualFuelLiter'))),
+        out.append(h('div', { class: 'kpis' }, kpi('Số chuyến', D.vn(sum('tripCount'))), kpi('Tổng khối lượng (tấn)', D.vn(sum('totalTon'), 2)), ...(r0.some((x) => x.totalM3 != null) ? [kpi('Tổng thể tích (m³)', D.vn(r0.reduce((a, x) => a + (x.totalM3 || 0), 0), 2))] : []), kpi('Dầu thực nhận (lít)', D.vnAuto(sum('actualFuelLiter'))),
           kpi('Dầu định mức / chênh lệch', `${D.vnAuto(sum('standardFuelLiter'))} / ${D.vnAuto(sum('fuelDiffLiter'))}`), kpi('Thuế suất GTGT', res.vatRate !== undefined && res.vatRate !== null ? pct(res.vatRate) : '—'), kpi('Đơn giá vận chuyển', r0.map((r) => D.vn(r.transportPrice)).join(' · ') || '—', true)));
         out.append(h('div', { class: 'card flush' }, D.table({ columns: [
           { key: 'routeCode', label: 'Mã tuyến' }, { key: 'routeName', label: 'Tuyến' }, { key: 'tripDistanceKm', label: 'Cự ly', fmt: 'int' }, { key: 'startDate', label: 'Ngày bắt đầu', fmt: 'date' },
-          { key: 'endDate', label: 'Ngày kết thúc', fmt: 'date' }, { key: 'tripCount', label: 'Số chuyến', fmt: 'int' }, { key: 'totalTon', label: 'Tổng tấn', fmt: 'dec2' },
+          { key: 'endDate', label: 'Ngày kết thúc', fmt: 'date' }, { key: 'tripCount', label: 'Số chuyến', fmt: 'int' }, { key: 'totalTon', label: r0.length && r0.every((x) => x.totalM3 != null && x.uom === 'M3') ? 'Tổng m³' : r0.some((x) => x.totalM3 != null && x.uom === 'M3') ? 'Tổng tấn / m³' : 'Tổng tấn', num: true, render: (r) => (r.totalM3 != null && r.uom === 'M3' && (r.basisM3 || r.priceMethod === 'CO_DINH') ? `${D.vn(r.totalM3, 2)} m³` : D.vn(r.totalTon, 2)) },
           { key: 'actualFuelLiter', label: 'Dầu thực nhận', fmt: 'auto' }, { key: 'standardFuelLiter', label: 'Dầu định mức', fmt: 'auto' }, { key: 'fuelDiffLiter', label: 'CL dầu', fmt: 'dec2' },
           { key: 'fuelPrice', label: 'ĐG dầu', fmt: 'dec2' }, { key: 'contractPrice', label: 'ĐG ký HĐ / cố định', num: true, render: (r) => (r.priceMethod === 'CO_DINH' ? h('span', {}, D.vn(r.contractPrice), ' ', D.tag('info', 'cố định')) : D.vn(r.contractPrice)) }, { key: 'fuelAdjustPrice', label: 'ĐG CL Diesel', fmt: 'dec2' },
           { key: 'transportPrice', label: 'Đơn giá VC', num: true, render: (r) => h('button', { class: 'btn small', title: 'Xem chi tiết tính', onclick: (e) => { e.stopPropagation(); traceDrawer(r, saved); } }, h('span', { class: 'money' }, D.vn(r.transportPrice))) }],
@@ -160,6 +160,7 @@
     },
   };
   const camel = (c) => ({ calcId: c.calc_id, routeCode: c.route_code, routeName: c.route_name, tripDistanceKm: c.trip_distance_km, startDate: c.start_date, endDate: c.end_date, tripCount: c.trip_count,
+    uom: c.uom, totalM3: c.total_m3 === '' || c.total_m3 === undefined ? null : c.total_m3, calcBasis: c.calc_basis || '', basisM3: c.price_method !== 'CO_DINH' && c.calc_basis === 'M3',
     totalTon: c.total_ton, actualFuelLiter: c.actual_fuel_liter, standardFuelLiter: c.standard_fuel_liter, fuelDiffLiter: c.fuel_diff_liter, fuelPrice: c.fuel_price, contractPrice: c.contract_price,
     fuelAdjustPrice: c.fuel_adjust_price, transportPrice: c.transport_price, priceMethod: c.price_method || 'THEO_DAU', trace: JSON.parse(c.trace_json || '{}'), issues: JSON.parse(c.warnings_json || '[]') });
 

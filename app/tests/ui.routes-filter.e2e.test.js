@@ -34,7 +34,7 @@ test('Giao diện: Bộ lọc màn Danh mục tuyến', { skip: !fs.existsSync(C
 
     const fQ = page.getByLabel('Tìm tuyến vận chuyển', { exact: true });
     const fUnit = page.getByLabel('Lọc theo đơn vị', { exact: true });
-    const fUom = page.getByLabel('Lọc theo ĐVT', { exact: true });
+    const fUom = page.getByLabel('Lọc theo ĐVT mặc định', { exact: true });
     await fQ.waitFor();
     await fUnit.waitFor();
     await fUom.waitFor();

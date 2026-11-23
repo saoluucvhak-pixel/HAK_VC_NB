@@ -73,7 +73,10 @@ class ReportService {
     const lines = s.find('BKVC_LINE', (l) => l.period_id === periodId && l.is_current).sort((a, b) => a.seq - b.seq);
     const totals = lines.reduce((t, l) => ({ trips: t.trips + l.trip_count, kg: t.kg + l.kg, amount: t.amount + l.amount, vat: t.vat + l.vat, total: t.total + l.amount_incl_vat }),
       { trips: 0, kg: 0, amount: 0, vat: 0, total: 0 });
-    totals.ton = totals.kg / 1000;
+    // kỳ MỚI (bản chụp có total_m3) có dòng m³: tổng = Σ số lượng tính cước từng dòng (khớp cột Khối lượng); kỳ cũ giữ đúng như trước (kg / 1000)
+    const m3Snap = s.find('TRANSPORT_CALCULATION', (c) => c.period_id === periodId && c.is_current).some((c) => c.total_m3 !== '' && c.total_m3 !== undefined && c.total_m3 !== null);
+    totals.ton = m3Snap && lines.some((l) => l.uom === 'M3') ? lines.reduce((a, l) => a + l.ton, 0) : totals.kg / 1000;
+    const uomLabel = !m3Snap ? 'tấn' : lines.length && lines.every((l) => l.uom === 'M3') ? 'm³' : lines.some((l) => l.uom === 'M3') ? 'tấn / m³' : 'tấn';
     const vatPct = lines.length ? Math.round(lines[0].vat_rate * 1000) / 10 : cfg.vatRate * 100;
     return {
       header: {
@@ -84,7 +87,7 @@ class ReportService {
         periodText, placeDate,
         serviceDesc: contract.service_desc || '', vatPct,
       },
-      lines, totals, invoiceLines: this.invoice({ periodId }).rows,
+      lines, totals, uomLabel, invoiceLines: this.invoice({ periodId }).rows,
       amountInWords: lines.length ? E.numberToVietnameseWords(totals.total, { thousand: cfg.amountWordsThousand, suffix: cfg.amountWordsSuffix }) : '',
       signers,
     };
@@ -176,24 +179,28 @@ class ReportService {
     const routes = calcs.map((c) => {
       const route = s.get('TUYEN_VC', c.route_code) || {}; const price = s.get('PRICE_HISTORY', c.price_id) || {};
       const m3 = c.uom === 'M3'; const load = m3 ? c.avg_volume_m3 : c.avg_load_ton; const lu = m3 ? 'm³' : 'tấn';
+      // kỳ tính theo m³ (bản chụp có total_m3): nhãn đơn vị tổng / đơn giá của kỳ là m³; kỳ cũ (không total_m3) in như trước
+      const m3p = c.total_m3 !== '' && c.total_m3 !== undefined && c.total_m3 !== null; const pu = m3p ? 'm³' : 'tấn';
+      const qtyRow = (no, expr) => (m3p ? row(no, 'Tổng thể tích vận chuyển', 'Σ m³ từng chuyến', `${n(c.trip_count)} chuyến (thể tích thùng xe; xe chưa khai: thể tích TB)`, n(c.total_m3, 2), 'm³')
+        : row(no, 'Tổng khối lượng vận chuyển', 'Σ KL hàng (kg) / 1.000', expr, n(c.total_ton, 2), 'tấn'));
       const row = (no, label, how, expr, value, unit, o = {}) => ({ no, label, how, expr, value, unit, ...o });
       if (c.price_method === 'CO_DINH') {
         // ĐƠN GIÁ CỐ ĐỊNH: không có phần dầu — 4 chỉ tiêu
         const fixedSections = [
           { title: 'A. ĐƠN GIÁ THEO HỢP ĐỒNG — ĐƠN GIÁ CỐ ĐỊNH (không điều chỉnh theo giá dầu)', rows: [
-            row(1, 'Đơn giá vận chuyển cố định (chưa VAT)', 'Bảng giá', `${c.price_id}${price.effective_from ? ` · từ ${dmy(price.effective_from)}` : ''}`, n(c.contract_price), 'đ/tấn', { strong: true }),
+            row(1, 'Đơn giá vận chuyển cố định (chưa VAT)', 'Bảng giá', `${c.price_id}${price.effective_from ? ` · từ ${dmy(price.effective_from)}` : ''}`, n(c.contract_price), `đ/${pu}`, { strong: true }),
           ] },
           { title: 'B. KHỐI LƯỢNG THỰC HIỆN TRONG KỲ', rows: [
             row(2, 'Số chuyến vận chuyển', 'Phiếu cân trong kỳ', `${dmy(c.start_date)} – ${dmy(c.end_date)}`, n(c.trip_count), 'chuyến'),
-            row(3, 'Tổng khối lượng vận chuyển', 'Σ KL hàng (kg) / 1.000', `${n(c.total_kg)} kg`, n(c.total_ton, 2), 'tấn'),
+            qtyRow(3, `${n(c.total_kg)} kg`),
           ] },
           { title: 'C. ĐƠN GIÁ VẬN CHUYỂN CỦA KỲ', rows: [
-            row(4, 'ĐƠN GIÁ VẬN CHUYỂN (chưa VAT)', '= (1)', 'tuyến giá cố định — không nhận dầu, không tính chênh lệch dầu', n(c.transport_price), 'đ/tấn', { strong: true, final: true }),
+            row(4, 'ĐƠN GIÁ VẬN CHUYỂN (chưa VAT)', '= (1)', 'tuyến giá cố định — không nhận dầu, không tính chênh lệch dầu', n(c.transport_price), `đ/${pu}`, { strong: true, final: true }),
           ] },
         ];
         return { routeCode: c.route_code, routeName: c.route_name, fromPlace: route.from_place || '', toPlace: route.to_place || '', priceId: c.price_id,
-          priceFrom: price.effective_from || '', uom: c.uom, priceMethod: 'CO_DINH', sections: fixedSections, transportPrice: c.transport_price,
-          words: E.numberToVietnameseWords(c.transport_price, { thousand: cfg.amountWordsThousand, suffix: 'đồng/tấn' }) };
+          priceFrom: price.effective_from || '', uom: c.uom, priceMethod: 'CO_DINH', sections: fixedSections, transportPrice: c.transport_price, unitLabel: `đ/${pu}`,
+          words: E.numberToVietnameseWords(c.transport_price, { thousand: cfg.amountWordsThousand, suffix: `đồng/${pu}` }) };
       }
       const sections = [
         { title: 'A. ĐƠN GIÁ THEO HỢP ĐỒNG (chưa bao gồm nhiên liệu)', rows: [
@@ -211,21 +218,21 @@ class ReportService {
         ] },
         { title: 'B. KHỐI LƯỢNG VÀ NHIÊN LIỆU THỰC HIỆN TRONG KỲ', rows: [
           row(12, 'Số chuyến vận chuyển', 'Phiếu cân trong kỳ', `${dmy(c.start_date)} – ${dmy(c.end_date)}`, n(c.trip_count), 'chuyến'),
-          row(13, 'Tổng khối lượng vận chuyển', 'Σ KL hàng (kg) / 1.000', `${n(c.total_kg)} kg`, n(c.total_ton, 2), 'tấn'),
+          qtyRow(13, `${n(c.total_kg)} kg`),
           row(14, 'Dầu tiêu hao theo định mức', '(4) × (12) × (5)', `${n(c.trip_distance_km)} × ${n(c.trip_count)} × ${n(c.fuel_norm_l_per_km, 1)}`, n(c.standard_fuel_liter, 2), 'lít'),
           row(15, 'Dầu diesel thực nhận', 'Biên bản giao nhận dầu', c.fuel_line_count ? `${c.fuel_line_count} lần nhận, ${dmy(c.fuel_start_date)} – ${dmy(c.fuel_end_date)}` : 'không nhận dầu', n(c.actual_fuel_liter, 2), 'lít'),
           row(16, 'Chênh lệch dầu (định mức − thực nhận)', '(14) − (15)', `${n(c.standard_fuel_liter, 2)} − ${n(c.actual_fuel_liter, 2)}`, n(c.fuel_diff_liter, 2), 'lít'),
           row(17, 'Đơn giá dầu thực tế bình quân (chưa VAT)', !c.fuel_line_count ? 'Nhập khi tính kỳ' : cfg.fuelPriceMethod === 'WEIGHTED' ? 'Bình quân gia quyền theo lít' : 'Trung bình cộng các lần nhận', !c.fuel_line_count ? 'kỳ không nhận dầu' : '', n(c.fuel_price, 2), 'đ/lít'),
-          row(18, 'Đơn giá chênh lệch dầu diesel', '(16) × (17) / (13)', `${n(c.fuel_diff_liter, 2)} × ${n(c.fuel_price, 2)} / ${n(c.total_ton, 2)}`, n(c.fuel_adjust_price, 2), 'đ/tấn'),
+          row(18, 'Đơn giá chênh lệch dầu diesel', '(16) × (17) / (13)', `${n(c.fuel_diff_liter, 2)} × ${n(c.fuel_price, 2)} / ${n(m3p ? c.total_m3 : c.total_ton, 2)}`, n(c.fuel_adjust_price, 2), `đ/${pu}`),
         ] },
         { title: 'C. ĐƠN GIÁ VẬN CHUYỂN CỦA KỲ', rows: [
-          row(19, 'Đơn giá vận chuyển trước làm tròn', '(11) + (18)', `${n(c.contract_price)} + ${n(c.fuel_adjust_price, 2)}`, n(c.transport_price_raw, 2), 'đ/tấn'),
-          row(20, 'ĐƠN GIÁ VẬN CHUYỂN (chưa VAT)', c.transport_price_raw < 0 ? '(19) < 0 → 0' : `(19) ${roundText(cfg.roundFinalDigits)}`, '', n(c.transport_price), 'đ/tấn', { strong: true, final: true }),
+          row(19, 'Đơn giá vận chuyển trước làm tròn', '(11) + (18)', `${n(c.contract_price)} + ${n(c.fuel_adjust_price, 2)}`, n(c.transport_price_raw, 2), `đ/${pu}`),
+          row(20, 'ĐƠN GIÁ VẬN CHUYỂN (chưa VAT)', c.transport_price_raw < 0 ? '(19) < 0 → 0' : `(19) ${roundText(cfg.roundFinalDigits)}`, '', n(c.transport_price), `đ/${pu}`, { strong: true, final: true }),
         ] },
       ];
       return { routeCode: c.route_code, routeName: c.route_name, fromPlace: route.from_place || '', toPlace: route.to_place || '', priceId: c.price_id,
-        priceFrom: price.effective_from || '', uom: c.uom, sections, transportPrice: c.transport_price,
-        words: E.numberToVietnameseWords(c.transport_price, { thousand: cfg.amountWordsThousand, suffix: 'đồng/tấn' }) };
+        priceFrom: price.effective_from || '', uom: c.uom, sections, transportPrice: c.transport_price, unitLabel: `đ/${pu}`,
+        words: E.numberToVietnameseWords(c.transport_price, { thousand: cfg.amountWordsThousand, suffix: `đồng/${pu}` }) };
     });
     const ex = s.find('KY_TINH', (x) => x.period_id === periodId)[0];
     let excluded = [];
@@ -234,7 +241,7 @@ class ReportService {
     return { title: 'BẢNG TÍNH ĐƠN GIÁ VẬN CHUYỂN DĂM GỖ', periodText, periodCode: p.period_code, status: p.status, calcVersion: p.calc_version,
       calculatedAt: p.calculated_at || '', contractNo: contract.contract_no || contract.contract_code, contractCode: contract.contract_code,
       carrier: { ...signers.carrier, address: noCountry(signers.carrier.address) }, customer: { ...signers.customer, address: noCountry(signers.customer.address) }, signers, placeDate, routes,
-      bkvc: { ton: bk.totals.ton, amount: bk.totals.amount, vat: bk.totals.vat, total: bk.totals.total, vatPct: bk.header.vatPct, words: bk.amountInWords },
+      bkvc: { ton: bk.totals.ton, uomLabel: bk.uomLabel, amount: bk.totals.amount, vat: bk.totals.vat, total: bk.totals.total, vatPct: bk.header.vatPct, words: bk.amountInWords },
       notes: (() => {
         const fixedRoutes = new Set(calcs.filter((c) => c.price_method === 'CO_DINH').map((c) => c.route_code));
         const fx = excluded.filter((r) => fixedRoutes.has(r.route_code)); const other = excluded.filter((r) => !fixedRoutes.has(r.route_code));
@@ -313,12 +320,12 @@ class ReportService {
       const own = contractId ? (defCode ? (pick(r.route_code, contractId) || pickCode(r.route_code)) : (pickCode(r.route_code) || pick(r.route_code, contractId))) : null; const pr = own || pick(r.route_code, '');
       if (!pr) continue;
       const a = E.computeContractPrice(r, pr, cfg);
-      rows.push({ stt: rows.length + 1, routeCode: r.route_code, routeName: r.route_name, distanceKm: r.distance_km, tripDistanceKm: a.tripDistanceKm, uom: r.uom === 'M3' ? 'M3' : 'Tấn',
-        basePrice: pr.base_price_excl_vat === '' ? null : pr.base_price_excl_vat, newPrice: a.newPrice, avgLoadTon: a.avgLoadTon, avgVolumeM3: r.uom === 'M3' ? a.avgVolumeM3 : null,
+      rows.push({ stt: rows.length + 1, routeCode: r.route_code, routeName: r.route_name, distanceKm: r.distance_km, tripDistanceKm: a.tripDistanceKm, uom: a.uom === 'M3' ? 'M3' : 'Tấn',
+        basePrice: pr.base_price_excl_vat === '' ? null : pr.base_price_excl_vat, newPrice: a.newPrice, avgLoadTon: a.avgLoadTon, avgVolumeM3: a.uom === 'M3' ? a.avgVolumeM3 : null,
         tripPrice: a.tripPrice, fuelNormLPerKm: a.fuelNormLPerKm, fuelPerTrip: a.fuelPerTrip, fuelPriceCatalog: a.fuelPriceCatalog, fuelCostPerTrip: a.fuelCostPerTrip,
         fuelCostRatio: a.fuelCostRatio, priceNoDiesel: a.priceNoDiesel, contractPrice: a.contractPrice,
         priceId: pr.price_id, effectiveFrom: pr.effective_from, source: own ? 'Giá riêng hợp đồng' : 'Giá chung', unitVc: r.catalog_unit_code || '',
-        priceMethod: a.priceMethod, fixed: a.priceMethod === 'CO_DINH' });
+        priceMethod: a.priceMethod, fixed: a.priceMethod === 'CO_DINH', basisM3: !!a.basisM3, lineUom: a.uom });
     }
     const signers = contract ? E.resolveSigners(contract, s.all('DON_VI'), cfg) : null;
     const company = s.get('DON_VI', contract ? contract.carrier_unit_code : s.unitCode) || {};

@@ -79,10 +79,11 @@ test('Giao diện HAKQN: Đơn giá — chọn Hình thức giá, thêm đơn gi
     const vnum = async (loc) => Number((await loc.inputValue()).replace(/\./g, '').replace(',', '.'));
     const estimate = await vnum(est); assert.equal(estimate, pv.formulaContractPrice); assert.equal(await vnum(cpf), estimate, 'ĐG ký HĐ mặc định = ĐG dự kiến');
     // đơn giá tham khảo (nhập tay) → khối so sánh chênh lệch + %
-    await tm.getByLabel(/^Đơn giá tham khảo/).fill(String(estimate - 5000).replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
-    await tm.getByText(/cao hơn đơn giá tham khảo/).waitFor(); await tm.getByText(/\+5\.000 đ/).waitFor({ timeout: 3000 });
-    await tm.getByLabel(/^Đơn giá tham khảo/).fill(String(estimate + 5000).replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
-    await tm.getByText(/thấp hơn đơn giá tham khảo/).waitFor(); await tm.getByText(/−5\.000 đ/).waitFor();
+    // đơn giá tham khảo được so với (1) DG_CUOC (165.000), không phải với (6)
+    await tm.getByLabel(/^Đơn giá tham khảo/).fill('170.000');
+    await tm.getByText(/cao hơn \(1\) DG_CUOC/).waitFor(); await tm.getByText(/\+5\.000 đ/).waitFor({ timeout: 3000 });
+    await tm.getByLabel(/^Đơn giá tham khảo/).fill('160.000');
+    await tm.getByText(/thấp hơn \(1\) DG_CUOC/).waitFor(); await tm.getByText(/−5\.000 đ/).waitFor();
     await tm.getByLabel(/^Đơn giá tham khảo/).fill(''); // không tham khảo → không cần nguồn; không sửa ĐG ký HĐ → lưu rỗng (tự tính)
     await tm.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã thêm dòng giá/);
     const tr = page.locator(`${MAIN} tbody tr`, { hasText: 'VC.007' }).filter({ hasText: '01/01/2027' }); await tr.getByText('Nháp').waitFor();

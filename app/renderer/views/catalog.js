@@ -10,7 +10,7 @@
     { key: 'routeCode', label: 'Mã tuyến', required: true, readonly: !isNew, hint: isNew ? 'đã gợi ý mã kế tiếp, sửa được trước khi lưu; sửa giống ở các nhà máy còn lại — không đổi được về sau' : 'không đổi được' },
     { key: 'routeName', label: 'Tên tuyến', required: true, hint: 'vd "Xã Quế Sơn - Tiên Sa"' },
     { key: 'distanceKm', label: 'Cự ly (km)', type: 'number', required: true }, { key: 'tripDistanceKm', label: 'Cự ly chuyến (km)', type: 'number', hint: 'trống = 2 × cự ly (đi + về)' },
-    { key: 'uom', label: 'ĐVT tính giá', type: 'select', options: [['TAN', 'Tấn'], ['M3', 'M³']] }, { key: 'catalogUnitCode', label: 'Đơn vị trong bảng giá', type: 'select', options: D.unitOptions(true) },
+    { key: 'uom', label: 'ĐVT mặc định', type: 'select', hint: 'dòng đơn giá có thể chọn ĐVT khác; dòng đơn giá cũ chưa chọn thì theo ĐVT này', options: [['TAN', 'Tấn'], ['M3', 'M³']] }, { key: 'catalogUnitCode', label: 'Đơn vị trong bảng giá', type: 'select', options: D.unitOptions(true) },
     { key: 'fromPlace', label: 'Điểm đi (in diễn giải hóa đơn)', full: true, hint: 'trống = phần trước dấu " - " của tên tuyến' },
     { key: 'toPlace', label: 'Điểm đến (in diễn giải hóa đơn)', full: true, hint: 'trống = phần sau dấu " - " của tên tuyến' },
     { key: 'note', label: 'Ghi chú', full: true }, ...(isNew ? [] : [{ key: 'reason', label: 'Lý do (bắt buộc nếu sửa cự ly / ĐVT của tuyến đã dùng ở kỳ đã xác nhận)', full: true }])];
@@ -39,7 +39,7 @@
         advancedFields: ['q', 'unit', 'uom', 'hasPrice'],
         fields: [
           { key: 'unit', label: 'Lọc theo đơn vị', type: 'enum', options: () => D.unitOptions().map(([c, lbl]) => ({ value: c, label: lbl })), match: (r, v) => r.catalog_unit_code === v },
-          { key: 'uom', label: 'Lọc theo ĐVT', type: 'enum', options: [{ value: 'TAN', label: 'Tấn' }, { value: 'M3', label: 'M³' }], match: (r, v) => r.uom === v },
+          { key: 'uom', label: 'Lọc theo ĐVT mặc định', type: 'enum', options: [{ value: 'TAN', label: 'Tấn' }, { value: 'M3', label: 'M³' }], match: (r, v) => r.uom === v },
           { key: 'hasPrice', label: 'Chưa có ĐG hiện hành', type: 'bool', match: (r) => !r.activePrice }
         ],
         matchQ: (r, q) => D.sf.hay([r.route_code, r.route_name, r.from_place, r.to_place, r.catalog_unit_code]).indexOf(q) >= 0,
@@ -139,7 +139,7 @@
         if (window.dgvc) D.api('system.openPath', { path: r.path }, { quiet: true }).catch(() => {});
       };
       const detail = (r) => (r.fixed ? D.modal({ title: `Đơn giá cố định — ${r.routeCode} · ${r.routeName}`, body: h('ol', { class: 'trace' },
-        h('li', {}, h('b', {}, 'ĐƠN GIÁ CỐ ĐỊNH (10)'), h('div', { class: 'f' }, `Bảng giá ${r.priceId} · từ ${D.dmy(r.effectiveFrom)}`), h('div', { class: 'v' }, `= ${D.vn(r.contractPrice)} đ/tấn`)),
+        h('li', {}, h('b', {}, 'ĐƠN GIÁ CỐ ĐỊNH (10)'), h('div', { class: 'f' }, `Bảng giá ${r.priceId} · từ ${D.dmy(r.effectiveFrom)}`), h('div', { class: 'v' }, `= ${D.vn(r.contractPrice)} ${r.uom === 'M3' ? 'đ/m³' : 'đ/tấn'}`)),
         h('li', {}, h('b', {}, 'Hằng kỳ'), h('div', { class: 'f' }, 'Đơn giá vận chuyển = đơn giá cố định; không nhận dầu, không tính chênh lệch dầu'))) }) : D.modal({ title: `Cách tính ĐG ký HĐ — ${r.routeCode} · ${r.routeName}`, wide: true, body: h('ol', { class: 'trace' }, [
         ['Đơn giá cước (1)', 'Bảng giá ' + r.priceId, r.newPrice, 'đ/' + (r.uom === 'M3' ? 'm³' : 'tấn')],
         [r.uom === 'M3' ? 'Thể tích TB (2)' : 'KL trung bình / chuyến (2)', 'Bảng giá', r.uom === 'M3' ? r.avgVolumeM3 : r.avgLoadTon, r.uom === 'M3' ? 'm³' : 'tấn'],
@@ -147,7 +147,7 @@
         ['Dầu / chuyến (5) = Cự ly chuyến × Định mức (4)', `${D.vn(r.tripDistanceKm)} km × ${D.vn(r.fuelNormLPerKm, 1)} lít/km`, r.fuelPerTrip, 'lít'],
         ['Tiền dầu / chuyến (7) = (5) × ĐG dầu (6)', `${D.vnAuto(r.fuelPerTrip)} × ${D.vn(r.fuelPriceCatalog)}`, r.fuelCostPerTrip, 'đ'],
         ['Tỷ lệ dầu (8) = (7) / (3)', `${D.vn(r.fuelCostPerTrip)} / ${D.vn(r.tripPrice)}`, Math.round(r.fuelCostRatio * 10000) / 100, '%'],
-        ['ĐGVC chưa dầu (9) = [(3) − (7)] / KL_TB', `(${D.vn(r.tripPrice)} − ${D.vn(r.fuelCostPerTrip)}) / ${D.vn(r.avgLoadTon)}`, Math.round(r.priceNoDiesel * 100) / 100, 'đ'],
+        [`ĐGVC chưa dầu (9) = [(3) − (7)] / ${r.basisM3 ? 'Thể tích TB' : 'KL_TB'}`, `(${D.vn(r.tripPrice)} − ${D.vn(r.fuelCostPerTrip)}) / ${r.basisM3 ? D.vnAuto(r.avgVolumeM3) : D.vn(r.avgLoadTon)}`, Math.round(r.priceNoDiesel * 100) / 100, 'đ'],
         ['ĐƠN GIÁ KÝ HỢP ĐỒNG (10) = làm tròn (9) đến hàng nghìn', `${D.vn(r.priceNoDiesel, 2)} → làm tròn`, r.contractPrice, 'đ'],
       ].map(([l, e, v, u]) => h('li', {}, h('b', {}, l), h('div', { class: 'f' }, e), h('div', { class: 'v' }, `= ${D.vnAuto(v)} ${u}`)))) }));
       const load = async () => {
@@ -195,8 +195,8 @@
         { key: 'contractPrice', label: 'Đơn giá ký hợp đồng (chốt) [đ/tấn hoặc đ/m³]', money: true, hint: 'mặc định tự động tính theo công thức làm tròn; nếu không phù hợp thì điền thủ công' },
         { key: 'basePriceExclVat', label: 'Đơn giá tham khảo (chưa VAT)', money: true, hint: 'không dùng tính — chỉ để đối chiếu' },
         { key: 'basePriceSource', label: 'Nguồn đơn giá tham khảo', full: true, hint: 'bắt buộc khi có đơn giá tham khảo — vd: File Excel … · bảng … · cột … · ngày …' },
-        { key: 'fuelPriceExclVat', label: 'ĐG dầu chưa VAT (danh mục)', money: true, required: true }, { key: 'fuelNormLPerKm', label: 'Định mức dầu (lít/km)', type: 'number', required: true, hint: '0,4 lít/km = 40 lít/100 km' },
-        { key: 'avgLoadTon', label: 'KL trung bình (tấn)', type: 'number', required: true }, { key: 'avgVolumeM3', label: 'Thể tích TB (m³) — tuyến M3', type: 'number' }, { key: 'sourceNote', label: 'Căn cứ', full: true }];
+        { key: 'fuelPriceExclVat', label: 'ĐG dầu chưa VAT (danh mục)', money: true, required: true }, { key: 'fuelNormLPerKm', label: 'Định mức dầu (lít/km)', decimal: true, required: true, hint: '0,4 lít/km = 40 lít/100 km' },
+        { key: 'avgLoadTon', label: 'KL trung bình (tấn)', decimal: true, required: true }, { key: 'avgVolumeM3', label: 'Thể tích TB (m³) — tuyến M3', decimal: true }, { key: 'sourceNote', label: 'Căn cứ', full: true }];
 
   // ───────── Đơn giá (Theo dõi Cha–Con: Mã đơn giá → Đơn giá có cột Tuyến) ─────────
   D.views.prices = {

@@ -326,6 +326,7 @@ table.t.info td.mono { white-space: normal; overflow-wrap: anywhere; word-break:
 .xv-kv { padding: 7px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 .xv-tbl table.t td, .xv-tbl table.t th { white-space: normal; vertical-align: top; padding: .45rem .5rem; overflow-wrap: break-word; word-break: normal; }
 .xv-tbl .nw, .xv-tbl .money { white-space: nowrap; }
+@media (max-width: 1000px) { .pcl table.t :is(th, td):is(:nth-child(7), :nth-child(8)) { display: none; } } /* màn hẹp: bớt đơn giá tham khảo + chênh lệch (xem ở ngăn bên dưới khi chọn dòng) */
 .xv-tbl table.t th { font-size: .68rem; letter-spacing: .02em; }
 .xv-tbl table.t td.num, .xv-tbl table.t th.num { white-space: normal; }
 .xv-tbl table.t .btns { gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
@@ -333,7 +334,7 @@ table.t.info td.mono { white-space: normal; overflow-wrap: anywhere; word-break:
 .xv-tbl-side .tbl-wrap { max-height: 50vh; }
 table.t tbody tr.click:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 table.t tbody tr.sel td { background: var(--brand-soft); }
-.xv-tbl table.t { font-size: .8rem; } .xv-tbl table.t td, .xv-tbl table.t th { padding: .4rem .35rem; }
+.xv-tbl table.t { font-size: .8rem; } .xv-tbl table.t td, .xv-tbl table.t th { padding: .4rem .2rem; }
 .xv-tbl table.t td .mono, .xv-tbl table.t td.mono { overflow-wrap: normal; }
 .xv-tbl table.t .tag { white-space: normal; padding: 1px 8px; }
 @media (max-width: 1000px) { .xv-tbl table.t { font-size: .76rem; } .xv-tbl table.t th { font-size: .62rem; letter-spacing: 0; } .xv-tbl table.t td, .xv-tbl table.t th { padding: .3rem .22rem; } .xv-tbl table.t .btn.small { padding: 3px 6px; min-height: 28px; } .xv-tbl table.t .tag { padding: 1px 6px; font-size: .68rem; } }

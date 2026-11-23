@@ -129,7 +129,7 @@ function pricingSheet(d) {
 </div>
 <table><colgroup><col style="width:8%"><col style="width:33%"><col style="width:17%"><col style="width:21%"><col style="width:12%"><col style="width:9%"></colgroup>
 <thead><tr><th>STT</th><th>Chỉ tiêu</th><th>Cách tính</th><th>Diễn giải</th><th>Giá trị</th><th>ĐVT</th></tr></thead><tbody>${body}</tbody></table>
-<div class="result"><div class="lb">Đơn giá vận chuyển tuyến ${esc(rt.routeCode)} (chưa VAT)</div><div class="v">${vn(rt.transportPrice)} đ/tấn</div><div class="w">Bằng chữ: ${esc(rt.words)}</div></div>`;
+<div class="result"><div class="lb">Đơn giá vận chuyển tuyến ${esc(rt.routeCode)} (chưa VAT)</div><div class="v">${vn(rt.transportPrice)} ${esc(rt.unitLabel || 'đ/tấn')}</div><div class="w">Bằng chữ: ${esc(rt.words)}</div></div>`;
   }).join('');
   const B = d.bkvc;
   return `${docHead(`${d.title} ${d.periodCode}`)}${draftMark(d.status)}<div class="page">
@@ -145,7 +145,7 @@ function pricingSheet(d) {
 ${routes}
 <h2>D. Giá trị cước theo bảng xác nhận khối lượng</h2>
 <table><colgroup><col style="width:72%"><col style="width:28%"></colgroup><tbody>
-<tr><td>Tổng khối lượng vận chuyển (tấn)</td><td class="r">${vn(B.ton, 2)}</td></tr>
+<tr><td>Tổng khối lượng vận chuyển (${esc(B.uomLabel || 'tấn')})</td><td class="r">${vn(B.ton, 2)}</td></tr>
 <tr><td>Thành tiền chưa VAT (đồng)</td><td class="r">${vn(B.amount)}</td></tr>
 <tr><td>Thuế GTGT ${esc(B.vatPct)}% (đồng)</td><td class="r">${vn(B.vat)}</td></tr>
 <tr class="tot"><td>TỔNG GIÁ TRỊ THANH TOÁN (đồng)</td><td class="r">${vn(B.total)}</td></tr>
@@ -213,6 +213,7 @@ ${d.customer ? `<div class="info"><div>Bên thuê vận chuyển:</div><div clas
 <h2>Cách tính</h2>
 <p>– Đơn giá cước (1) đã gồm tiền dầu theo định mức, chưa VAT. Đơn giá hợp đồng (10) là phần <b>chưa gồm nhiên liệu</b>: (10) = làm tròn ${rt} của [(1)×(2) − CL×(4)×(6)] / KL_TB.</p>
 <p>– Hằng kỳ: Đơn giá vận chuyển = (10) + (Dầu định mức − Dầu thực nhận) × Đơn giá dầu thực tế / Tổng khối lượng, làm tròn đến hàng trăm.</p>
+${d.rows.some((r) => r.basisM3) ? '<p>– Dòng giá tính theo <b>m³</b> (cột ĐVT = M3, giá theo dầu): (9) = [(3) − (7)] / <b>Thể tích TB</b>; hằng kỳ: Đơn giá vận chuyển = (10) + (Dầu định mức − Dầu thực nhận) × Đơn giá dầu thực tế / <b>Tổng m³</b> (Σ m³ từng chuyến); đơn vị đ/m³.</p>' : ''}
 ${d.rows.some((r) => r.fixed) ? '<p>– Tuyến ghi <i>"Đơn giá cố định"</i>: (10) là đơn giá vận chuyển cố định đ/tấn ghi trong bảng giá — hằng kỳ dùng nguyên đơn giá này, không nhận dầu, không tính chênh lệch dầu.</p>' : ''}
 <p>– Làm tròn: ${d.rounding.mode === 'HALF_EVEN' ? 'kiểu ngân hàng (…500 làm tròn về số chẵn)' : 'làm tròn lên khi ≥ …500'}${d.rounding.int64 ? '; Cự ly chuyến, Đơn giá cước, ĐG dầu, KL TB được làm tròn về số nguyên trước khi tính' : ''}.</p>
 ${sign}</div></body></html>`;

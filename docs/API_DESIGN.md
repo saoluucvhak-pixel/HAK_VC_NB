@@ -600,7 +600,7 @@ Danh mục Đơn giá phẳng (chỉ đọc) cho cả màn Đơn giá, ngăn "đ
 
 Hình thức của một dòng giá = dòng HINH_THUC_GIA cùng mã (price_method) có hiệu lực tại effective_from của dòng giá (ngày trước dòng sớm nhất → dòng sớm nhất). `price` = đơn giá cố định (CO_DINH) hoặc đơn giá ký hợp đồng (THEO_DAU). Sắp theo ngày cập nhật giảm dần, tuyến, mã.
 
-- **Trả về:** `{items:[{updateDate (= effectiveFrom), priceId (mã đơn giá), priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}`
+- **Trả về:** `{items:[{updateDate (= effectiveFrom), priceId (mã đơn giá), priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, calcBasis, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}`
 - **Lỗi:** `VALIDATION_FAILED`
 - **Đọc:** PRICE_HISTORY, TUYEN_VC, HINH_THUC_GIA, CONFIG
 
@@ -678,7 +678,7 @@ Tạo phiên bản giá mới (DRAFT); phiên bản cũ không bị sửa. Quy�
 
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
-| `record` | object | ✔ | routeCode, contractId?, effectiveFrom, newPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, basePriceExclVat, sourceNote |
+| `record` | object | ✔ | routeCode, contractId?, effectiveFrom, newPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, calcBasis?, basePriceExclVat, sourceNote |
 
 - **Trả về:** `{record, contractPrice}`
 - **Lỗi:** `VALIDATION_FAILED`, `BUSINESS_RULE:E_PRICE_DATE_OVERLAP`
@@ -1623,6 +1623,7 @@ Bản HAKQN: dialog.openFile → exchange.previewPackage(filePath) → exchange.
 | `W_POSSIBLE_DUPLICATE` | WARNING | Dòng dầu nghi trùng (cùng ngày, xe, số lít) | import, fuel |
 | `W_PLATE_FORMAT` | WARNING | Mã xe dầu viết khác chuẩn (đã quy đổi) | import |
 | `W_VEHICLE_NO_FUEL` | WARNING | Xe có chạy trong kỳ nhưng không có dòng dầu | periods |
+| `W_VEHICLE_NO_VOLUME` | WARNING | Tuyến tính theo m³ nhưng xe chưa khai thể tích thùng (Danh sách xe) — không chặn tính | periods |
 | `W_VEHICLE_OUT_OF_CONTRACT` | WARNING | Dòng dầu của xe không thuộc phạm vi hợp đồng | periods |
 | `W_TICKET_IN_DRAFT_PERIOD` | WARNING | Phiếu đang ở kỳ nháp khác (BL-34) | periods |
 | `W_VEHICLE_PARTIAL_CONTRACT` | WARNING | Xe thuộc hợp đồng nhưng có phiếu trong kỳ ngoài thời gian hiệu lực của xe (đổi hợp đồng giữa kỳ) — phiếu đó không tính | periods |
