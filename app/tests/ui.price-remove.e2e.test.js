@@ -33,6 +33,7 @@ test('Giao diện: Đơn giá — Xóa dòng nháp và dòng đã áp dụng ch�
     await page.locator('.modal').getByRole('button', { name: 'Đồng ý' }).click();
     await page.locator('.toast', { hasText: `Đã xóa ${draft.price_id}` }).first().waitFor();
     assert.ok(!srv.ctx.store.get('PRICE_HISTORY', draft.price_id), 'nháp bị xóa hẳn');
+    await page.getByRole('button', { name: `Xóa ${draft.price_id}` }).waitFor({ state: 'detached', timeout: 10000 });
     assert.equal(await page.getByRole('button', { name: `Xóa ${draft.price_id}` }).count(), 0);
     // dòng đã áp dụng, chưa dùng: xóa → đóng, bản trước mở lại; sau đó không còn nút Xóa cho dòng đã xóa
     const a = (await cat.addCodeLine({ priceCode: 'PT-CD', record: { routeCode: 'VC.007', fixedPrice: 111000, effectiveFrom: '2030-02-01' }, user: KETOAN })).record;
@@ -43,7 +44,7 @@ test('Giao diện: Đơn giá — Xóa dòng nháp và dòng đã áp dụng ch�
     await page.locator('.modal').getByRole('button', { name: 'Đồng ý' }).click();
     await page.locator('.toast', { hasText: `Đã xóa ${a.price_id}` }).first().waitFor();
     const gone = srv.ctx.store.get('PRICE_HISTORY', a.price_id); assert.equal(gone.status, 'CLOSED'); assert.ok(gone.effective_to < gone.effective_from);
-    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: `Xóa ${a.price_id}` }).waitFor({ state: 'detached', timeout: 10000 });
     assert.equal(await page.getByRole('button', { name: `Xóa ${a.price_id}` }).count(), 0, 'dòng đã xóa không còn trong danh mục');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await srv.close(); }
