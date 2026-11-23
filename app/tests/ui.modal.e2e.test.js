@@ -48,7 +48,7 @@ test('Giao diện: Thêm hợp đồng — không mất dữ liệu đang nhập
     page.once('dialog', (d) => d.dismiss());
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
     assert.equal(await page.locator('.modal').count(), 1);
-    await page.locator('.modal label.field', { hasText: 'Bên thuê' }).locator('select').selectOption('HAK');
+    await page.locator('.modal label.field', { hasText: /^Bên thuê/ }).locator('select').selectOption('HAK'); // ô chọn bên thuê (không lẫn ô "Tên bên thuê in trên chứng từ" có thêm ô chọn công ty)
     await page.locator('.modal').getByRole('button', { name: 'Lưu' }).click();
     await page.locator('.ct-items button', { hasText: 'DH-HAK-TEST' }).waitFor(); // 1.8.x: danh sách hợp đồng bên trái
     assert.equal(await page.locator('.modal').count(), 0);
