@@ -117,7 +117,8 @@ for (const kind of storageKinds()) {
     // chưa dùng → xóa; bản riêng trước được mở lại
     const rm = await cat.removeContractPrice({ contractId, priceId: b.record.price_id, user: KETOAN });
     assert.equal(rm.removed, b.record.price_id); assert.deepEqual(rm.reopened, [a.record.price_id]);
-    assert.ok(!store.get('PRICE_HISTORY', b.record.price_id));
+    const gone = store.get('PRICE_HISTORY', b.record.price_id); assert.equal(gone.status, 'CLOSED'); assert.ok(gone.effective_to < gone.effective_from, 'dòng đã gỡ: đóng, hiệu lực không khớp ngày nào (giữ lại để gói trao đổi mang được)');
+    await rejects(cat.removeContractPrice({ contractId, priceId: b.record.price_id, user: KETOAN }), 'NOT_FOUND'); // gỡ lần hai
     const back = store.get('PRICE_HISTORY', a.record.price_id); assert.equal(back.status, 'ACTIVE'); assert.equal(back.effective_to, '');
     const rm2 = await cat.removeContractPrice({ contractId, priceId: a.record.price_id, user: KETOAN });
     assert.deepEqual(rm2.reopened, []); assert.equal(cat.contractRoutePrices({ contractId }).items.find((x) => x.routeCode === 'VC.007').source !== 'HOP_DONG', true, 'gỡ xong quay về giá của phương thức');

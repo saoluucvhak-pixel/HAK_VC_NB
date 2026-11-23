@@ -126,6 +126,7 @@
   // ───────── thông báo ─────────
   D.toast = (msg, kind = 'info', ms = 4000) => {
     let box = document.querySelector('.toasts'); if (!box) { box = h('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' }); document.body.append(box); }
+    if ([...box.children].some((c) => c.textContent === String(msg))) return; // cùng nội dung đang hiện (vd nhắc sửa giống nhà máy khác bị gọi 2 lần) → không hiện lặp
     const t = h('div', { class: `toast ${kind}` }, msg); box.append(t); setTimeout(() => t.remove(), ms);
     while (box.children.length > 3) box.firstChild.remove(); // tối đa 3 thông báo, không che nút
   };
@@ -180,6 +181,14 @@
     if (/^\d+([.,]\d+)?$/.test(s)) return Number(s.replace(',', '.'));
     return NaN;
   };
+  /** Ô chọn công ty từ Danh mục công ty & đối tác để điền nhanh vào ô tên (vd tên in trên chứng từ); vẫn sửa tay được. */
+  const unitPicker = (inp) => {
+    const units = (state.boot && state.boot.units) || [];
+    const nameOf = (u) => u.doc_display_name || u.unit_name;
+    const sel = h('select', { class: 'unit-pick-sel', 'aria-label': 'Chọn công ty từ danh mục' }, h('option', { value: '' }, '— hoặc chọn công ty từ danh mục —'), units.map((u) => h('option', { value: u.unit_code }, `${u.unit_code} · ${nameOf(u)}`)));
+    sel.addEventListener('change', () => { const u = units.find((x) => x.unit_code === sel.value); if (u) { inp.value = nameOf(u); inp.dispatchEvent(new Event('input', { bubbles: true })); } sel.value = ''; });
+    return sel;
+  };
   D.form = (fields, values = {}) => {
     const inputs = {};
     const el = h('div', { class: 'form' }, fields.map((f) => {
@@ -190,7 +199,7 @@
       else if (f.money) inp = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', value: values[f.key] === '' || values[f.key] === undefined || values[f.key] === null ? '' : D.vnAuto(values[f.key]), readonly: f.readonly, placeholder: f.placeholder || 'vd 150.000' });
       else inp = h('input', { type: f.type || 'text', value: values[f.key] ?? '', step: f.step || (f.type === 'number' ? 'any' : null), readonly: f.readonly, placeholder: f.placeholder || '' });
       inputs[f.key] = inp;
-      return h('label', { class: `field ${f.full ? 'full' : ''}` }, h('span', {}, f.label + (f.required ? ' *' : '')), inp, f.hint ? h('span', { class: 'hint' }, f.hint) : null);
+      return h('label', { class: `field ${f.full ? 'full' : ''}` }, h('span', {}, f.label + (f.required ? ' *' : '')), inp, f.unitPick && !f.readonly ? unitPicker(inp) : null, f.hint ? h('span', { class: 'hint' }, f.hint) : null);
     }).map((node, i) => { const f = fields[i]; if (f.type === 'check') inputs[f.key] = node.querySelector('input'); return node; }));
     el.values = () => Object.fromEntries(fields.map((f) => {
       const i = inputs[f.key]; if (f.type === 'check') return [f.key, i.checked];

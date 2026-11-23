@@ -105,7 +105,7 @@ test('Giao diện HAKQN: DM Đơn giá — 2 phương thức có sẵn, thêm đ
     // thuật ngữ: "Đơn giá ký hợp đồng"; không còn "Đơn giá hợp đồng" / "ĐG HĐ" ở các màn giá
     for (const label of ['DM Đơn giá', 'Báo cáo giá hợp đồng']) {
       await nav(label); await page.waitForTimeout(400);
-      const txt = await page.locator('main').innerText(); assert.ok(!/Đơn giá hợp đồng|ĐG HĐ/.test(txt), `màn ${label} còn nhãn cũ`);
+      const txt = await page.locator('main').innerText(); assert.ok(!/đơn giá hợp đồng|ĐG HĐ/i.test(txt), `màn ${label} còn nhãn cũ`); // không phân biệt hoa/thường (bản trước bỏ sót "ĐƠN GIÁ HỢP ĐỒNG")
     }
     // bố cục: không tràn ngang ở 1366 và 910 (kể cả bảng đơn giá không phải cuộn ngang)
     await nav('DM Đơn giá'); await page.locator('.pc-tree').getByRole('button', { name: /PT-TD/ }).click(); await page.locator('.pc-detail tbody tr', { hasText: 'VC.007' }).first().waitFor();

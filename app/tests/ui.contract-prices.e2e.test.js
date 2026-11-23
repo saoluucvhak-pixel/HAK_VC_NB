@@ -87,7 +87,9 @@ test('Giao diện HAKQN: Hợp đồng — Tuyến và đơn giá vận chuyển
     await toast(/Đã gỡ đơn giá tuyến/);
     panel = await openTab();
     assert.equal(await panel.locator('tbody tr', { hasText: other.routeCode }).filter({ hasText: 'Giá riêng HĐ' }).count(), 0, 'dòng đã gỡ');
-    assert.equal(ctx.store.find('PRICE_HISTORY', (p) => p.contract_id === contractId && p.route_code === other.routeCode && !p.price_code).length, 0);
+    const rest = ctx.store.find('PRICE_HISTORY', (p) => p.contract_id === contractId && p.route_code === other.routeCode && !p.price_code);
+    assert.equal(rest.filter((p) => !(p.status === 'CLOSED' && p.effective_to && p.effective_to < p.effective_from)).length, 0, 'không còn dòng giá riêng hiệu lực');
+    assert.equal(rest.length, 1, 'dòng đã gỡ được giữ ở dạng đóng (để gói trao đổi mang trạng thái gỡ sang nhà máy khác)');
     await panel.locator('tbody tr', { hasText: 'VC.007' }).first().getByRole('button', { name: 'Gỡ' }).waitFor(); // dòng VC.007 còn, gỡ được
 
     // thống kê dầu CHỈ ĐỌC

@@ -71,7 +71,7 @@ a { color: var(--brand-text); }
 .crumb { color: var(--text-mute); font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; font-weight: 700; padding-top: 16px; }
 .head { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 10px; margin: 0 -24px 18px; padding: 6px 24px 12px; flex-wrap: wrap;
   background: var(--bg); border-bottom: 1px solid var(--line); }
-.head .grow { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.head .grow { flex: 1 1 12rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- thẻ / ô thống kê ---------- */
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; margin-bottom: 16px; }
@@ -176,7 +176,7 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .btn:disabled { opacity: .6; } .right { text-align: right; }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .sep { height: 1px; background: var(--line); margin: 14px 0; }
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 14px; overflow-x: auto; }
+.tabs { display: flex; flex-wrap: wrap; gap: 0 4px; border-bottom: 1px solid var(--line); margin-bottom: 14px; } /* màn hẹp: thẻ xuống dòng, không bị che chữ bởi thanh cuộn ngang */
 .tabs button { white-space: nowrap; background: none; border: 0; padding: 8px 14px; cursor: pointer; border-bottom: 3px solid transparent; color: var(--text-mute); font-weight: 600; }
 .tabs button[aria-selected="true"] { color: var(--brand-text); border-bottom-color: var(--brand); }
 .status-flow { display: flex; gap: 6px; align-items: center; } .status-flow .s { padding: 4px 12px; border-radius: 999px; background: var(--mute-bg); color: var(--text-mute); font-size: 12px; font-weight: 600; } .status-flow .s.on { background: var(--green); color: #fff; }
@@ -233,7 +233,7 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .nav li button:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 2px; }
 .ct-layout { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 14px; align-items: start; } .ct-list { position: sticky; top: 8px; } .ct-detail { min-width: 0; }
 .ct-filters { display: grid; gap: 6px; margin-bottom: 8px; } .ct-items { max-height: 70vh; overflow: auto; } .ct-back { display: none; }
-@media (max-width: 999px) { .ct-layout { grid-template-columns: 1fr; } .ct-layout[data-sel="1"] .ct-list { display: none; } .ct-layout:not([data-sel="1"]) .ct-detail { display: none; } .ct-layout[data-sel="1"] .ct-back { display: inline-block; } .ct-list { position: static; } }
+@media (max-width: 1279px) { .ct-layout { grid-template-columns: 1fr; } .ct-layout[data-sel="1"] .ct-list { display: none; } .ct-layout:not([data-sel="1"]) .ct-detail { display: none; } .ct-layout[data-sel="1"] .ct-back { display: inline-block; } .ct-list { position: static; } }
 
 /* ---------- HAK Smart Filter (HAK_SMART_FILTER) ---------- */
 .sf { display: flex; flex-direction: column; gap: 8px; }
@@ -306,3 +306,10 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .sfdr .chip input[type=date] { width: 128px; padding-left: 6px; padding-right: 6px; font-size: .84rem; }
 @media (max-width: 860px) { .sfdr { flex-wrap: wrap; } }
 @media (max-width: 1100px) { .sf-sum .sf-act { margin-left: 0; flex-basis: 100%; justify-content: flex-start; } }
+@media (max-width: 1279px) { .ct-routes table.t th:nth-child(3), .ct-routes table.t td:nth-child(3), .ct-routes table.t th:nth-child(6), .ct-routes table.t td:nth-child(6) { display: none; } } /* màn hẹp: bớt cột Cự ly, ĐVT (xem ở màn rộng) để thấy nút Gỡ */
+
+/* ô chứa đường dẫn dài (Cài đặt › Thông tin) tự xuống dòng, không làm tràn ngang trang */
+table.t.info td.mono { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+
+/* ô chọn công ty từ danh mục dưới ô nhập tên (form Hợp đồng) */
+.field .unit-pick-sel { margin-top: 4px; font-size: .84rem; min-height: 32px; }
