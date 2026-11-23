@@ -278,14 +278,14 @@
   const NAV = [
     ['dashboard', '1', 'Tổng quan'], ['guide', '', 'Hướng dẫn & quy trình'], ['tickets', '2', 'Phiếu cân'], ['routes', '4', 'Danh mục tuyến'], ['contracts', '', 'Hợp đồng vận chuyển'],
     ['forms', '', 'Hình thức giá'], ['pricecodes', '5', 'Đơn giá'], ['basis', '', 'Báo cáo giá hợp đồng'], ['fuel', '3', 'Giao nhận dầu'], ['calc', '6', 'Tính giá vận chuyển'], ['bkvc', '7', 'Bảng xác nhận KL'], ['bkct', '8', 'Chi tiết vận chuyển'], ['validation', '', 'Kiểm tra dữ liệu'],
-    ['reports', '9', 'Báo cáo'], ['exchange', '', 'Trao đổi dữ liệu'], ['reconcile', '', 'Đối chiếu dữ liệu'], ['sync', '', 'Nhắc sửa danh mục'], ['audit', '10', 'Lịch sử thao tác'], ['settings', '11', 'Cài đặt'],
+    ['reports', '9', 'Báo cáo'], ['rentreport', '', 'Báo cáo thuê vận chuyển'], ['exchange', '', 'Trao đổi dữ liệu'], ['reconcile', '', 'Đối chiếu dữ liệu'], ['sync', '', 'Nhắc sửa danh mục'], ['audit', '10', 'Lịch sử thao tác'], ['settings', '11', 'Cài đặt'],
     ['units', '', 'Công ty & đối tác'], ['vehicles', '', 'Xe vận chuyển'],
   ];
   // Menu nhóm: id màn và số phím tắt giữ nguyên. Thứ tự theo luồng làm việc: Danh mục → Nhập liệu (Phiếu cân, Giao nhận dầu) → Tính & chốt → Kết xuất → Đối tác.
   // Nhóm "Đối tác" = MỘT cổng Trao đổi dữ liệu (nhập / xuất / lịch sử gói .dgvc, .json) + Đối chiếu dữ liệu (kiểm tra nội bộ, 3 tiêu chí, các đợt đã nạp) + Nhắc sửa danh mục.
   // Màn cũ 'subcontract' (Nhập dữ liệu thuê VC) và 'export_partner' (Xuất dữ liệu VC gửi đối tác) đã gộp vào hai màn trên — vẫn gọi được qua D.go (bí danh, xem VIEW_ALIAS).
   const NAV_GROUPS = [['start', 'Bắt đầu', ['dashboard', 'guide']], ['master', 'Danh mục', ['units', 'vehicles', 'routes', 'contracts', 'forms', 'pricecodes']], ['input', 'Nhập liệu', ['tickets', 'fuel']],
-    ['calc', 'Tính & chốt', ['calc', 'validation', 'bkvc', 'bkct']], ['out', 'Kết xuất', ['reports', 'basis']], ['xchg', 'Đối tác', ['exchange', 'reconcile', 'sync']], ['sys', 'Hệ thống', ['audit', 'settings']]];
+    ['calc', 'Tính & chốt', ['calc', 'validation', 'bkvc', 'bkct']], ['out', 'Kết xuất', ['reports', 'basis']], ['xchg', 'Đối tác', ['rentreport', 'exchange', 'reconcile', 'sync']], ['sys', 'Hệ thống', ['audit', 'settings']]];
   /** Bí danh màn cũ → [màn mới, tham số]: D.go('subcontract') / D.go('export_partner') (phím tắt, liên kết, test cũ) vẫn mở đúng chỗ trong màn gộp. */
   const VIEW_ALIAS = {
     subcontract: (p) => ['reconcile', { ...p, tab: p.tab === 'list' ? 'batches' : 'compare' }],

@@ -337,3 +337,22 @@ table.t tbody tr.sel td { background: var(--brand-soft); }
 .xv-tbl table.t td .mono, .xv-tbl table.t td.mono { overflow-wrap: normal; }
 .xv-tbl table.t .tag { white-space: normal; padding: 1px 8px; }
 @media (max-width: 1000px) { .xv-tbl table.t { font-size: .76rem; } .xv-tbl table.t th { font-size: .62rem; letter-spacing: 0; } .xv-tbl table.t td, .xv-tbl table.t th { padding: .3rem .22rem; } .xv-tbl table.t .btn.small { padding: 3px 6px; min-height: 28px; } .xv-tbl table.t .tag { padding: 1px 6px; font-size: .68rem; } }
+/* ===== Danh mục tuyến: ngăn đơn giá chỉ-xem bên phải; Báo cáo thuê vận chuyển ===== */
+.rt-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
+.rt-layout[data-sel="1"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
+.rt-layout[data-sel="1"] .rt-main table.t :is(th, td):is(:nth-child(4), :nth-child(5), :nth-child(7), :nth-child(8), :nth-child(6), :nth-child(9), :nth-child(10), :nth-child(11), :nth-child(12)) { display: none; } /* có ngăn bên phải: bớt cột phụ của bảng tuyến */
+.rt-side .tag { white-space: nowrap; }
+.rt-main, .rt-side { min-width: 0; }
+.rt-layout[data-sel="0"] .rt-side { display: none; }
+.rt-main .tbl-wrap { max-height: 70vh; }
+table.t tbody tr.sel td { background: var(--row-hover); } table.t tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--primary, #2563eb); }
+.rt-side .rt-note { padding: 10px 16px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.rt-side table.t { font-size: .84rem; } .rt-side table.t th, .rt-side table.t td { padding: .4rem .45rem; white-space: normal; }
+.rt-formcard { margin-top: 14px; } .rt-formcard h3 { margin: 0 0 8px; font-size: .95rem; }
+.rt-kv { display: grid; grid-template-columns: minmax(110px, 40%) minmax(0, 1fr); gap: 8px; padding: 4px 0; border-bottom: 1px dashed var(--line); overflow-wrap: anywhere; }
+.rt-kv .k { color: var(--text-mute); font-size: .84rem; } .rt-kv .v { font-weight: 600; }
+.rt-params { margin-top: 6px; }
+@media (max-width: 1279px) { .rt-layout[data-sel="1"] { grid-template-columns: minmax(0, 1fr); } .rt-main table.t :is(th, td):is(:nth-child(4), :nth-child(5), :nth-child(7), :nth-child(8), :nth-child(9), :nth-child(11)) { display: none; } }
+.rr-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; } .rr-steps li { overflow-wrap: anywhere; }
+.rr-wip { display: inline-block; margin-left: 6px; }
+.rr-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
