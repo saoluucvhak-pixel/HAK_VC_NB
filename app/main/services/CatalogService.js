@@ -25,7 +25,12 @@ const ROUTE_FIELDS = ['route_code', 'route_name', 'distance_km', 'trip_distance_
 const localToday = () => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 const ROUTE_CALC_FIELDS = ['distance_km', 'trip_distance_km', 'uom'];
 const PRICE_FIELDS = ['route_code', 'contract_id', 'effective_from', 'base_price_excl_vat', 'base_price_source', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fuel_norm_l_per_km',
-  'avg_load_ton', 'avg_volume_m3', 'source_note', 'price_method', 'fixed_price', 'price_code', 'contract_price'];
+  'avg_load_ton', 'avg_volume_m3', 'source_note', 'price_method', 'fixed_price', 'price_code', 'contract_price', 'calc_basis'];
+const isBasis = (v) => v === 'TAN' || v === 'M3';
+/** ĐVT mặc định của dòng MỚI = ĐVT của tuyến (TAN | M3); dòng cũ (cột trống) giữ cách tính cũ. */
+/** Dòng THEO GIÁ DẦU tính theo m³: KL_TB để trống → ghi 0 (cột bắt buộc của bảng giá, không dùng khi tính). */
+const zeroLoad = (p) => { if (p.price_method !== 'CO_DINH' && p.calc_basis === 'M3' && !(Number(p.avg_load_ton) > 0)) p.avg_load_ton = 0; return p; };
+const defaultBasis = (route) => (route && route.uom === 'M3' ? 'M3' : 'TAN');
 const snake = (k) => k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
 const toSnake = (o = {}) => Object.fromEntries(Object.entries(o).map(([k, v]) => [snake(k), v]));
 const canUnlock = (u) => u && (u.role === 'ADMIN' || u.canUnlock);
@@ -206,7 +211,7 @@ class CatalogService {
     }
     if (!isDate(p.effective_from)) bad.push('Ngày hiệu lực phải dạng yyyy-MM-dd');
     if (p.price_method === 'CO_DINH') {
-      const uomLabel = route && route.uom === 'M3' ? 'đ/m³' : 'đ/tấn';
+      const uomLabel = E.lineUom(route && route.uom, p.calc_basis, 'CO_DINH') === 'M3' ? 'đ/m³' : 'đ/tấn';
       if (!(p.fixed_price > 0)) bad.push(`Đơn giá cố định (${uomLabel}, chưa VAT) phải > 0`);
       else if (p.fixed_price < 1000) bad.push(`Đơn giá cố định ${p.fixed_price} ${uomLabel} quá nhỏ (< 1.000) — kiểm tra dấu chấm ngăn cách nghìn (vd nhập 150000 hoặc 150.000)`);
       else if (p.fixed_price > 1e9) bad.push(`Đơn giá cố định quá lớn (> 1.000.000.000 ${uomLabel}) — kiểm tra lại số nhập`);
@@ -215,8 +220,10 @@ class CatalogService {
       else if (p.new_price < 1000) bad.push(`Đơn giá cước dự kiến ${p.new_price} đ quá nhỏ (< 1.000) — kiểm tra dấu chấm ngăn cách nghìn (vd nhập 150000 hoặc 150.000)`);
       if (!(p.fuel_price_excl_vat > 0)) bad.push('Đơn giá dầu (chưa VAT) phải > 0');
       if (!(p.fuel_norm_l_per_km > 0)) bad.push('Định mức dầu (lít/km) phải > 0');
-      if (!(p.avg_load_ton > 0)) bad.push('KL trung bình (tấn) phải > 0');
-      if (route && route.uom === 'M3' && !(p.avg_volume_m3 > 0)) bad.push('Tuyến tính theo M3 — Thể tích TB phải > 0');
+      const oilM3 = p.calc_basis === 'M3'; // dòng tính theo m³: KL_TB không bắt buộc, Thể tích TB bắt buộc
+      if (!oilM3 && !(p.avg_load_ton > 0)) bad.push('KL trung bình (tấn) phải > 0');
+      if (oilM3 && !(p.avg_volume_m3 > 0)) bad.push('Đơn giá tính theo m³ — Thể tích TB phải > 0');
+      else if (!oilM3 && !p.calc_basis && route && route.uom === 'M3' && !(p.avg_volume_m3 > 0)) bad.push('Tuyến tính theo M3 — Thể tích TB phải > 0');
       if (!bad.length && route) { // các số hợp lệ từng ô nhưng công thức ra đơn giá ≤ 0 (vd nhập thiếu 3 chữ số 0 ở đơn giá cước): báo ngay, không để ra −17.000
         const a = E.computeContractPrice(route, p, this._cfg());
         if (!(a.contractPrice > 0)) bad.push(`Đơn giá ký hợp đồng tính theo công thức = ${a.contractPrice} (≤ 0) — kiểm tra đơn giá cước, định mức dầu, giá dầu, KL trung bình`);
@@ -228,12 +235,14 @@ class CatalogService {
     const p = toSnake(record);
     for (const k of Object.keys(p)) if (!PRICE_FIELDS.includes(k)) delete p[k];
     for (const k of ['base_price_excl_vat', 'price_per_km', 'new_price', 'fuel_price_excl_vat', 'fuel_norm_l_per_km', 'avg_load_ton', 'avg_volume_m3', 'fixed_price', 'contract_price']) if (k in p) p[k] = MONEY_FIELDS.includes(k) ? moneyOrEmpty(p[k]) : numOrEmpty(p[k]);
+    if ('calc_basis' in p) p.calc_basis = isBasis(p.calc_basis) ? p.calc_basis : '';
     if ('price_method' in p) p.price_method = p.price_method === 'CO_DINH' ? 'CO_DINH' : 'THEO_DAU';
     if (p.price_method === 'CO_DINH') {
       // các cột bắt buộc của cách tính theo giá dầu không dùng → ghi 0 (bảng giá vẫn đủ cột, xem lại thấy rõ là không dùng)
       for (const k of ['new_price', 'fuel_price_excl_vat', 'fuel_norm_l_per_km', 'avg_load_ton']) p[k] = 0;
       p.avg_volume_m3 = ''; p.base_price_excl_vat = ''; p.base_price_source = ''; p.price_per_km = '';
     } else if (p.price_method === 'THEO_DAU') p.fixed_price = '';
+    if (p.calc_basis === 'M3' && p.price_method !== 'CO_DINH' && 'price_method' in p) zeroLoad(p);
     if (typeof p.route_code === 'string') p.route_code = p.route_code.trim().toUpperCase();
     p.contract_id = p.contract_id || '';
     if ('price_code' in p) p.price_code = String(p.price_code || '').trim().toUpperCase();
@@ -243,6 +252,8 @@ class CatalogService {
   /** Tầng A cho 1 bộ tham số — không lưu. */
   previewPrice({ record }) {
     const p = this._normPrice(record); const route = this.store.get('TUYEN_VC', p.route_code);
+    if (!p.calc_basis) p.calc_basis = defaultBasis(route); // xem trước dòng mới: ĐVT theo tuyến (sửa dòng cũ: giao diện gửi ĐVT hiện hành của dòng)
+    zeroLoad(p);
     this._validatePrice({ effective_from: '2000-01-01', ...p }, route, { forSave: false });
     const a = E.computeContractPrice(route, p, this._cfg());
     const cur = this._activePrice(p.route_code, p.contract_id, p.effective_from, p.price_code);
@@ -258,8 +269,11 @@ class CatalogService {
     Object.assign(patch, { status: rec.status || 'DRAFT', effective_to: '', is_used: false });
     return tx.update('PRICE_HISTORY', dead.price_id, patch).after;
   }
-  _buildPriceVersion(record) {
+  _buildPriceVersion(record, { keepBasis = false } = {}) {
     const p = this._normPrice(record); const route = this.store.get('TUYEN_VC', p.route_code);
+    if (keepBasis) p.calc_basis = isBasis(p.calc_basis) ? p.calc_basis : ''; // sao chép dòng có sẵn: giữ nguyên cờ ĐVT của dòng nguồn (dòng cũ trống → vẫn cách cũ)
+    else if (!p.calc_basis) p.calc_basis = defaultBasis(route); // dòng mới sau nâng cấp: ĐVT theo tuyến, người dùng đổi được
+    zeroLoad(p);
     this._validatePrice(p, route);
     const same = this.store.find('PRICE_HISTORY', (x) => x.route_code === p.route_code && (x.contract_id || '') === p.contract_id && (x.price_code || '') === (p.price_code || ''));
     const lastActive = same.filter((x) => x.status !== 'DRAFT' && !isVoidLine(x)).sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0];
@@ -267,13 +281,15 @@ class CatalogService {
       throw businessError('E_PRICE_DATE_OVERLAP', `Ngày hiệu lực ${p.effective_from} phải sau phiên bản đang dùng ${lastActive.price_id} (từ ${lastActive.effective_from})`);
     }
     const version = same.reduce((m, x) => Math.max(m, x.version_no), 0) + 1;
-    const rec = { base_price_excl_vat: '', base_price_source: '', price_per_km: '', avg_volume_m3: '', source_note: '', price_method: 'THEO_DAU', fixed_price: '', ...p,
+    const rec = { base_price_excl_vat: '', base_price_source: '', price_per_km: '', avg_volume_m3: '', source_note: '', price_method: 'THEO_DAU', fixed_price: '', calc_basis: '', ...p,
       price_id: `PR-${p.route_code}${p.contract_id ? `-${p.contract_id}` : ''}${p.price_code ? `-${p.price_code}` : ''}-v${version}`, version_no: version, effective_to: '', status: 'DRAFT', is_used: false };
     return { rec, route };
   }
 
-  async createPriceVersion({ record, user }) {
-    const { rec, route } = this._buildPriceVersion(record);
+  async createPriceVersion({ record, user }) { return this._createVersion(record, user, false); }
+
+  async _createVersion(record, user, keepBasis) {
+    const { rec, route } = this._buildPriceVersion(record, { keepBasis });
     this._assertLineMatchesCode(rec); // rà soát 1.8.2: dòng thuộc mã đơn giá phải đúng hình thức của mã (trước đây chỉ kiểm ở sửa nháp / áp dụng)
     const out = await this.store.transaction((tx) => {
       const r = this._insertOrRevive(tx, rec);
@@ -296,6 +312,7 @@ class CatalogService {
     if (old.status !== 'DRAFT' || old.is_used) throw businessError('E_PRICE_USED', `Phiên bản ${priceId} đã kích hoạt/đã dùng — không sửa, hãy tạo phiên bản mới`);
     const p = this._normPrice(record); delete p.route_code; delete p.contract_id; delete p.price_code;
     const next = { ...old, ...p }; const route = this.store.get('TUYEN_VC', old.route_code);
+    if (next.calc_basis === 'M3' && next.price_method !== 'CO_DINH' && !(Number(next.avg_load_ton) > 0)) { next.avg_load_ton = 0; p.avg_load_ton = 0; }
     this._assertLineMatchesCode(next); // dòng thuộc mã: hình thức sau khi sửa phải bằng hình thức của mã
     this._validatePrice(next, route);
     const out = await this.store.transaction((tx) => {
@@ -337,7 +354,7 @@ class CatalogService {
       for (const pid of drafts) tx.update('KY_TINH', pid, { needs_recalc: true });
       tx.audit('PRICE_ACTIVATE', 'PRICE_HISTORY', priceId, { status: 'DRAFT' }, { status: 'ACTIVE', closed });
       const w = remindTx(tx, this.store, { entity: 'PRICE_HISTORY', entityId: priceId, action: 'PRICE_ACTIVATE',
-        summary: `Áp dụng giá mới ${priceId} cho tuyến ${d.route_code}${d.contract_id ? ` (HĐ ${d.contract_id})` : ''} từ ${d.effective_from}: ${d.price_method === 'CO_DINH' ? `ĐƠN GIÁ CỐ ĐỊNH ${d.fixed_price} đ/tấn` : `đơn giá mới ${d.new_price}, dầu ${d.fuel_price_excl_vat}, ĐM ${d.fuel_norm_l_per_km}, KL_TB ${d.avg_load_ton}`}` });
+        summary: `Áp dụng giá mới ${priceId} cho tuyến ${d.route_code}${d.contract_id ? ` (HĐ ${d.contract_id})` : ''} từ ${d.effective_from}: ${d.price_method === 'CO_DINH' ? `ĐƠN GIÁ CỐ ĐỊNH ${d.fixed_price} ${E.lineUom(null, d.calc_basis, 'CO_DINH') === 'M3' ? 'đ/m³' : 'đ/tấn'}` : `đơn giá mới ${d.new_price}, dầu ${d.fuel_price_excl_vat}, ĐM ${d.fuel_norm_l_per_km}, ${d.calc_basis === 'M3' ? `thể tích TB ${d.avg_volume_m3} m³ (tính theo m³)` : `KL_TB ${d.avg_load_ton}`}`}` });
       return { activated: after, closed, affectedPeriods: drafts, warnings: w ? [w] : [] };
     }, { user: user.username });
   }
@@ -393,7 +410,7 @@ class CatalogService {
   }
   _priceItem(p, cfg, extra = {}) {
     const r = this.store.get('TUYEN_VC', p.route_code); const m = lineMethod(p); const amount = this._lineAmount(r, p, cfg);
-    return { routeCode: p.route_code, routeName: r ? r.route_name : '', distanceKm: r ? r.distance_km : null, uom: r ? r.uom : '', priceId: p.price_id, priceCode: this._lineCode(p), priceMethod: m, priceMethodLabel: PRICE_METHOD_LABEL[m],
+    return { routeCode: p.route_code, routeName: r ? r.route_name : '', distanceKm: r ? r.distance_km : null, uom: p.calc_basis || (r ? r.uom : ''), calcBasis: p.calc_basis || '', priceId: p.price_id, priceCode: this._lineCode(p), priceMethod: m, priceMethodLabel: PRICE_METHOD_LABEL[m],
       contractPrice: amount, fixedPrice: m === 'CO_DINH' ? Number(p.fixed_price) : null, effectiveFrom: p.effective_from, status: p.status, ...extra };
   }
   _needContract(contractId) { const c = this.store.get('HOP_DONG', contractId); if (!c) throw new AppError('NOT_FOUND', `Không có hợp đồng ${contractId}`); return c; }
@@ -449,7 +466,7 @@ class CatalogService {
     record.price_method = src.price_method || 'THEO_DAU'; record.effective_from = from;
     record.source_note = `Chọn từ đơn giá ${priceId} (${this._lineCode(src)})`;
     if (record.base_price_excl_vat !== '' && record.base_price_excl_vat != null && !String(record.base_price_source || '').trim()) record.base_price_source = `Sao chép từ ${priceId}`;
-    const { rec, route } = this._buildPriceVersion(record);
+    const { rec, route } = this._buildPriceVersion(record, { keepBasis: true });
     rec.status = 'ACTIVE';
     const { prev, drafts, to } = this._activationPlan(rec);
     // kỳ của hợp đồng này ở tuyến này: đã xác nhận/khóa có ngày từ ngày hiệu lực → dòng riêng mới sẽ thay giá phía sau lưng kỳ đó; kỳ nháp → cần tính lại
@@ -673,7 +690,7 @@ class CatalogService {
       )
     ))
       .sort((a, b) => a.route_code.localeCompare(b.route_code, 'vi', { numeric: true }) || a.version_no - b.version_no)
-      .map((p) => { const r = this.store.get('TUYEN_VC', p.route_code); return { ...p, routeName: r ? r.route_name : '', uom: r ? r.uom : '', contractPrice: r && p.price_method !== 'CO_DINH' ? E.computeContractPrice(r, p, cfg).contractPrice : (p.fixed_price || null) }; });
+      .map((p) => { const r = this.store.get('TUYEN_VC', p.route_code); return { ...p, routeName: r ? r.route_name : '', uom: p.calc_basis || (r ? r.uom : ''), contractPrice: r && p.price_method !== 'CO_DINH' ? E.computeContractPrice(r, p, cfg).contractPrice : (p.fixed_price || null) }; });
     return { record: this._codeView(c), lines };
   }
 
@@ -753,7 +770,7 @@ class CatalogService {
     const rec = { ...base, ...toSnake(record), price_method: adopt || method, price_code: priceCode, contract_id: '' };
     if (!rec.effective_from) throw new AppError('VALIDATION_FAILED', 'Nhập ngày hiệu lực');
     if (adopt) { // chèn dòng + đổi hình thức mã trong MỘT giao dịch: lỗi ở bước nào cũng không để lại dòng nháp thừa
-      const { rec: built, route } = this._buildPriceVersion(rec);
+      const { rec: built, route } = this._buildPriceVersion(rec, { keepBasis: !!fromPriceId });
       const out = await this.store.transaction((tx) => {
         const r = this._insertOrRevive(tx, built); tx.audit('PRICE_CREATE', 'PRICE_HISTORY', r.price_id, null, r);
         const { before, after } = tx.update('MA_DON_GIA', priceCode, { price_method: adopt }, { expectedRowVersion: c.row_version });
@@ -762,7 +779,7 @@ class CatalogService {
       }, { user: user.username });
       return { record: out, contractPrice: E.computeContractPrice(route, out, this._cfg()).contractPrice, warnings: [] };
     }
-    return this.createPriceVersion({ record: rec, user });
+    return this._createVersion(rec, user, !!fromPriceId);
   }
 
   // ─────────────────────── HÌNH THỨC GIÁ (danh mục) ───────────────────────
@@ -903,7 +920,7 @@ class CatalogService {
     return lines.map((p) => {
       const rt = this.store.get('TUYEN_VC', p.route_code); const m = lineMethod(p); const f = this._formAt(m, p.effective_from, rows); const t = this._formText(m, f);
       const price = this._lineAmount(rt, p, cfg);
-      return { updateDate: p.effective_from, priceId: p.price_id, priceCode: p.price_code || '', contractId: p.contract_id || '', routeCode: p.route_code, routeName: rt ? rt.route_name : '', uom: rt ? rt.uom : '',
+      return { updateDate: p.effective_from, priceId: p.price_id, priceCode: p.price_code || '', contractId: p.contract_id || '', routeCode: p.route_code, routeName: rt ? rt.route_name : '', uom: p.calc_basis || (rt ? rt.uom : ''), calcBasis: p.calc_basis || '',
         methodCode: m, methodLabel: PRICE_METHOD_LABEL[m], formId: t.formId, formName: t.formName, formulaText: t.formulaText,
         price: price === undefined || price === null || price === '' ? null : Number(price), fixedPrice: m === 'CO_DINH' ? Number(p.fixed_price) : null, newPrice: m === 'THEO_DAU' ? numOrNull(p.new_price) : null,
         contractPrice: m === 'THEO_DAU' ? (price === undefined ? null : Number(price)) : null, fuelPriceExclVat: m === 'THEO_DAU' ? numOrNull(p.fuel_price_excl_vat) : null, fuelNormLPerKm: m === 'THEO_DAU' ? numOrNull(p.fuel_norm_l_per_km) : null,

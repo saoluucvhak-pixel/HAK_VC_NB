@@ -361,12 +361,12 @@ async function writePricingSheet(d, file) {
     }
     void headRow;
     r++; span(r, 1, 4, `ĐƠN GIÁ VẬN CHUYỂN TUYẾN ${rt.routeCode} (chưa VAT)`, { bold: true, border: true, size: 12 });
-    span(r, 5, N, rt.transportPrice, { bold: true, border: true, size: 14, h: 'right', fmt: '#,##0" đ/tấn"' }); ws.getRow(r).height = 26; r++;
+    span(r, 5, N, rt.transportPrice, { bold: true, border: true, size: 14, h: 'right', fmt: `#,##0" ${rt.unitLabel || 'đ/tấn'}"` }); ws.getRow(r).height = 26; r++;
     span(r, 1, N, `Bằng chữ: ${rt.words}`, { italic: true, border: true }); r++;
   }
   r++; span(r, 1, N, 'D. GIÁ TRỊ CƯỚC THEO BẢNG XÁC NHẬN KHỐI LƯỢNG', { bold: true }); r++;
   const B = d.bkvc;
-  for (const [k, v, fmt, bold] of [['Tổng khối lượng vận chuyển (tấn)', B.ton, '#,##0.00'], ['Thành tiền chưa VAT (đồng)', B.amount, '#,##0'], [`Thuế GTGT ${B.vatPct}% (đồng)`, B.vat, '#,##0'], ['TỔNG GIÁ TRỊ THANH TOÁN (đồng)', B.total, '#,##0', true]]) {
+  for (const [k, v, fmt, bold] of [[`Tổng khối lượng vận chuyển (${B.uomLabel || 'tấn'})`, B.ton, '#,##0.00'], ['Thành tiền chưa VAT (đồng)', B.amount, '#,##0'], [`Thuế GTGT ${B.vatPct}% (đồng)`, B.vat, '#,##0'], ['TỔNG GIÁ TRỊ THANH TOÁN (đồng)', B.total, '#,##0', true]]) {
     span(r, 1, 4, k, { border: true, bold, fill: bold ? SEC_FILL : undefined }); span(r, 5, N, v, { border: true, bold, h: 'right', fmt, fill: bold ? SEC_FILL : undefined }); r++;
   }
   span(r, 1, N, `Bằng chữ: ${B.words}`, { italic: true, border: true }); ws.getRow(r).height = 30; r++;
@@ -463,7 +463,7 @@ async function writeContractBasis(d, file) {
     f(10, `D${r}*I${r}`, x.fuelPerTrip, '#,##0.0');
     f(12, `K${r}*J${r}`, x.fuelCostPerTrip, '#,##0');
     f(13, `IF(H${r}=0,0,L${r}/H${r})`, x.fuelCostRatio, '0.00%');
-    f(14, x.uom === 'M3' ? `(H${r}-L${r})/${kl}` : `(H${r}-L${r})/G${r}`, x.priceNoDiesel, '#,##0.00');
+    f(14, x.uom === 'M3' && !x.basisM3 ? `(H${r}-L${r})/${kl}` : `(H${r}-L${r})/G${r}`, x.priceNoDiesel, '#,##0.00');
     f(15, `ROUND(N${r},${dig})`, x.contractPrice, '#,##0', { bold: true, size: 11, fill: FINAL_FILL });
     ws.getCell(r, 6).numFmt = '#,##0'; ws.getCell(r, 7).numFmt = x.uom === 'M3' ? '#,##0.00' : '#,##0'; ws.getCell(r, 9).numFmt = '0.0'; ws.getCell(r, 11).numFmt = '#,##0'; ws.getCell(r, 4).numFmt = '#,##0';
     r++;
@@ -474,7 +474,8 @@ async function writeContractBasis(d, file) {
     'Đơn giá cước (1) đã gồm tiền dầu theo định mức, chưa VAT. Đơn giá hợp đồng (10) là phần CHƯA GỒM NHIÊN LIỆU.',
     'Hằng kỳ: Đơn giá vận chuyển = (10) + (Dầu định mức − Dầu thực nhận) × Đơn giá dầu thực tế / Tổng khối lượng, làm tròn đến hàng trăm.',
     'Hàm ROUND của Excel làm tròn …500 lên; phần mềm làm tròn kiểu ngân hàng (…500 về số chẵn) — chỉ khác khi (9) có đúng …500.',
-    'Tuyến tính theo m³: (9) chia cho KL_TB (tấn), không chia Thể tích TB.',
+    ...(!d.rows.some((x) => x.basisM3) || d.rows.some((x) => x.uom === 'M3' && !x.basisM3 && !x.fixed) ? ['Tuyến tính theo m³: (9) chia cho KL_TB (tấn), không chia Thể tích TB.'] : []),
+    ...(d.rows.some((x) => x.basisM3) ? ['Dòng giá tính theo m³ (ĐVT = M3, giá theo dầu): (9) chia cho Thể tích TB (cột (2)); hằng kỳ chia cho Tổng m³ (Σ m³ từng chuyến); đơn vị đ/m³.'] : []),
     ...(d.rows.some((x) => x.fixed) ? ['Tuyến ghi "Đơn giá cố định": (10) là đơn giá vận chuyển cố định đ/tấn — hằng kỳ dùng nguyên đơn giá này, không nhận dầu, không tính chênh lệch dầu.'] : [])];
   span(r, 1, N, 'Ghi chú:', { bold: true }); r++;
   for (const t of notes) { span(r, 1, N, `• ${t}`, { size: 10 }); r++; }

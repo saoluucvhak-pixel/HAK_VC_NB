@@ -57,8 +57,9 @@ function validatePriceAndRoute(route, price) {
   } else if (!(price.fuel_norm_l_per_km > 0)) out.push(issue('E_FUEL_NORM_INVALID', { routeCode: rc, value: price.fuel_norm_l_per_km }));
   if (!(price.new_price >= 0)) out.push(issue('E_PRICE_NEGATIVE', { what: `Đơn giá mới tuyến ${rc}`, value: price.new_price }));
   if (!(price.fuel_price_excl_vat > 0)) out.push(issue('E_PRICE_NEGATIVE', { what: `ĐG dầu chưa VAT (danh mục) tuyến ${rc}`, value: price.fuel_price_excl_vat }));
-  if (!(price.avg_load_ton > 0)) out.push(issue('E_AVG_LOAD_INVALID', { routeCode: rc, what: 'KL_TB', value: price.avg_load_ton }));
-  if (route.uom === 'M3' && !(price.avg_volume_m3 > 0)) out.push(issue('E_AVG_LOAD_INVALID', { routeCode: rc, what: 'Thể tích TB', value: price.avg_volume_m3 }));
+  const oilM3 = F.isOilM3(price); // dòng tính theo m³: Thể tích TB bắt buộc, KL_TB không còn bắt buộc
+  if (!oilM3 && !(price.avg_load_ton > 0)) out.push(issue('E_AVG_LOAD_INVALID', { routeCode: rc, what: 'KL_TB', value: price.avg_load_ton }));
+  if ((oilM3 || (route.uom === 'M3' && !price.calc_basis)) && !(price.avg_volume_m3 > 0)) out.push(issue('E_AVG_LOAD_INVALID', { routeCode: rc, what: 'Thể tích TB', value: price.avg_volume_m3 }));
   return out;
 }
 
@@ -279,6 +280,7 @@ function calculatePeriod(input) {
     const r = { ...base, priceId: sel.price.price_id, ...A,
       fuelGiverUnit: fuel.giverUnitCode, fuelUom: fuel.uom, fuelLineCount: fuel.lineCount, actualFuelLiter: fuel.actualFuelLiter,
       fuelStartDate: fuel.fuelStartDate, fuelEndDate: fuel.fuelEndDate, fuelPrice: fuel.fuelPrice, fuelImportDate: fuel.fuelImportDate };
+    if (fixed && F.lineUom(route.uom, A.calcBasis, 'CO_DINH') === 'M3') r.totalM3 = totalM3Of(ts, vehMap, 0);
     if (fixed) {
       r.standardFuelLiter = 0; r.fuelDiffLiter = 0; r.fuelAdjustPrice = 0;
       r.transportPriceRaw = A.fixedPrice; r.transportPriceFloored = false; r.transportPrice = A.fixedPrice;
@@ -292,6 +294,7 @@ function calculatePeriod(input) {
     }
     r.standardFuelLiter = F.calculateStandardFuel({ tripDistanceKm: A.tripDistanceKm, tripCount: r.tripCount, fuelNormLPerKm: A.fuelNormLPerKm });
     r.fuelDiffLiter = F.calculateFuelDifference(r);
+    if (A.basisM3) r.totalM3 = totalM3Of(ts, vehMap, A.avgVolumeM3);
     r.fuelAdjustPrice = F.calculateFuelAdjustment(r);
     const tp = F.calculateTransportPrice(r, input.cfg);
     r.transportPriceRaw = tp.raw; r.transportPriceFloored = tp.floored; r.transportPrice = tp.value;
@@ -323,6 +326,13 @@ function calculatePeriod(input) {
   }
 }
 
+/** Σ m³ từng chuyến: thể tích thùng xe (XE.volume_m3); xe chưa khai thì dùng Thể tích TB của dòng giá — cùng cách BKVC quy m³. */
+function totalM3Of(tickets, vehMap, avgVolumeM3) {
+  let s = 0;
+  for (const t of tickets) { const v = vehMap.get(t.plate_no); s += (v && v.volume_m3 > 0) ? v.volume_m3 : (avgVolumeM3 > 0 ? avgVolumeM3 : 0); }
+  return Math.round(s * 1e9) / 1e9;
+}
+
 /** Tầng C — BKVC: 1 dòng / xe (/ tuyến), đơn giá = đơn giá VC của tuyến; tổng = cộng các dòng đã làm tròn. */
 function buildConfirmation(results, tickets, units, cfg, vehicles = [], routes = []) {
   const priceOf = new Map(results.map((r) => [r.routeCode, r.transportPrice]));
@@ -336,8 +346,8 @@ function buildConfirmation(results, tickets, units, cfg, vehicles = [], routes =
     const route = routeByCode.get(t.route_code);
     const veh = vehMap.get(t.plate_no);
     const rRes = resultOf.get(t.route_code);
-    // Tính theo m³ CHỈ khi tuyến ĐVT m³ VÀ đơn giá là CỐ ĐỊNH (đ/m³). Đơn giá THEO GIÁ DẦU luôn là đ/tấn (chia KL_TB kể cả tuyến M3 — như Excel/1.6.0) → tính theo tấn.
-    const isM3 = !!(route && route.uom === 'M3' && rRes && rRes.priceMethod === 'CO_DINH');
+    // ĐVT của DÒNG giá (calc_basis) ưu tiên hơn ĐVT tuyến. Dòng cũ không cờ: CỐ ĐỊNH theo ĐVT tuyến (đ/m³ khi tuyến m³); THEO GIÁ DẦU luôn đ/tấn (chia KL_TB — như Excel/1.6.0).
+    const isM3 = !!(route && rRes && F.lineUom(route.uom, rRes.calcBasis, rRes.priceMethod) === 'M3');
     if (!by.has(k)) by.set(k, { plateNo: t.plate_no, routeCode: t.route_code, ownerUnitCode: t.owner_unit_code, tripCount: 0, kg: 0, m3: 0, uom: isM3 ? 'M3' : 'TAN' });
     const b = by.get(k);
     b.tripCount += 1;

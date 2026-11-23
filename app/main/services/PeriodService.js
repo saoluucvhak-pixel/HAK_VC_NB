@@ -224,7 +224,7 @@ function toCalcRow(r, { calcId, pid, runId, version, contractId }, allIssues) {
     actual_fuel_liter: r.actualFuelLiter, fuel_start_date: nz(r.fuelStartDate), fuel_end_date: nz(r.fuelEndDate), fuel_price: nz(r.fuelPrice), fuel_import_date: nz(r.fuelImportDate),
     trip_price: r.tripPrice, fuel_per_trip: r.fuelPerTrip, fuel_cost_per_trip: r.fuelCostPerTrip, fuel_cost_ratio: r.fuelCostRatio, price_no_diesel: r.priceNoDiesel,
     contract_price: r.contractPrice, standard_fuel_liter: r.standardFuelLiter, fuel_diff_liter: r.fuelDiffLiter, fuel_adjust_price: r.fuelAdjustPrice,
-    transport_price_raw: r.transportPriceRaw, transport_price: r.transportPrice, price_method: r.priceMethod || 'THEO_DAU', result_status: r.resultStatus,
+    transport_price_raw: r.transportPriceRaw, transport_price: r.transportPrice, price_method: r.priceMethod || 'THEO_DAU', calc_basis: r.calcBasis || '', total_m3: nz(r.totalM3), result_status: r.resultStatus,
     warnings_json: JSON.stringify([...r.issues, ...allIssues.filter((i) => !r.issues.includes(i) && !i.params?.routeCode)].map(({ code, level, message, ref }) => ({ code, level, message, ref }))),
     trace_json: JSON.stringify(r.trace) };
 }

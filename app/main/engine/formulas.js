@@ -31,9 +31,20 @@ function calculateFuelCostRatio({ fuelCostPerTrip, tripPrice }) {
 }
 
 /** §2.5 ĐGVC chưa diesel = (ĐG 1 chuyến − Tiền dầu) / KL_TB — chia KL_TB kể cả tuyến M3 (như Excel). */
-function calculatePriceNoDiesel({ tripPrice, fuelCostPerTrip, avgLoadTon }) {
-  return (tripPrice - fuelCostPerTrip) / avgLoadTon;
+function calculatePriceNoDiesel({ tripPrice, fuelCostPerTrip, avgLoadTon, avgVolumeM3, basisM3 }) {
+  return (tripPrice - fuelCostPerTrip) / (basisM3 ? avgVolumeM3 : avgLoadTon); // dòng tính theo m³ (calc_basis = M3): chia Thể tích TB
 }
+
+/**
+ * ĐVT tính giá của một dòng đơn giá: cột calc_basis của DÒNG (TAN | M3) ưu tiên hơn ĐVT của tuyến.
+ * Dòng cũ (trống) giữ cách cũ: giá CỐ ĐỊNH theo ĐVT của tuyến; giá THEO GIÁ DẦU luôn theo tấn.
+ */
+function lineUom(routeUom, calcBasis, priceMethod) {
+  if (calcBasis === 'M3' || calcBasis === 'TAN') return calcBasis;
+  return priceMethod === 'CO_DINH' && routeUom === 'M3' ? 'M3' : 'TAN';
+}
+/** Công thức THEO GIÁ DẦU tính theo m³ (chia Thể tích TB / tổng m³): chỉ dòng có cờ M3. */
+const isOilM3 = (price) => !!price && price.price_method !== 'CO_DINH' && price.calc_basis === 'M3';
 
 /** §2.6 ĐG_HĐ = ROUND(ĐGVC chưa diesel, −3) — chế độ theo cấu hình (mặc định HALF_EVEN như Power Query). */
 function calculateContractPrice({ priceNoDiesel }, cfg) {
@@ -49,11 +60,11 @@ function computeContractPrice(route, price, cfg) {
   if (isFixedPrice(price)) return computeFixedPrice(route, price);
   const cast = cfg.pqInt64Cast ? int64PQ : (v) => v;
   const a = {
-    uom: route.uom,
+    uom: price.calc_basis === 'M3' || price.calc_basis === 'TAN' ? price.calc_basis : route.uom, // dòng có cờ ĐVT: theo dòng; dòng cũ: theo tuyến
     tripDistanceKm: cast(route.trip_distance_km),
     newPrice: cast(price.new_price),
     fuelPriceCatalog: cast(price.fuel_price_excl_vat),
-    avgLoadTon: cast(price.avg_load_ton),
+    avgLoadTon: cast(price.avg_load_ton === '' || price.avg_load_ton == null ? 0 : price.avg_load_ton),
     avgVolumeM3: price.avg_volume_m3,
     fuelNormLPerKm: price.fuel_norm_l_per_km,
   };
@@ -61,6 +72,8 @@ function computeContractPrice(route, price, cfg) {
   a.fuelPerTrip = calculateFuelConsumption(a);
   a.fuelCostPerTrip = calculateFuelCost(a);
   a.fuelCostRatio = calculateFuelCostRatio(a);
+  a.basisM3 = isOilM3(price);
+  a.calcBasis = price.calc_basis === 'M3' || price.calc_basis === 'TAN' ? price.calc_basis : '';
   a.priceNoDiesel = calculatePriceNoDiesel(a);
   a.formulaContractPrice = calculateContractPrice(a, cfg);
   const rawCp = price.contract_price !== undefined ? price.contract_price : price.contractPrice;
@@ -80,7 +93,8 @@ const isFixedPrice = (price) => !!price && price.price_method === 'CO_DINH';
  */
 function computeFixedPrice(route, price) {
   const fixed = Number(price.fixed_price);
-  return { priceMethod: 'CO_DINH', fixedPrice: fixed, uom: route.uom, tripDistanceKm: route.trip_distance_km,
+  return { priceMethod: 'CO_DINH', fixedPrice: fixed, uom: price.calc_basis === 'M3' || price.calc_basis === 'TAN' ? price.calc_basis : route.uom, tripDistanceKm: route.trip_distance_km,
+    calcBasis: price.calc_basis === 'M3' || price.calc_basis === 'TAN' ? price.calc_basis : '', basisM3: false,
     newPrice: 0, fuelPriceCatalog: 0, avgLoadTon: 0, avgVolumeM3: null, fuelNormLPerKm: 0,
     tripPrice: 0, fuelPerTrip: 0, fuelCostPerTrip: 0, fuelCostRatio: 0, priceNoDiesel: fixed, contractPrice: fixed, formulaContractPrice: fixed };
 }
@@ -168,8 +182,8 @@ function calculateFuelDifference({ standardFuelLiter, actualFuelLiter }) {
 }
 
 /** §4.6 ĐG CL Diesel (đ/tấn) = Chênh lệch × Đơn giá dầu / Tổng tấn. */
-function calculateFuelAdjustment({ fuelDiffLiter, fuelPrice, totalTon }) {
-  return fuelDiffLiter * fuelPrice / totalTon;
+function calculateFuelAdjustment({ fuelDiffLiter, fuelPrice, totalTon, totalM3, basisM3 }) {
+  return fuelDiffLiter * fuelPrice / (basisM3 ? totalM3 : totalTon); // dòng m³: chia tổng m³ = Σ m³ từng chuyến
 }
 
 /** §4.7 Đơn giá VC = (ĐG_HĐ + ĐG CL Diesel < 0 → 0) ngược lại ROUND(…, −2). Điều kiện < 0 xét TRƯỚC khi làm tròn. */
@@ -204,7 +218,7 @@ function calculateConfirmationLineM3({ m3, unitPrice, vatRate }, cfg) {
 
 module.exports = {
   calculateTripPrice, calculateFuelConsumption, calculateFuelCost, calculateFuelCostRatio, calculatePriceNoDiesel,
-  calculateContractPrice, computeContractPrice, computeFixedPrice, isFixedPrice,
+  calculateContractPrice, computeContractPrice, lineUom, isOilM3, computeFixedPrice, isFixedPrice,
   aggregateTrips, calculateTotalTon, calculateActualFuel, calculateFuelPrice, aggregateFuel,
   calculateStandardFuel, calculateFuelDifference, calculateFuelAdjustment, calculateTransportPrice,
   calculateConfirmationLine, calculateConfirmationLineM3, calculateInvoiceVat,

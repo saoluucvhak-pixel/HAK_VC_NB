@@ -10,7 +10,7 @@
     { key: 'routeCode', label: 'Mã tuyến', required: true, readonly: !isNew, hint: isNew ? 'đã gợi ý mã kế tiếp, sửa được trước khi lưu; sửa giống ở các nhà máy còn lại — không đổi được về sau' : 'không đổi được' },
     { key: 'routeName', label: 'Tên tuyến', required: true, hint: 'vd "Xã Quế Sơn - Tiên Sa"' },
     { key: 'distanceKm', label: 'Cự ly (km)', type: 'number', required: true }, { key: 'tripDistanceKm', label: 'Cự ly chuyến (km)', type: 'number', hint: 'trống = 2 × cự ly (đi + về)' },
-    { key: 'uom', label: 'ĐVT tính giá', type: 'select', options: [['TAN', 'Tấn'], ['M3', 'M³']] }, { key: 'catalogUnitCode', label: 'Đơn vị trong bảng giá', type: 'select', options: D.unitOptions(true) },
+    { key: 'uom', label: 'ĐVT mặc định', type: 'select', hint: 'dòng đơn giá có thể chọn ĐVT khác; dòng đơn giá cũ chưa chọn thì theo ĐVT này', options: [['TAN', 'Tấn'], ['M3', 'M³']] }, { key: 'catalogUnitCode', label: 'Đơn vị trong bảng giá', type: 'select', options: D.unitOptions(true) },
     { key: 'fromPlace', label: 'Điểm đi (in diễn giải hóa đơn)', full: true, hint: 'trống = phần trước dấu " - " của tên tuyến' },
     { key: 'toPlace', label: 'Điểm đến (in diễn giải hóa đơn)', full: true, hint: 'trống = phần sau dấu " - " của tên tuyến' },
     { key: 'note', label: 'Ghi chú', full: true }, ...(isNew ? [] : [{ key: 'reason', label: 'Lý do (bắt buộc nếu sửa cự ly / ĐVT của tuyến đã dùng ở kỳ đã xác nhận)', full: true }])];
@@ -39,7 +39,7 @@
         advancedFields: ['q', 'unit', 'uom', 'hasPrice'],
         fields: [
           { key: 'unit', label: 'Lọc theo đơn vị', type: 'enum', options: () => D.unitOptions().map(([c, lbl]) => ({ value: c, label: lbl })), match: (r, v) => r.catalog_unit_code === v },
-          { key: 'uom', label: 'Lọc theo ĐVT', type: 'enum', options: [{ value: 'TAN', label: 'Tấn' }, { value: 'M3', label: 'M³' }], match: (r, v) => r.uom === v },
+          { key: 'uom', label: 'Lọc theo ĐVT mặc định', type: 'enum', options: [{ value: 'TAN', label: 'Tấn' }, { value: 'M3', label: 'M³' }], match: (r, v) => r.uom === v },
           { key: 'hasPrice', label: 'Chưa có ĐG hiện hành', type: 'bool', match: (r) => !r.activePrice }
         ],
         matchQ: (r, q) => D.sf.hay([r.route_code, r.route_name, r.from_place, r.to_place, r.catalog_unit_code]).indexOf(q) >= 0,

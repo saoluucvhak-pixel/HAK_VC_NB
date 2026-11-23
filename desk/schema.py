@@ -85,6 +85,7 @@ TABLES = [
         ("fixed_price", "NUM", False, "> 0 khi price_method = CO_DINH — đơn giá vận chuyển cố định đ/tấn, chưa VAT", ""),
         ("price_code", "TEXT", False, "FK MA_DON_GIA — dòng giá (CON) thuộc mã đơn giá; trống = giá chung / giá riêng hợp đồng như cũ. Dòng thuộc mã không gắn contract_id (bản 1.5.0)", ""),
         ("contract_price", "NUM", False, "ĐG ký HĐ do người dùng nhập tay / công thức, lưu kèm dòng giá — bản 1.9.0", ""),
+        ("calc_basis", "TEXT", False, "ĐVT tính giá của DÒNG: TAN | M3; trống (dòng cũ) = theo tuyến với giá cố định, theo tấn với giá theo dầu — dòng M3 theo giá dầu chia thể tích TB / tổng m³", ""),
      ], True),
     ("MA_DON_GIA", "Danh mục", "Mã đơn giá (CHA): nhóm các dòng giá (CON = PRICE_HISTORY.price_code) theo đơn vị; hợp đồng chọn mã ở HOP_DONG.price_code (bản 1.5.0)", "price_code", [],
      {"unit_code": "DON_VI.unit_code"}, [
@@ -283,6 +284,8 @@ TABLES = [
         ("transport_price_raw", "NUM", False, "trước làm tròn", ""),
         ("transport_price", "NUM", False, "", "QR_DGVC[Đơn giá vận chuyển]"),
         ("price_method", "TEXT", False, "THEO_DAU | CO_DINH — snapshot phương thức giá (bản 1.2.3)", ""),
+        ("calc_basis", "TEXT", False, "snapshot ĐVT tính giá của dòng giá: TAN | M3 | trống (dòng giá cũ)", ""),
+        ("total_m3", "NUM", False, "snapshot Σ m³ của kỳ (dòng tính theo m³)", ""),
         ("result_status", "ENUM:OK|WARNING|ERROR", True, "", ""),
         ("warnings_json", "JSON", False, "", ""),
         ("trace_json", "JSON", True, "chuỗi XEM CHI TIẾT TÍNH", ""),
