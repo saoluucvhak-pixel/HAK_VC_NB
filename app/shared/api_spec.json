@@ -717,7 +717,7 @@
      ""
     ]
    ],
-   "output": "{route:{routeCode, routeName, distanceKm, uom, isActive}, items:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}",
+   "output": "{route:{routeCode, routeName, distanceKm, uom, isActive}, items:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, calcBasis, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}",
    "errors": [
     "NOT_FOUND"
    ],
@@ -1145,7 +1145,7 @@
      "vd HT-CD-20000101"
     ]
    ],
-   "output": "{record:{formId, methodCode, methodLabel, formName, formulaText, catalogDate, effectiveTo, status, priceLineCount, activeLineCount, note, rowVersion}, lines:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}]}",
+   "output": "{record:{formId, methodCode, methodLabel, formName, formulaText, catalogDate, effectiveTo, status, priceLineCount, activeLineCount, note, rowVersion}, lines:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, calcBasis, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}]}",
    "errors": [
     "NOT_FOUND"
    ],
@@ -1269,7 +1269,7 @@
      ""
     ]
    ],
-   "output": "{items:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}",
+   "output": "{items:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, calcBasis, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}",
    "errors": [
     "VALIDATION_FAILED"
    ],
@@ -1470,7 +1470,7 @@
      "record",
      "object",
      false,
-     "{routeCode, effectiveFrom, fixedPrice?, priceMethod?, …}"
+     "{routeCode, effectiveFrom, fixedPrice?, priceMethod?, calcBasis? (TAN|M3), …}"
     ],
     [
      "fromPriceId",
@@ -1540,7 +1540,7 @@
      "record",
      "object",
      true,
-     "routeCode, contractId?, effectiveFrom, newPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, basePriceExclVat, sourceNote"
+     "routeCode, contractId?, effectiveFrom, newPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, calcBasis?, basePriceExclVat, sourceNote"
     ]
    ],
    "output": "{record, contractPrice}",

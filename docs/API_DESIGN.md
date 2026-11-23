@@ -600,7 +600,7 @@ Danh mục Đơn giá phẳng (chỉ đọc) cho cả màn Đơn giá, ngăn "đ
 
 Hình thức của một dòng giá = dòng HINH_THUC_GIA cùng mã (price_method) có hiệu lực tại effective_from của dòng giá (ngày trước dòng sớm nhất → dòng sớm nhất). `price` = đơn giá cố định (CO_DINH) hoặc đơn giá ký hợp đồng (THEO_DAU). Sắp theo ngày cập nhật giảm dần, tuyến, mã.
 
-- **Trả về:** `{items:[{updateDate (= effectiveFrom), priceId (mã đơn giá), priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}`
+- **Trả về:** `{items:[{updateDate (= effectiveFrom), priceId (mã đơn giá), priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, calcBasis, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}`
 - **Lỗi:** `VALIDATION_FAILED`
 - **Đọc:** PRICE_HISTORY, TUYEN_VC, HINH_THUC_GIA, CONFIG
 
@@ -678,7 +678,7 @@ Tạo phiên bản giá mới (DRAFT); phiên bản cũ không bị sửa. Quy�
 
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
-| `record` | object | ✔ | routeCode, contractId?, effectiveFrom, newPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, basePriceExclVat, sourceNote |
+| `record` | object | ✔ | routeCode, contractId?, effectiveFrom, newPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, calcBasis?, basePriceExclVat, sourceNote |
 
 - **Trả về:** `{record, contractPrice}`
 - **Lỗi:** `VALIDATION_FAILED`, `BUSINESS_RULE:E_PRICE_DATE_OVERLAP`
