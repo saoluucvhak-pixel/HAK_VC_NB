@@ -295,7 +295,16 @@
                   D.toast(`Đã áp dụng ${r.priceId}`, 'ok');
                   await again();
                 } }, 'Áp dụng')
-              ] : null); } }
+              ] : null,
+              w && !r.contractId && !r.isUsed && (r.status === 'DRAFT' || r.status === 'ACTIVE')
+                ? h('button', { class: 'btn small danger', 'aria-label': `Xóa ${r.priceId}`, title: 'Xóa đơn giá (nháp xóa hẳn; đã áp dụng nhưng chưa dùng thì đóng dòng)', onclick: async () => {
+                  const ok = await D.confirm({ title: 'Xóa đơn giá', danger: true, message: r.status === 'DRAFT' ? `Xóa bản nháp ${r.priceId}?` : `Xóa đơn giá ${r.priceId} (tuyến ${r.routeCode})? Dòng sẽ không còn hiệu lực; bản trước (nếu có) được mở lại. Chỉ xóa được khi chưa dùng ở kỳ tính nào.` });
+                  if (!ok) return;
+                  const x = await D.api('prices.remove', { priceId: r.priceId });
+                  for (const m of x.warnings || []) D.toast(m.message, 'info', 9000);
+                  D.toast(`Đã xóa ${r.priceId}${(x.reopened || []).length ? ` — mở lại ${x.reopened.join(', ')}` : ''}`, 'ok');
+                  await again();
+                } }, 'Xóa') : null); } }
           ]
         });
         D.clickableRows(table, list, (r) => r.priceId, sel, pick);

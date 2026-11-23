@@ -1637,6 +1637,36 @@
    "lock": true
   },
   {
+   "action": "prices.remove",
+   "group": "Đơn giá",
+   "desc": "Xóa dòng đơn giá dùng chung ở Danh mục Đơn giá: nháp → xóa hẳn; đã kích hoạt nhưng chưa dùng ở kỳ nào → đóng dòng (gói Danh mục mang trạng thái gỡ sang nhà máy khác) và mở lại bản trước; đã dùng ở kỳ đã xác nhận/khóa → E_PRICE_USED",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "priceId",
+     "string",
+     true,
+     "mã đơn giá (price_id)"
+    ]
+   ],
+   "output": "{removed, routeCode, wasDraft, reopened[], affectedPeriods[], warnings[]}",
+   "errors": [
+    "BUSINESS_RULE:E_PRICE_DATE_OVERLAP"
+   ],
+   "reads": [
+    "PRICE_HISTORY"
+   ],
+   "writes": [
+    "PRICE_HISTORY"
+   ],
+   "audit": "PRICE_ACTIVATE",
+   "lock": true
+  },
+  {
    "action": "contracts.list",
    "group": "Hợp đồng",
    "desc": "Danh sách hợp đồng (KE_TOAN chỉ thấy HĐ đơn vị mình là bên VC hoặc bên thuê)",

@@ -80,6 +80,7 @@ const ROUTES = {
   'prices.createVersion': [null, (ctx, p, s) => ctx.svc.catalog.createPriceVersion({ ...p, user: s.user })],
   'prices.updateDraft': [null, (ctx, p, s) => ctx.svc.catalog.updatePriceDraft({ ...p, user: s.user })],
   'prices.activate': [null, (ctx, p, s) => ctx.svc.catalog.activatePrice({ ...p, user: s.user })],
+  'prices.remove': [null, (ctx, p, s) => ctx.svc.catalog.removePriceLine({ ...p, user: s.user })],
   'contracts.list': [null, (ctx) => ctx.svc.master.listContracts()],
   'contracts.save': [null, (ctx, p, s) => ctx.svc.master.saveContract({ ...p, user: s.user })],
   'archive.years': [A, (ctx) => ctx.svc.archive.years()],

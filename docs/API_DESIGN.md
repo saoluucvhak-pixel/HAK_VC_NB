@@ -145,6 +145,7 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 | `prices.createVersion` | Tạo phiên bản giá mới (DRAFT); phiên bản cũ không bị sửa | A/K | 🔒 PRICE_HISTORY | PRICE_CREATE |
 | `prices.updateDraft` | Sửa phiên bản DRAFT (cấm khi ACTIVE đã dùng) | A/K | 🔒 PRICE_HISTORY | PRICE_UPDATE |
 | `prices.activate` | Kích hoạt DRAFT → ACTIVE; tự đóng phiên bản trước (effective_to = ngày mới − 1) | A/K | 🔒 PRICE_HISTORY | PRICE_ACTIVATE |
+| `prices.remove` | Xóa dòng đơn giá dùng chung: nháp → xóa hẳn; đã kích hoạt nhưng chưa dùng → đóng dòng (gói Danh mục mang trạng thái gỡ) và mở lại bản trước; đã dùng ở kỳ đã chốt → E_PRICE_USED | A/K | 🔒 PRICE_HISTORY | PRICE_REMOVE |
 
 ### 4.6. Hợp đồng
 
