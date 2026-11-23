@@ -6696,6 +6696,12 @@
    "usedIn": "periods"
   },
   {
+   "code": "W_VEHICLE_NO_VOLUME",
+   "level": "WARNING",
+   "message": "Tuyến tính theo m³ nhưng xe chưa khai thể tích thùng (Danh sách xe) — không chặn tính",
+   "usedIn": "periods"
+  },
+  {
    "code": "W_VEHICLE_OUT_OF_CONTRACT",
    "level": "WARNING",
    "message": "Dòng dầu của xe không thuộc phạm vi hợp đồng",

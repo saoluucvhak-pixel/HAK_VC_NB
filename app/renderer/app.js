@@ -197,8 +197,9 @@
   const exactFmt = new Intl.NumberFormat('vi-VN', { useGrouping: true, minimumFractionDigits: 0, maximumFractionDigits: 6 });
   D.vnExact = (x) => (x === '' || x === null || x === undefined || Number.isNaN(Number(x)) ? '' : exactFmt.format(Number(x)));
   /** Đọc số kiểu vi-VN trong ô form: ',' là thập phân, '.' là ngăn nghìn khi đúng nhóm 3 chữ số (150.000), còn lại '.' là thập phân (0.4). Rỗng → ''; chữ lạ → NaN. */
-  D.parseVn = (v) => {
+  D.parseVn = (v, money = false) => {
     const s = String(v ?? '').trim().replace(/\s/g, ''); if (!s) return '';
+    if (money && /^\d{1,3}(,\d{3})+$/.test(s)) return Number(s.replace(/,/g, '')); // ô tiền: ',' + đúng 3 chữ số = ngăn nghìn (150,000 → 150000), như D.parseMoney cũ; thập phân khi rõ ràng (1,5)
     if (/^\d+(\.\d{3})*(,\d+)?$/.test(s) && /^\d{1,3}(\.\d{3})*(,\d+)?$|^\d+(,\d+)?$/.test(s)) return Number(s.replace(/\./g, '').replace(',', '.'));
     if (/^\d+\.\d+$/.test(s)) return Number(s);
     return NaN;
@@ -213,13 +214,13 @@
     if (fp !== null && ip === '') ip = '0';
     return fp === null ? ip : `${ip},${fp}`;
   };
-  const attachLiveNumber = (inp, decimal) => inp.addEventListener('input', () => {
+  const attachLiveNumber = (inp, decimal) => { inp.addEventListener('blur', () => { const n = D.parseVn(inp.value, !decimal); if (typeof n === 'number' && Number.isFinite(n)) inp.value = D.vnExact(n); }); inp.addEventListener('input', () => {
     const before = inp.value; const caret = inp.selectionStart == null ? before.length : inp.selectionStart;
     const sig = (before.slice(0, caret).match(/[\d,]/g) || []).length; const next = D.liveNumber(before, decimal);
     if (next === before) return;
     inp.value = next; let n = 0; let pos = next.length; if (sig === 0) pos = 0; else for (let i = 0; i < next.length; i++) { if (/[\d,]/.test(next[i])) n++; if (n === sig) { pos = i + 1; break; } }
     try { inp.setSelectionRange(pos, pos); } catch { /* ô không hỗ trợ đặt con trỏ */ }
-  });
+  }); };
   D.form = (fields, values = {}) => {
     const inputs = {};
     const el = h('div', { class: 'form' }, fields.map((f) => {
@@ -237,7 +238,7 @@
     }).map((node, i) => { const f = fields[i]; if (f.type === 'check') inputs[f.key] = node.querySelector('input'); return node; }));
     el.values = () => Object.fromEntries(fields.map((f) => {
       const i = inputs[f.key]; if (f.type === 'check') return [f.key, i.checked];
-      const v = i.value; if (f.money || f.decimal) return [f.key, D.parseVn(v)]; if (f.type === 'number') return [f.key, v === '' ? '' : Number(v)]; return [f.key, v];
+      const v = i.value; if (f.money || f.decimal) return [f.key, D.parseVn(v, !!f.money)]; if (f.type === 'number') return [f.key, v === '' ? '' : Number(v)]; return [f.key, v];
     }));
     el.inputs = inputs;
     return el;

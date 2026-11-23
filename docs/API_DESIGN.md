@@ -1623,6 +1623,7 @@ Bản HAKQN: dialog.openFile → exchange.previewPackage(filePath) → exchange.
 | `W_POSSIBLE_DUPLICATE` | WARNING | Dòng dầu nghi trùng (cùng ngày, xe, số lít) | import, fuel |
 | `W_PLATE_FORMAT` | WARNING | Mã xe dầu viết khác chuẩn (đã quy đổi) | import |
 | `W_VEHICLE_NO_FUEL` | WARNING | Xe có chạy trong kỳ nhưng không có dòng dầu | periods |
+| `W_VEHICLE_NO_VOLUME` | WARNING | Tuyến tính theo m³ nhưng xe chưa khai thể tích thùng (Danh sách xe) — không chặn tính | periods |
 | `W_VEHICLE_OUT_OF_CONTRACT` | WARNING | Dòng dầu của xe không thuộc phạm vi hợp đồng | periods |
 | `W_TICKET_IN_DRAFT_PERIOD` | WARNING | Phiếu đang ở kỳ nháp khác (BL-34) | periods |
 | `W_VEHICLE_PARTIAL_CONTRACT` | WARNING | Xe thuộc hợp đồng nhưng có phiếu trong kỳ ngoài thời gian hiệu lực của xe (đổi hợp đồng giữa kỳ) — phiếu đó không tính | periods |

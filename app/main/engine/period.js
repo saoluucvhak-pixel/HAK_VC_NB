@@ -281,6 +281,11 @@ function calculatePeriod(input) {
       fuelGiverUnit: fuel.giverUnitCode, fuelUom: fuel.uom, fuelLineCount: fuel.lineCount, actualFuelLiter: fuel.actualFuelLiter,
       fuelStartDate: fuel.fuelStartDate, fuelEndDate: fuel.fuelEndDate, fuelPrice: fuel.fuelPrice, fuelImportDate: fuel.fuelImportDate };
     if (fixed && A.uom === 'M3') r.totalM3 = totalM3Of(ts, vehMap, 0);
+    // dòng tính theo m³ dùng đến thể tích xe: xe chưa khai → cảnh báo (không chặn, không đổi tiền)
+    if ((fixed && A.uom === 'M3') || A.basisM3) {
+      const noVol = [...new Set(ts.map((t) => t.plate_no))].sort().filter((pl) => !(vehMap.get(pl) && vehMap.get(pl).volume_m3 > 0));
+      if (noVol.length) rIssues.push(issue('W_VEHICLE_NO_VOLUME', { routeCode, plates: noVol.join(', '), effect: fixed ? 'số m³ của xe đó tính bằng 0 nên không có tiền cước' : 'tạm dùng Thể tích TB của dòng giá' }, routeCode));
+    }
     if (fixed) {
       r.standardFuelLiter = 0; r.fuelDiffLiter = 0; r.fuelAdjustPrice = 0;
       r.transportPriceRaw = A.fixedPrice; r.transportPriceFloored = false; r.transportPrice = A.fixedPrice;

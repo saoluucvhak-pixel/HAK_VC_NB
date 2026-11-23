@@ -56,6 +56,7 @@ const ISSUE = {
   W_BEFORE_PERIOD:        ['WARNING', 'Dòng dầu {receiptId} nhận ngày {date}, trước Từ ngày của kỳ (vẫn tính — "tính hết bảng kê")'],
   W_AFTER_PERIOD:         ['WARNING', 'Dòng dầu {receiptId} nhận ngày {date}, sau Đến ngày của kỳ (vẫn tính — "tính hết bảng kê")'],
   W_VEHICLE_NO_FUEL:      ['WARNING', 'Xe {plateNo} có chạy trong kỳ nhưng không có dòng dầu'],
+  W_VEHICLE_NO_VOLUME:    ['WARNING', 'Tuyến {routeCode} tính theo m³ nhưng xe {plates} chưa khai thể tích thùng (Danh sách xe) — {effect}'],
   W_VEHICLE_OUT_OF_CONTRACT:['WARNING', 'Dòng dầu {receiptId}: xe {plateNo} không thuộc phạm vi hợp đồng'],
   W_TICKET_IN_DRAFT_PERIOD:['WARNING', 'Phiếu {ticketNo} đang ở kỳ nháp {periodCode} — chưa đưa vào kỳ này (bật "chuyển từ kỳ nháp" để lấy)'],
   W_FUEL_IN_DRAFT_PERIOD: ['WARNING', 'Dòng dầu {receiptId} đang ở kỳ nháp {periodCode}'],

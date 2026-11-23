@@ -63,10 +63,12 @@ for (const kind of storageKinds()) {
     assert.equal(st('priceNoDiesel').unit, 'đ/m³'); assert.match(st('priceNoDiesel').formula, /Thể tích TB/); assert.equal(st('totalTon').unit, 'm³'); assert.equal(st('totalTon').value, totalM3);
     assert.equal(st('fuelAdjustPrice').unit, 'đ/m³'); assert.match(st('fuelAdjustPrice').formula, /Tổng m³/); assert.equal(st('transportPrice').unit, 'đ/m³');
     // thể tích TB thay cho xe chưa khai: xe 0 m³ → dùng 20 m³
-    await store.transaction((tx) => { const v = tx.all('XE')[0]; tx.update('XE', v.plate_no, { volume_m3: 0 }); }, { user: 'test' });
-    const z = periods.preview({ contractId, ...W }).results[0];
-    const noVol = store.all('XE')[0].plate_no; const trips = store.all('PHIEU_CAN').filter((t) => !t.is_deleted && t.plate_no === noVol && t.weigh1_date >= W.dateFrom && t.weigh1_date <= W.dateTo && t.route_code === 'VC.007').length;
+    const noVol = store.all('PHIEU_CAN').find((t) => !t.is_deleted && t.route_code === 'VC.007' && t.weigh1_date >= W.dateFrom && t.weigh1_date <= W.dateTo).plate_no;
+    await store.transaction((tx) => tx.update('XE', noVol, { volume_m3: 0 }), { user: 'test' });
+    const z = periods.preview({ contractId, ...W }).results[0]; const trips = store.all('PHIEU_CAN').filter((t) => !t.is_deleted && t.plate_no === noVol && t.weigh1_date >= W.dateFrom && t.weigh1_date <= W.dateTo && t.route_code === 'VC.007').length;
     assert.equal(z.totalM3, (z.tripCount - trips) * VOL + trips * AVG_VOL, 'xe chưa khai thể tích → dùng Thể tích TB của dòng giá');
+    assert.equal(z.resultStatus, 'WARNING'); const w = z.issues.find((i) => i.code === 'W_VEHICLE_NO_VOLUME'); assert.ok(w && w.level === 'WARNING' && w.params.plates.includes(noVol), 'xe chưa khai thể tích → cảnh báo có biển số');
+    assert.equal(periods.preview({ contractId, ...W }).canCalculate, true, 'cảnh báo không chặn tính');
     store.close();
   });
 
@@ -101,6 +103,11 @@ for (const kind of storageKinds()) {
     const k1 = periods.preview({ contractId, ...W }); assert.equal(k1.results[0].transportPrice, 50000);
     assert.ok(k1.bkvc.lines.every((l) => l.uom === 'M3' && l.ton === l.tripCount * VOL), 'dòng m³ trên tuyến tấn → BKVC theo m³');
     assert.equal(k1.results[0].totalM3, k1.results[0].tripCount * VOL);
+    // xe chưa khai thể tích: cảnh báo, tiền không đổi
+    const first = store.all('PHIEU_CAN').find((t) => !t.is_deleted && t.route_code === 'VC.007' && t.weigh1_date >= W.dateFrom && t.weigh1_date <= W.dateTo).plate_no; await store.transaction((tx) => tx.update('XE', first, { volume_m3: 0 }), { user: 'test' });
+    const kw = periods.preview({ contractId, ...W }); const ww = kw.results[0].issues.find((i) => i.code === 'W_VEHICLE_NO_VOLUME'); assert.ok(ww && ww.params.plates.includes(first) && /không có tiền/.test(ww.message));
+    assert.equal(kw.results[0].transportPrice, 50000); assert.equal(kw.canCalculate, true);
+    await store.transaction((tx) => tx.update('XE', first, { volume_m3: VOL }), { user: 'test' });
     // tuyến M3 + dòng chọn tấn → tính tấn
     await store.transaction((tx) => tx.update('TUYEN_VC', 'VC.007', { uom: 'M3' }), { user: 'test' });
     const l2 = await addFixed('CD-TAN', 'TAN', 'VC.007'); assert.equal(l2.calc_basis, 'TAN');
@@ -192,5 +199,41 @@ for (const kind of storageKinds()) {
     const pv2 = new ExchangeService(c.store).previewPackage({ filePath: p2.file, user: { username: 'ketoan' } }); assert.ok(pv2.canImport);
     const sm = pv2.summary.PRICE_HISTORY; assert.ok(sm && sm.CONFLICT === 0 && sm.UPDATE === 0, `gói cũ không cột không sinh xung đột / cập nhật giả: ${JSON.stringify(sm)}`);
     for (const s of [a.store, b.store, old.store, c.store]) s.close();
+  });
+
+  test(`[${kind}] (P1) sửa dòng nháp CŨ (calc_basis trống) trên tuyến M3 rồi lưu → cờ vẫn trống, ĐG ký HĐ không đổi`, async () => {
+    const { store, cat, line, periods, contractId } = await setup(kind);
+    await store.transaction((tx) => tx.update('PRICE_HISTORY', line.price_id, { calc_basis: '', avg_load_ton: 18, status: 'DRAFT' }), { user: 'test' });
+    const before = periods.constructor && require('../main/engine').computeContractPrice(store.get('TUYEN_VC', 'VC.007'), store.get('PRICE_HISTORY', line.price_id), require('../main/engine').buildConfig(store.all('CONFIG'))).contractPrice;
+    const rec = { calcBasis: '', newPrice: NEW_PRICE, fuelPriceExclVat: FUEL, fuelNormLPerKm: NORM, avgLoadTon: 18, avgVolumeM3: AVG_VOL, effectiveFrom: '2026-06-01' };
+    const pv = await cat.previewPrice({ record: { ...rec, routeCode: 'VC.007', priceMethod: 'THEO_DAU', legacyBasis: true } });
+    assert.equal(pv.contractPrice, before, 'xem trước dòng cũ khi sửa = số cũ');
+    const row = store.get('PRICE_HISTORY', line.price_id);
+    const out = await cat.updatePriceDraft({ priceId: line.price_id, record: { ...rec, priceMethod: 'THEO_DAU' }, rowVersion: row.row_version, user: KETOAN });
+    assert.ok(!out.record.calc_basis, 'lưu không ghi cờ'); assert.equal(out.contractPrice, before, 'ĐG ký HĐ không đổi');
+    // chỉ ghi cờ khi người dùng chủ động chọn
+    const row2 = store.get('PRICE_HISTORY', line.price_id);
+    const out2 = await cat.updatePriceDraft({ priceId: line.price_id, record: { ...rec, calcBasis: 'M3', priceMethod: 'THEO_DAU' }, rowVersion: row2.row_version, user: KETOAN });
+    assert.equal(out2.record.calc_basis, 'M3');
+    store.close();
+  });
+
+  test(`[${kind}] (P2-3) BKVC in lại: kỳ CŨ (bản chụp không total_m3) tổng = kg/1000 như bản trước; kỳ mới = Σ m³`, async () => {
+    const c = await install('DH', { kind }); const { store, periods, contractId } = c; const cat = new CatalogService(store);
+    await store.transaction((tx) => { tx.update('TUYEN_VC', 'VC.007', { uom: 'M3' }); for (const v of tx.all('XE')) tx.update('XE', v.plate_no, { volume_m3: VOL }); for (const g of tx.all('GIAO_NHAN_DAU')) tx.update('GIAO_NHAN_DAU', g.receipt_id, { is_deleted: true }); }, { user: 'test' });
+    await cat.savePriceCode({ create: true, record: { priceCode: 'CD-X', unitCode: store.get('HOP_DONG', contractId).customer_unit_code, priceName: 'x', priceMethod: 'CO_DINH' }, user: KETOAN });
+    const l = await cat.addCodeLine({ priceCode: 'CD-X', record: { routeCode: 'VC.007', effectiveFrom: '2026-01-01', fixedPrice: 50000, calcBasis: '' }, user: KETOAN });
+    await cat.activatePrice({ priceId: l.record.price_id, rowVersion: l.record.row_version, user: KETOAN });
+    await store.transaction((tx) => tx.update('HOP_DONG', contractId, { price_code: 'CD-X' }), { user: 'test' });
+    const k = await periods.calculate({ contractId, ...W, clientRequestId: rid(), user: KETOAN }); const pid = k.period.period_id;
+    const rs = new ReportService(store); const nu = rs.bkvc({ periodId: pid });
+    assert.equal(nu.totals.ton, k.results[0].tripCount * VOL); assert.equal(nu.uomLabel, 'm³');
+    // giả lập kỳ cũ: bản chụp chưa có calc_basis / total_m3
+    await store.transaction((tx) => { for (const c2 of tx.all('TRANSPORT_CALCULATION').filter((x) => x.period_id === pid)) tx.update('TRANSPORT_CALCULATION', c2.calc_id, { calc_basis: '', total_m3: '' }); }, { user: 'test' });
+    const old = rs.bkvc({ periodId: pid });
+    assert.equal(old.totals.ton, old.totals.kg / 1000, 'kỳ cũ: giữ kg/1000 như bản trước'); assert.equal(old.uomLabel, 'tấn');
+    assert.equal(old.totals.amount, nu.totals.amount, 'tiền không đổi');
+    assert.equal(rs.pricingSheet({ periodId: pid }).bkvc.ton, old.totals.kg / 1000);
+    store.close();
   });
 }

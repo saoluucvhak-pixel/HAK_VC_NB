@@ -251,8 +251,9 @@ class CatalogService {
 
   /** Tầng A cho 1 bộ tham số — không lưu. */
   previewPrice({ record }) {
+    const legacy = !!(record && record.legacyBasis === true); // đang sửa dòng cũ chưa có ĐVT riêng: xem trước theo cách cũ
     const p = this._normPrice(record); const route = this.store.get('TUYEN_VC', p.route_code);
-    if (!p.calc_basis) p.calc_basis = defaultBasis(route); // xem trước dòng mới: ĐVT theo tuyến (sửa dòng cũ: giao diện gửi ĐVT hiện hành của dòng)
+    if (!p.calc_basis && !legacy) p.calc_basis = defaultBasis(route); // xem trước dòng mới: ĐVT theo tuyến (sửa dòng cũ: giao diện gửi ĐVT hiện hành của dòng)
     zeroLoad(p);
     this._validatePrice({ effective_from: '2000-01-01', ...p }, route, { forSave: false });
     const a = E.computeContractPrice(route, p, this._cfg());

@@ -100,6 +100,12 @@ test('Giao diện HAKQN: form dòng đơn giá — ô ĐVT tính giá, nhãn m³
     await typeInto(tk, '1234567'); assert.equal(await tk.inputValue(), '1.234.567'); await typeInto(tk, '170000'); assert.equal(await tk.inputValue(), '170.000');
     await nm.getByLabel(/Nguồn đơn giá tham khảo/).fill('Bảng giá thử'); await nm.getByLabel(/Ngày cập nhật/).fill('2027-03-01');
     await nm.getByText(/cao hơn \(1\) DG_CUOC/).waitFor(); await nm.getByText(/\+5\.000 đ \(\+3,03%\)/).waitFor();
+    // dán '0.400' vào định mức → hiểu thành 400 (> 10 lít/km) → chặn bằng hộp xác nhận, hủy thì không lưu
+    await dm.fill('0.400'); assert.equal(await dm.inputValue(), '400');
+    await nm.getByRole('button', { name: 'Lưu' }).click();
+    const ck = page.locator('.modal', { hasText: 'Kiểm tra dấu chấm / phẩy' }); await ck.getByText(/Định mức dầu = 400 lít\/km/).waitFor(); await ck.getByRole('button', { name: 'Hủy' }).click();
+    await page.waitForTimeout(300); assert.equal(ctx.store.all('PRICE_HISTORY').filter((x) => x.price_code === 'PT-TD' && x.route_code === 'VC.008' && x.effective_from === '2027-03-01').length, 0, 'hủy → không lưu');
+    await typeInto(dm, '0,4');
     await nm.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã thêm dòng giá/);
     const nr = ctx.store.all('PRICE_HISTORY').find((x) => x.price_code === 'PT-TD' && x.route_code === 'VC.008' && x.effective_from === '2027-03-01');
     assert.equal(nr.new_price, 165000); assert.equal(nr.fuel_price_excl_vat, 15500); assert.equal(nr.avg_load_ton, 12.5); assert.equal(nr.fuel_norm_l_per_km, 0.4); assert.equal(nr.base_price_excl_vat, 170000);
@@ -114,6 +120,23 @@ test('Giao diện HAKQN: form dòng đơn giá — ô ĐVT tính giá, nhãn m³
     assert.equal(await em.getByLabel(/^\(2\) KL_TB/).inputValue(), '12,5'); assert.equal(await em.getByLabel(/Định mức dầu/).inputValue(), '0,4'); assert.equal(await em.getByLabel(/^Đơn giá tham khảo/).inputValue(), '170.000');
     await em.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã lưu dòng giá nháp/);
     const nr2 = ctx.store.get('PRICE_HISTORY', nr.price_id); assert.equal(nr2.avg_load_ton, 12.5); assert.equal(nr2.fuel_norm_l_per_km, 0.4); assert.equal(nr2.new_price, 165000);
+
+    // ── Phân tích số: ô tiền tương thích cũ ("150,000" = 150000), "1,5" = 1,5; ô thập phân không đoán ──
+    const parsed = await page.evaluate(() => { const D = window.DGVC; return { m: ['150,000', '1,5', '150.000', '1.234,5', '150000', '1,234,567'].map((x) => D.parseVn(x, true)), old: ['150,000', '150.000'].map((x) => D.parseMoney(x)), dec: ['0,4', '12,5', '0.4', '12.5'].map((x) => D.parseVn(x)) }; });
+    assert.deepEqual(parsed.m, [150000, 1.5, 150000, 1234.5, 150000, 1234567]); assert.deepEqual(parsed.old, [150000, 150000]); assert.deepEqual(parsed.dec, [0.4, 12.5, 0.4, 12.5]);
+
+    // ── Sửa dòng nháp CŨ (chưa có ĐVT riêng) trên tuyến m³: giữ trống, ĐG ký HĐ không đổi ──
+    const E = require('../main/engine');
+    const lg = await ctx.svc.catalog.addCodeLine({ priceCode: 'PT-TD', record: { routeCode: 'VC.007', effectiveFrom: '2027-04-01', newPrice: 165000, fuelPriceExclVat: 15500, fuelNormLPerKm: 0.4, avgLoadTon: 18, avgVolumeM3: 20 }, user: { username: 'k', role: 'KE_TOAN' } });
+    await ctx.store.transaction((tx) => tx.update('PRICE_HISTORY', lg.record.price_id, { calc_basis: '' }), { user: 'test' });
+    const cp = () => E.computeContractPrice(ctx.store.get('TUYEN_VC', 'VC.007'), ctx.store.get('PRICE_HISTORY', lg.record.price_id), E.buildConfig(ctx.store.all('CONFIG'))).contractPrice;
+    const cp0 = cp();
+    await nav('Đơn giá');
+    const lrow = page.locator(`${MAIN} tbody tr`, { hasText: 'VC.007' }).filter({ hasText: '01/04/2027' }); await lrow.getByRole('button', { name: /^Sửa/ }).click();
+    const lm2 = page.locator('.modal', { hasText: 'Sửa công thức tính đơn giá' });
+    assert.equal(await lm2.getByLabel('ĐVT tính giá').inputValue(), '', 'dòng cũ: ô ĐVT = "Theo cách cũ"'); await lm2.getByLabel('ĐVT tính giá').locator('option', { hasText: 'Theo cách cũ (giữ nguyên)' }).waitFor({ state: 'attached' });
+    await lm2.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã lưu dòng giá nháp/);
+    assert.ok(!ctx.store.get('PRICE_HISTORY', lg.record.price_id).calc_basis, 'lưu không tự ghi cờ'); assert.equal(cp(), cp0, 'ĐG ký HĐ không đổi');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await srv.close(); }
 });

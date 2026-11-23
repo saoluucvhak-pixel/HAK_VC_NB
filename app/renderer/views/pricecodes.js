@@ -44,10 +44,10 @@
           ? [{ ...all.fixedPrice, required: true, hint: 'dùng nguyên số này làm đơn giá vận chuyển — không tính dầu, không làm tròn lại' }]
           : [
             { ...all.newPrice, label: '(1) DG_CUOC — Đơn giá cước dự kiến (chưa VAT)', hint: 'đầu vào của công thức; gồm dầu định mức' },
-            { ...all.avgLoadTon, label: '(2) KL_TB — KL trung bình / chuyến (tấn)', hint: 'đầu vào của công thức' },
-            { ...all.avgVolumeM3, label: '(2) Thể tích TB / chuyến (m³) — chỉ tuyến tính theo m³', hint: 'tuyến tính theo m³ thì nhập số này thay cho KL_TB' },
+            { ...all.avgLoadTon, label: '(2) KL_TB — KL trung bình / chuyến (tấn)', hint: 'đầu vào của công thức; trên 100 tấn sẽ hỏi lại' },
+            { ...all.avgVolumeM3, label: '(2) Thể tích TB / chuyến (m³) — chỉ tuyến tính theo m³', hint: 'tuyến tính theo m³ thì nhập số này thay cho KL_TB; trên 500 m³ sẽ hỏi lại' },
             kmField,
-            { ...all.fuelNormLPerKm, label: '(4) DINH_MUC — Định mức dầu (lít/km)', hint: '0,4 lít/km = 40 lít/100 km' },
+            { ...all.fuelNormLPerKm, label: '(4) DINH_MUC — Định mức dầu (lít/km)', hint: '0,4 lít/km = 40 lít/100 km; trên 10 lít/km sẽ hỏi lại' },
             { ...all.fuelPriceExclVat, label: '(5) DG_DAU — ĐG dầu chưa VAT (đ/lít)', hint: 'đầu vào của công thức' },
             { key: 'estimatePrice', label: '(6) Đơn giá dự kiến ký hợp đồng (tự tính theo công thức)', readonly: true, money: true, hint: 'tự tính khi nhập (1)–(5), đã làm tròn — không nhập tay' },
             { ...all.basePriceExclVat, label: 'Đơn giá tham khảo (chưa VAT) — nhập tay', hint: 'chỉ để so sánh với (1) DG_CUOC, không dùng để tính' },
@@ -56,7 +56,8 @@
           ];
         const routeUom = (rc) => ((routeOf(rc) || {}).uom === 'M3' ? 'M3' : 'TAN');
         const uomName = (u) => (u === 'M3' ? 'm³' : 'Tấn');
-        const uomField = { key: 'calcBasis', label: 'ĐVT tính giá', type: 'select', options: [['TAN', 'Tấn'], ['M3', 'm³']], hint: 'Mặc định theo tuyến. Chọn khác nếu dòng đơn giá này tính theo đơn vị khác.' };
+        const legacyLine = !!(line && !line.calc_basis); // dòng cũ chưa có ĐVT riêng: giữ trống khi lưu trừ khi người dùng chủ động chọn
+        const uomField = { key: 'calcBasis', label: 'ĐVT tính giá', type: 'select', options: [...(legacyLine ? [['', 'Theo cách cũ (giữ nguyên)']] : []), ['TAN', 'Tấn'], ['M3', 'm³']], hint: 'Mặc định theo tuyến. Chọn khác nếu dòng đơn giá này tính theo đơn vị khác.' };
         const fields = [
           ...(line ? [] : [{ key: 'routeCode', label: 'Tuyến (từ Danh mục tuyến)', type: 'select', options: D.routeOptions(false), required: true }]),
           uomField,
@@ -95,23 +96,26 @@
         };
         drawRouteRef(first);
         const initCp = line ? (line.contract_price || line.contractPrice || '') : '';
-        const f = D.form(fields, line ? { calcBasis: line.calc_basis || (method === 'CO_DINH' ? routeUom(line.route_code) : 'TAN'), distanceKm: km(line.route_code), fixedPrice: line.fixed_price, newPrice: line.new_price, fuelPriceExclVat: line.fuel_price_excl_vat, fuelNormLPerKm: line.fuel_norm_l_per_km, avgLoadTon: line.avg_load_ton, avgVolumeM3: line.avg_volume_m3, contractPrice: initCp, basePriceExclVat: line.base_price_excl_vat, basePriceSource: line.base_price_source, effectiveFrom: line.effective_from, sourceNote: line.source_note } : { calcBasis: routeUom(first), distanceKm: km(first), effectiveFrom: D.today() });
+        const f = D.form(fields, line ? { calcBasis: line.calc_basis || '', distanceKm: km(line.route_code), fixedPrice: line.fixed_price, newPrice: line.new_price, fuelPriceExclVat: line.fuel_price_excl_vat, fuelNormLPerKm: line.fuel_norm_l_per_km, avgLoadTon: line.avg_load_ton, avgVolumeM3: line.avg_volume_m3, contractPrice: initCp, basePriceExclVat: line.base_price_excl_vat, basePriceSource: line.base_price_source, effectiveFrom: line.effective_from, sourceNote: line.source_note } : { calcBasis: routeUom(first), distanceKm: km(first), effectiveFrom: D.today() });
         let uomTouched = !!line; // người dùng đã tự chọn ĐVT (hoặc đang sửa dòng có sẵn) → đổi tuyến không ghi đè
         const curRoute = () => (line ? line.route_code : (f.inputs.routeCode ? f.inputs.routeCode.value : first));
         const setLabel = (k, text, req) => { const sp = f.inputs[k] && f.inputs[k].closest('label').firstChild; if (sp) sp.textContent = text + (req ? ' *' : ''); };
         const setHint = (k, text) => { const hn = f.inputs[k] && f.inputs[k].closest('label').querySelector('.hint'); if (hn) hn.textContent = text; };
+        // ĐVT đang có hiệu lực của dòng: ô chọn; dòng cũ để trống = cách cũ (cố định theo tuyến, theo giá dầu theo tấn)
+        const effUom = () => (f.inputs.calcBasis.value || (method === 'CO_DINH' ? routeUom(curRoute()) : 'TAN'));
         const relabel = () => {
-          const m = f.inputs.calcBasis.value === 'M3'; const ul = m ? 'đ/m³' : 'đ/tấn';
-          setHint('calcBasis', `Mặc định theo tuyến (${uomName(routeUom(curRoute()))}). Chọn khác nếu dòng đơn giá này tính theo đơn vị khác.`);
+          const m = effUom() === 'M3'; const ul = m ? 'đ/m³' : 'đ/tấn';
+          setHint('calcBasis', f.inputs.calcBasis.value === '' ? 'Dòng cũ: giữ nguyên cách tính hiện tại. Chọn Tấn hoặc m³ nếu muốn áp ĐVT riêng cho dòng này.' : `Mặc định theo tuyến (${uomName(routeUom(curRoute()))}). Chọn khác nếu dòng đơn giá này tính theo đơn vị khác.`);
           if (method === 'CO_DINH') {
             setLabel('fixedPrice', `Đơn giá cố định (chưa VAT) [${ul}]`, true);
             fMono.textContent = `ĐG ký HĐ = DG_CO_DINH (${ul} trọn gói, không bù trừ dầu)`; fVar.textContent = `Biến: DG_CO_DINH (đơn giá cố định ${ul} áp dụng cho tuyến).`;
             return;
           }
           setLabel('newPrice', `(1) DG_CUOC — Đơn giá cước dự kiến (chưa VAT) [${ul}]`, true);
-          setLabel('avgLoadTon', `(2) KL_TB — KL trung bình / chuyến (tấn)${m ? ' — không bắt buộc khi tính theo m³' : ''}`, !m);
-          setLabel('avgVolumeM3', m ? '(2) Thể tích TB / chuyến (m³)' : '(2) Thể tích TB / chuyến (m³) — chỉ tuyến tính theo m³', m);
-          setHint('avgVolumeM3', m ? 'tính theo m³ thì nhập số này thay cho KL_TB' : 'tuyến tính theo m³ thì nhập số này thay cho KL_TB');
+          const needVol = f.inputs.calcBasis.value === 'M3' || (f.inputs.calcBasis.value === '' && routeUom(curRoute()) === 'M3'); // dòng cũ trên tuyến m³: Thể tích TB vẫn bắt buộc như trước
+          setLabel('avgLoadTon', `(2) KL_TB — KL trung bình / chuyến (tấn)${f.inputs.calcBasis.value === 'M3' ? ' — không bắt buộc khi tính theo m³' : ''}`, f.inputs.calcBasis.value !== 'M3');
+          setLabel('avgVolumeM3', needVol ? '(2) Thể tích TB / chuyến (m³)' : '(2) Thể tích TB / chuyến (m³) — chỉ tuyến tính theo m³', needVol);
+          setHint('avgVolumeM3', `${m ? 'tính theo m³ thì nhập số này thay cho KL_TB' : 'tuyến tính theo m³ thì nhập số này thay cho KL_TB'}; trên 500 m³ sẽ hỏi lại`);
           fMono.textContent = m ? '(6) ĐG dự kiến = ROUND( ( ((1) × (2)) − ((3) × (4) × (5)) ) / (2), −3 ), (2) = Thể tích TB (m³)' : '(6) ĐG dự kiến = ROUND( ( ((1) × (2)) − ((3) × (4) × (5)) ) / (2), −3 )';
         };
         f.inputs.calcBasis.addEventListener('change', () => { uomTouched = true; relabel(); });
@@ -120,7 +124,7 @@
         const warn = h('div', { class: 'small', role: 'status', 'aria-live': 'polite', style: { marginTop: '8px' } });
         const cmp = h('div', { class: 'slip', role: 'status', 'aria-live': 'polite', style: { padding: '8px 10px', margin: '0 0 10px', border: '1px solid var(--line)', borderRadius: '8px', background: 'var(--card)', display: 'none', gridColumn: '1 / -1' } });
         const resetBtn = h('button', { type: 'button', class: 'btn small', style: { display: 'none', marginTop: '4px' }, onclick: () => { contractTouched = false; syncContract(); resetBtn.style.display = 'none'; } }, 'Dùng lại ĐG dự kiến');
-        const money = (k) => (f.inputs[k] ? D.parseVn(f.inputs[k].value) : '');
+        const money = (k) => (f.inputs[k] ? D.parseVn(f.inputs[k].value, true) : '');
         const syncContract = () => {
           if (method === 'CO_DINH' || !f.inputs.contractPrice) return;
           if (!contractTouched && estimate != null) f.inputs.contractPrice.value = D.vnAuto(estimate);
@@ -142,7 +146,7 @@
           try {
             // ĐG dự kiến luôn tính từ công thức của engine (không gửi ĐG ký HĐ nhập tay, không gửi ĐG tham khảo)
             const { contractPrice, basePriceExclVat, basePriceSource, estimatePrice, ...rest } = v;
-            const x = await D.api('prices.preview', { record: { ...rest, routeCode: rc, priceCode: code.price_code, priceMethod: method } }, { quiet: true });
+            const x = await D.api('prices.preview', { record: { ...rest, routeCode: rc, priceCode: code.price_code, priceMethod: method, ...(legacyLine && rest.calcBasis === '' ? { legacyBasis: true } : {}) } }, { quiet: true });
             warn.className = 'small';
             if (method === 'CO_DINH') {
               warn.replaceChildren(...msgs.map((m) => h('div', { class: 'warn-line' }, '⚠ ' + m)), h('div', { class: 'muted', style: { marginTop: '4px' } }, 'Xem trước: đơn giá cố định = ', h('b', { class: 'money' }, D.vn(x.contractPrice)), ' đ (không tính dầu)'));
@@ -158,8 +162,8 @@
                   h('div', {}, '2. Lượng dầu/chuyến: ', h('b', {}, D.vn(x.fuelPerTrip, 1)), ' lít'),
                   h('div', {}, '3. Tiền dầu/chuyến: ', h('b', {}, D.vn(x.fuelCostPerTrip)), ' đ'),
                   h('div', {}, '4. Tỷ lệ tiền dầu: ', h('b', {}, D.vn(x.fuelCostRatio * 100, 2)), '%'),
-                  h('div', {}, '5. ĐG chưa dầu: ', h('b', {}, D.vn(x.priceNoDiesel, 2)), f.inputs.calcBasis.value === 'M3' ? ' đ/m³' : ' đ/tấn'),
-                  h('div', {}, '6. ĐG dự kiến ký hợp đồng (làm tròn): ', h('b', { class: 'money' }, D.vn(estimate)), f.inputs.calcBasis.value === 'M3' ? ' đ/m³' : ' đ/tấn')
+                  h('div', {}, '5. ĐG chưa dầu: ', h('b', {}, D.vn(x.priceNoDiesel, 2)), effUom() === 'M3' ? ' đ/m³' : ' đ/tấn'),
+                  h('div', {}, '6. ĐG dự kiến ký hợp đồng (làm tròn): ', h('b', { class: 'money' }, D.vn(estimate)), effUom() === 'M3' ? ' đ/m³' : ' đ/tấn')
                 )
               ));
           } catch (e) {
@@ -189,10 +193,13 @@
               const { distanceKm, estimatePrice, ...v } = f.values();
               // ĐG ký HĐ trùng đúng ĐG dự kiến → để trống (engine tự tính theo công thức); khác → lưu số nhập tay
               if (method !== 'CO_DINH' && estimate != null && Number(v.contractPrice) === Number(estimate)) v.contractPrice = '';
-              const m3 = v.calcBasis === 'M3';
-              const need = (x) => (x.key === 'avgLoadTon' ? !m3 : x.key === 'avgVolumeM3' ? (method !== 'CO_DINH' && m3) : x.required);
+              const m3 = v.calcBasis === 'M3'; const needVol = method !== 'CO_DINH' && (m3 || (v.calcBasis === '' && routeUom(curRoute()) === 'M3'));
+              const need = (x) => (x.key === 'avgLoadTon' ? !m3 : x.key === 'avgVolumeM3' ? needVol : x.required);
               const miss = fields.filter((x) => need(x) && x.key !== 'distanceKm' && (v[x.key] === '' || v[x.key] === null)).map((x) => x.label);
               if (miss.length) { D.toast(`Chưa nhập: ${miss.join(', ')}`, 'err'); return false; }
+              // số thập phân vượt ngưỡng hợp lý thường do gõ / dán nhầm dấu chấm-phẩy (vd 0.400 hiểu thành 400): hỏi lại trước khi lưu
+              const odd = method === 'CO_DINH' ? [] : [['fuelNormLPerKm', 10, 'Định mức dầu', 'lít/km'], ['avgLoadTon', 100, 'KL_TB', 'tấn'], ['avgVolumeM3', 500, 'Thể tích TB', 'm³']].filter(([k, max]) => Number(v[k]) > max).map(([k, max, name, u]) => `${name} = ${D.vnExact(v[k])} ${u} (lớn hơn ${max})`);
+              if (odd.length && !(await D.confirm({ title: 'Kiểm tra dấu chấm / phẩy', okLabel: 'Vẫn lưu', message: `${odd.join('\n')}\nKiểm tra dấu chấm/phẩy: dấu phẩy (,) là thập phân, dấu chấm (.) là ngăn cách nghìn — vd định mức 0,4 (không phải 0.400 hay 400). Vẫn lưu số này?` }))) return false;
               if (line) await D.api('prices.updateDraft', { priceId: line.price_id, rowVersion: line.row_version, record: { ...v, priceMethod: method } });
               else await D.api('pricecodes.addLine', { priceCode: code.price_code, record: { ...v, priceMethod: method } });
               D.toast(line ? 'Đã lưu dòng giá nháp' : 'Đã thêm dòng giá (NHÁP) — bấm "Áp dụng" để dùng', 'ok');

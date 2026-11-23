@@ -73,8 +73,10 @@ class ReportService {
     const lines = s.find('BKVC_LINE', (l) => l.period_id === periodId && l.is_current).sort((a, b) => a.seq - b.seq);
     const totals = lines.reduce((t, l) => ({ trips: t.trips + l.trip_count, kg: t.kg + l.kg, amount: t.amount + l.amount, vat: t.vat + l.vat, total: t.total + l.amount_incl_vat }),
       { trips: 0, kg: 0, amount: 0, vat: 0, total: 0 });
-    totals.ton = lines.some((l) => l.uom === 'M3') ? lines.reduce((a, l) => a + l.ton, 0) : totals.kg / 1000; // có dòng m³: cộng số lượng tính cước của từng dòng (như cột Khối lượng của bảng)
-    const uomLabel = lines.length && lines.every((l) => l.uom === 'M3') ? 'm³' : lines.some((l) => l.uom === 'M3') ? 'tấn / m³' : 'tấn';
+    // kỳ MỚI (bản chụp có total_m3) có dòng m³: tổng = Σ số lượng tính cước từng dòng (khớp cột Khối lượng); kỳ cũ giữ đúng như trước (kg / 1000)
+    const m3Snap = s.find('TRANSPORT_CALCULATION', (c) => c.period_id === periodId && c.is_current).some((c) => c.total_m3 !== '' && c.total_m3 !== undefined && c.total_m3 !== null);
+    totals.ton = m3Snap && lines.some((l) => l.uom === 'M3') ? lines.reduce((a, l) => a + l.ton, 0) : totals.kg / 1000;
+    const uomLabel = !m3Snap ? 'tấn' : lines.length && lines.every((l) => l.uom === 'M3') ? 'm³' : lines.some((l) => l.uom === 'M3') ? 'tấn / m³' : 'tấn';
     const vatPct = lines.length ? Math.round(lines[0].vat_rate * 1000) / 10 : cfg.vatRate * 100;
     return {
       header: {
@@ -239,7 +241,7 @@ class ReportService {
     return { title: 'BẢNG TÍNH ĐƠN GIÁ VẬN CHUYỂN DĂM GỖ', periodText, periodCode: p.period_code, status: p.status, calcVersion: p.calc_version,
       calculatedAt: p.calculated_at || '', contractNo: contract.contract_no || contract.contract_code, contractCode: contract.contract_code,
       carrier: { ...signers.carrier, address: noCountry(signers.carrier.address) }, customer: { ...signers.customer, address: noCountry(signers.customer.address) }, signers, placeDate, routes,
-      bkvc: { ton: bk.totals.ton, uomLabel: bk.lines.length && bk.lines.every((l) => l.uom === 'M3') ? 'm³' : bk.lines.some((l) => l.uom === 'M3') ? 'tấn / m³' : 'tấn', amount: bk.totals.amount, vat: bk.totals.vat, total: bk.totals.total, vatPct: bk.header.vatPct, words: bk.amountInWords },
+      bkvc: { ton: bk.totals.ton, uomLabel: bk.uomLabel, amount: bk.totals.amount, vat: bk.totals.vat, total: bk.totals.total, vatPct: bk.header.vatPct, words: bk.amountInWords },
       notes: (() => {
         const fixedRoutes = new Set(calcs.filter((c) => c.price_method === 'CO_DINH').map((c) => c.route_code));
         const fx = excluded.filter((r) => fixedRoutes.has(r.route_code)); const other = excluded.filter((r) => !fixedRoutes.has(r.route_code));
