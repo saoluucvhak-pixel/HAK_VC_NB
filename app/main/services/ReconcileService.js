@@ -18,6 +18,7 @@ const fs = require('node:fs');
 const { AppError } = require('../../shared/errors');
 const { buildCoverage, ticketUsage, excludedTickets, CLOSED } = require('./periodCoverage');
 const { normTickets, normFuels, extractFromObj, fuelDate } = require('../import/partnerNorm');
+const { rentLine } = require('./rentMath');
 
 const CORE = [['weigh1_time', 'Giờ cân 1'], ['weigh2_date', 'Ngày cân 2'], ['weigh2_time', 'Giờ cân 2'], ['weight1_kg', 'Cân lần 1'], ['weight2_kg', 'Cân lần 2'], ['net_kg', 'KL hàng'], ['route_code', 'Mã tuyến']];
 const STATUS_TEXT = { NHAP: 'nháp', DA_XAC_NHAN: 'đã xác nhận', DA_KHOA: 'đã khóa' };
@@ -312,19 +313,22 @@ class ReconcileService {
       x.rentUnitPrice = rentPrice;
       x.fuelUnitPrice = fuelPrice;
 
-      x.mineRentAmount = Math.round((x.mineKg / 1000) * rentPrice);
-      x.theirRentAmount = Math.round((x.theirKg / 1000) * rentPrice);
+      // công thức tiền thuê / dầu / thực trả: DÙNG CHUNG với Báo cáo thuê vận chuyển (rentMath.js)
+      const mineL = rentLine({ kg: x.mineKg, liter: x.mineFuelLiter, rentPrice, fuelPrice, deductFuel: resolvedDeductFuel });
+      const theirL = rentLine({ kg: x.theirKg, liter: x.theirFuelLiter, rentPrice, fuelPrice, deductFuel: resolvedDeductFuel });
+      x.mineRentAmount = mineL.rentAmount;
+      x.theirRentAmount = theirL.rentAmount;
       x.diffRentAmount = x.theirRentAmount - x.mineRentAmount;
 
-      x.mineFuelAmount = Math.round(x.mineFuelLiter * fuelPrice);
-      x.theirFuelAmount = Math.round(x.theirFuelLiter * fuelPrice);
+      x.mineFuelAmount = mineL.fuelAmount;
+      x.theirFuelAmount = theirL.fuelAmount;
       x.diffFuelAmount = x.theirFuelAmount - x.mineFuelAmount;
 
-      x.mineDeductFuel = resolvedDeductFuel ? x.mineFuelAmount : 0;
-      x.theirDeductFuel = resolvedDeductFuel ? x.theirFuelAmount : 0;
+      x.mineDeductFuel = mineL.deductFuelAmount;
+      x.theirDeductFuel = theirL.deductFuelAmount;
 
-      x.minePayable = x.mineRentAmount - x.mineDeductFuel;
-      x.theirPayable = x.theirRentAmount - x.theirDeductFuel;
+      x.minePayable = mineL.payable;
+      x.theirPayable = theirL.payable;
       x.diffPayable = x.theirPayable - x.minePayable;
 
       // Đánh giá trạng thái đối chiếu 3 tiêu chuẩn

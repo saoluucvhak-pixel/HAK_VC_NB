@@ -5928,6 +5928,189 @@
    "lock": false
   },
   {
+   "action": "subcontract.report",
+   "group": "Nhập liệu",
+   "desc": "Báo cáo thuê vận chuyển: tổng hợp số liệu nhận về của các đợt đã nạp (số chuyến, tấn, dầu, tiền thuê = tấn × đơn giá thuê tính theo từng xe, dầu trừ, thực trả). Khớp từng đồng với phần \"bên kia\" của Đối chiếu 3 tiêu chí trên cùng đợt; không tạo kỳ tính giá",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "partnerName",
+     "string",
+     false,
+     "đơn vị vận chuyển (đúng tên)"
+    ],
+    [
+     "q",
+     "string",
+     false,
+     "tìm không dấu theo đơn vị / tên đợt / mã kỳ"
+    ],
+    [
+     "dateFrom",
+     "date",
+     false,
+     "lấy đợt có khoảng ngày dữ liệu giao với [dateFrom, dateTo]"
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "month",
+     "string",
+     false,
+     "yyyy-MM — chọn nhanh một tháng (thay cho dateFrom/dateTo nếu chưa gửi)"
+    ],
+    [
+     "contractId",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "periodId",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{filter, partners:[string], totalBatches, rows:[batchId, batchName, partnerName, periodCode, dateFrom, dateTo, ticketCount, plateCount, totalKg, totalTon, fuelLiter, fuelLiterUnmatched, rentUnitPrice, fuelUnitPrice, deductFuel, rentAmount, fuelAmount, deductFuelAmount, payable, importedAt, rowVersion], byPartner:[{partnerName, batchCount, ticketCount, totalKg, totalTon, fuelLiter, rentAmount, fuelAmount, deductFuelAmount, payable}], totals:{batchCount, ticketCount, plateCount, totalKg, totalTon, fuelLiter, rentAmount, fuelAmount, deductFuelAmount, payable}}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "subcontract.reportDetail",
+   "group": "Nhập liệu",
+   "desc": "Chi tiết một đợt của báo cáo thuê vận chuyển theo xe và theo ngày (cộng lại đúng bằng dòng của subcontract.report); fuelOnly = dầu của xe không có chuyến nào (không tính tiền, chỉ để thấy)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "batchId",
+     "string",
+     true,
+     "Mã đợt"
+    ]
+   ],
+   "output": "{batch:{batchId, batchName, partnerName, periodCode, dateFrom, dateTo, ticketCount, plateCount, totalKg, totalTon, fuelLiter, fuelLiterUnmatched, rentUnitPrice, fuelUnitPrice, deductFuel, rentAmount, fuelAmount, deductFuelAmount, payable, importedAt, rowVersion}, byPlate:[{plateNo, ticketCount, kg, ton, fuelCount, fuelLiter, rentAmount, fuelAmount, deductFuelAmount, payable}], byDate:[{date, ticketCount, kg, ton, fuelLiter}], fuelOnly:[{plateNo, fuelCount, fuelLiter}], totals}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "subcontract.updateTerms",
+   "group": "Nhập liệu",
+   "desc": "Sửa đơn giá thuê (đ/tấn), giá dầu (đ/lít), trừ dầu của một đợt đã nạp (trước đây chỉ nhập lúc nạp). Bắt buộc lý do; ghi nhật ký trước khi lưu; không đổi dữ liệu phiếu / dầu của đợt",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "batchId",
+     "string",
+     true,
+     "Mã đợt"
+    ],
+    [
+     "rentUnitPrice",
+     "number|string",
+     false,
+     "đ/tấn, 0 … 1.000.000.000; chuỗi kiểu Việt \"150.000\" được hiểu 150000; không gửi = giữ nguyên"
+    ],
+    [
+     "fuelUnitPrice",
+     "number|string",
+     false,
+     "đ/lít, như trên"
+    ],
+    [
+     "deductFuel",
+     "boolean",
+     false,
+     "trừ tiền dầu vào cước"
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     "lý do sửa"
+    ],
+    [
+     "rowVersion",
+     "integer",
+     false,
+     "tùy chọn: nếu gửi thì kiểm; sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{batchId, batchName, partnerName, periodCode, dateFrom, dateTo, ticketCount, plateCount, totalKg, totalTon, fuelLiter, fuelLiterUnmatched, rentUnitPrice, fuelUnitPrice, deductFuel, rentAmount, fuelAmount, deductFuelAmount, payable, importedAt, rowVersion}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND",
+    "CONFLICT_VERSION"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "UPDATE_SUBCONTRACT_TERMS",
+   "lock": false
+  },
+  {
+   "action": "subcontract.reportExport",
+   "group": "Nhập liệu",
+   "desc": "Xuất Excel báo cáo thuê vận chuyển (3 sheet: Tổng hợp theo đợt · Theo đơn vị · Chi tiết theo xe; tiêu đề tiếng Việt, số tiền định dạng)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "params",
+     "object",
+     false,
+     "như subcontract.report"
+    ],
+    [
+     "targetPath",
+     "string",
+     false,
+     "từ dialog.saveFile"
+    ]
+   ],
+   "output": "{path, sizeBytes, rows}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "STORAGE_ERROR"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "EXPORT",
+   "lock": false
+  },
+  {
    "action": "vehicles.previewImport",
    "group": "Danh mục",
    "desc": "Xem trước danh sách xe nạp từ file Excel (tự động nhận diện Trọng tải, Thể tích m³, Chủ xe, Mã xe dầu)",

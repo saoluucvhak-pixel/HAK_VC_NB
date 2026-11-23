@@ -1764,3 +1764,16 @@ Không thêm action mới; đổi tham số / kết quả của các action có 
 - `subcontract.preview`: kết quả thêm `fileSha256`, `contentSig`, `unreadable[]`, `duplicates[{batchId,batchName,createdAt,reason: SAME_FILE|SAME_TICKETS}]`.
 - `subcontract.importBatch`: tham số `clientRequestId` (cùng mã → cùng một đợt), `confirmDuplicate`; trùng SHA-256 file hoặc trùng toàn bộ khóa phiếu với đợt đã có → lỗi `BUSINESS_RULE` `E_BATCH_DUPLICATE` (`details.duplicates`) cho tới khi người dùng xác nhận. File đợt ghi kiểu tạm rồi đổi tên; không ghi được nhật ký thì hoàn tác đợt. `subcontract.delete` ghi nhật ký TRƯỚC khi xóa (lỗi nhật ký không còn bị nuốt).
 - Giao diện: một cổng "Trao đổi dữ liệu" (Nhập gói .dgvc / .json · Xuất gói · Lịch sử gói) và "Đối chiếu dữ liệu" (Kiểm tra nội bộ · Đối chiếu 3 tiêu chí · Các đợt đã nạp). Id màn cũ `subcontract` / `export_partner` là bí danh qua `D.go`.
+
+## Bổ sung — Báo cáo thuê vận chuyển (phương án b: chỉ tổng hợp số liệu nhận về)
+Khi công ty thuê đơn vị khác chở hàng của mình và không tự làm dịch vụ, phần mềm chỉ tổng hợp số liệu nhận về của các đợt đã nạp — không tạo kỳ tính giá, không đụng engine. Công thức tiền thuê dùng CHUNG với Đối chiếu 3 tiêu chí (`main/services/rentMath.js`): tiền thuê = làm tròn(kg ÷ 1000 × đơn giá thuê) tính THEO TỪNG XE rồi cộng; tiền dầu = làm tròn(lít × giá dầu); dầu trừ = tiền dầu nếu đợt có "trừ dầu"; thực trả = tiền thuê − dầu trừ. Kết quả khớp từng đồng với `reconcile.compare({batchId}).totals.their*`.
+
+| Action | Mô tả | Vai trò |
+|---|---|---|
+| `subcontract.report` | `{partnerName?, q?, dateFrom?, dateTo?, month?, contractId?, periodId?}` → `{rows[], byPartner[], totals, partners[], totalBatches}`; lọc khoảng ngày theo khoảng ngày dữ liệu của đợt (giao nhau); `month: 'yyyy-MM'` là cách chọn nhanh một tháng | A/K/X |
+| `subcontract.reportDetail` | `{batchId}` → `{batch, byPlate[], byDate[], fuelOnly[], totals}`; cộng lại đúng bằng dòng của `report` | A/K/X |
+| `subcontract.updateTerms` | `{batchId, rentUnitPrice?, fuelUnitPrice?, deductFuel?, reason, rowVersion?}` → dòng báo cáo mới của đợt; lý do bắt buộc; đơn giá 0 … 1.000.000.000 (chuỗi kiểu Việt `"150.000"` = 150000); ghi AUDIT_LOG `UPDATE_SUBCONTRACT_TERMS` (trước/sau + lý do) TRƯỚC khi lưu; đợt có `rowVersion` tăng dần (`CONFLICT_VERSION` nếu gửi sai) | A/K |
+| `subcontract.reportExport` | `{params?, targetPath?}` → Excel 3 sheet (Tổng hợp theo đợt · Theo đơn vị · Chi tiết theo xe); ghi AUDIT_LOG `EXPORT` | A/K/X |
+
+- Quy tắc giữ nguyên Đối chiếu: đợt gắn kỳ thì chỉ tính phiếu / dầu trong khoảng ngày của kỳ đó; phiếu trùng khóa (số phiếu|ngày cân 1|biển số) tính một lần; dầu chỉ tính cho xe có chuyến (`fuelLiterUnmatched` / `fuelOnly` cho biết phần dầu của xe không có chuyến).
+- Giao diện: màn "Báo cáo thuê vận chuyển" (nhóm Đối tác) = khung hướng dẫn 3 bước + bộ lọc thông minh + bảng báo cáo (dòng tổng, tổng theo đơn vị) + chi tiết theo xe khi bấm dòng (nút Đối chiếu, Sửa đơn giá thuê / giá dầu, Xuất Excel).

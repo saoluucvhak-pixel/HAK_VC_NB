@@ -186,6 +186,15 @@ const ROUTES = {
   'subcontract.list': [null, (ctx, p) => ctx.svc.subcontract.list(p)],
   'subcontract.get': [null, (ctx, p) => ctx.svc.subcontract.getBatch(p)],
   'subcontract.delete': [AK, (ctx, p, s) => ctx.svc.subcontract.deleteBatch({ ...p, user: s.user })],
+  'subcontract.report': [null, (ctx, p) => ctx.svc.subcontract.report(p)],
+  'subcontract.reportDetail': [null, (ctx, p) => ctx.svc.subcontract.reportDetail(p)],
+  'subcontract.updateTerms': [AK, (ctx, p, s) => ctx.svc.subcontract.updateTerms({ ...p, user: s.user })],
+  'subcontract.reportExport': [null, async (ctx, p, s) => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    const r = await ctx.svc.subcontract.exportReport({ params: p.params || {}, targetPath: p.targetPath || path.join(ctx.store.root, 'exports', `BaoCaoThueVanChuyen_${stamp}.xlsx`) });
+    await ctx.store.transaction((tx) => tx.audit('EXPORT', 'REPORT', 'RENT_REPORT', null, { format: 'XLSX', file: path.basename(r.path), params: p.params || {} }), { user: s.user.username });
+    return r;
+  }],
   // trao đổi
   'exchange.exportPackage': [null, (ctx, p, s) => ctx.svc.exchange.exportPackage({ ...p, user: s.user })],
   'exchange.previewPackage': [null, (ctx, p, s) => ctx.svc.exchange.previewPackage({ ...p, user: s.user })],
