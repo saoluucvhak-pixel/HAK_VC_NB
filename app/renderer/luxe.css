@@ -36,4 +36,36 @@ color-scheme:light}
 --sb:linear-gradient(180deg,#090e19 0%,#060a12 100%);
 --okBg:rgba(212,176,106,.14);--okFg:#e3c88f;--focus:rgba(212,176,106,.32);--edit:#d4b06a;--editBg:#251f12;
 --hero:radial-gradient(1200px 300px at 90% -20%,rgba(212,176,106,.14),transparent 60%),linear-gradient(120deg,#090e19,#1a2b49);
---c1:rgba(212,176,106,.16);--c1f:#e3c88f;--deep:#090e19}
+--c1:rgba(212,176,106,.16);--c1f:#e3c88f;--deep:#090e19;
+--warnBg:#2a2213;--warnBd:#5a4520;--warnFg:#f0cf8f;--warn:#f0b35a;--infoBg:#18243a;--infoBd:#2c3d5c;--infoFg:#c3d3f0}
+
+/* Bảng màu "Trung tính" và "Vàng champagne" (HAK Enterprise V10.4, chép từ LuongHAK_Offline/style.css).
+   Chỉ ghi đè biến màu; các biến còn lại (cảnh báo, đỏ, thông tin…) kế thừa từ :root / [data-theme="dark"].
+   okBg/okFg/c1 được gắn lại theo màu thương hiệu của từng bảng để thẻ "ok" không còn lệch sang xanh ngọc. */
+[data-skin="neutral"]{--brand:#345777;--brand2:#52718d;--brandH:#294660;--brandA:#1d3449;--brandSoft:rgba(52,87,119,.10);--onBrand:#fff;
+--bg:#f3f5f7;--card:#fff;--ink:#202b36;--mut:#647282;--line:#dce2e8;--line2:#edf0f3;--ctl:#cbd4dd;--th:#eef2f5;--hover:#f0f4f7;--field:#fff;
+--sb:linear-gradient(180deg,#233344,#192633);--sbText:#d5dce5;--sbMut:#a1afbd;--focus:rgba(52,87,119,.23);
+--shadow:0 1px 3px rgba(20,32,44,.06);--shadowH:0 9px 22px rgba(20,32,44,.13);--r:10px;
+--hero:linear-gradient(120deg,#233344,#345777);--deep:#233344;--pri:var(--brand);--pri2:var(--brandH);
+--okBg:#e4ebf2;--okFg:#294660;--c1:#e4ebf2;--c1f:#294660;--mut-aa:#5c6a79}
+[data-skin="neutral"][data-theme="dark"]{--brand:#83a9cc;--brand2:#a3c3de;--brandH:#a3c3de;--brandA:#c5d9eb;--brandSoft:rgba(131,169,204,.17);--onBrand:#101e2b;
+--bg:#151b23;--card:#202a35;--ink:#edf1f6;--mut:#a4b2c1;--line:#354251;--line2:#2b3643;--ctl:#465566;--th:#283441;--hover:#2b3948;--field:#1a2430;
+--sb:linear-gradient(180deg,#111923,#0d141c);--sbText:#dce5ef;--focus:rgba(131,169,204,.30);--deep:#111923;
+--okBg:rgba(131,169,204,.18);--okFg:#b5cfe6;--c1:rgba(131,169,204,.18);--c1f:#b5cfe6;--mut-aa:var(--mut)}
+[data-skin="champagne"]{--brand:#977022;--brand2:#b58c38;--brandH:#7b5817;--brandA:#5e4312;--brandSoft:rgba(151,112,34,.12);--onBrand:#fff;
+--bg:#f8f5ee;--card:#fffefa;--ink:#2c291f;--mut:#746d5e;--line:#e7dfd0;--line2:#f0ebe2;--ctl:#d5c9b5;--th:#f4eee1;--hover:#f8f1e2;--field:#fffefa;
+--sb:linear-gradient(180deg,#3b3326,#24221d);--sbText:#e9e0d0;--sbMut:#b8a992;--focus:rgba(151,112,34,.25);--r:11px;
+--hero:linear-gradient(120deg,#3b3326,#977022);--deep:#3b3326;--pri:var(--brand);--pri2:var(--brandH);
+--okBg:#f3ead6;--okFg:#6b4a10;--c1:#f3ead6;--c1f:#6b4a10;--mut-aa:#6b6455}
+[data-skin="champagne"][data-theme="dark"]{--brand:#e0bc71;--brand2:#efd39a;--brandH:#efd39a;--brandA:#f7e4b8;--brandSoft:rgba(224,188,113,.16);--onBrand:#271e0c;
+--bg:#181713;--card:#24221d;--ink:#f2eee5;--mut:#b8ae9d;--line:#3c382e;--line2:#312e27;--ctl:#514a3d;--th:#302d26;--hover:#373329;--field:#201f1a;
+--sb:linear-gradient(180deg,#171612,#11100e);--sbText:#e9e0d0;--focus:rgba(224,188,113,.30);--deep:#171612;
+--okBg:rgba(224,188,113,.16);--okFg:#efd39a;--c1:rgba(224,188,113,.16);--c1f:#efd39a;--mut-aa:var(--mut)}
+
+/* Ô chọn bảng màu ở chân thanh bên */
+.skin-pick{display:block;margin-top:10px}
+.skin-pick>span{display:block;font-size:.72rem;letter-spacing:.04em;color:var(--sbMut,var(--sb-text));margin-bottom:4px}
+.skin-select{display:block;width:100%;min-width:0;cursor:pointer;font:inherit;font-size:.85rem;color:var(--sbText,var(--sb-text));background:rgba(255,255,255,.07);border:1px solid var(--sbLine,rgba(255,255,255,.14));border-radius:8px;padding:8px 10px;text-overflow:clip}
+.skin-select:hover{background:rgba(255,255,255,.12)}
+.skin-select:focus-visible{outline:2px solid var(--champ,var(--brand2));outline-offset:2px}
+.skin-select option{color:#182638;background:#fff}

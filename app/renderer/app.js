@@ -104,9 +104,9 @@
     ACTIVE: ['Đang dùng', 'ok'], CLOSED: ['Đã đóng', 'mute'], OPEN: ['Chờ sửa', 'warn'], DONE: ['Đã xong', 'ok'], CONFIRMED: ['Đã xác nhận', 'ok'], LOCKED: ['Đã khóa', 'ok'],
     CARRIER: ['Bên vận chuyển', 'ok'], info: ['', 'info'], warn: ['', 'warn'], ok: ['', 'ok'], err: ['', 'err'], CUSTOMER: ['Bên thuê', 'info'], OTHER: ['Khác', 'mute'], IMPORTED: ['Nhận từ gói', 'info'], LOCAL: ['Tại bản cài', 'mute'] };
   D.tag = (code, text) => { const s = STATUS[code] || [code, 'mute']; return h('span', { class: `tag ${s[1]}` }, text || s[0]); };
-  // ───────── giao diện sáng / tối & bảng màu (HAK Enterprise Design System: Luxe / Classic) ─────────
+  // ───────── giao diện sáng / tối & bảng màu (HAK Enterprise Design System: Luxury / Xanh ngọc / Trung tính / Vàng champagne) ─────────
   const THEMES = [['auto', 'Tự động'], ['light', 'Sáng'], ['dark', 'Tối']];
-  const SKINS = [['luxe', 'Luxe'], ['classic', 'Classic']];
+  const SKINS = [['luxe', 'Luxury · HAK Enterprise'], ['classic', 'Xanh ngọc'], ['neutral', 'Trung tính'], ['champagne', 'Vàng champagne']];
   const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   D.themePref = () => { try { const v = localStorage.getItem('dgvc.theme'); return THEMES.some(([k]) => k === v) ? v : 'auto'; } catch { return 'auto'; } };
   D.skinPref = () => { try { const v = localStorage.getItem('dgvc.skin'); return SKINS.some(([k]) => k === v) ? v : 'luxe'; } catch { return 'luxe'; } };
@@ -116,6 +116,7 @@
     document.documentElement.dataset.skin = D.skinPref();
   };
   D.cycleTheme = () => { const i = THEMES.findIndex(([k]) => k === D.themePref()); try { localStorage.setItem('dgvc.theme', THEMES[(i + 1) % THEMES.length][0]); } catch { /* không lưu được */ } D.applyTheme(); };
+  D.setSkin = (k) => { if (!SKINS.some(([x]) => x === k)) return; try { localStorage.setItem('dgvc.skin', k); } catch { /* không lưu được */ } D.applyTheme(); };
   D.cycleSkin = () => { const i = SKINS.findIndex(([k]) => k === D.skinPref()); try { localStorage.setItem('dgvc.skin', SKINS[(i + 1) % SKINS.length][0]); } catch { /* không lưu được */ } D.applyTheme(); };
   if (mq && mq.addEventListener) mq.addEventListener('change', D.applyTheme);
   D.applyTheme();
@@ -368,8 +369,9 @@
       h('div', { class: 'me' }, h('div', {}, b.user.fullName || b.user.username), h('div', {}, `${b.user.role} · dữ liệu: `, h('span', { class: 'mono' }, b.install.dataFolder)),
         h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' } },
           h('button', { class: 'theme-btn', 'aria-label': 'Đổi giao diện sáng/tối', onclick: (e) => { D.cycleTheme(); e.currentTarget.textContent = `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`; } }, `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`),
-          h('button', { class: 'skin-btn', 'aria-label': 'Đổi bảng màu Luxe/Classic', onclick: (e) => { D.cycleSkin(); e.currentTarget.textContent = `Màu: ${SKINS.find(([k]) => k === D.skinPref())[1]}`; } }, `Màu: ${SKINS.find(([k]) => k === D.skinPref())[1]}`),
-          h('button', { onclick: async () => { await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); state.token = ''; state.boot = null; D.go('login'); } }, 'Đăng xuất'))));
+          h('button', { onclick: async () => { await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); state.token = ''; state.boot = null; D.go('login'); } }, 'Đăng xuất')),
+        h('label', { class: 'skin-pick' }, h('span', {}, 'Bảng màu'),
+          h('select', { class: 'skin-select', 'aria-label': 'Bảng màu giao diện', onchange: (e) => { D.setSkin(e.currentTarget.value); } }, SKINS.map(([k, n]) => h('option', { value: k, selected: k === D.skinPref() }, n))))));
     root.innerHTML = ''; root.append(h('div', { class: 'app' }, side, main));
     const v = D.views[view];
     try {

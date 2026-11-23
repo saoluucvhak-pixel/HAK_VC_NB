@@ -133,7 +133,7 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 /* nhãn */
 .tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .76rem; font-weight: 600; white-space: nowrap; }
 .tag.ok { background: rgba(27, 175, 122, .14); color: var(--ok-fg); } .tag.warn { background: rgba(237, 161, 0, .16); color: var(--warn-fg); }
-.tag.err { background: rgba(229, 72, 77, .13); color: var(--err-fg); } .tag.info { background: var(--brand-soft); color: var(--brand-text); } .tag.mute { background: var(--mute-bg); color: var(--text-mute); }
+.tag.err { background: rgba(229, 72, 77, .13); color: var(--err-fg); } :root[data-theme="light"] .tag.err { color: #a63508; } .tag.info { background: var(--brand-soft); color: var(--brand-dark); } .tag.mute { background: var(--mute-bg); color: var(--text-mute); }
 .issues { list-style: none; margin: 0; padding: 0; } .issues li { padding: 7px 0; border-bottom: 1px dashed var(--line); display: flex; gap: 8px; align-items: baseline; }
 
 /* modal / drawer / toast */
@@ -146,7 +146,7 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 /* thông báo KHÔNG chặn thao tác: bấm xuyên qua được (trước đây chồng lên nút Lưu của hộp thoại, phải chờ hết 9 giây); khi đang mở hộp thoại thì hiện ở trên cùng */
 .toasts { pointer-events: none; } body:has(.overlay) .toasts { top: 14px; bottom: auto; flex-direction: column-reverse; justify-content: flex-end; }
 .toast { background: #0f2740; color: #fff; padding: 11px 15px; border-radius: 12px; box-shadow: 0 10px 30px rgba(16, 35, 58, .25); max-width: 460px; border-left: 4px solid var(--brand-2); overflow-wrap: anywhere; }
-.toast.err { background: var(--surface); color: var(--red-text); border: 1px solid var(--danger-line); border-left: 4px solid var(--red); } .toast.ok { background: var(--brand-dark); border-left-color: #7be0e6; } .toast.info { background: #0f2740; }
+.toast.err { background: var(--surface); color: var(--red-text); border: 1px solid var(--danger-line); border-left: 4px solid var(--red); } .toast.ok { background: var(--brand-dark); color: var(--onBrand, #fff); border-left-color: #7be0e6; } .toast.info { background: #0f2740; }
 
 /* đăng nhập / khởi tạo */
 .gate { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
@@ -204,7 +204,7 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
   --bad-bg: #2a1a1d;
   --overlay: rgba(0, 0, 0, .7);
 }
-.theme-btn, .skin-btn { flex: 1 1 auto; text-align: center; font-size: .78rem; }
+.theme-btn { flex: 1 1 auto; text-align: center; font-size: .78rem; }
 
 .guide-step { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px; } .guide-step .grow { flex: 1; min-width: 0; } .guide-step h2 { margin-bottom: 4px; } .guide-step p { margin: 0; }
 .guide-n { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--brand-soft); color: var(--brand-text); }
