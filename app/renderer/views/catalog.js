@@ -27,6 +27,9 @@
       let sfState = D.sf ? D.sf.empty() : { q: '', one: {} };
       let sfInfo = { kept: 0, total: 0 };
       let sfMount = null;
+      let selCode = ''; // tuyến đang chọn để xem đơn giá (chỉ xem)
+      const side = h('div', { class: 'rt-side' });
+      const layout = h('div', { class: 'rt-layout', 'data-sel': '0' }, h('div', { class: 'rt-main' }, out), side);
 
       const sfCfg = {
         screenId: 'routes',
@@ -50,10 +53,40 @@
       const draw = () => {
         const res = D.sf ? D.sf.filterRows(allItems, sfCfg, sfState) : { rows: allItems, kept: allItems.length, total: allItems.length };
         sfInfo = { kept: res.kept, total: res.total, unsupported: res.unsupported };
-        out.replaceChildren(D.table({ rows: res.rows, onRow: D.writer() ? edit : null, empty: 'Không có tuyến vận chuyển phù hợp bộ lọc', columns: [{ key: 'catalogDate', label: 'Ngày cập nhật', fmt: 'date' }, { key: 'route_code', label: 'Mã tuyến' }, { key: 'route_name', label: 'Tuyến', wrap: true }, { key: 'distance_km', label: 'Cự ly', fmt: 'auto' },
+        out.replaceChildren(D.table({ rows: res.rows, onRow: selectRoute, empty: 'Không có tuyến vận chuyển phù hợp bộ lọc', columns: [{ key: 'catalogDate', label: 'Ngày cập nhật', fmt: 'date' }, { key: 'route_code', label: 'Mã tuyến' }, { key: 'route_name', label: 'Tuyến', wrap: true }, { key: 'distance_km', label: 'Cự ly', fmt: 'auto' },
           { key: 'trip_distance_km', label: 'Cự ly chuyến', fmt: 'auto' }, { key: 'uom', label: 'ĐVT' }, { key: 'from_place', label: 'Điểm đi' }, { key: 'to_place', label: 'Điểm đến' }, { key: 'catalog_unit_code', label: 'Đơn vị' },
           { key: 'p', label: 'ĐG ký HĐ hiện hành', num: true, render: (r) => (r.activePrice ? r.activePrice.price_id : h('span', { class: 'tag warn' }, 'chưa có giá')) }, { key: 'usedInPeriods', label: 'Số kỳ đã dùng', fmt: 'int' },
-          { key: 'is_active', label: 'Trạng thái', render: (r) => (r.is_active ? D.tag('ACTIVE') : D.tag('CLOSED', 'Ngừng dùng')) }] }));
+          { key: 'is_active', label: 'Trạng thái', render: (r) => (r.is_active ? D.tag('ACTIVE') : D.tag('CLOSED', 'Ngừng dùng')) },
+          ...(D.writer() ? [{ key: 'act', label: 'Thao tác', render: (r) => h('button', { class: 'btn small', 'aria-label': `Sửa tuyến ${r.route_code}`, title: 'Sửa tuyến này', onclick: (e) => { e.stopPropagation(); edit(r); } }, 'Sửa') }] : [])] }));
+        markSel();
+      };
+      const markSel = () => { for (const tr of out.querySelectorAll('tbody tr')) { const on = !!selCode && (tr.children[1] || {}).textContent === selCode; tr.classList.toggle('sel', on); if (on) tr.setAttribute('aria-selected', 'true'); else tr.removeAttribute('aria-selected'); } };
+      const selectRoute = (r) => { selCode = r.route_code; layout.dataset.sel = '1'; markSel(); drawSide(r); D.revealSide(side); };
+      const closeSide = () => { selCode = ''; layout.dataset.sel = '0'; side.replaceChildren(); markSel(); };
+      const drawSide = async (r) => {
+        const code = r.route_code; let d;
+        try { d = await D.api('routes.priceLines', { routeCode: code }); } catch { return; }
+        if (selCode !== code) return;
+        const items = d.items || []; const formBox = h('div', { class: 'rt-form', 'aria-live': 'polite' }); let pick = '';
+        const showForm = (p) => {
+          pick = p.priceId; const card = formCard(p); formBox.replaceChildren(card);
+          if (p.formId) D.api('forms.get', { formId: p.formId }, { quiet: true }).then((g) => { const rec = g && g.record; if (!rec || pick !== p.priceId) return;
+            const dv = card.querySelector('[data-k="fdate"] .v'); if (dv) dv.textContent = `${rec.catalogDate ? D.dmy(rec.catalogDate) : '—'} · hiệu lực đến ${rec.effectiveTo ? D.dmy(rec.effectiveTo) : 'nay'}`; }).catch(() => {});
+          for (const tr of priceTbl.querySelectorAll('tbody tr')) tr.classList.toggle('sel', (tr.children[1] || {}).textContent === pick);
+        };
+        const kv = (k, v) => h('div', { class: 'rt-kv' }, h('span', { class: 'k' }, k), h('span', { class: 'v' }, v == null || v === '' ? '—' : v));
+        const formCard = (p) => h('div', { class: 'card rt-formcard' }, h('h3', {}, `Hình thức tính — đơn giá ${p.priceId}`),
+          kv('Hình thức', `${p.methodLabel || p.methodCode || '—'}${p.formName ? ` · ${p.formName}` : ''}`), kv('Công thức', p.formulaText),
+          (() => { const e = kv('Hình thức: ngày cập nhật / hiệu lực', ''); e.dataset.k = 'fdate'; return e; })(), kv('Đơn giá hiệu lực', `${p.effectiveFrom ? D.dmy(p.effectiveFrom) : '—'} → ${p.effectiveTo ? D.dmy(p.effectiveTo) : 'nay'}`),
+          p.methodCode === 'THEO_DAU' ? h('div', { class: 'rt-params' }, kv('Đơn giá cước dự kiến', D.vn(p.newPrice)), kv('Định mức (lít/km)', D.vn(p.fuelNormLPerKm, 1)), kv('Giá dầu (đ/lít)', D.vn(p.fuelPriceExclVat)),
+            kv('KL trung bình (tấn)', D.vnAuto(p.avgLoadTon)), kv('ĐG ký HĐ', D.vn(p.contractPrice))) : kv('Đơn giá cố định', D.vn(p.fixedPrice != null ? p.fixedPrice : p.price)));
+        const priceTbl = D.table({ rows: items, onRow: showForm, empty: 'Tuyến này chưa có đơn giá nào.', columns: [{ key: 'updateDate', label: 'Ngày cập nhật', fmt: 'date' }, { key: 'priceId', label: 'Mã đơn giá' }, { key: 'methodLabel', label: 'Hình thức', wrap: true },
+          { key: 'price', label: 'Đơn giá', fmt: 'money' }, { key: 'eff', label: 'Hiệu lực', render: (p) => `${p.effectiveFrom ? D.dmy(p.effectiveFrom) : '—'} → ${p.effectiveTo ? D.dmy(p.effectiveTo) : 'nay'}` }, { key: 'status', label: 'Trạng thái', render: (p) => D.tag(p.status === 'ACTIVE' ? 'ACTIVE' : 'CLOSED', p.status === 'ACTIVE' ? undefined : 'Hết hiệu lực') }] });
+        side.replaceChildren(h('div', { class: 'card flush rt-pricecard', role: 'region', 'aria-label': `Đơn giá của tuyến ${code}` },
+          h('div', { class: 'card-h row' }, h('h2', { class: 'grow' }, `Đơn giá của tuyến ${code} · ${d.route ? d.route.routeName : r.route_name}`), h('button', { class: 'btn small', 'aria-label': 'Đóng ngăn đơn giá', onclick: closeSide }, 'Đóng')),
+          h('div', { class: 'rt-note small muted' }, 'Chỉ để xem. Thêm / sửa / xóa đơn giá ở Danh mục › Đơn giá. ', h('button', { class: 'btn small', onclick: () => D.go('pricecodes') }, 'Mở Đơn giá')),
+          priceTbl), formBox);
+        const act = items.find((p) => p.status === 'ACTIVE'); if (act) showForm(act);
       };
       const load = async () => {
         const d = await D.api('routes.list', { includeInactive: inactive.checked });
@@ -75,15 +108,15 @@
         h('div', { class: 'card' },
           sfSlot,
           h('label', { class: 'check', for: 'ina', style: { marginTop: '8px' } }, inactive, 'Hiện cả tuyến ngừng dùng'),
-          syncNote()), out);
+          syncNote()), layout);
       await load();
       return page;
     },
   };
 
-  /** Dòng giải thích + liên kết sang màn giá còn lại (DM Đơn giá · Báo cáo giá hợp đồng) — mỗi màn nói rõ vai trò của mình. */
+  /** Dòng giải thích + liên kết sang màn giá còn lại (Đơn giá · Báo cáo giá hợp đồng) — mỗi màn nói rõ vai trò của mình. */
   const PRICE_SCREENS = {
-    pricecodes: ['DM Đơn giá', 'Mã đơn giá chính là phương thức tính giá (Đơn giá cố định / Đơn giá điều chỉnh theo giá dầu); mỗi phương thức có bảng Đơn giá theo tuyến. Hợp đồng chọn phương thức khi lập hợp đồng.'],
+    pricecodes: ['Đơn giá', 'Danh mục đơn giá theo tuyến; mỗi đơn giá có Hình thức giá (Đơn giá cố định / Đơn giá điều chỉnh theo giá dầu) chọn từ Danh mục › Hình thức giá. Hợp đồng chọn đơn giá khi lập hợp đồng.'],
     basis: ['Báo cáo giá hợp đồng', 'Chỉ xem: giá nào đang được áp cho từng hợp đồng / tuyến / ngày.']
   };
   D.priceScreenNote = (current) => h('p', { class: 'small muted', style: { margin: '0 0 8px' } }, (PRICE_SCREENS[current] || [])[1] || '', ' Xem thêm: ',
@@ -368,7 +401,7 @@
             selPrice.replaceChildren(h('option', { value: '' }, list.length ? '-- Chọn đơn giá --' : '-- Chưa có đơn giá đang áp dụng --'),
               ...list.map((x) => h('option', { value: x.priceId, selected: x.priceId === keepId }, `${rc ? '' : `${x.routeCode} · `}${priceTxt(x)} · hiệu lực từ ${x.effectiveFrom}${x.chosenForContract ? ' · tuyến đã có giá riêng' : ''}`)));
             if (!keepId && list.length === 1) selPrice.value = list[0].priceId;
-            hint.textContent = rc && !list.length ? `Tuyến ${rc} chưa có đơn giá đang áp dụng — tạo đơn giá ở màn DM Đơn giá trước.` : (rc ? `${list.length} đơn giá đang áp dụng của tuyến ${rc}.` : 'Chưa chọn tuyến: liệt kê mọi đơn giá chọn được; chọn đơn giá thì tuyến tự điền.');
+            hint.textContent = rc && !list.length ? `Tuyến ${rc} chưa có đơn giá đang áp dụng — tạo đơn giá ở màn Đơn giá (Danh mục › Đơn giá) trước.` : (rc ? `${list.length} đơn giá đang áp dụng của tuyến ${rc}.` : 'Chưa chọn tuyến: liệt kê mọi đơn giá chọn được; chọn đơn giá thì tuyến tự điền.');
           };
           selRoute.addEventListener('change', () => drawPrices(''));
           selPrice.addEventListener('change', () => { const x = all.find((y) => y.priceId === selPrice.value); if (x) { selRoute.value = x.routeCode; drawPrices(x.priceId); } });

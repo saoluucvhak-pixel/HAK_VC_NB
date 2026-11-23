@@ -104,9 +104,9 @@
     ACTIVE: ['Đang dùng', 'ok'], CLOSED: ['Đã đóng', 'mute'], OPEN: ['Chờ sửa', 'warn'], DONE: ['Đã xong', 'ok'], CONFIRMED: ['Đã xác nhận', 'ok'], LOCKED: ['Đã khóa', 'ok'],
     CARRIER: ['Bên vận chuyển', 'ok'], info: ['', 'info'], warn: ['', 'warn'], ok: ['', 'ok'], err: ['', 'err'], CUSTOMER: ['Bên thuê', 'info'], OTHER: ['Khác', 'mute'], IMPORTED: ['Nhận từ gói', 'info'], LOCAL: ['Tại bản cài', 'mute'] };
   D.tag = (code, text) => { const s = STATUS[code] || [code, 'mute']; return h('span', { class: `tag ${s[1]}` }, text || s[0]); };
-  // ───────── giao diện sáng / tối & bảng màu (HAK Enterprise Design System: Luxe / Classic) ─────────
+  // ───────── giao diện sáng / tối & bảng màu (HAK Enterprise Design System: Luxury / Xanh ngọc / Trung tính / Vàng champagne) ─────────
   const THEMES = [['auto', 'Tự động'], ['light', 'Sáng'], ['dark', 'Tối']];
-  const SKINS = [['luxe', 'Luxe'], ['classic', 'Classic']];
+  const SKINS = [['luxe', 'Luxury · HAK Enterprise'], ['classic', 'Xanh ngọc'], ['neutral', 'Trung tính'], ['champagne', 'Vàng champagne']];
   const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   D.themePref = () => { try { const v = localStorage.getItem('dgvc.theme'); return THEMES.some(([k]) => k === v) ? v : 'auto'; } catch { return 'auto'; } };
   D.skinPref = () => { try { const v = localStorage.getItem('dgvc.skin'); return SKINS.some(([k]) => k === v) ? v : 'luxe'; } catch { return 'luxe'; } };
@@ -116,6 +116,7 @@
     document.documentElement.dataset.skin = D.skinPref();
   };
   D.cycleTheme = () => { const i = THEMES.findIndex(([k]) => k === D.themePref()); try { localStorage.setItem('dgvc.theme', THEMES[(i + 1) % THEMES.length][0]); } catch { /* không lưu được */ } D.applyTheme(); };
+  D.setSkin = (k) => { if (!SKINS.some(([x]) => x === k)) return; try { localStorage.setItem('dgvc.skin', k); } catch { /* không lưu được */ } D.applyTheme(); };
   D.cycleSkin = () => { const i = SKINS.findIndex(([k]) => k === D.skinPref()); try { localStorage.setItem('dgvc.skin', SKINS[(i + 1) % SKINS.length][0]); } catch { /* không lưu được */ } D.applyTheme(); };
   if (mq && mq.addEventListener) mq.addEventListener('change', D.applyTheme);
   D.applyTheme();
@@ -181,6 +182,8 @@
     if (/^\d+([.,]\d+)?$/.test(s)) return Number(s.replace(',', '.'));
     return NaN;
   };
+  /** Màn hẹp (< 1280 px): ngăn xem chéo nằm DƯỚI bảng — sau khi chọn dòng thì cuộn tới ngăn để người dùng thấy ngay. */
+  D.revealSide = (el) => { try { if (el && window.innerWidth < 1280 && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* không cuộn được thì bỏ qua */ } };
   /** Ô chọn công ty từ Danh mục công ty & đối tác để điền nhanh vào ô tên (vd tên in trên chứng từ); vẫn sửa tay được. */
   const unitPicker = (inp) => {
     const units = (state.boot && state.boot.units) || [];
@@ -248,7 +251,11 @@
       let rs = rows.slice();
       if (sortKey) rs.sort((a, b) => { const x = a[sortKey]; const y = b[sortKey]; return (x > y ? 1 : x < y ? -1 : 0) * (asc ? 1 : -1); });
       if (!rs.length) body.append(h('tr', {}, h('td', { colspan: columns.length, class: 'empty' }, empty)));
-      for (const r of rs) body.append(h('tr', { class: onRow ? 'click' : '', onclick: onRow ? () => onRow(r) : null }, columns.map((c) => h('td', { class: `${isNum(c) ? 'num' : ''} ${c.wrap ? 'wrap' : ''}` }, cell(c, r)))));
+      for (const r of rs) {
+        const tr = h('tr', { class: onRow ? 'click' : '', onclick: onRow ? () => onRow(r) : null }, columns.map((c) => h('td', { class: `${isNum(c) ? 'num' : ''} ${c.wrap ? 'wrap' : ''}` }, cell(c, r))));
+        if (onRow) { tr.tabIndex = 0; tr.addEventListener('keydown', (e) => { if (e.target !== tr) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRow(r); } }); } // dòng bấm được cũng dùng được bằng bàn phím
+        body.append(tr);
+      }
     };
     const head = h('thead', {}, h('tr', {}, columns.map((c) => h('th', { class: `${isNum(c) ? 'num' : ''} ${c.render ? '' : 'sortable'}`, style: c.width ? { width: c.width } : null,
       onclick: c.render ? null : () => { asc = sortKey === c.key ? !asc : true; sortKey = c.key; draw(); } }, c.label))));
@@ -277,15 +284,15 @@
   // ───────── điều hướng ─────────
   const NAV = [
     ['dashboard', '1', 'Tổng quan'], ['guide', '', 'Hướng dẫn & quy trình'], ['tickets', '2', 'Phiếu cân'], ['routes', '4', 'Danh mục tuyến'], ['contracts', '', 'Hợp đồng vận chuyển'],
-    ['pricecodes', '5', 'DM Đơn giá'], ['basis', '', 'Báo cáo giá hợp đồng'], ['fuel', '3', 'Giao nhận dầu'], ['calc', '6', 'Tính giá vận chuyển'], ['bkvc', '7', 'Bảng xác nhận KL'], ['bkct', '8', 'Chi tiết vận chuyển'], ['validation', '', 'Kiểm tra dữ liệu'],
-    ['reports', '9', 'Báo cáo'], ['exchange', '', 'Trao đổi dữ liệu'], ['reconcile', '', 'Đối chiếu dữ liệu'], ['sync', '', 'Nhắc sửa danh mục'], ['audit', '10', 'Lịch sử thao tác'], ['settings', '11', 'Cài đặt'],
+    ['forms', '', 'Hình thức giá'], ['pricecodes', '5', 'Đơn giá'], ['basis', '', 'Báo cáo giá hợp đồng'], ['fuel', '3', 'Giao nhận dầu'], ['calc', '6', 'Tính giá vận chuyển'], ['bkvc', '7', 'Bảng xác nhận KL'], ['bkct', '8', 'Chi tiết vận chuyển'], ['validation', '', 'Kiểm tra dữ liệu'],
+    ['reports', '9', 'Báo cáo'], ['rentreport', '', 'Báo cáo thuê vận chuyển'], ['exchange', '', 'Trao đổi dữ liệu'], ['reconcile', '', 'Đối chiếu dữ liệu'], ['sync', '', 'Nhắc sửa danh mục'], ['audit', '10', 'Lịch sử thao tác'], ['settings', '11', 'Cài đặt'],
     ['units', '', 'Công ty & đối tác'], ['vehicles', '', 'Xe vận chuyển'],
   ];
   // Menu nhóm: id màn và số phím tắt giữ nguyên. Thứ tự theo luồng làm việc: Danh mục → Nhập liệu (Phiếu cân, Giao nhận dầu) → Tính & chốt → Kết xuất → Đối tác.
   // Nhóm "Đối tác" = MỘT cổng Trao đổi dữ liệu (nhập / xuất / lịch sử gói .dgvc, .json) + Đối chiếu dữ liệu (kiểm tra nội bộ, 3 tiêu chí, các đợt đã nạp) + Nhắc sửa danh mục.
   // Màn cũ 'subcontract' (Nhập dữ liệu thuê VC) và 'export_partner' (Xuất dữ liệu VC gửi đối tác) đã gộp vào hai màn trên — vẫn gọi được qua D.go (bí danh, xem VIEW_ALIAS).
-  const NAV_GROUPS = [['start', 'Bắt đầu', ['dashboard', 'guide']], ['master', 'Danh mục', ['units', 'vehicles', 'routes', 'contracts', 'pricecodes']], ['input', 'Nhập liệu', ['tickets', 'fuel']],
-    ['calc', 'Tính & chốt', ['calc', 'validation', 'bkvc', 'bkct']], ['out', 'Kết xuất', ['reports', 'basis']], ['xchg', 'Đối tác', ['exchange', 'reconcile', 'sync']], ['sys', 'Hệ thống', ['audit', 'settings']]];
+  const NAV_GROUPS = [['start', 'Bắt đầu', ['dashboard', 'guide']], ['master', 'Danh mục', ['units', 'vehicles', 'routes', 'contracts', 'forms', 'pricecodes']], ['input', 'Nhập liệu', ['tickets', 'fuel']],
+    ['calc', 'Tính & chốt', ['calc', 'validation', 'bkvc', 'bkct']], ['out', 'Kết xuất', ['reports', 'basis']], ['xchg', 'Đối tác', ['rentreport', 'exchange', 'reconcile', 'sync']], ['sys', 'Hệ thống', ['audit', 'settings']]];
   /** Bí danh màn cũ → [màn mới, tham số]: D.go('subcontract') / D.go('export_partner') (phím tắt, liên kết, test cũ) vẫn mở đúng chỗ trong màn gộp. */
   const VIEW_ALIAS = {
     subcontract: (p) => ['reconcile', { ...p, tab: p.tab === 'list' ? 'batches' : 'compare' }],
@@ -368,8 +375,9 @@
       h('div', { class: 'me' }, h('div', {}, b.user.fullName || b.user.username), h('div', {}, `${b.user.role} · dữ liệu: `, h('span', { class: 'mono' }, b.install.dataFolder)),
         h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' } },
           h('button', { class: 'theme-btn', 'aria-label': 'Đổi giao diện sáng/tối', onclick: (e) => { D.cycleTheme(); e.currentTarget.textContent = `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`; } }, `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`),
-          h('button', { class: 'skin-btn', 'aria-label': 'Đổi bảng màu Luxe/Classic', onclick: (e) => { D.cycleSkin(); e.currentTarget.textContent = `Màu: ${SKINS.find(([k]) => k === D.skinPref())[1]}`; } }, `Màu: ${SKINS.find(([k]) => k === D.skinPref())[1]}`),
-          h('button', { onclick: async () => { await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); state.token = ''; state.boot = null; D.go('login'); } }, 'Đăng xuất'))));
+          h('button', { onclick: async () => { await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); state.token = ''; state.boot = null; D.go('login'); } }, 'Đăng xuất')),
+        h('label', { class: 'skin-pick' }, h('span', {}, 'Bảng màu'),
+          h('select', { class: 'skin-select', 'aria-label': 'Bảng màu giao diện', onchange: (e) => { D.setSkin(e.currentTarget.value); } }, SKINS.map(([k, n]) => h('option', { value: k, selected: k === D.skinPref() }, n))))));
     root.innerHTML = ''; root.append(h('div', { class: 'app' }, side, main));
     const v = D.views[view];
     try {

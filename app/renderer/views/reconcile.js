@@ -33,6 +33,8 @@
     if (window.dgvc) D.api('system.openPath', { path: r.path }, { quiet: true }).catch(() => {});
   };
 
+  D.partnerTemplate = downloadTemplate; // dùng lại ở màn Báo cáo thuê vận chuyển
+
   // ───────── Tab 1: kiểm tra nội bộ ─────────
   async function auditTab(body) {
     const f = D.form([{ key: 'dateFrom', label: 'Phiếu cân từ ngày', type: 'date' }, { key: 'dateTo', label: 'đến ngày', type: 'date' }], {});

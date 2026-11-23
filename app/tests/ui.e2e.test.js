@@ -143,10 +143,11 @@ test('Giao diện: đi hết luồng chính trên trình duyệt', { skip: !fs.e
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Xuất Excel (có công thức)' }).click();
     await toast(/Đã xuất XLSX/);
-    // ── đơn giá: đơn giá tham khảo ghi rõ nguồn (1.9.0: màn Đơn giá cũ đã gộp vào DM Đơn giá → dòng giá của mã PT-TD)
-    await nav('DM Đơn giá');
-    await page.locator('.pc-tree').getByRole('button', { name: /PT-TD/ }).click();
-    await page.locator('.pc-detail').getByRole('button', { name: 'Thêm đơn giá' }).click();
+    // ── đơn giá: đơn giá tham khảo ghi rõ nguồn (màn Đơn giá: Thêm đơn giá → chọn Hình thức giá theo giá dầu → form dòng giá PT-TD)
+    await page.locator('nav button', { has: page.locator('.nav-txt', { hasText: /^Đơn giá$/ }) }).click(); await page.waitForTimeout(250);
+    await page.getByRole('button', { name: 'Thêm đơn giá' }).click();
+    const pickForm = page.locator('.modal', { hasText: 'chọn Hình thức giá' }); const pickSel = pickForm.getByLabel('Hình thức giá');
+    await pickSel.selectOption({ label: (await pickSel.locator('option').allInnerTexts()).find((t) => /giá dầu/i.test(t)) }); await pickForm.getByRole('button', { name: 'Tiếp tục' }).click();
     const pdlg = page.locator('.modal', { hasText: 'Thêm đơn giá điều chỉnh theo giá dầu — PT-TD' });
     await pdlg.getByText(/ĐG ký HĐ|Đơn giá dự kiến ký hợp đồng/).first().waitFor(); // form dòng giá theo giá dầu có ĐG ký HĐ (ô "Nguồn đơn giá tham khảo" không còn trong form mới)
     await shot('don-gia-tham-khao');

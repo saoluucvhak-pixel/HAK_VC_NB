@@ -54,6 +54,7 @@ const ROUTES = {
   'vehicles.delete': [null, (ctx, p, s) => ctx.svc.master.deleteVehicle({ ...p, user: s.user })],
   'vehicles.resolvePlate': [null, (ctx, p) => ({ results: (p.codes || []).map((c) => { const { plateKey } = require('../import/mapping'); const v = ctx.store.find('XE', (x) => x.plate_key === plateKey(c))[0]; return { input: c, plateNo: v ? v.plate_no : null, ownerUnitCode: v ? v.owner_unit_code : null }; }) })],
   'routes.list': [null, (ctx, p) => ctx.svc.catalog.listRoutes(p)],
+  'routes.priceLines': [null, (ctx, p) => ctx.svc.catalog.routePriceLines(p)],
   'contracts.routeSources': [null, (ctx, p) => ctx.svc.catalog.contractRouteSources(p)],
   'contracts.routePrices': [null, (ctx, p) => ctx.svc.catalog.contractRoutePrices(p)],
   'contracts.priceChoices': [null, (ctx, p) => ctx.svc.catalog.contractPriceChoices(p)],
@@ -64,6 +65,12 @@ const ROUTES = {
   'routes.save': [null, (ctx, p, s) => ctx.svc.catalog.saveRoute({ ...p, user: s.user })],
   'routes.setActive': [null, (ctx, p, s) => ctx.svc.catalog.setRouteActive({ ...p, user: s.user })],
   'prices.list': [null, (ctx, p) => ctx.svc.catalog.listPrices(p)],
+  'prices.catalog': [null, (ctx, p) => ctx.svc.catalog.priceCatalog(p)],
+  // Hình thức giá: đọc cho mọi vai trò; ghi ADMIN/KẾ TOÁN (đặc tả). Công thức chỉ mô tả — không ảnh hưởng cách tính giá
+  'forms.list': [null, async (ctx, p) => { if (!ctx.svc.catalog.formsSeeded()) await ctx.svc.catalog.ensureDefaultForms(); return ctx.svc.catalog.listForms(p); }],
+  'forms.get': [null, async (ctx, p) => { if (!ctx.svc.catalog.formsSeeded()) await ctx.svc.catalog.ensureDefaultForms(); return ctx.svc.catalog.getForm(p); }],
+  'forms.save': [null, (ctx, p, s) => ctx.svc.catalog.saveForm({ ...p, user: s.user })],
+  'forms.remove': [null, (ctx, p, s) => ctx.svc.catalog.removeForm({ ...p, user: s.user })],
   'pricecodes.list': [null, (ctx, p) => ctx.svc.catalog.listPriceCodes({ ...p, ensureDefaults: true })],
   'pricecodes.get': [null, (ctx, p) => ctx.svc.catalog.getPriceCode(p)],
   'pricecodes.save': [null, (ctx, p, s) => ctx.svc.catalog.savePriceCode({ ...p, user: s.user })],
@@ -73,6 +80,7 @@ const ROUTES = {
   'prices.createVersion': [null, (ctx, p, s) => ctx.svc.catalog.createPriceVersion({ ...p, user: s.user })],
   'prices.updateDraft': [null, (ctx, p, s) => ctx.svc.catalog.updatePriceDraft({ ...p, user: s.user })],
   'prices.activate': [null, (ctx, p, s) => ctx.svc.catalog.activatePrice({ ...p, user: s.user })],
+  'prices.remove': [null, (ctx, p, s) => ctx.svc.catalog.removePriceLine({ ...p, user: s.user })],
   'contracts.list': [null, (ctx) => ctx.svc.master.listContracts()],
   'contracts.save': [null, (ctx, p, s) => ctx.svc.master.saveContract({ ...p, user: s.user })],
   'archive.years': [A, (ctx) => ctx.svc.archive.years()],
@@ -178,6 +186,15 @@ const ROUTES = {
   'subcontract.list': [null, (ctx, p) => ctx.svc.subcontract.list(p)],
   'subcontract.get': [null, (ctx, p) => ctx.svc.subcontract.getBatch(p)],
   'subcontract.delete': [AK, (ctx, p, s) => ctx.svc.subcontract.deleteBatch({ ...p, user: s.user })],
+  'subcontract.report': [null, (ctx, p) => ctx.svc.subcontract.report(p)],
+  'subcontract.reportDetail': [null, (ctx, p) => ctx.svc.subcontract.reportDetail(p)],
+  'subcontract.updateTerms': [AK, (ctx, p, s) => ctx.svc.subcontract.updateTerms({ ...p, user: s.user })],
+  'subcontract.reportExport': [null, async (ctx, p, s) => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    const r = await ctx.svc.subcontract.exportReport({ params: p.params || {}, targetPath: p.targetPath || path.join(ctx.store.root, 'exports', `BaoCaoThueVanChuyen_${stamp}.xlsx`) });
+    await ctx.store.transaction((tx) => tx.audit('EXPORT', 'REPORT', 'RENT_REPORT', null, { format: 'XLSX', file: path.basename(r.path), params: p.params || {} }), { user: s.user.username });
+    return r;
+  }],
   // trao đổi
   'exchange.exportPackage': [null, (ctx, p, s) => ctx.svc.exchange.exportPackage({ ...p, user: s.user })],
   'exchange.previewPackage': [null, (ctx, p, s) => ctx.svc.exchange.previewPackage({ ...p, user: s.user })],

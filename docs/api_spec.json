@@ -700,6 +700,37 @@
    "lock": false
   },
   {
+   "action": "routes.priceLines",
+   "group": "Danh mục",
+   "desc": "Đơn giá của một tuyến (chỉ đọc), kèm hình thức giá có hiệu lực tại ngày hiệu lực của từng dòng — dùng cho ngăn xem chéo ở Danh mục tuyến",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "routeCode",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{route:{routeCode, routeName, distanceKm, uom, isActive}, items:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "TUYEN_VC",
+    "PRICE_HISTORY",
+    "HINH_THUC_GIA"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
    "action": "routes.save",
    "group": "Danh mục",
    "desc": "Thêm / sửa tuyến",
@@ -1063,6 +1094,196 @@
    "lock": false
   },
   {
+   "action": "forms.list",
+   "group": "Đơn giá",
+   "desc": "Danh mục Hình thức giá (chỉ liệt kê dòng chưa gỡ): sắp theo mã hình thức rồi ngày cập nhật giảm dần; kèm số đơn giá dùng hình thức (tính theo ngày hiệu lực của đơn giá). Công thức chỉ để hiển thị — KHÔNG ảnh hưởng cách tính giá",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "includeClosed",
+     "boolean",
+     false,
+     "mặc định true — false: chỉ dòng đang hiệu lực"
+    ],
+    [
+     "methodCode",
+     "enum(CO_DINH|THEO_DAU)",
+     false,
+     "lọc theo mã hình thức"
+    ]
+   ],
+   "output": "{items:[{formId, methodCode, methodLabel, formName, formulaText, catalogDate, effectiveTo, status, priceLineCount, activeLineCount, note, rowVersion}], total}",
+   "errors": [],
+   "reads": [
+    "HINH_THUC_GIA",
+    "PRICE_HISTORY"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "forms.get",
+   "group": "Đơn giá",
+   "desc": "Chi tiết một hình thức giá + các đơn giá đang dùng hình thức này (price_method = mã hình thức và hiệu lực từ nằm trong thời gian hiệu lực của dòng hình thức) — chỉ xem",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "formId",
+     "string",
+     true,
+     "vd HT-CD-20000101"
+    ]
+   ],
+   "output": "{record:{formId, methodCode, methodLabel, formName, formulaText, catalogDate, effectiveTo, status, priceLineCount, activeLineCount, note, rowVersion}, lines:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}]}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "HINH_THUC_GIA",
+    "PRICE_HISTORY",
+    "TUYEN_VC"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "forms.save",
+   "group": "Đơn giá",
+   "desc": "Thêm dòng hình thức mới (create=true: {methodCode, catalogDate?, formName?, formulaText?, note?}; ngày mặc định hôm nay, KHÔNG điền lùi — phải sau ngày dòng đang hiệu lực cùng mã; dòng cũ tự đóng: hiệu lực đến = ngày mới − 1, trạng thái CLOSED, cùng một giao dịch) hoặc sửa tên / công thức mô tả / ghi chú ({formId, …} + rowVersion; không đổi mã hình thức và ngày cập nhật). Công thức chỉ mô tả, không đổi cách tính giá; có nhắc sửa giống ở nhà máy khác",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "record",
+     "object",
+     true,
+     "{formId? (khi sửa), methodCode, catalogDate, formName, formulaText, note} (camelCase)"
+    ],
+    [
+     "create",
+     "boolean",
+     false,
+     "true = thêm dòng mới"
+    ],
+    [
+     "rowVersion",
+     "integer",
+     false,
+     "bắt buộc khi sửa"
+    ]
+   ],
+   "output": "{record:{formId, methodCode, methodLabel, formName, formulaText, catalogDate, effectiveTo, status, priceLineCount, activeLineCount, note, rowVersion}, closed:[formId dòng cũ đã đóng], warnings}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND",
+    "CONFLICT_VERSION"
+   ],
+   "reads": [
+    "HINH_THUC_GIA",
+    "PRICE_HISTORY"
+   ],
+   "writes": [
+    "HINH_THUC_GIA",
+    "SYNC_REMINDER"
+   ],
+   "audit": "FORM_CREATE/FORM_UPDATE/FORM_CLOSE",
+   "lock": true
+  },
+  {
+   "action": "forms.remove",
+   "group": "Đơn giá",
+   "desc": "Xóa hình thức giá chưa dùng = ĐÓNG dòng (hiệu lực kết thúc trước ngày bắt đầu, ẩn khỏi danh sách; không xóa cứng để gói trao đổi Danh mục mang được) và mở lại dòng trước. Chỉ dòng mới nhất của mã, không còn đơn giá nào dùng, và không phải dòng duy nhất của mã; còn dùng → BUSINESS_RULE:E_FORM_IN_USE kèm hướng dẫn",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "formId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{removed, methodCode, reopened:[formId], warnings}",
+   "errors": [
+    "NOT_FOUND",
+    "BUSINESS_RULE:E_FORM_IN_USE",
+    "BUSINESS_RULE:E_FORM_NOT_LATEST",
+    "BUSINESS_RULE:E_FORM_LAST"
+   ],
+   "reads": [
+    "HINH_THUC_GIA",
+    "PRICE_HISTORY"
+   ],
+   "writes": [
+    "HINH_THUC_GIA",
+    "SYNC_REMINDER"
+   ],
+   "audit": "FORM_REMOVE",
+   "lock": true
+  },
+  {
+   "action": "prices.catalog",
+   "group": "Đơn giá",
+   "desc": "Danh mục Đơn giá phẳng (chỉ đọc): ngày cập nhật (= hiệu lực từ) · mã đơn giá (priceId; priceCode nếu có) · tuyến + tên tuyến · hình thức giá (mã, tên, công thức của dòng hình thức có hiệu lực tại ngày hiệu lực của đơn giá) · giá theo hình thức (price) · hiệu lực · trạng thái. Không gồm dòng giá riêng đã gỡ",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "routeCode",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "methodCode",
+     "enum(CO_DINH|THEO_DAU)",
+     false,
+     ""
+    ],
+    [
+     "status",
+     "enum(DRAFT|ACTIVE|CLOSED)",
+     false,
+     ""
+    ]
+   ],
+   "output": "{items:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "PRICE_HISTORY",
+    "TUYEN_VC",
+    "HINH_THUC_GIA",
+    "CONFIG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
    "action": "pricecodes.list",
    "group": "Đơn giá",
    "desc": "Cây Hình thức giá → Mã đơn giá (kèm số dòng giá, số hợp đồng đang dùng); vẫn trả cây theo Đơn vị",
@@ -1413,6 +1634,38 @@
     "PRICE_HISTORY"
    ],
    "audit": "PRICE_ACTIVATE",
+   "lock": true
+  },
+  {
+   "action": "prices.remove",
+   "group": "Đơn giá",
+   "desc": "Xóa dòng đơn giá dùng chung ở Danh mục Đơn giá: nháp → xóa hẳn; đã kích hoạt nhưng chưa dùng ở kỳ nào → đóng dòng (gói Danh mục mang trạng thái gỡ sang nhà máy khác) và mở lại bản trước; đã dùng ở kỳ đã xác nhận/khóa → E_PRICE_USED",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "priceId",
+     "string",
+     true,
+     "mã đơn giá (price_id)"
+    ]
+   ],
+   "output": "{removed, routeCode, wasDraft, reopened[], affectedPeriods[], warnings[]}",
+   "errors": [
+    "NOT_FOUND",
+    "VALIDATION_FAILED",
+    "BUSINESS_RULE:E_PRICE_USED"
+   ],
+   "reads": [
+    "PRICE_HISTORY"
+   ],
+   "writes": [
+    "PRICE_HISTORY"
+   ],
+   "audit": "PRICE_REMOVE",
    "lock": true
   },
   {
@@ -5674,6 +5927,189 @@
    "reads": [],
    "writes": [],
    "audit": "DELETE_SUBCONTRACT_BATCH",
+   "lock": false
+  },
+  {
+   "action": "subcontract.report",
+   "group": "Nhập liệu",
+   "desc": "Báo cáo thuê vận chuyển: tổng hợp số liệu nhận về của các đợt đã nạp (số chuyến, tấn, dầu, tiền thuê = tấn × đơn giá thuê tính theo từng xe, dầu trừ, thực trả). Khớp từng đồng với phần \"bên kia\" của Đối chiếu 3 tiêu chí trên cùng đợt; không tạo kỳ tính giá",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "partnerName",
+     "string",
+     false,
+     "đơn vị vận chuyển (đúng tên)"
+    ],
+    [
+     "q",
+     "string",
+     false,
+     "tìm không dấu theo đơn vị / tên đợt / mã kỳ"
+    ],
+    [
+     "dateFrom",
+     "date",
+     false,
+     "lấy đợt có khoảng ngày dữ liệu giao với [dateFrom, dateTo]"
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "month",
+     "string",
+     false,
+     "yyyy-MM — chọn nhanh một tháng (thay cho dateFrom/dateTo nếu chưa gửi)"
+    ],
+    [
+     "contractId",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "periodId",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{filter, partners:[string], totalBatches, rows:[batchId, batchName, partnerName, periodCode, dateFrom, dateTo, ticketCount, plateCount, totalKg, totalTon, fuelLiter, fuelLiterUnmatched, rentUnitPrice, fuelUnitPrice, deductFuel, rentAmount, fuelAmount, deductFuelAmount, payable, importedAt, rowVersion], byPartner:[{partnerName, batchCount, ticketCount, totalKg, totalTon, fuelLiter, rentAmount, fuelAmount, deductFuelAmount, payable}], totals:{batchCount, ticketCount, plateCount, totalKg, totalTon, fuelLiter, rentAmount, fuelAmount, deductFuelAmount, payable}}",
+   "errors": [
+    "VALIDATION_FAILED"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "subcontract.reportDetail",
+   "group": "Nhập liệu",
+   "desc": "Chi tiết một đợt của báo cáo thuê vận chuyển theo xe và theo ngày (cộng lại đúng bằng dòng của subcontract.report); fuelOnly = dầu của xe không có chuyến nào (không tính tiền, chỉ để thấy)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "batchId",
+     "string",
+     true,
+     "Mã đợt"
+    ]
+   ],
+   "output": "{batch:{batchId, batchName, partnerName, periodCode, dateFrom, dateTo, ticketCount, plateCount, totalKg, totalTon, fuelLiter, fuelLiterUnmatched, rentUnitPrice, fuelUnitPrice, deductFuel, rentAmount, fuelAmount, deductFuelAmount, payable, importedAt, rowVersion}, byPlate:[{plateNo, ticketCount, kg, ton, fuelCount, fuelLiter, rentAmount, fuelAmount, deductFuelAmount, payable}], byDate:[{date, ticketCount, kg, ton, fuelLiter}], fuelOnly:[{plateNo, fuelCount, fuelLiter}], totals}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "subcontract.updateTerms",
+   "group": "Nhập liệu",
+   "desc": "Sửa đơn giá thuê (đ/tấn), giá dầu (đ/lít), trừ dầu của một đợt đã nạp (trước đây chỉ nhập lúc nạp). Bắt buộc lý do; ghi nhật ký trước khi lưu; không đổi dữ liệu phiếu / dầu của đợt",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "batchId",
+     "string",
+     true,
+     "Mã đợt"
+    ],
+    [
+     "rentUnitPrice",
+     "number|string",
+     false,
+     "đ/tấn, 0 … 1.000.000.000; chuỗi kiểu Việt \"150.000\" được hiểu 150000; không gửi = giữ nguyên"
+    ],
+    [
+     "fuelUnitPrice",
+     "number|string",
+     false,
+     "đ/lít, như trên"
+    ],
+    [
+     "deductFuel",
+     "boolean",
+     false,
+     "trừ tiền dầu vào cước"
+    ],
+    [
+     "reason",
+     "string",
+     true,
+     "lý do sửa"
+    ],
+    [
+     "rowVersion",
+     "integer",
+     false,
+     "tùy chọn: nếu gửi thì kiểm; sai → CONFLICT_VERSION"
+    ]
+   ],
+   "output": "{batchId, batchName, partnerName, periodCode, dateFrom, dateTo, ticketCount, plateCount, totalKg, totalTon, fuelLiter, fuelLiterUnmatched, rentUnitPrice, fuelUnitPrice, deductFuel, rentAmount, fuelAmount, deductFuelAmount, payable, importedAt, rowVersion}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND",
+    "CONFLICT_VERSION"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "UPDATE_SUBCONTRACT_TERMS",
+   "lock": false
+  },
+  {
+   "action": "subcontract.reportExport",
+   "group": "Nhập liệu",
+   "desc": "Xuất Excel báo cáo thuê vận chuyển (3 sheet: Tổng hợp theo đợt · Theo đơn vị · Chi tiết theo xe; tiêu đề tiếng Việt, số tiền định dạng)",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "params",
+     "object",
+     false,
+     "như subcontract.report"
+    ],
+    [
+     "targetPath",
+     "string",
+     false,
+     "từ dialog.saveFile"
+    ]
+   ],
+   "output": "{path, sizeBytes, rows}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "STORAGE_ERROR"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": "EXPORT",
    "lock": false
   },
   {

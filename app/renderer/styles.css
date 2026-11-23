@@ -133,7 +133,7 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 /* nhãn */
 .tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .76rem; font-weight: 600; white-space: nowrap; }
 .tag.ok { background: rgba(27, 175, 122, .14); color: var(--ok-fg); } .tag.warn { background: rgba(237, 161, 0, .16); color: var(--warn-fg); }
-.tag.err { background: rgba(229, 72, 77, .13); color: var(--err-fg); } .tag.info { background: var(--brand-soft); color: var(--brand-text); } .tag.mute { background: var(--mute-bg); color: var(--text-mute); }
+.tag.err { background: rgba(229, 72, 77, .13); color: var(--err-fg); } :root[data-theme="light"] .tag.err { color: #a63508; } .tag.info { background: var(--brand-soft); color: var(--brand-dark); } .tag.mute { background: var(--mute-bg); color: var(--text-mute); }
 .issues { list-style: none; margin: 0; padding: 0; } .issues li { padding: 7px 0; border-bottom: 1px dashed var(--line); display: flex; gap: 8px; align-items: baseline; }
 
 /* modal / drawer / toast */
@@ -146,7 +146,7 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 /* thông báo KHÔNG chặn thao tác: bấm xuyên qua được (trước đây chồng lên nút Lưu của hộp thoại, phải chờ hết 9 giây); khi đang mở hộp thoại thì hiện ở trên cùng */
 .toasts { pointer-events: none; } body:has(.overlay) .toasts { top: 14px; bottom: auto; flex-direction: column-reverse; justify-content: flex-end; }
 .toast { background: #0f2740; color: #fff; padding: 11px 15px; border-radius: 12px; box-shadow: 0 10px 30px rgba(16, 35, 58, .25); max-width: 460px; border-left: 4px solid var(--brand-2); overflow-wrap: anywhere; }
-.toast.err { background: var(--surface); color: var(--red-text); border: 1px solid var(--danger-line); border-left: 4px solid var(--red); } .toast.ok { background: var(--brand-dark); border-left-color: #7be0e6; } .toast.info { background: #0f2740; }
+.toast.err { background: var(--surface); color: var(--red-text); border: 1px solid var(--danger-line); border-left: 4px solid var(--red); } .toast.ok { background: var(--brand-dark); color: var(--onBrand, #fff); border-left-color: #7be0e6; } .toast.info { background: #0f2740; }
 
 /* đăng nhập / khởi tạo */
 .gate { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
@@ -204,7 +204,7 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
   --bad-bg: #2a1a1d;
   --overlay: rgba(0, 0, 0, .7);
 }
-.theme-btn, .skin-btn { flex: 1 1 auto; text-align: center; font-size: .78rem; }
+.theme-btn { flex: 1 1 auto; text-align: center; font-size: .78rem; }
 
 .guide-step { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px; } .guide-step .grow { flex: 1; min-width: 0; } .guide-step h2 { margin-bottom: 4px; } .guide-step p { margin: 0; }
 .guide-n { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--brand-soft); color: var(--brand-text); }
@@ -313,3 +313,61 @@ table.t.info td.mono { white-space: normal; overflow-wrap: anywhere; word-break:
 .sfdr .chip input[type=date] { width: 128px; padding-left: 6px; padding-right: 6px; font-size: .84rem; }
 @media (max-width: 860px) { .sfdr { flex-wrap: wrap; } }
 @media (max-width: 1100px) { .sf-sum .sf-act { margin-left: 0; flex-basis: 100%; justify-content: flex-start; } }
+
+/* ===== Danh mục Hình thức giá / Đơn giá: bố cục chính–phụ (xem chéo chỉ-xem) ===== */
+.xv-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; margin-top: 12px; }
+@media (min-width: 1280px) { .xv-layout { grid-template-columns: minmax(0, 1fr) minmax(290px, 330px); } .xv-layout.xv-wide-side { grid-template-columns: minmax(0, 1fr) minmax(380px, 430px); } }
+.xv-main, .xv-side { min-width: 0; }
+.xv-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.xv-h { margin: 0 0 6px; font-size: 16px; overflow-wrap: anywhere; }
+.xv-guide { padding: 10px 12px; border: 1px solid var(--brand); border-radius: 8px; background: var(--brand-soft); color: var(--brand-text); font-size: 13.5px; line-height: 1.45; }
+.xv-formula { white-space: pre-line; overflow-wrap: break-word; font-size: 13px; line-height: 1.45; min-width: 160px; }
+.xv-box { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--row-alt); }
+.xv-kv { padding: 7px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.xv-tbl table.t td, .xv-tbl table.t th { white-space: normal; vertical-align: top; padding: .45rem .5rem; overflow-wrap: break-word; word-break: normal; }
+.xv-tbl .nw, .xv-tbl .money { white-space: nowrap; }
+.xv-tbl table.t th { font-size: .68rem; letter-spacing: .02em; }
+.xv-tbl table.t td.num, .xv-tbl table.t th.num { white-space: normal; }
+.xv-tbl table.t .btns { gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.xv-tbl .tbl-wrap { max-height: none; }
+.xv-tbl-side .tbl-wrap { max-height: 50vh; }
+table.t tbody tr.click:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+table.t tbody tr.sel td { background: var(--brand-soft); }
+.xv-tbl table.t { font-size: .8rem; } .xv-tbl table.t td, .xv-tbl table.t th { padding: .4rem .35rem; }
+.xv-tbl table.t td .mono, .xv-tbl table.t td.mono { overflow-wrap: normal; }
+.xv-tbl table.t .tag { white-space: normal; padding: 1px 8px; }
+@media (max-width: 1000px) { .xv-tbl table.t { font-size: .76rem; } .xv-tbl table.t th { font-size: .62rem; letter-spacing: 0; } .xv-tbl table.t td, .xv-tbl table.t th { padding: .3rem .22rem; } .xv-tbl table.t .btn.small { padding: 3px 6px; min-height: 28px; } .xv-tbl table.t .tag { padding: 1px 6px; font-size: .68rem; } }
+/* ===== Danh mục tuyến: ngăn đơn giá chỉ-xem bên phải; Báo cáo thuê vận chuyển ===== */
+.rt-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
+.rt-layout[data-sel="1"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
+.rt-layout[data-sel="1"] .rt-main table.t :is(th, td):is(:nth-child(4), :nth-child(5), :nth-child(7), :nth-child(8), :nth-child(6), :nth-child(9), :nth-child(10), :nth-child(11), :nth-child(12)) { display: none; } /* có ngăn bên phải: bớt cột phụ của bảng tuyến */
+.rt-side .tag { white-space: nowrap; }
+.rt-main, .rt-side { min-width: 0; }
+.rt-layout[data-sel="0"] .rt-side { display: none; }
+.rt-main .tbl-wrap { max-height: 70vh; }
+table.t tbody tr.sel td { background: var(--row-hover); } table.t tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--primary, #2563eb); }
+.rt-side .rt-note { padding: 10px 16px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.rt-side table.t { font-size: .84rem; } .rt-side table.t th, .rt-side table.t td { padding: .4rem .45rem; white-space: normal; }
+.rt-formcard { margin-top: 14px; } .rt-formcard h3 { margin: 0 0 8px; font-size: .95rem; }
+.rt-kv { display: grid; grid-template-columns: minmax(110px, 40%) minmax(0, 1fr); gap: 8px; padding: 4px 0; border-bottom: 1px dashed var(--line); overflow-wrap: anywhere; }
+.rt-kv .k { color: var(--text-mute); font-size: .84rem; } .rt-kv .v { font-weight: 600; }
+.rt-params { margin-top: 6px; }
+@media (max-width: 1279px) { .rt-layout[data-sel="1"] { grid-template-columns: minmax(0, 1fr); } .rt-main table.t :is(th, td):is(:nth-child(4), :nth-child(5), :nth-child(7), :nth-child(8), :nth-child(9), :nth-child(11)) { display: none; } }
+.rr-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; } .rr-steps li { overflow-wrap: anywhere; }
+.rr-wip { display: inline-block; margin-left: 6px; }
+.rr-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+/* ===== Báo cáo thuê vận chuyển: bảng tổng hợp, chi tiết theo xe ===== */
+.rr-filter, .rr-main, .rr-byp, .rr-detail { margin-top: 14px; } .rr-main, .rr-byp, .rr-detail { min-width: 0; }
+.rr-main .tbl-wrap, .rr-byp .tbl-wrap { max-height: 60vh; }
+.rr-terms { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 8px 16px; border-bottom: 1px solid var(--line); color: var(--text-mute); }
+.rr-note { padding: 8px 16px; margin: 0; } .rr-bydate { padding: 8px 16px 12px; } .rr-bydate summary { cursor: pointer; margin-bottom: 8px; }
+.rr-main table.t th, .rr-main table.t td, .rr-byp table.t th, .rr-byp table.t td, .rr-detail table.t th, .rr-detail table.t td { white-space: normal; }
+.rr-main table.t th.num, .rr-main table.t td.num { white-space: nowrap; } .rr-psub { display: none; }
+@media (max-width: 1599px) { .rr-main table.t :is(th, td):is(:nth-child(5), :nth-child(8)) { display: none; } } /* bớt số xe, đơn giá thuê (xem ở chi tiết) */
+@media (max-width: 1279px) { .rr-main table.t :is(th, td):is(:nth-child(3)) { display: none; } } /* hẹp hơn: bớt cả khoảng ngày dữ liệu */
+@media (max-width: 1199px) { .rr-main table.t :is(th, td):is(:nth-child(7)) { display: none; } } /* bớt cả dầu nhận (xem ở chi tiết) */
+@media (max-width: 1000px) { .rr-main table.t :is(th, td):is(:nth-child(10)) { display: none; } } /* rất hẹp: bớt cả dầu trừ (thực trả = tiền thuê − dầu trừ, xem ở chi tiết) */
+@media (max-width: 1000px) { .rr-main table.t, .rr-byp table.t, .rr-detail table.t { font-size: .78rem; } .rr-main table.t th, .rr-main table.t td, .rr-byp table.t th, .rr-byp table.t td, .rr-detail table.t th, .rr-detail table.t td { padding: .35rem .3rem; } }
+@media (max-width: 900px) { .rr-main table.t :is(th, td):is(:nth-child(1)) { display: none; } .rr-main .rr-psub { display: block; } .rr-main table.t { font-size: .72rem; } .rr-main table.t th, .rr-main table.t td { padding: .3rem .18rem; letter-spacing: 0; } .rr-main table.t th { font-size: .6rem; } }
+@media (max-width: 900px) { .rr-byp table.t, .rr-detail table.t { font-size: .72rem; } .rr-byp table.t th, .rr-byp table.t td, .rr-detail table.t th, .rr-detail table.t td { padding: .3rem .18rem; letter-spacing: 0; } .rr-byp table.t th, .rr-detail table.t th { font-size: .6rem; }
+  .rr-byp table.t :is(th, td):is(:nth-child(2), :nth-child(5)) { display: none; } } /* hẹp: bớt số đợt, dầu nhận ở bảng tổng theo đơn vị */

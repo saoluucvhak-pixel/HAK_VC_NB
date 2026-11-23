@@ -24,7 +24,7 @@ test('Giao diện: màn hẹp không che chữ thẻ, không tràn ngang; thông
     await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
     await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
     await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
-    const screens = [['Hợp đồng vận chuyển', null], ['Báo cáo', null], ['Bảng xác nhận KL', null], ['Hướng dẫn & quy trình', null], ['Cài đặt', 'Thông tin']];
+    const screens = [['Hình thức giá', null], ['Đơn giá', null], ['Hợp đồng vận chuyển', null], ['Báo cáo', null], ['Bảng xác nhận KL', null], ['Hướng dẫn & quy trình', null], ['Cài đặt', 'Thông tin']];
     for (const w of [820, 910, 1093]) {
       await page.setViewportSize({ width: w, height: 768 });
       for (const [nav, tab] of screens) {
