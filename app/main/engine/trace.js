@@ -11,7 +11,7 @@ function fmt(x, d = 0) {
 const dec = (x) => (Number.isInteger(x) ? 0 : 2);
 
 function buildFormulaTrace(r, cfg) {
-  const m3 = r.calcBasis ? r.calcBasis === 'M3' : r.uom === 'M3'; // dòng có cờ ĐVT: theo dòng; dòng cũ: theo tuyến như trước
+  const m3 = r.uom === 'M3'; // uom của kết quả = ĐVT của DÒNG giá có cờ, dòng cũ = ĐVT tuyến
   const oil3 = !!r.basisM3; // công thức theo giá dầu tính theo m³ (chia Thể tích TB / tổng m³)
   const uomStr = m3 ? 'đ/m³' : 'đ/tấn';
   if (r.priceMethod === 'CO_DINH') {

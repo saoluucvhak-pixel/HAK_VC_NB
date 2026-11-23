@@ -120,7 +120,8 @@ class PeriodService {
       const calcIdOf = new Map();
       for (const r of out.results) {
         const calcId = tx.nextId('TC', 6); calcIdOf.set(r.routeCode, calcId);
-        tx.insert('TRANSPORT_CALCULATION', toCalcRow(r, { calcId, pid, runId, version, contractId }, out.issues));
+        const priceRow = r.priceId ? tx.get('PRICE_HISTORY', r.priceId) : null;
+        tx.insert('TRANSPORT_CALCULATION', toCalcRow(r, { calcId, pid, runId, version, contractId, calcBasis: (priceRow && priceRow.calc_basis) || '' }, out.issues));
         for (const tid of r.ticketIds) {
           const t = ticketById.get(tid);
           tx.insert('TRANSPORT_DETAIL', { id: tx.nextId('TD', 7), calc_id: calcId, period_id: pid, contract_id: contractId, ticket_id: tid, ticket_key: t.ticket_key,
@@ -215,7 +216,7 @@ class PeriodService {
 }
 
 /** Kết quả Engine (camelCase) → dòng TRANSPORT_CALCULATION (snake_case, snapshot đầy đủ để truy vết). */
-function toCalcRow(r, { calcId, pid, runId, version, contractId }, allIssues) {
+function toCalcRow(r, { calcId, pid, runId, version, contractId, calcBasis = '' }, allIssues) {
   const nz = (v) => (v === null || v === undefined ? '' : v);
   return { calc_id: calcId, period_id: pid, run_id: runId, calc_version: version, is_current: true, contract_id: contractId, route_code: r.routeCode, route_name: r.routeName,
     uom: r.uom, price_id: r.priceId, trip_distance_km: r.tripDistanceKm, new_price: r.newPrice, avg_load_ton: r.avgLoadTon, avg_volume_m3: nz(r.avgVolumeM3),
@@ -224,7 +225,7 @@ function toCalcRow(r, { calcId, pid, runId, version, contractId }, allIssues) {
     actual_fuel_liter: r.actualFuelLiter, fuel_start_date: nz(r.fuelStartDate), fuel_end_date: nz(r.fuelEndDate), fuel_price: nz(r.fuelPrice), fuel_import_date: nz(r.fuelImportDate),
     trip_price: r.tripPrice, fuel_per_trip: r.fuelPerTrip, fuel_cost_per_trip: r.fuelCostPerTrip, fuel_cost_ratio: r.fuelCostRatio, price_no_diesel: r.priceNoDiesel,
     contract_price: r.contractPrice, standard_fuel_liter: r.standardFuelLiter, fuel_diff_liter: r.fuelDiffLiter, fuel_adjust_price: r.fuelAdjustPrice,
-    transport_price_raw: r.transportPriceRaw, transport_price: r.transportPrice, price_method: r.priceMethod || 'THEO_DAU', calc_basis: r.calcBasis || '', total_m3: nz(r.totalM3), result_status: r.resultStatus,
+    transport_price_raw: r.transportPriceRaw, transport_price: r.transportPrice, price_method: r.priceMethod || 'THEO_DAU', calc_basis: calcBasis, total_m3: nz(r.totalM3), result_status: r.resultStatus,
     warnings_json: JSON.stringify([...r.issues, ...allIssues.filter((i) => !r.issues.includes(i) && !i.params?.routeCode)].map(({ code, level, message, ref }) => ({ code, level, message, ref }))),
     trace_json: JSON.stringify(r.trace) };
 }

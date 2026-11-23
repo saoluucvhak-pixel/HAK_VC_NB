@@ -24,7 +24,7 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 // catalog_date (TUYEN_VC, 1.8.0) là ngày theo dõi của từng máy (tự gán khi sửa) — không coi là khác nội dung, tránh xung đột giả khi 2 nhà máy "sửa giống" ở 2 ngày
 const META = new Set(['created_at', 'created_by', 'updated_at', 'updated_by', 'row_version']);
 const CMP_SKIP = new Set([...META, 'catalog_date', 'is_used']); // is_used là trạng thái cục bộ (đã dùng ở kỳ của máy nào), không phải nội dung do người sửa; // chỉ bỏ khi SO nội dung; khi nhập UPDATE thật thì ngày vẫn chép theo
-// cột thêm ở 1.9.4 (calc_basis, total_m3): gói của bản cũ không có cột = bản mới có cột trống → coi như giống nhau
+// cột thêm sau 1.9.3 (calc_basis, total_m3): gói của bản cũ không có cột = bản mới có cột trống → coi như giống nhau
 const OPTIONAL_NEW = new Set(['calc_basis', 'total_m3']);
 const content = (r) => Object.fromEntries(Object.entries(r).filter(([k, v]) => !CMP_SKIP.has(k) && !(OPTIONAL_NEW.has(k) && (v === '' || v === undefined || v === null))));
 const sameContent = (a, b) => canon(content(a)) === canon(content(b));

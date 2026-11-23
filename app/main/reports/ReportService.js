@@ -74,7 +74,7 @@ class ReportService {
     const totals = lines.reduce((t, l) => ({ trips: t.trips + l.trip_count, kg: t.kg + l.kg, amount: t.amount + l.amount, vat: t.vat + l.vat, total: t.total + l.amount_incl_vat }),
       { trips: 0, kg: 0, amount: 0, vat: 0, total: 0 });
     totals.ton = lines.some((l) => l.uom === 'M3') ? lines.reduce((a, l) => a + l.ton, 0) : totals.kg / 1000; // có dòng m³: cộng số lượng tính cước của từng dòng (như cột Khối lượng của bảng)
-    totals.uomLabel = lines.length && lines.every((l) => l.uom === 'M3') ? 'm³' : lines.some((l) => l.uom === 'M3') ? 'tấn / m³' : 'tấn';
+    const uomLabel = lines.length && lines.every((l) => l.uom === 'M3') ? 'm³' : lines.some((l) => l.uom === 'M3') ? 'tấn / m³' : 'tấn';
     const vatPct = lines.length ? Math.round(lines[0].vat_rate * 1000) / 10 : cfg.vatRate * 100;
     return {
       header: {
@@ -85,7 +85,7 @@ class ReportService {
         periodText, placeDate,
         serviceDesc: contract.service_desc || '', vatPct,
       },
-      lines, totals, invoiceLines: this.invoice({ periodId }).rows,
+      lines, totals, uomLabel, invoiceLines: this.invoice({ periodId }).rows,
       amountInWords: lines.length ? E.numberToVietnameseWords(totals.total, { thousand: cfg.amountWordsThousand, suffix: cfg.amountWordsSuffix }) : '',
       signers,
     };

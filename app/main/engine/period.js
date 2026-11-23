@@ -280,7 +280,7 @@ function calculatePeriod(input) {
     const r = { ...base, priceId: sel.price.price_id, ...A,
       fuelGiverUnit: fuel.giverUnitCode, fuelUom: fuel.uom, fuelLineCount: fuel.lineCount, actualFuelLiter: fuel.actualFuelLiter,
       fuelStartDate: fuel.fuelStartDate, fuelEndDate: fuel.fuelEndDate, fuelPrice: fuel.fuelPrice, fuelImportDate: fuel.fuelImportDate };
-    if (fixed && F.lineUom(route.uom, A.calcBasis, 'CO_DINH') === 'M3') r.totalM3 = totalM3Of(ts, vehMap, 0);
+    if (fixed && A.uom === 'M3') r.totalM3 = totalM3Of(ts, vehMap, 0);
     if (fixed) {
       r.standardFuelLiter = 0; r.fuelDiffLiter = 0; r.fuelAdjustPrice = 0;
       r.transportPriceRaw = A.fixedPrice; r.transportPriceFloored = false; r.transportPrice = A.fixedPrice;
@@ -347,7 +347,7 @@ function buildConfirmation(results, tickets, units, cfg, vehicles = [], routes =
     const veh = vehMap.get(t.plate_no);
     const rRes = resultOf.get(t.route_code);
     // ĐVT của DÒNG giá (calc_basis) ưu tiên hơn ĐVT tuyến. Dòng cũ không cờ: CỐ ĐỊNH theo ĐVT tuyến (đ/m³ khi tuyến m³); THEO GIÁ DẦU luôn đ/tấn (chia KL_TB — như Excel/1.6.0).
-    const isM3 = !!(route && rRes && F.lineUom(route.uom, rRes.calcBasis, rRes.priceMethod) === 'M3');
+    const isM3 = !!(route && rRes && (rRes.priceMethod === 'CO_DINH' ? rRes.uom === 'M3' : rRes.basisM3));
     if (!by.has(k)) by.set(k, { plateNo: t.plate_no, routeCode: t.route_code, ownerUnitCode: t.owner_unit_code, tripCount: 0, kg: 0, m3: 0, uom: isM3 ? 'M3' : 'TAN' });
     const b = by.get(k);
     b.tripCount += 1;

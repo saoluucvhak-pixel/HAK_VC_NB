@@ -60,7 +60,7 @@
         await show(doc);
         side.innerHTML = '';
         side.append(h('div', { class: 'card' }, h('h2', {}, 'Thiết lập in'), h('p', {}, h('span', { class: 'mono' }, d.header.periodCode), ' ', D.tag(d.header.status), d.header.origin === 'IMPORTED' ? ' ' : '', d.header.origin === 'IMPORTED' ? D.tag('IMPORTED') : ''),
-          h('p', { class: 'small' }, `${d.lines.length} xe · ${D.vn(d.totals.trips)} chuyến · ${D.vn(d.totals.ton, 2)} ${d.totals.uomLabel || 'tấn'}`), h('p', {}, 'Tổng thanh toán: ', h('span', { class: 'money' }, D.vn(d.totals.total))),
+          h('p', { class: 'small' }, `${d.lines.length} xe · ${D.vn(d.totals.trips)} chuyến · ${D.vn(d.totals.ton, 2)} ${d.uomLabel || 'tấn'}`), h('p', {}, 'Tổng thanh toán: ', h('span', { class: 'money' }, D.vn(d.totals.total))),
           h('p', { class: 'small' }, h('i', {}, d.amountInWords)),
           h('div', { class: 'sep' }), h('div', { class: 'small' }, h('b', {}, d.signers.carrier.unitName), h('div', {}, `${d.signers.carrier.signer.title}: ${d.signers.carrier.signer.name}`),
             h('b', {}, d.signers.customer.unitName), h('div', {}, `${d.signers.customer.signer.title}: ${d.signers.customer.signer.name}`), h('div', { class: 'muted' }, 'Người ký theo thứ tự ưu tiên đã thống nhất; tên in sửa được trong Hợp đồng.')),

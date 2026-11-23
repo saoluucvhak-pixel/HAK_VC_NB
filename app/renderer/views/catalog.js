@@ -139,7 +139,7 @@
         if (window.dgvc) D.api('system.openPath', { path: r.path }, { quiet: true }).catch(() => {});
       };
       const detail = (r) => (r.fixed ? D.modal({ title: `Đơn giá cố định — ${r.routeCode} · ${r.routeName}`, body: h('ol', { class: 'trace' },
-        h('li', {}, h('b', {}, 'ĐƠN GIÁ CỐ ĐỊNH (10)'), h('div', { class: 'f' }, `Bảng giá ${r.priceId} · từ ${D.dmy(r.effectiveFrom)}`), h('div', { class: 'v' }, `= ${D.vn(r.contractPrice)} đ/tấn`)),
+        h('li', {}, h('b', {}, 'ĐƠN GIÁ CỐ ĐỊNH (10)'), h('div', { class: 'f' }, `Bảng giá ${r.priceId} · từ ${D.dmy(r.effectiveFrom)}`), h('div', { class: 'v' }, `= ${D.vn(r.contractPrice)} ${r.uom === 'M3' ? 'đ/m³' : 'đ/tấn'}`)),
         h('li', {}, h('b', {}, 'Hằng kỳ'), h('div', { class: 'f' }, 'Đơn giá vận chuyển = đơn giá cố định; không nhận dầu, không tính chênh lệch dầu'))) }) : D.modal({ title: `Cách tính ĐG ký HĐ — ${r.routeCode} · ${r.routeName}`, wide: true, body: h('ol', { class: 'trace' }, [
         ['Đơn giá cước (1)', 'Bảng giá ' + r.priceId, r.newPrice, 'đ/' + (r.uom === 'M3' ? 'm³' : 'tấn')],
         [r.uom === 'M3' ? 'Thể tích TB (2)' : 'KL trung bình / chuyến (2)', 'Bảng giá', r.uom === 'M3' ? r.avgVolumeM3 : r.avgLoadTon, r.uom === 'M3' ? 'm³' : 'tấn'],
@@ -147,7 +147,7 @@
         ['Dầu / chuyến (5) = Cự ly chuyến × Định mức (4)', `${D.vn(r.tripDistanceKm)} km × ${D.vn(r.fuelNormLPerKm, 1)} lít/km`, r.fuelPerTrip, 'lít'],
         ['Tiền dầu / chuyến (7) = (5) × ĐG dầu (6)', `${D.vnAuto(r.fuelPerTrip)} × ${D.vn(r.fuelPriceCatalog)}`, r.fuelCostPerTrip, 'đ'],
         ['Tỷ lệ dầu (8) = (7) / (3)', `${D.vn(r.fuelCostPerTrip)} / ${D.vn(r.tripPrice)}`, Math.round(r.fuelCostRatio * 10000) / 100, '%'],
-        ['ĐGVC chưa dầu (9) = [(3) − (7)] / KL_TB', `(${D.vn(r.tripPrice)} − ${D.vn(r.fuelCostPerTrip)}) / ${D.vn(r.avgLoadTon)}`, Math.round(r.priceNoDiesel * 100) / 100, 'đ'],
+        [`ĐGVC chưa dầu (9) = [(3) − (7)] / ${r.basisM3 ? 'Thể tích TB' : 'KL_TB'}`, `(${D.vn(r.tripPrice)} − ${D.vn(r.fuelCostPerTrip)}) / ${r.basisM3 ? D.vnAuto(r.avgVolumeM3) : D.vn(r.avgLoadTon)}`, Math.round(r.priceNoDiesel * 100) / 100, 'đ'],
         ['ĐƠN GIÁ KÝ HỢP ĐỒNG (10) = làm tròn (9) đến hàng nghìn', `${D.vn(r.priceNoDiesel, 2)} → làm tròn`, r.contractPrice, 'đ'],
       ].map(([l, e, v, u]) => h('li', {}, h('b', {}, l), h('div', { class: 'f' }, e), h('div', { class: 'v' }, `= ${D.vnAuto(v)} ${u}`)))) }));
       const load = async () => {

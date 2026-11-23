@@ -73,7 +73,6 @@ function computeContractPrice(route, price, cfg) {
   a.fuelCostPerTrip = calculateFuelCost(a);
   a.fuelCostRatio = calculateFuelCostRatio(a);
   a.basisM3 = isOilM3(price);
-  a.calcBasis = price.calc_basis === 'M3' || price.calc_basis === 'TAN' ? price.calc_basis : '';
   a.priceNoDiesel = calculatePriceNoDiesel(a);
   a.formulaContractPrice = calculateContractPrice(a, cfg);
   const rawCp = price.contract_price !== undefined ? price.contract_price : price.contractPrice;
@@ -94,7 +93,7 @@ const isFixedPrice = (price) => !!price && price.price_method === 'CO_DINH';
 function computeFixedPrice(route, price) {
   const fixed = Number(price.fixed_price);
   return { priceMethod: 'CO_DINH', fixedPrice: fixed, uom: price.calc_basis === 'M3' || price.calc_basis === 'TAN' ? price.calc_basis : route.uom, tripDistanceKm: route.trip_distance_km,
-    calcBasis: price.calc_basis === 'M3' || price.calc_basis === 'TAN' ? price.calc_basis : '', basisM3: false,
+    basisM3: false,
     newPrice: 0, fuelPriceCatalog: 0, avgLoadTon: 0, avgVolumeM3: null, fuelNormLPerKm: 0,
     tripPrice: 0, fuelPerTrip: 0, fuelCostPerTrip: 0, fuelCostRatio: 0, priceNoDiesel: fixed, contractPrice: fixed, formulaContractPrice: fixed };
 }
