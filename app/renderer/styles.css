@@ -356,3 +356,18 @@ table.t tbody tr.sel td { background: var(--row-hover); } table.t tbody tr.sel t
 .rr-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; } .rr-steps li { overflow-wrap: anywhere; }
 .rr-wip { display: inline-block; margin-left: 6px; }
 .rr-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+/* ===== Báo cáo thuê vận chuyển: bảng tổng hợp, chi tiết theo xe ===== */
+.rr-filter, .rr-main, .rr-byp, .rr-detail { margin-top: 14px; } .rr-main, .rr-byp, .rr-detail { min-width: 0; }
+.rr-main .tbl-wrap, .rr-byp .tbl-wrap { max-height: 60vh; }
+.rr-terms { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 8px 16px; border-bottom: 1px solid var(--line); color: var(--text-mute); }
+.rr-note { padding: 8px 16px; margin: 0; } .rr-bydate { padding: 8px 16px 12px; } .rr-bydate summary { cursor: pointer; margin-bottom: 8px; }
+.rr-main table.t th, .rr-main table.t td, .rr-byp table.t th, .rr-byp table.t td, .rr-detail table.t th, .rr-detail table.t td { white-space: normal; }
+.rr-main table.t th.num, .rr-main table.t td.num { white-space: nowrap; } .rr-psub { display: none; }
+@media (max-width: 1599px) { .rr-main table.t :is(th, td):is(:nth-child(5), :nth-child(8)) { display: none; } } /* bớt số xe, đơn giá thuê (xem ở chi tiết) */
+@media (max-width: 1279px) { .rr-main table.t :is(th, td):is(:nth-child(3)) { display: none; } } /* hẹp hơn: bớt cả khoảng ngày dữ liệu */
+@media (max-width: 1199px) { .rr-main table.t :is(th, td):is(:nth-child(7)) { display: none; } } /* bớt cả dầu nhận (xem ở chi tiết) */
+@media (max-width: 1000px) { .rr-main table.t :is(th, td):is(:nth-child(10)) { display: none; } } /* rất hẹp: bớt cả dầu trừ (thực trả = tiền thuê − dầu trừ, xem ở chi tiết) */
+@media (max-width: 1000px) { .rr-main table.t, .rr-byp table.t, .rr-detail table.t { font-size: .78rem; } .rr-main table.t th, .rr-main table.t td, .rr-byp table.t th, .rr-byp table.t td, .rr-detail table.t th, .rr-detail table.t td { padding: .35rem .3rem; } }
+@media (max-width: 900px) { .rr-main table.t :is(th, td):is(:nth-child(1)) { display: none; } .rr-main .rr-psub { display: block; } .rr-main table.t { font-size: .72rem; } .rr-main table.t th, .rr-main table.t td { padding: .3rem .18rem; letter-spacing: 0; } .rr-main table.t th { font-size: .6rem; } }
+@media (max-width: 900px) { .rr-byp table.t, .rr-detail table.t { font-size: .72rem; } .rr-byp table.t th, .rr-byp table.t td, .rr-detail table.t th, .rr-detail table.t td { padding: .3rem .18rem; letter-spacing: 0; } .rr-byp table.t th, .rr-detail table.t th { font-size: .6rem; }
+  .rr-byp table.t :is(th, td):is(:nth-child(2), :nth-child(5)) { display: none; } } /* hẹp: bớt số đợt, dầu nhận ở bảng tổng theo đơn vị */
