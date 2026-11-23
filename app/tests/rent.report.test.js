@@ -77,13 +77,13 @@ for (const kind of storageKinds()) {
   test(`${tag} report: số tiền đúng theo công thức viết tay (làm tròn từng xe) và dòng tổng / tổng theo đơn vị`, async () => {
     const s = await scene(kind);
     const rep = s.sub.report({});
-    // Đợt A1: 92H-00141 = 12345+23457 (A-1 trùng chỉ tính 1 lần) ; 92H-00192 = 31111 ; 43C-999.99 = 9999 ; dầu 51D-000.01 không có chuyến → không tính tiền
+    // Đợt A1: 92H-00141 = 12345+23457 (A-1 trùng chỉ tính 1 lần) ; 92H-00192 = 31111 ; 43C-999.99 = 9999 ; dầu 51D-000.01 không có chuyến → vẫn cấn trừ dầu
     const a = rep.rows.find((x) => x.batchId === s.a.batchId);
     const rent = Math.round(35.802 * 155000) + Math.round(31.111 * 155000) + Math.round(9.999 * 155000);
-    const fuel = Math.round(101.5 * 19500) + Math.round(77.25 * 19500) + Math.round(33.3 * 19500);
-    assert.equal(a.ticketCount, 4); assert.equal(a.plateCount, 3); assert.equal(a.totalKg, 76912); assert.equal(a.totalTon, 76.91);
+    const fuel = Math.round(101.5 * 19500) + Math.round(77.25 * 19500) + Math.round(33.3 * 19500) + Math.round(50 * 19500); // + xe 51D-000.01 chỉ có dầu: vẫn cấn trừ
+    assert.equal(a.ticketCount, 4); assert.equal(a.plateCount, 4); assert.equal(a.totalKg, 76912); assert.equal(a.totalTon, 76.91);
     assert.equal(a.rentAmount, rent); assert.equal(a.fuelAmount, fuel); assert.equal(a.deductFuelAmount, fuel); assert.equal(a.payable, rent - fuel);
-    assert.equal(a.fuelLiter, 212.05); assert.equal(a.fuelLiterUnmatched, 50);
+    assert.equal(a.fuelLiter, 262.05); assert.equal(a.fuelLiterUnmatched, 0);
     // Đợt B1: không trừ dầu
     const b = rep.rows.find((x) => x.batchId === s.b.batchId);
     const rentB = Math.round(56.419 * 148500) + Math.round(15.001 * 148500);
@@ -143,7 +143,7 @@ for (const kind of storageKinds()) {
     }
     const da = s.sub.reportDetail({ batchId: s.a.batchId });
     assert.deepEqual(da.fuelOnly, [{ plateNo: '51D-000.01', fuelCount: 1, fuelLiter: 50 }]);
-    assert.deepEqual(da.byPlate.map((p) => p.plateNo), ['43C-999.99', '92H-00141', '92H-00192']);
+    assert.deepEqual(da.byPlate.map((p) => p.plateNo), ['43C-999.99', '51D-000.01', '92H-00141', '92H-00192']);
     assert.throws(() => s.sub.reportDetail({ batchId: 'KHONG-CO' }), { code: 'NOT_FOUND' });
     assert.throws(() => s.sub.reportDetail({}), { code: 'VALIDATION_FAILED' });
   });

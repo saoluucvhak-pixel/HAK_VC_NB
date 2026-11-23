@@ -379,13 +379,15 @@ class SubcontractService {
       if (plates.has(f.plate_no)) { const x = plates.get(f.plate_no); x.fuelCount += 1; x.fuelLiter += l; }
       else { const o = fuelOnly.get(f.plate_no) || { plateNo: f.plate_no, fuelCount: 0, fuelLiter: 0 }; o.fuelCount += 1; o.fuelLiter += l; fuelOnly.set(f.plate_no, o); }
     }
+    // Xe chỉ có dầu (không có chuyến): vẫn lập dòng để cấn trừ dầu — khớp Đối chiếu (chủ sản phẩm quyết 23/11/2026)
+    for (const o of fuelOnly.values()) plates.set(o.plateNo, { plateNo: o.plateNo, ticketCount: 0, kg: 0, fuelCount: o.fuelCount, fuelLiter: o.fuelLiter, fuelOnly: true });
     const byPlate = [...plates.values()].sort((a, b) => a.plateNo.localeCompare(b.plateNo)).map((x) => ({ ...x, ton: tonOf(x.kg),
       ...rentLine({ kg: x.kg, liter: x.fuelLiter, rentPrice, fuelPrice, deductFuel }), fuelLiter: round2(x.fuelLiter) }));
     const sum = (k) => byPlate.reduce((a, r) => a + r[k], 0);
     const kg = sum('kg'); const liter = byPlate.reduce((a, r) => a + r.fuelLiter, 0);
     const row = { batchId: meta.batchId, batchName: meta.batchName, partnerName: meta.partnerName || '', periodId: meta.periodId || '', periodCode: meta.periodCode || '', contractId: meta.contractId || '',
       dateFrom: meta.dateFrom || (meta.summary && meta.summary.dateFrom) || '', dateTo: meta.dateTo || (meta.summary && meta.summary.dateTo) || '',
-      ticketCount: seen.size, plateCount: byPlate.length, totalKg: kg, totalTon: tonOf(kg), fuelLiter: round2(liter), fuelLiterUnmatched: round2([...fuelOnly.values()].reduce((a, o) => a + o.fuelLiter, 0)),
+      ticketCount: seen.size, plateCount: byPlate.length, totalKg: kg, totalTon: tonOf(kg), fuelLiter: round2(liter), fuelLiterUnmatched: 0,
       rentUnitPrice: rentPrice, fuelUnitPrice: fuelPrice, deductFuel, rentAmount: sum('rentAmount'), fuelAmount: sum('fuelAmount'), deductFuelAmount: sum('deductFuelAmount'), payable: sum('payable'),
       importedAt: meta.createdAt || '', rowVersion: meta.rowVersion || 1, missingFile: !data };
     return { row, byPlate, byDate: [...dayMap.values()].sort((a, b) => a.date.localeCompare(b.date)).map((d) => ({ ...d, ton: tonOf(d.kg), fuelLiter: round2(d.fuelLiter) })),

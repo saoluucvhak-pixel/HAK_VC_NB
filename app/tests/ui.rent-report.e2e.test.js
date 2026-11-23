@@ -87,7 +87,7 @@ test('Giao diện: Báo cáo thuê vận chuyển có số liệu', { skip: !CHR
     const det = page.getByRole('region', { name: 'Chi tiết đợt Đợt tháng 9' }); await det.waitFor();
     assert.equal(await det.locator('.tbl-wrap').first().locator('tbody tr').count(), 3);
     const dt = await det.innerText();
-    for (const v of ['92H-00141', '92H-00192', '43C-999.99', vn(ra.rentAmount), vn(ra.payable), vn(ra.totalTon, 2), 'Dầu của xe không có chuyến nào', '51D-000.01']) assert.ok(dt.includes(v), `chi tiết thiếu ${v}`);
+    for (const v of ['92H-00141', '92H-00192', '43C-999.99', vn(ra.rentAmount), vn(ra.payable), vn(ra.totalTon, 2), 'Xe chỉ có dầu, không có chuyến nào', '51D-000.01']) assert.ok(dt.includes(v), `chi tiết thiếu ${v}`);
     assert.ok(dt.includes('Đơn giá thuê 155.000 đ/tấn'));
     await shot('rent-report-chi-tiet-1366');
 

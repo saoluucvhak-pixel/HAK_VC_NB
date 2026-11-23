@@ -297,6 +297,13 @@ class ReconcileService {
     const rentPrice = resolvedRentPrice;
     const fuelPrice = resolvedFuelPrice;
     const fByPlateMap = new Map((fuelCompare.byPlate || []).map((x) => [x.plateNo, x]));
+    // Xe chỉ có dầu, không có chuyến trong khoảng đối chiếu: vẫn lập dòng để CẤN TRỪ dầu (chủ sản phẩm quyết 23/11/2026) — tiền thuê = 0, thực trả = −tiền dầu.
+    const havePlate = new Set(plateRows.map((x) => x.plateNo));
+    for (const f of fuelCompare.byPlate || []) {
+      if (!f.plateNo || havePlate.has(f.plateNo)) continue;
+      plateRows.push({ plateNo: f.plateNo, mineTrips: 0, mineKg: 0, theirTrips: 0, theirKg: 0, issues: f.issues || 0, diffTrips: 0, diffKg: 0, fuelOnly: true });
+    }
+    plateRows.sort((a, b) => a.plateNo.localeCompare(b.plateNo));
 
     for (const x of plateRows) {
       const fItem = fByPlateMap.get(x.plateNo) || { mineRows: 0, theirRows: 0, mineLiter: 0, theirLiter: 0, diffLiter: 0 };
