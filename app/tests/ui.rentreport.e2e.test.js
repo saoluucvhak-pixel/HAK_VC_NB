@@ -1,5 +1,5 @@
 'use strict';
-/** Báo cáo thuê vận chuyển: mục menu (nhóm Đối tác, đầu nhóm), hướng dẫn 3 bước, nút điều hướng, danh sách đợt đã nạp, bố cục hẹp. */
+/** Báo cáo thuê vận chuyển: mục menu (nhóm Đối tác, đầu nhóm), hướng dẫn 3 bước, nút điều hướng, bảng báo cáo các đợt đã nạp (chi tiết ở ui.rent-report.e2e), bố cục hẹp. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -38,7 +38,8 @@ test('Giao diện: Báo cáo thuê vận chuyển', { skip: !fs.existsSync(CHROM
     const g = page.getByRole('region', { name: 'Hướng dẫn 3 bước' });
     await g.getByText('Nhận dữ liệu do đơn vị vận chuyển gửi theo mẫu (phiếu cân, dầu)').waitFor();
     await g.getByText('Đối chiếu với kỳ của bạn').waitFor();
-    await g.getByText('đang hoàn thiện').waitFor();
+    await g.getByText('xem tổng hợp tiền thuê ở bảng bên dưới — không cần tạo kỳ tính giá').waitFor();
+    assert.equal(await g.getByText('đang hoàn thiện').count(), 0);
     assert.equal(await g.getByRole('button', { name: /tạo kỳ/i }).count(), 0);
     await shot('rentreport-trong-1366');
     // điều hướng
@@ -52,10 +53,12 @@ test('Giao diện: Báo cáo thuê vận chuyển', { skip: !fs.existsSync(CHROM
     const b = await srv.ctx.svc.subcontract.importBatch({ filePath: FILE.DH, partnerName: 'Đơn vị VC thử', batchName: 'Đợt thử nghiệm', user: 'k' });
     assert.ok(b.batchId);
     await open();
-    const row = page.locator('tbody tr', { hasText: 'Đợt thử nghiệm' }); await row.waitFor();
-    await row.getByText('Đơn vị VC thử').waitFor();
+    const row = page.locator('.rr-main tbody tr', { hasText: 'Đợt thử nghiệm' }); await row.waitFor();
+    await row.getByText('Đơn vị VC thử').first().waitFor();
     await shot('rentreport-1366');
-    await row.click(); await page.getByRole('tab', { name: 'Các đợt đã nạp', selected: true }).waitFor();
+    // bấm dòng → chi tiết theo xe (bên dưới); nút Đối chiếu mở Đối chiếu dữ liệu
+    await row.click(); const det = page.getByRole('region', { name: 'Chi tiết đợt Đợt thử nghiệm' }); await det.waitFor();
+    await det.getByRole('button', { name: 'Đối chiếu', exact: true }).click(); await page.getByRole('tab', { name: 'Đối chiếu 3 tiêu chí', selected: true }).waitFor();
     for (const w of [1093, 910, 820]) {
       await open(); await page.setViewportSize({ width: w, height: 800 }); await page.waitForTimeout(300);
       const o = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
