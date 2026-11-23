@@ -198,7 +198,7 @@
               const miss = fields.filter((x) => need(x) && x.key !== 'distanceKm' && (v[x.key] === '' || v[x.key] === null)).map((x) => x.label);
               if (miss.length) { D.toast(`Chưa nhập: ${miss.join(', ')}`, 'err'); return false; }
               // số thập phân vượt ngưỡng hợp lý thường do gõ / dán nhầm dấu chấm-phẩy (vd 0.400 hiểu thành 400): hỏi lại trước khi lưu
-              const odd = method === 'CO_DINH' ? [] : [['fuelNormLPerKm', 10, 'Định mức dầu', 'lít/km'], ['avgLoadTon', 100, 'KL_TB', 'tấn'], ['avgVolumeM3', 500, 'Thể tích TB', 'm³']].filter(([k, max]) => Number(v[k]) > max).map(([k, max, name, u]) => `${name} = ${D.vnExact(v[k])} ${u} (lớn hơn ${max})`);
+              const odd = method === 'CO_DINH' ? [] : [['fuelNormLPerKm', 10, 'Định mức dầu', 'lít/km', 0.05], ['avgLoadTon', 100, 'KL_TB', 'tấn', 1], ['avgVolumeM3', 500, 'Thể tích TB', 'm³', 1]].filter(([k, max, , , min]) => Number(v[k]) > max || (Number(v[k]) > 0 && Number(v[k]) < min)).map(([k, max, name, u, min]) => `${name} = ${D.vnExact(v[k])} ${u} (${Number(v[k]) > max ? `lớn hơn ${max}` : `nhỏ hơn ${D.vnExact(min)}`})`);
               if (odd.length && !(await D.confirm({ title: 'Kiểm tra dấu chấm / phẩy', okLabel: 'Vẫn lưu', message: `${odd.join('\n')}\nKiểm tra dấu chấm/phẩy: dấu phẩy (,) là thập phân, dấu chấm (.) là ngăn cách nghìn — vd định mức 0,4 (không phải 0.400 hay 400). Vẫn lưu số này?` }))) return false;
               if (line) await D.api('prices.updateDraft', { priceId: line.price_id, rowVersion: line.row_version, record: { ...v, priceMethod: method } });
               else await D.api('pricecodes.addLine', { priceCode: code.price_code, record: { ...v, priceMethod: method } });

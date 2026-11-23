@@ -110,6 +110,10 @@ test('Giao diện HAKQN: form dòng đơn giá — ô ĐVT tính giá, nhãn m³
     await nm.getByRole('button', { name: 'Lưu' }).click();
     const ck = page.locator('.modal', { hasText: 'Kiểm tra dấu chấm / phẩy' }); await ck.getByText(/Định mức dầu = 400 lít\/km/).waitFor(); await ck.getByRole('button', { name: 'Hủy' }).click();
     await page.waitForTimeout(300); assert.equal(ctx.store.all('PRICE_HISTORY').filter((x) => x.price_code === 'PT-TD' && x.route_code === 'VC.008' && x.effective_from === '2027-03-01').length, 0, 'hủy → không lưu');
+    // số quá NHỎ cũng hỏi lại (gõ nhầm 0,004 thay vì 0,4): hủy thì không lưu
+    await typeInto(dm, '0,004'); await nm.getByRole('button', { name: 'Lưu' }).click();
+    const ck2 = page.locator('.modal', { hasText: 'Kiểm tra dấu chấm / phẩy' }); await ck2.getByText(/Định mức dầu = 0,004 lít\/km \(nhỏ hơn 0,05\)/).waitFor(); await ck2.getByRole('button', { name: 'Hủy' }).click();
+    await page.waitForTimeout(300); assert.equal(ctx.store.all('PRICE_HISTORY').filter((x) => x.price_code === 'PT-TD' && x.route_code === 'VC.008' && x.effective_from === '2027-03-01').length, 0, 'số quá nhỏ: hủy → không lưu');
     await typeInto(dm, '0,4');
     await nm.getByRole('button', { name: 'Lưu' }).click(); await toast(/Đã thêm dòng giá/);
     const nr = ctx.store.all('PRICE_HISTORY').find((x) => x.price_code === 'PT-TD' && x.route_code === 'VC.008' && x.effective_from === '2027-03-01');
