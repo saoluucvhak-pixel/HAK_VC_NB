@@ -97,6 +97,11 @@ test('Giao diện HAKQN: form dòng đơn giá — ô ĐVT tính giá, nhãn m³
     await typeInto(dau, '15500'); assert.equal(await dau.inputValue(), '15.500');
     await typeInto(kl, '12,5'); assert.equal(await kl.inputValue(), '12,5', 'gõ 12,5 giữ 12,5 (không thành 125)');
     await typeInto(dm, '0,4'); assert.equal(await dm.inputValue(), '0,4', 'định mức 0,4 không thành 4');
+    // gõ TỪNG KÝ TỰ có dấu chấm thập phân (kiểu bàn phím số): con trỏ không được lệch (rà soát PR #54: 0.4 từng ra "4,")
+    await typeInto(dm, '0.4'); assert.equal(await dm.inputValue(), '0,4', 'gõ 0.4 → 0,4'); await typeInto(kl, '12.5'); assert.equal(await kl.inputValue(), '12,5', 'gõ 12.5 → 12,5');
+    await typeInto(kl, '21.75'); assert.equal(await kl.inputValue(), '21,75', 'gõ 21.75 → 21,75'); await typeInto(kl, '12,5'); await typeInto(dm, '0,4');
+    // dán kiểu en-US nhiều dấu phẩy vào ô tiền = ngăn nghìn như D.parseMoney cũ
+    await cuoc.fill('1,234,567'); assert.equal(await cuoc.inputValue(), '1.234.567', 'dán 1,234,567 vào ô tiền → 1.234.567'); await typeInto(cuoc, '165000');
     await typeInto(tk, '1234567'); assert.equal(await tk.inputValue(), '1.234.567'); await typeInto(tk, '170000'); assert.equal(await tk.inputValue(), '170.000');
     await nm.getByLabel(/Nguồn đơn giá tham khảo/).fill('Bảng giá thử'); await nm.getByLabel(/Ngày cập nhật/).fill('2027-03-01');
     await nm.getByText(/cao hơn \(1\) DG_CUOC/).waitFor(); await nm.getByText(/\+5\.000 đ \(\+3,03%\)/).waitFor();
