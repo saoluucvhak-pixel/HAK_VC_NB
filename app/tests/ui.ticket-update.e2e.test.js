@@ -54,17 +54,18 @@ test('Giao diện: cập nhật phiếu cân qua import, xóa nhiều, khôi ph�
     await page.getByRole('button', { name: /Xác nhận import 1 dòng/ }).click();
     await toast(/cập nhật 1 phiếu/);
     // xóa phiếu đang lọc (1 xe, 1 ngày)
-    await page.locator('label.field', { hasText: 'Số phiếu / biển số' }).locator('input').fill('92H-00141');
-    await page.locator('label.field', { hasText: 'Từ ngày' }).locator('input').fill('2026-09-20');
-    await page.locator('label.field', { hasText: 'Đến ngày' }).locator('input').fill('2026-09-20');
-    await page.getByRole('button', { name: 'Lọc', exact: true }).click();
-    const del = page.getByRole('button', { name: /Xóa [1-9] phiếu đang lọc/ }); await del.waitFor(); // chờ danh sách ĐÃ lọc (1 chữ số); nút trước khi lọc ghi cả 77 phiếu — đọc nhầm sẽ ra số xóa khác
+    const expectN = srv.ctx.svc.query.tickets({ q: '92H-00141', dateFrom: '2026-09-20', dateTo: '2026-09-20' }).total; assert.ok(expectN >= 1 && expectN <= 9);
+    await page.locator('[data-sf-q]').first().fill('92H-00141');
+    await page.locator('[data-sf-tu]').first().fill('2026-09-20');
+    await page.locator('[data-sf-den]').first().fill('2026-09-20');
+    // bộ lọc thông minh lọc từng bước khi gõ/chọn: chờ ĐÚNG kết quả cuối (cả 3 điều kiện) rồi mới bấm xóa
+    const del = page.getByRole('button', { name: new RegExp(`Xóa ${expectN} phiếu đang lọc`) }); await del.waitFor();
+    await page.getByText(new RegExp(`Hiển thị ${expectN} /`)).first().waitFor(); // chờ danh sách ĐÃ lọc (1 chữ số); nút trước khi lọc ghi cả 77 phiếu — đọc nhầm sẽ ra số xóa khác
     const cnt = Number((await del.textContent()).match(/Xóa (\d+)/)[1]);
     await del.click(); await page.locator('.modal textarea').fill('file nhập nhầm'); await page.locator('.modal').getByRole('button', { name: 'Đồng ý' }).click();
     await toast(new RegExp(`Đã xóa ${cnt} phiếu`));
     // lọc Đã xóa → khôi phục 1 phiếu
-    await page.locator('label.field', { hasText: 'Trạng thái sử dụng' }).locator('select').selectOption('DELETED');
-    await page.getByRole('button', { name: 'Lọc', exact: true }).click();
+    await page.locator('select[data-sf-field="usage"]').first().selectOption('DELETED'); // bộ lọc thông minh: chọn là lọc ngay
     await page.getByText(/Phiếu đã xóa — bấm vào 1 phiếu để khôi phục/).waitFor();
     assert.equal(await page.locator('.card.flush tbody tr').count(), cnt);
     await shot('loc-da-xoa');

@@ -81,8 +81,7 @@ test('Giao diện ĐH: Phiếu cân phân trang 500/trang + xóa hàng loạt á
     // xóa hàng loạt: nhãn nút = TỔNG (mọi trang), không phải 500
     const del = page.getByRole('button', { name: new RegExp(`Xóa ${String(total).replace(/(\d)(?=(\d{3})+$)/g, '$1.')} phiếu đang lọc`) }); await del.waitFor();
     // thu hẹp bộ lọc về trang 1 khi đổi điều kiện
-    await page.locator('label.field', { hasText: 'Số phiếu / biển số' }).locator('input').fill('BULK0000');
-    await page.getByRole('button', { name: 'Lọc', exact: true }).click();
+    await page.locator('[data-sf-q]').first().fill('BULK0000'); // bộ lọc thông minh: gõ là lọc (về trang 1)
     await page.getByText(/Hiện 1–100 \/ 100/).waitFor();
     await page.getByRole('button', { name: /Xóa 100 phiếu đang lọc/ }).click();
     await page.locator('.modal textarea').fill('thử'); await page.locator('.modal').getByRole('button', { name: 'Xóa' }).or(page.locator('.modal').getByRole('button', { name: 'Đồng ý' })).first().click();
