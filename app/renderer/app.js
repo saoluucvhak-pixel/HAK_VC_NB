@@ -126,6 +126,7 @@
   // ───────── thông báo ─────────
   D.toast = (msg, kind = 'info', ms = 4000) => {
     let box = document.querySelector('.toasts'); if (!box) { box = h('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' }); document.body.append(box); }
+    if ([...box.children].some((c) => c.textContent === String(msg))) return; // cùng nội dung đang hiện (vd nhắc sửa giống nhà máy khác bị gọi 2 lần) → không hiện lặp
     const t = h('div', { class: `toast ${kind}` }, msg); box.append(t); setTimeout(() => t.remove(), ms);
     while (box.children.length > 3) box.firstChild.remove(); // tối đa 3 thông báo, không che nút
   };

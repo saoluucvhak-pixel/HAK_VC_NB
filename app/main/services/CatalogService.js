@@ -201,10 +201,15 @@ class CatalogService {
       else if (p.fixed_price > 1e9) bad.push(`Đơn giá cố định quá lớn (> 1.000.000.000 ${uomLabel}) — kiểm tra lại số nhập`);
     } else {
       if (!(p.new_price > 0)) bad.push('Đơn giá mới phải > 0');
+      else if (p.new_price < 1000) bad.push(`Đơn giá cước dự kiến ${p.new_price} đ quá nhỏ (< 1.000) — kiểm tra dấu chấm ngăn cách nghìn (vd nhập 150000 hoặc 150.000)`);
       if (!(p.fuel_price_excl_vat > 0)) bad.push('Đơn giá dầu (chưa VAT) phải > 0');
       if (!(p.fuel_norm_l_per_km > 0)) bad.push('Định mức dầu (lít/km) phải > 0');
       if (!(p.avg_load_ton > 0)) bad.push('KL trung bình (tấn) phải > 0');
       if (route && route.uom === 'M3' && !(p.avg_volume_m3 > 0)) bad.push('Tuyến tính theo M3 — Thể tích TB phải > 0');
+      if (!bad.length && route) { // các số hợp lệ từng ô nhưng công thức ra đơn giá ≤ 0 (vd nhập thiếu 3 chữ số 0 ở đơn giá cước): báo ngay, không để ra −17.000
+        const a = E.computeContractPrice(route, p, this._cfg());
+        if (!(a.contractPrice > 0)) bad.push(`Đơn giá ký hợp đồng tính theo công thức = ${a.contractPrice} (≤ 0) — kiểm tra đơn giá cước, định mức dầu, giá dầu, KL trung bình`);
+      }
     }
     if (bad.length) throw new AppError('VALIDATION_FAILED', bad.join('; '), { errors: bad });
   }

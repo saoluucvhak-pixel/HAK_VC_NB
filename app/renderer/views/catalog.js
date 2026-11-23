@@ -115,7 +115,7 @@
         ['Tiền dầu / chuyến (7) = (5) × ĐG dầu (6)', `${D.vnAuto(r.fuelPerTrip)} × ${D.vn(r.fuelPriceCatalog)}`, r.fuelCostPerTrip, 'đ'],
         ['Tỷ lệ dầu (8) = (7) / (3)', `${D.vn(r.fuelCostPerTrip)} / ${D.vn(r.tripPrice)}`, Math.round(r.fuelCostRatio * 10000) / 100, '%'],
         ['ĐGVC chưa dầu (9) = [(3) − (7)] / KL_TB', `(${D.vn(r.tripPrice)} − ${D.vn(r.fuelCostPerTrip)}) / ${D.vn(r.avgLoadTon)}`, Math.round(r.priceNoDiesel * 100) / 100, 'đ'],
-        ['ĐƠN GIÁ HỢP ĐỒNG (10) = làm tròn (9) đến hàng nghìn', `${D.vn(r.priceNoDiesel, 2)} → làm tròn`, r.contractPrice, 'đ'],
+        ['ĐƠN GIÁ KÝ HỢP ĐỒNG (10) = làm tròn (9) đến hàng nghìn', `${D.vn(r.priceNoDiesel, 2)} → làm tròn`, r.contractPrice, 'đ'],
       ].map(([l, e, v, u]) => h('li', {}, h('b', {}, l), h('div', { class: 'f' }, e), h('div', { class: 'v' }, `= ${D.vnAuto(v)} ${u}`)))) }));
       const load = async () => {
         const d = await D.api('reports.contractBasis', params());
@@ -141,7 +141,7 @@
             h('li', {}, h('b', {}, '(3) ĐG 1 chuyến = (1) Đơn giá cước × (2) KL trung bình')),
             h('li', {}, h('b', {}, '(7) Tiền dầu / chuyến = Cự ly chuyến × (4) Định mức × (6) ĐG dầu chưa VAT')),
             h('li', {}, h('b', {}, '(9) ĐGVC chưa dầu = [(3) − (7)] / KL_TB')),
-            h('li', {}, h('b', {}, '(10) ĐƠN GIÁ HỢP ĐỒNG = làm tròn (9) đến hàng nghìn'), h('div', { class: 'f' }, 'Ghi vào hợp đồng — chưa gồm nhiên liệu. Hằng kỳ cộng chênh lệch dầu theo dầu thực nhận.'))),
+            h('li', {}, h('b', {}, '(10) ĐƠN GIÁ KÝ HỢP ĐỒNG = làm tròn (9) đến hàng nghìn'), h('div', { class: 'f' }, 'Ghi vào hợp đồng — chưa gồm nhiên liệu. Hằng kỳ cộng chênh lệch dầu theo dầu thực nhận.'))),
             h('p', { class: 'small muted' }, 'Bấm vào 1 tuyến để xem thay số. Muốn thử phương án giá: Xuất Excel — file có công thức, sửa ô xanh là tự tính lại.'))));
       };
       const page = D.page('Báo cáo giá hợp đồng', 'Kết xuất · Đơn giá ký hợp đồng (chưa gồm nhiên liệu) theo từng tuyến', [
