@@ -3,6 +3,34 @@
 (function () {
   const D = window.DGVC; const { h } = D;
 
+  // ───────── Bộ lọc thông minh dùng chung cho Phiếu cân / Giao nhận dầu ─────────
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const isoOf = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const addDay = (iso, n) => { const [y, m, d] = iso.split('-').map(Number); return isoOf(new Date(y, m - 1, d + n)); };
+  const monthEnd = (y, m) => isoOf(new Date(y, m, 0));
+  /** 24 tháng gần nhất (mới → cũ) cho ô "Kỳ". */
+  const recentMonths = () => { const now = new Date(); const out = []; for (let i = 0; i < 24; i++) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); out.push({ value: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`, label: `Tháng ${d.getMonth() + 1}/${d.getFullYear()}` }); } return out; };
+  const sfLoad = (id) => { try { const s = JSON.parse(window.localStorage.getItem(`dgvc.sf.last.${id}`) || 'null'); return s && typeof s === 'object' ? D.sf.normalize(s) : null; } catch { return null; } };
+  const sfKeep = (id, s) => { try { window.localStorage.setItem(`dgvc.sf.last.${id}`, JSON.stringify(s)); } catch { /* không lưu được thì bỏ qua */ } };
+  /** Nút chọn nhanh khoảng ngày: Hôm nay · 7 ngày · Tháng này · Tháng trước · Từ kỳ tính gần nhất. setRange(từ, đến) do màn hình áp dụng. */
+  const rangeButtons = (setRange, lastPeriodEnd) => {
+    const b = (label, fn, title) => h('button', { type: 'button', class: 'btn small sf-ghost', title: title || '', onclick: fn }, label);
+    const today = () => isoOf(new Date());
+    return [
+      b('Hôm nay', () => setRange(today(), today())),
+      b('7 ngày', () => setRange(addDay(today(), -6), today()), '7 ngày gần nhất, tính cả hôm nay'),
+      b('Tháng này', () => { const n = new Date(); setRange(`${n.getFullYear()}-${pad2(n.getMonth() + 1)}-01`, monthEnd(n.getFullYear(), n.getMonth() + 1)); }),
+      b('Tháng trước', () => { const n = new Date(); const y = n.getMonth() ? n.getFullYear() : n.getFullYear() - 1; const m = n.getMonth() || 12; setRange(`${y}-${pad2(m)}-01`, monthEnd(y, m)); }),
+      b('Từ kỳ tính gần nhất', async () => { const e = await lastPeriodEnd(); if (!e) { D.toast('Chưa có kỳ tính nào', 'info'); return; } setRange(addDay(e, 1), ''); }, 'Từ ngày sau kỳ tính (không hủy) gần nhất đến hết')
+    ];
+  };
+  /** Ngày kết thúc của kỳ tính không hủy gần nhất (của hợp đồng nếu có). */
+  const lastPeriodEnd = async (contractId) => {
+    const d = await D.api('periods.list', contractId ? { contractId } : {}, { quiet: true }).catch(() => ({ items: [] }));
+    const ends = (d.items || []).filter((p) => p.status !== 'HUY').map((p) => p.date_to).filter(Boolean).sort();
+    return ends.length ? ends[ends.length - 1] : '';
+  };
+
   // ───────── Import (dùng chung phiếu cân / dầu) ─────────
   /** Tải file Excel mẫu để import (sinh theo danh mục hiện tại: tuyến, xe, đơn vị). */
   D.importTemplate = async ({ importType, contractId }) => {
@@ -89,34 +117,57 @@
   // ───────── Phiếu cân ─────────
   D.views.tickets = {
     async render(p) {
-      const f = D.form([{ key: 'dateFrom', label: 'Từ ngày', type: 'date' }, { key: 'dateTo', label: 'Đến ngày', type: 'date' }, { key: 'routeCode', label: 'Tuyến', type: 'select', options: D.routeOptions() },
-        { key: 'ownerUnitCode', label: 'Chủ xe', type: 'select', options: [['', 'Tất cả'], ...D.unitOptions()] },
-        { key: 'usage', label: 'Trạng thái sử dụng', type: 'select', options: [['', 'Tất cả'], ['FREE', 'Chưa tính'], ['NHAP', 'Ở kỳ nháp'], ['DA_XAC_NHAN', 'Đã xác nhận'], ['DA_KHOA', 'Đã khóa'], ['DELETED', 'Đã xóa']] },
-        { key: 'q', label: 'Số phiếu / biển số', placeholder: 'tìm…' }, { key: 'onlyFlags', label: 'Chỉ phiếu có cảnh báo', type: 'check' }], p);
-      f.className = 'filters';
+      // Bộ lọc thông minh (HAK Smart Filter): lọc phía máy chủ để vẫn phân trang đủ mọi phiếu
+      const TK_USAGE = [{ value: 'FREE', label: 'Chưa tính kỳ' }, { value: 'NHAP', label: 'Ở kỳ nháp' }, { value: 'DA_XAC_NHAN', label: 'Đã xác nhận' }, { value: 'DA_KHOA', label: 'Đã khóa' }, { value: 'DELETED', label: 'Đã xóa' }];
+      let sfState = D.sf.empty();
+      const fromParams = (q0) => D.sf.normalize({ q: q0.q || '', tu: q0.dateFrom || '', den: q0.dateTo || '', one: { route: q0.routeCode || '', owner: q0.ownerUnitCode || '', usage: q0.usage || '' }, flag: { flags: !!q0.onlyFlags } });
+      const hasParams = !!(p && (p.dateFrom || p.dateTo || p.routeCode || p.ownerUnitCode || p.usage || p.q || p.onlyFlags));
+      sfState = hasParams ? fromParams(p) : (sfLoad('tickets') || sfState); // không có tham số chuyển màn → nhớ bộ lọc lần trước
+      const toServer = (s) => ({ dateFrom: s.tu || '', dateTo: s.den || '', q: s.q || '', routeCode: (s.one || {}).route || '', ownerUnitCode: (s.one || {}).owner || '', usage: (s.one || {}).usage || '', onlyFlags: !!(s.flag || {}).flags,
+        importedSince: (s.flag || {}).today ? new Date(new Date().setHours(0, 0, 0, 0)).toISOString() : '' });
+      let sfInfo = { kept: 0, total: 0 }; let sfMount = null;
+      const sfCfg = {
+        screenId: 'tickets', searchPlaceholder: '🔍 Tìm số phiếu / biển số…', qAttrs: { 'aria-label': 'Tìm phiếu cân theo số phiếu hoặc biển số' },
+        quickFields: ['q', 'period', 'route', 'usage'], advancedFields: ['q', 'period', 'route', 'owner', 'usage', 'flags', 'today'],
+        periods: recentMonths, periodNoneLabel: 'Kỳ: tất cả',
+        fields: [
+          { key: 'route', label: 'Tuyến', type: 'enum', options: () => D.routeOptions(false).map(([v, l]) => ({ value: v, label: l })) },
+          { key: 'owner', label: 'Chủ xe', type: 'enum', options: () => D.unitOptions().map(([v, l]) => ({ value: v, label: l })) },
+          { key: 'usage', label: 'Trạng thái', type: 'enum', options: TK_USAGE },
+          { key: 'flags', label: 'Chỉ phiếu có cảnh báo', type: 'bool' },
+          { key: 'today', label: 'Chỉ phiếu mới nhập hôm nay', type: 'bool' }
+        ],
+        state: { get: () => sfState, set: (s) => { sfState = s; sfKeep('tickets', s); } },
+        dataSource: () => sfInfo, onApply: () => { pg = 1; load(); }, onReset: () => {}, scopeFallback: () => 'Tất cả phiếu',
+        actions: () => rangeButtons((tu, den) => { sfState = D.sf.setDates(sfState, tu, den); sfKeep('tickets', sfState); pg = 1; load(); if (sfMount) sfMount.refresh(); }, () => lastPeriodEnd(''))
+      };
       const out = h('div', { class: 'card flush' });
       const PAGE = 500; let pg = 1; const guard = D.latest();
       const load = async (opts = {}) => {
         if (opts === true || (opts && opts.reset)) pg = 1; // bấm Lọc / đổi điều kiện → về trang 1
         const tok = guard.next();
-        const d = await D.api('tickets.list', { ...f.values(), page: pg, pageSize: PAGE });
+        const sv = toServer(sfState); const filtered = !D.sf.isEmpty(sfState);
+        const d = await D.api('tickets.list', { ...sv, page: pg, pageSize: PAGE });
+        const base = filtered ? await D.api('tickets.list', { page: 1, pageSize: 1 }, { quiet: true }).catch(() => null) : null; // tổng chưa lọc, để hiện "đang hiện N / tổng"
         if (!guard.ok(tok)) return; // đã có lần tải mới hơn — bỏ kết quả cũ
+        sfInfo = { kept: d.total, total: base ? base.total : d.total };
         if (d.total && pg > Math.ceil(d.total / PAGE)) { pg = Math.ceil(d.total / PAGE); return load(); } // sau khi xóa hết trang cuối
         out.innerHTML = '';
-        const deletedView = f.values().usage === 'DELETED';
+        const deletedView = (sfState.one || {}).usage === 'DELETED';
         out.append(h('div', { class: 'row', style: { padding: '10px 14px', borderBottom: '1px solid var(--line)' } },
           h('span', { class: 'small muted grow' }, deletedView ? 'Phiếu đã xóa — bấm vào 1 phiếu để khôi phục (import lại file có phiếu đó cũng tự khôi phục).' : 'Bấm vào 1 phiếu để xem / sửa / xóa. Import lại file đã sửa số liệu sẽ cập nhật phiếu đã có (trừ phiếu ở kỳ đã chốt).'),
-          D.writer() && !deletedView && d.total ? h('button', { class: 'btn small danger', onclick: () => bulkDelete(f.values(), load) }, `Xóa ${D.vn(d.total)} phiếu đang lọc…`) : null));
+          D.writer() && !deletedView && d.total ? h('button', { class: 'btn small danger', onclick: () => bulkDelete(toServer(sfState), load) }, `Xóa ${D.vn(d.total)} phiếu đang lọc…`) : null));
         out.append(D.table({ rows: d.items, onRow: (r) => ticketDrawer(r.ticket_id, load), footer: { ticket_no: `${D.vn(d.totals.trips)} phiếu`, net_kg: d.totals.kg },
           columns: [...D.TICKET_COLS, { key: 'ldd', label: 'LDĐ' }, { key: 'u', label: 'Kỳ đang dùng', render: (r) => (r.usages.length ? r.usages.map((u) => h('div', {}, D.tag(u.status), ' ', h('span', { class: 'mono small' }, u.periodCode))) : h('span', { class: 'tag mute' }, 'Chưa tính')) },
             { key: 'validation_flags', label: 'Cảnh báo', render: (r) => (r.validation_flags && !r.flags_ack ? h('span', { class: 'tag warn' }, r.validation_flags) : '') }],
           empty: 'Chưa có phiếu cân — bấm "Import từ Excel"' }));
         out.append(D.pager({ total: d.total, page: pg, pageSize: PAGE, goto: (n) => { pg = n; load(); } }));
+        if (sfMount) sfMount.refresh();
       };
       const page = D.page('Phiếu cân', '2 · Phiếu cân', [D.writer() ? h('button', { class: 'btn', onclick: () => bulkDesc(load) }, 'Sửa hàng loạt cột mô tả') : null,
         D.writer() ? h('button', { class: 'btn', onclick: () => D.importTemplate({ importType: 'PHIEU_CAN' }) }, 'Tải file mẫu') : null,
         D.writer() ? h('button', { class: 'btn primary', onclick: () => D.importWizard({ importType: 'PHIEU_CAN', onDone: load }) }, 'Import từ Excel') : null],
-      h('div', { class: 'card' }, h('div', { class: 'filters' }, f, h('button', { class: 'btn primary', onclick: () => load({ reset: true }) }, 'Lọc'))), out);
+      h('div', { class: 'card' }, (sfMount = D.smartFilter.mount(sfCfg)).el), out);
       await load();
       return page;
     },
@@ -175,31 +226,60 @@
   D.views.fuel = {
     async render(p) {
       const opts = D.contractOptions(false);
-      const f = D.form([{ key: 'contractId', label: 'Hợp đồng', type: 'select', options: opts }, { key: 'dateFrom', label: 'Từ ngày', type: 'date' }, { key: 'dateTo', label: 'Đến ngày', type: 'date' }],
+      const f = D.form([{ key: 'contractId', label: 'Hợp đồng', type: 'select', options: opts }],
         { contractId: p.contractId || (D.contractOptions(true)[0] || opts[0] || [''])[0] });
-      f.className = 'filters';
+      f.className = 'filters filters-one';
       const out = h('div', { class: 'card flush' });
       const isCarrier = () => (D.state.boot.contracts.find((c) => c.contract_id === f.values().contractId) || {}).role === 'CARRIER';
       const acts = h('div', { class: 'btns' });
+      // Bộ lọc thông minh (HAK Smart Filter): lọc ngay trên toàn bộ dòng dầu của hợp đồng đang chọn
+      const FU_USAGE = [{ value: 'FREE', label: 'Chưa vào kỳ' }, { value: 'NHAP', label: 'Ở kỳ nháp' }, { value: 'DA_XAC_NHAN', label: 'Đã xác nhận' }, { value: 'DA_KHOA', label: 'Đã khóa' }];
+      let allRows = []; let sfState = sfLoad('fuel') || D.sf.empty(); let sfInfo = { kept: 0, total: 0 }; let sfMount = null;
+      const uniq = (k) => [...new Set(allRows.map((r) => r[k]).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'vi', { numeric: true })).map((v) => ({ value: String(v), label: String(v) }));
+      const sfCfg = {
+        screenId: 'fuel', searchPlaceholder: '🔍 Tìm biển số / mã xe / kho…', qAttrs: { 'aria-label': 'Tìm dòng dầu theo biển số, mã xe hoặc kho nhận' },
+        quickFields: ['q', 'period', 'plate', 'usage'], advancedFields: ['q', 'period', 'plate', 'route', 'usage', 'flags'],
+        periods: recentMonths, periodNoneLabel: 'Kỳ: tất cả',
+        fields: [
+          { key: 'plate', label: 'Biển số', type: 'multi', options: () => uniq('plate_no'), match: (r, sel) => D.sf.inSet(sel, r.plate_no) },
+          { key: 'route', label: 'Tuyến', type: 'multi', options: () => uniq('route_code'), match: (r, sel) => D.sf.inSet(sel, r.route_code) },
+          { key: 'usage', label: 'Trạng thái kỳ', type: 'enum', options: FU_USAGE, match: (r, v) => (v === 'FREE' ? !r.period : !!r.period && r.period.status === v) },
+          { key: 'flags', label: 'Chỉ dòng có cảnh báo', type: 'bool', match: (r) => !!(r.validation_flags && !r.flags_ack) }
+        ],
+        matchQ: (r, q) => D.sf.hay([r.plate_no, r.fuel_vehicle_code, r.receipt_id, r.route_code, r.giver_unit_code, r.fuel_depot]).indexOf(q) >= 0,
+        matchDate: (r, tu, den) => (!tu || r.receive_date >= tu) && (!den || r.receive_date <= den),
+        state: { get: () => sfState, set: (s) => { sfState = s; sfKeep('fuel', s); } },
+        dataSource: () => sfInfo, onApply: () => draw(), onReset: () => {}, scopeFallback: () => 'Tất cả dòng dầu của hợp đồng',
+        summary: () => [],
+        actions: () => rangeButtons((tu, den) => { sfState = D.sf.setDates(sfState, tu, den); sfKeep('fuel', sfState); draw(); }, () => lastPeriodEnd(f.values().contractId))
+      };
       const fixedNote = h('div', { role: 'status' }); // hợp đồng toàn tuyến cố định → không cần nhập dầu (vẫn nhập được)
       const load = async () => {
         const v = f.values(); if (!v.contractId) return;
-        const d = await D.api('fuel.list', v);
+        const d = await D.api('fuel.list', { contractId: v.contractId }); allRows = d.items;
         const rs = await D.api('contracts.routeSources', { contractId: v.contractId }, { quiet: true }).catch(() => ({ items: [] }));
         fixedNote.replaceChildren(...(rs.allFixed === true ? [h('p', { class: 'small', style: { margin: '8px 0 0' } }, D.tag('info', 'Đơn giá cố định'), ' Hợp đồng toàn tuyến cố định — không cần nhập dầu (vẫn nhập được nếu có). Dầu chỉ dùng cho tuyến theo giá dầu.')] : []));
         acts.innerHTML = '';
         if (D.writer() && isCarrier()) acts.append(h('button', { class: 'btn', onclick: () => manualFuel(v.contractId, load) }, 'Nhập tay'), h('button', { class: 'btn', onclick: () => D.importTemplate({ importType: 'GIAO_NHAN_DAU', contractId: v.contractId }) }, 'Tải file mẫu'), h('button', { class: 'btn primary', onclick: () => D.importWizard({ importType: 'GIAO_NHAN_DAU', contractId: v.contractId, onDone: load }) }, 'Import từ Excel'));
+        draw();
+      };
+      const draw = () => {
+        const v = f.values(); if (!v.contractId) return;
+        const res = D.sf.filterRows(allRows, sfCfg, sfState); const rows = res.rows;
+        const liters = rows.reduce((a, r) => a + r.qty_liter, 0); const pos = rows.filter((r) => r.qty_liter > 0); const avgPrice = pos.length ? pos.reduce((a, r) => a + r.fuel_price_excl_vat, 0) / pos.length : 0;
+        sfInfo = { kept: res.kept, total: res.total, unsupported: res.unsupported };
         out.innerHTML = '';
         // bản 1.2.6: file dầu tải lên sai → lọc theo ngày rồi xóa 1 lần, tải lại file đúng
         out.append(h('div', { class: 'row', style: { padding: '10px 14px', borderBottom: '1px solid var(--line)' } },
           h('span', { class: 'small muted grow' }, 'Bấm vào 1 dòng để sửa / xóa. Tải file dầu sai: lọc đúng khoảng ngày của file → "Xóa … dòng đang lọc" → Import lại file đúng.'),
-          D.writer() && isCarrier() && d.items.length ? h('button', { class: 'btn small danger', onclick: () => bulkDeleteFuel(d.items, load) }, `Xóa ${D.vn(d.items.length)} dòng đang lọc…`) : null));
-        out.append(D.table({ rows: d.items, onRow: D.writer() && isCarrier() ? (r) => fuelEdit(r, load) : null, footer: { receive_date: `${d.total} dòng`, qty_liter: d.totals.liters, fuel_price_excl_vat: `TB ${D.vn(d.totals.avgPrice, 2)}` },
+          D.writer() && isCarrier() && rows.length ? h('button', { class: 'btn small danger', onclick: () => bulkDeleteFuel(rows, load) }, `Xóa ${D.vn(rows.length)} dòng đang lọc…`) : null));
+        out.append(D.table({ rows, onRow: D.writer() && isCarrier() ? (r) => fuelEdit(r, load) : null, footer: { receive_date: `${rows.length} dòng`, qty_liter: liters, fuel_price_excl_vat: `TB ${D.vn(avgPrice, 2)}` },
           columns: [...D.FUEL_COLS, { key: 'p', label: 'Kỳ', render: (r) => (r.period ? h('span', {}, D.tag(r.period.status), ' ', h('span', { class: 'mono small' }, r.period.periodCode)) : h('span', { class: 'tag mute' }, 'Chưa tính')) },
-            { key: 'validation_flags', label: 'Kiểm tra', render: (r) => (r.validation_flags && !r.flags_ack ? h('span', { class: 'tag warn' }, r.validation_flags) : '') }], empty: 'Chưa có dòng dầu cho hợp đồng này' }));
+            { key: 'validation_flags', label: 'Kiểm tra', render: (r) => (r.validation_flags && !r.flags_ack ? h('span', { class: 'tag warn' }, r.validation_flags) : '') }], empty: res.total ? 'Không có dòng dầu nào khớp bộ lọc' : 'Chưa có dòng dầu cho hợp đồng này' }));
+        if (sfMount) sfMount.refresh();
       };
       f.inputs.contractId.addEventListener('change', load);
-      const page = D.page('Giao nhận dầu', '3 · Bảng kê dầu theo hợp đồng', [acts], h('div', { class: 'card' }, h('div', { class: 'filters' }, f, h('button', { class: 'btn primary', onclick: load }, 'Lọc')),
+      const page = D.page('Giao nhận dầu', '3 · Bảng kê dầu theo hợp đồng', [acts], h('div', { class: 'card' }, f, (sfMount = D.smartFilter.mount(sfCfg)).el,
         h('p', { class: 'small muted', style: { margin: '8px 0 0' } }, 'Đơn giá dầu của kỳ = trung bình cộng các dòng; dầu trong bảng kê tính hết vào kỳ (kể cả dòng nhận trước ngày bắt đầu).'), fixedNote), out);
       await load();
       return page;

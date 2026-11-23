@@ -45,9 +45,10 @@
       var ky = typeof cfg.periods === "function" ? cfg.periods() : [];
       per.appendChild(h("option", { value: "", text: "Kỳ: tùy chọn ngày" }));
       ky.forEach(function (k) { per.appendChild(h("option", { value: k.value, text: k.label })); });
+      var setD = function (inp, iso) { if (A.dateSet) A.dateSet(inp, iso); else inp.value = SF.fmtVN(iso); }; // ô ngày của trình duyệt chỉ nhận yyyy-MM-dd
       var tu = A.dateField(s0.tu, { "aria-label": "Từ ngày", title: "Từ ngày", "data-sf-tu": "1" }), den = A.dateField(s0.den, { "aria-label": "Đến ngày", title: "Đến ngày", "data-sf-den": "1" });
       var sync = function () { var s = getS(); per.value = s.ky || ""; per.options[0].text = !s.ky && !s.tu && !s.den ? (cfg.periodNoneLabel || "Kỳ: tất cả") : "Kỳ: tùy chọn ngày"; msg.textContent = SF.dateProblem(s); };
-      per.addEventListener("change", function () { setS(SF.setPeriod(getS(), per.value)); tu.value = SF.fmtVN(getS().tu); den.value = SF.fmtVN(getS().den); sync(); });
+      per.addEventListener("change", function () { setS(SF.setPeriod(getS(), per.value)); setD(tu, getS().tu); setD(den, getS().den); sync(); });
       var edit = function () {
         var a = A.dateIso(tu), b = A.dateIso(den);
         if (a === null || b === null) { msg.textContent = "Ngày không hợp lệ — nhập dd/MM/yyyy"; return; }
@@ -56,7 +57,7 @@
       tu.addEventListener("change", edit); den.addEventListener("change", edit);
       sync();
       wrap.appendChild(per); wrap.appendChild(h("label", { class: "chip" }, [document.createTextNode("Từ ngày "), tu])); wrap.appendChild(h("label", { class: "chip" }, [document.createTextNode("Đến ngày "), den])); wrap.appendChild(msg);
-      wrap.refresh = function () { var s = getS(); tu.value = SF.fmtVN(s.tu); den.value = SF.fmtVN(s.den); sync(); };
+      wrap.refresh = function () { var s = getS(); setD(tu, s.tu); setD(den, s.den); sync(); };
       return wrap;
     }
 

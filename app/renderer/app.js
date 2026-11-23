@@ -408,6 +408,7 @@
       btn: (label, kind, onclick, title) => sfH('button', { type: 'button', class: `btn small${kind === 'primary' || kind === 'pri' ? ' primary' : kind === 'ghost' ? ' sf-ghost' : ''}`, title: title || '', onclick }, [label]),
       dateField: (iso, attrs) => sfH('input', Object.assign({ type: 'date', value: iso || '' }, attrs || {})),
       dateIso: (inp) => (inp && inp.value) || '',
+      dateSet: (inp, iso) => { inp.value = iso || ''; },
       toast: (msg) => D.toast(msg, 'info'),
       askText: (title, label, opts, cb) => {
         const inp = h('input', { type: 'text', value: (opts && opts.value) || '', 'aria-label': label });

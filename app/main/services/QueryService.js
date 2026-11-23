@@ -39,11 +39,11 @@ class QueryService {
     return m;
   }
 
-  tickets({ dateFrom = '', dateTo = '', routeCode = '', plateNo = '', ownerUnitCode = '', usage = '', onlyFlags = false, q = '', idsOnly = false, page: p, pageSize } = {}) {
-    const use = this._usageByTicket(); const k = q.trim().toUpperCase();
+  tickets({ dateFrom = '', dateTo = '', routeCode = '', plateNo = '', ownerUnitCode = '', usage = '', onlyFlags = false, q = '', importedSince = '', idsOnly = false, page: p, pageSize } = {}) {
+    const use = this._usageByTicket(); const k = q.trim().toUpperCase(); const since = importedSince ? Date.parse(importedSince) : NaN;
     const rows = this.store.find('PHIEU_CAN', (t) => (usage === 'DELETED' ? t.is_deleted : !t.is_deleted) && inRange(t.weigh1_date, dateFrom, dateTo) && (!routeCode || t.route_code === routeCode)
       && (!plateNo || t.plate_no === plateNo) && (!ownerUnitCode || t.owner_unit_code === ownerUnitCode) && (!onlyFlags || (t.validation_flags && !t.flags_ack))
-      && (!k || t.ticket_no.includes(k) || t.plate_no.includes(k)))
+      && (!k || t.ticket_no.includes(k) || t.plate_no.includes(k)) && (Number.isNaN(since) || Date.parse(t.created_at) >= since))
       .map((t) => ({ ...t, usages: use.get(t.ticket_id) || [] }))
       .filter((t) => !usage || usage === 'DELETED' || (usage === 'FREE' ? !t.usages.length : t.usages.some((u) => u.status === usage)))
       .sort((a, b) => (a.weigh1_date + a.weigh1_time).localeCompare(b.weigh1_date + b.weigh1_time));

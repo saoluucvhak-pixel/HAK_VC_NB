@@ -290,3 +290,19 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .ct-compact table.t td .tag { white-space: normal; text-align: center; }
 .ct-compact table.t td .btn.small { padding: 4px 8px; min-height: 30px; }
 @media (max-width: 999px) { .ct-routes table.t th:nth-child(3), .ct-routes table.t td:nth-child(3), .ct-routes table.t th:nth-child(6), .ct-routes table.t td:nth-child(6) { display: none; } } /* màn hẹp: bớt cột Cự ly, ĐVT (xem ở màn rộng) để thấy nút Gỡ */
+
+/* Bộ lọc thông minh: khoảng ngày "Từ ngày [..] Đến ngày [..]" luôn đi liền nhau, không tách dòng giữa nhãn và ô ngày; cả khối xuống dòng cùng nhau khi hẹp */
+.sfdr { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+.sfdr .chip { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; white-space: nowrap; font-size: .86rem; font-weight: 600; color: var(--text); }
+.sfdr .chip input[type=date] { width: 150px; min-height: 36px; font-weight: 400; }
+.sfdr > select { min-height: 36px; }
+.sf-bar { row-gap: 8px; }
+.sf-sum .sf-act { flex-wrap: wrap; justify-content: flex-end; }
+.filters-one .field { flex: 1 1 360px; max-width: 560px; }
+
+/* một hàng duy nhất ở độ rộng thường gặp (910–1366px); chỉ cho xuống dòng khi thật sự hẹp */
+.sfdr { flex-wrap: nowrap; }
+.sfdr > select { width: 125px; flex: 0 0 auto; font-size: .84rem; }
+.sfdr .chip input[type=date] { width: 128px; padding-left: 6px; padding-right: 6px; font-size: .84rem; }
+@media (max-width: 860px) { .sfdr { flex-wrap: wrap; } }
+@media (max-width: 1100px) { .sf-sum .sf-act { margin-left: 0; flex-basis: 100%; justify-content: flex-start; } }
