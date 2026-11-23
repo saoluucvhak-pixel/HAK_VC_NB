@@ -203,9 +203,9 @@
       quick.forEach(function (k) {
         if (k === "q") {
           qIn = h("input", Object.assign({ class: "i search", placeholder: cfg.searchPlaceholder || "🔍 Tìm…", value: getS().q, "aria-label": "Tìm kiếm", "data-sf-q": "1" }, cfg.qAttrs || {}));
-          var commitQ = function () { var s = getS(); if (s.q === qIn.value.trim()) return; s.q = qIn.value; cfg.state.set(s); applied(); };
+          var commitQ = function () { qIn._pending = false; var s = getS(); if (s.q === qIn.value.trim()) return; s.q = qIn.value; cfg.state.set(s); applied(); };
           if (cfg.qCommit) qIn.addEventListener("change", commitQ); // màn hình vẽ lại toàn trang: chỉ áp khi Enter / rời ô
-          else qIn.addEventListener("input", function () { clearTimeout(qIn._t); qIn._t = setTimeout(commitQ, 250); });
+          else qIn.addEventListener("input", function () { qIn._pending = true; clearTimeout(qIn._t); qIn._t = setTimeout(commitQ, 250); });
           bar.appendChild(qIn);
         } else if (k === "period" || k === "dates") {
           dr = dateRange(cfg, getS, function (s) { cfg.state.set(s); var pr = SF.dateProblem(s); if (pr) A.toast("⚠ " + pr); applied(); });
@@ -239,7 +239,7 @@
       function refresh() {
         var n = SF.activeCount(cfg.state.get());
         adv.textContent = "⚙ Bộ lọc nâng cao" + (n ? " (" + n + ")" : ""); adv.classList.toggle("has", n > 0);
-        if (qIn && document.activeElement !== qIn) qIn.value = getS().q;
+        if (qIn && document.activeElement !== qIn && !qIn._pending) qIn.value = getS().q; // không xóa từ khóa đã gõ mà chưa kịp áp dụng (đang chờ 250 ms)
         if (dr) dr.refresh();
         drawQuick();
         slot.innerHTML = ""; slot.appendChild(chips(cfg, function () { if (qIn) qIn.value = getS().q; applied(); }));

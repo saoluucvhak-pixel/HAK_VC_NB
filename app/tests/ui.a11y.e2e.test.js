@@ -47,18 +47,26 @@ test('Giao diện: màn nhỏ không tràn, Enter/Xóa lọc ở bộ lọc, h�
     }
     await page.setViewportSize({ width: 1366, height: 768 });
 
-    // 2) Enter / điều kiện đang lọc / Xóa lọc
+    // 2) Phiếu cân dùng bộ lọc thông minh: gõ là lọc ngay, hiện thẻ điều kiện, "Đặt lại" trả về đủ phiếu
     await nav('Phiếu cân');
-    const q = page.locator('label.field', { hasText: 'Số phiếu / biển số' }).locator('input');
+    const q = page.locator('[data-sf-q]').first();
     const total = srv.ctx.store.find('PHIEU_CAN', (t) => !t.is_deleted).length;
     const some = srv.ctx.store.all('PHIEU_CAN')[0].plate_no; const expect = srv.ctx.store.find('PHIEU_CAN', (t) => !t.is_deleted && (t.plate_no.includes(some) || t.ticket_no.includes(some))).length;
     assert.ok(expect > 0 && expect < total);
-    await q.fill(some); await page.getByText(/1 điều kiện đang lọc/).waitFor();
-    await q.press('Enter'); await page.getByText(new RegExp(`Hiện 1–${expect} / ${expect}`)).waitFor();
-    await page.getByRole('button', { name: 'Xóa lọc' }).click();
+    await q.fill(some); await page.getByText(/Tìm: /).first().waitFor();
+    await page.getByText(new RegExp(`Hiện 1–${expect} / ${expect}`)).waitFor();
+    await page.locator('[data-sf-reset]').first().click();
     await page.getByText(new RegExp(`Hiện 1–${total} / ${total}`)).waitFor();
-    assert.equal(await q.inputValue(), ''); assert.equal(await page.getByRole('button', { name: 'Xóa lọc' }).isVisible(), false);
+    assert.equal(await q.inputValue(), '');
+    // 2b) bộ lọc chung ở các màn còn lại (Tổng quan): Enter = Xem; "N điều kiện đang lọc"; Xóa lọc
+    await nav('Tổng quan');
+    const from = page.getByLabel('Từ ngày').first();
+    await from.fill('2026-09-01'); await page.getByText(/1 điều kiện đang lọc/).waitFor();
+    await from.press('Enter'); await page.getByText(/1 điều kiện đang lọc/).waitFor();
+    await page.getByRole('button', { name: 'Xóa lọc' }).click();
+    assert.equal(await from.inputValue(), ''); assert.equal(await page.getByRole('button', { name: 'Xóa lọc' }).isVisible(), false);
 
+    await nav('Phiếu cân'); await page.locator('tbody tr').first().waitFor();
     // 3) hộp thoại: Tab xoay vòng trong hộp, Esc đóng
     await page.locator('tbody tr').first().click(); await page.locator('.drawer, .modal').first().waitFor();
     for (let i = 0; i < 40; i++) { await page.keyboard.press('Tab'); assert.ok(await page.evaluate(() => !!document.activeElement.closest('.drawer,.modal')), `focus rò ra nền sau ${i + 1} lần Tab`); }

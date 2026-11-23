@@ -59,9 +59,8 @@ test('Giao diện ĐH: lưu trữ theo năm', { skip: !fs.existsSync(CHROME) && 
     await shot('da-luu-tru');
     // Phiếu cân: kho đang dùng rỗng; chọn ngày 2026 → tự mở xem
     await nav('Phiếu cân');
-    await page.locator('label.field', { hasText: 'Từ ngày' }).first().locator('input').fill('2026-09-01');
-    await page.locator('label.field', { hasText: 'Đến ngày' }).first().locator('input').fill('2026-09-30');
-    await page.getByRole('button', { name: 'Lọc', exact: true }).click().catch(() => {});
+    await page.locator('[data-sf-tu]').first().fill('2026-09-01'); // bộ lọc thông minh: chọn ngày là lọc ngay
+    await page.locator('[data-sf-den]').first().fill('2026-09-30');
     await page.locator('.archive-banner', { hasText: 'năm lưu trữ 2026' }).waitFor();
     await page.locator('tbody tr', { hasText: '92H-00192' }).first().waitFor();
     await shot('dang-xem');
