@@ -1386,14 +1386,14 @@ Không tham số.
 
 #### `data.restore`
 
-Khôi phục từ 1 bản sao lưu: tự sao lưu hiện trạng trước, thay thư mục tables/, mở lại APP. Quyền: ADMIN.
+Khôi phục từ 1 bản sao lưu: tự sao lưu hiện trạng trước, thay thư mục tables/ (hoặc `dgvc.sqlite`) **và dữ liệu ngoài kho — Thuê vận chuyển `subcontract/`, năm lưu trữ `archive/<năm>/` — nếu bản sao lưu có `sidecar.json` (từ 1.9.5; bản cũ hơn không đụng các dữ liệu đó đang có)** — cả hai cùng một lúc, lỗi giữa chừng trả lại cả hai — rồi mở lại APP. Quyền: ADMIN.
 
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
 | `file` | string | ✔ | đường dẫn .zip hoặc manifest.json |
 | `reason` | string | ✔ |  |
 
-- **Trả về:** `{restoredDataVersion, safetyBackupPath}`
+- **Trả về:** `{restoredFrom, safetyBackup, dataVersion, subcontractFiles, archiveFiles}` (số tệp Thuê vận chuyển / năm lưu trữ được khôi phục; `null` = bản sao lưu cũ, không đụng các dữ liệu đó đang có)
 - **Lỗi:** `INTEGRITY_ERROR`, `STORAGE_ERROR`
 
 #### `data.changeFolder`

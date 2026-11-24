@@ -324,6 +324,7 @@ class AppContext {
       const m = JSON.parse(fs.readFileSync(path.join(tmp, 'manifest.json'), 'utf8'));
       if (!fs.existsSync(path.join(tmp, 'snapshot-info.json'))) fs.writeFileSync(path.join(tmp, 'snapshot-info.json'), JSON.stringify({ app: 'DGVC', source: 'sqlite', exportedAt: new Date().toISOString(), exportedBy: user.username, dataVersion: m.dataVersion, schemaVersion: m.schemaVersion, installId: m.installId, unitCode: m.unitCode, appVersion: APP_VERSION }, null, 1));
       const zip = new AdmZip(); zip.addLocalFolder(tmp);
+      require('../services/BackupService').addSidecar(zip, tmp, true); // sidecar.json: máy nhận khôi phục đúng dữ liệu Thuê vận chuyển (thiếu → bị coi là bản cũ và bỏ qua)
       zip.addFile('backup-info.json', Buffer.from(JSON.stringify({ app: 'DGVC', kind: 'json-share', note: 'sao lưu phụ JSON gửi máy khác', createdAt: new Date().toISOString(), createdBy: user.username, installId: m.installId, unitCode: m.unitCode, dataVersion: m.dataVersion }, null, 1)));
       const out = file.toLowerCase().endsWith('.zip') ? file : `${file}.zip`; fs.mkdirSync(path.dirname(out), { recursive: true });
       const buf = zip.toBuffer(); fs.writeFileSync(`${out}.part`, buf); fs.renameSync(`${out}.part`, out);
@@ -388,8 +389,14 @@ class AppContext {
     const { exportSqliteToJson } = require('../repo/migrate/migrate');
     await this.store.queue; // chờ giao dịch đang ghi xong
     const tmpRoot = path.join(os.tmpdir(), `dgvc-snap-${process.pid}-${Date.now()}`); fs.mkdirSync(tmpRoot, { recursive: true });
-    try { this.store.snapshotDbTo(path.join(tmpRoot, 'dgvc.sqlite')); return await exportSqliteToJson({ root: tmpRoot, dest }); }
-    finally { fs.rmSync(tmpRoot, { recursive: true, force: true }); }
+    try {
+      this.store.snapshotDbTo(path.join(tmpRoot, 'dgvc.sqlite')); const out = await exportSqliteToJson({ root: tmpRoot, dest });
+      // dữ liệu Thuê vận chuyển + năm lưu trữ nằm ngoài kho (cạnh dgvc.sqlite): mang theo, nếu không thư mục JSON xuất ra rồi khôi phục sẽ mất các đợt nạp (luôn tạo thư mục, kể cả rỗng)
+      const { listSidecar, SIDE_DIRS } = require('../services/BackupService');
+      for (const dir of SIDE_DIRS) fs.mkdirSync(path.join(dest, dir), { recursive: true });
+      for (const name of listSidecar(this.store.root)) { const to = path.join(dest, name); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(path.join(this.store.root, name), to); }
+      return out;
+    } finally { fs.rmSync(tmpRoot, { recursive: true, force: true }); }
   }
 
   close() { if (this.store) { this.store.close(); this.store = null; } }
