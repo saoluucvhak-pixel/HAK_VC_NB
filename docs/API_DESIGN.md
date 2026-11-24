@@ -1421,7 +1421,7 @@ Xuất gói .dgvc (JSON nén + SHA-256): DANH_MUC (đơn vị, xe, tuyến, giá
 | `plates` | array<string> |  | với PHIEU_CAN |
 | `targetPath` | string | ✔ | từ dialog.saveFile |
 
-- **Trả về:** `{path, packageSha256, counts}`
+- **Trả về:** `{exchangeId, file, sizeBytes, contentSha256, counts, header, remindersMarked, warnings}` (`warnings`: cảnh báo bên gửi, vd gói có dòng đơn giá tính theo m³ mà máy nhận chạy bản 1.9.3 trở xuống sẽ từ chối)
 - **Lỗi:** `BUSINESS_RULE:E_PERIOD_STATUS`, `STORAGE_ERROR`
 - **Đọc:** DON_VI, XE, TUYEN_VC, PRICE_HISTORY, HOP_DONG, HOP_DONG_XE, PHIEU_CAN, KY_TINH, TRANSPORT_CALCULATION, TRANSPORT_DETAIL, FUEL_DETAIL, BKVC_LINE, GIAO_NHAN_DAU
 - **Ghi:** EXCHANGE_LOG · AUDIT `EXPORT_PACKAGE`
