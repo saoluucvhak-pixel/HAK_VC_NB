@@ -10,6 +10,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const SPEC = require('../../shared/api_spec.json');
 const { AppError } = require('../../shared/errors');
+const { assertSafeOpenPath } = require('../app/openPathPolicy');
 
 const PUBLIC = '(chưa đăng nhập)';
 const specRoles = Object.fromEntries(SPEC.actions.map((a) => [a.action, a.roles]));
@@ -37,7 +38,7 @@ const ROUTES = {
   'dialog.openFile': [AKX, (ctx, p, s, host) => host.openFile(p)],
   'dialog.openFolder': [[PUBLIC], (ctx, p, s, host) => host.openFolder(p)],
   'dialog.saveFile': [AKX, (ctx, p, s, host) => host.saveFile(p)],
-  'system.openPath': [AKX, (ctx, p, s, host) => host.openPath(p)],
+  'system.openPath': [AKX, (ctx, p, s, host) => host.openPath({ ...p, path: assertSafeOpenPath(p && p.path) })],
   // danh mục
   'units.list': [null, (ctx, p) => ctx.svc.master.listUnits(p)],
   'units.save': [null, (ctx, p, s) => ctx.svc.master.saveUnit({ ...p, user: s.user })],
