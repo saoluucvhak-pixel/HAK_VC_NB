@@ -55,6 +55,9 @@ test('Giao diện HAKQN: gói kỳ cùng kỳ từ máy khác → xung đột c�
       await page.getByText('Thông tin gói').waitFor();
     };
     await open(fa);
+    // Hồi quy (cuộc đua nhấp chuột): xem trước vừa hiện thì trang KHÔNG được đang cuộn mượt — nếu không, nút "Nhập gói" trượt khỏi dưới con trỏ giữa mousedown và mouseup, click rơi vào phần tử cha và hộp xác nhận không hiện.
+    const ys = await page.evaluate(() => new Promise((resolve) => { const out = []; const tick = () => { out.push(Math.round(window.scrollY)); if (out.length < 24) requestAnimationFrame(tick); else resolve(out); }; requestAnimationFrame(tick); }));
+    assert.equal(new Set(ys).size, 1, `trang còn đang cuộn sau khi hiện xem trước: ${ys.join(',')}`);
     await page.getByRole('button', { name: 'Nhập gói' }).last().click();
     await page.locator('.modal').getByRole('button', { name: 'Đồng ý' }).click();
     await toast(/Đã nhập gói/); await page.getByRole('button', { name: 'Mở đối chiếu' }).waitFor(); // sau khi nhập xong có nút sang Đối chiếu
