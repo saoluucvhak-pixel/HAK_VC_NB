@@ -60,7 +60,7 @@ a { color: var(--brand-text); }
   display: flex; gap: 8px; align-items: center; font-weight: 500; font-size: 13.5px; white-space: nowrap; transition: all .15s; }
 .nav li button:hover { background: rgba(255, 255, 255, .07); color: #fff; }
 .nav li button[aria-current="page"] { background: linear-gradient(90deg, rgba(212, 176, 106, .22), rgba(212, 176, 106, .06)); color: #fff; box-shadow: inset 3px 0 0 var(--champ, var(--brand-2)); }
-.nav .n { width: 20px; text-align: center; font-family: var(--mono); font-size: 12px; opacity: .55; flex: none; }
+.nav .n { width: 20px; text-align: center; font-family: var(--mono); font-size: 12px; opacity: .8; flex: none; }
 .nav .nav-txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
 .nav .badge { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, .14); color: #fff; font-size: .72rem; text-align: center; font-weight: 600; flex: none; }
 .side .me { border-top: 1px solid rgba(255, 255, 255, .08); padding: 14px 18px 18px; font-size: .8rem; color: var(--sb-text); }
@@ -85,7 +85,7 @@ a { color: var(--brand-text); }
 .kpi .l { font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-mute); }
 .kpi .v { font-family: var(--font); font-variant-numeric: tabular-nums; font-size: 1.45rem; font-weight: 800; line-height: 1.1; color: var(--brand-text); }
 .kpi.main { background: var(--hero); border: 0; box-shadow: var(--shadow); }
-.kpi.main .l { color: rgba(255, 255, 255, .82); } .kpi.main .v { color: #fff; font-size: 1.7rem; }
+.kpi.main .l { color: #fff; } .kpi.main .v { color: #fff; font-size: 1.7rem; }
 
 /* ---------- form ---------- */
 .filters { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; }
@@ -97,6 +97,7 @@ a { color: var(--brand-text); }
 .filters-inline .field input[type="date"], .filters-inline .field input { width: 150px; min-height: 38px; }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
 .field > span { font-size: .84rem; font-weight: 600; color: var(--text); }
+::placeholder { color: var(--text-mute); opacity: 1; } /* chữ gợi ý đạt 4.5:1 ở mọi bảng màu (mặc định của trình duyệt ~3.4:1 ở nền tối) */
 input:not([type="checkbox"]):not([type="radio"]), select, textarea { border: 1px solid var(--field-line); border-radius: 8px; padding: 7px 11px; background: var(--field-bg); min-height: 38px; transition: border-color .15s, box-shadow .15s; }
 input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:focus { outline: 0; border-color: var(--brand); box-shadow: 0 0 0 .2rem var(--brand-soft); }
 input[readonly], select:disabled, textarea[readonly] { background: var(--field-off-bg); color: var(--field-off-fg); cursor: not-allowed; }
@@ -179,7 +180,7 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .tabs { display: flex; flex-wrap: wrap; gap: 0 4px; border-bottom: 1px solid var(--line); margin-bottom: 14px; } /* màn hẹp: thẻ xuống dòng, không bị che chữ bởi thanh cuộn ngang */
 .tabs button { white-space: nowrap; background: none; border: 0; padding: 8px 14px; cursor: pointer; border-bottom: 3px solid transparent; color: var(--text-mute); font-weight: 600; }
 .tabs button[aria-selected="true"] { color: var(--brand-text); border-bottom-color: var(--brand); }
-.status-flow { display: flex; gap: 6px; align-items: center; } .status-flow .s { padding: 4px 12px; border-radius: 999px; background: var(--mute-bg); color: var(--text-mute); font-size: 12px; font-weight: 600; } .status-flow .s.on { background: var(--green); color: #fff; }
+.status-flow { display: flex; gap: 6px; align-items: center; } .status-flow .s { padding: 4px 12px; border-radius: 999px; background: var(--mute-bg); color: var(--text-mute); font-size: 12px; font-weight: 600; } .status-flow .s.on { background: var(--green); color: var(--onBrand, #fff); }
 #topProgress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 3000; pointer-events: none; }
 #topProgress .bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--brand-2), #7be0e6); transition: width .2s; box-shadow: 0 0 10px var(--brand-2); }
 /* chứng từ + bảng thiết lập in: hai cột, dưới 1150px xếp dọc để chứng từ không bị bóp hẹp */
@@ -207,7 +208,7 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .theme-btn { flex: 1 1 auto; text-align: center; font-size: .78rem; }
 
 .guide-step { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px; } .guide-step .grow { flex: 1; min-width: 0; } .guide-step h2 { margin-bottom: 4px; } .guide-step p { margin: 0; }
-.guide-n { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--brand-soft); color: var(--brand-text); }
+.guide-n { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--brand-soft); color: var(--text); }
 .guide-ol { margin: 6px 0 10px; padding-left: 22px; } .guide-ol li { margin: 4px 0; }
 .sticky-act { position: sticky; bottom: 0; z-index: 3; background: var(--bg); padding: 12px 0; margin-top: 12px; border-top: 1px solid var(--line); } /* thanh nút luôn nằm ở đáy màn hình khi nội dung dài (vd Nhập gói) */
 
@@ -320,7 +321,7 @@ table.t.info td.mono { white-space: normal; overflow-wrap: anywhere; word-break:
 .xv-main, .xv-side { min-width: 0; }
 .xv-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .xv-h { margin: 0 0 6px; font-size: 16px; overflow-wrap: anywhere; }
-.xv-guide { padding: 10px 12px; border: 1px solid var(--brand); border-radius: 8px; background: var(--brand-soft); color: var(--brand-text); font-size: 13.5px; line-height: 1.45; }
+.xv-guide { padding: 10px 12px; border: 1px solid var(--brand); border-radius: 8px; background: var(--brand-soft); color: var(--text); font-size: 13.5px; line-height: 1.45; }
 .xv-formula { white-space: pre-line; overflow-wrap: break-word; font-size: 13px; line-height: 1.45; min-width: 160px; }
 .xv-box { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--row-alt); }
 .xv-kv { padding: 7px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
