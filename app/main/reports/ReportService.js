@@ -7,6 +7,7 @@
  *   export({report, format: XLSX|CSV|PDF|HTML, params, targetPath})
  */
 const fs = require('node:fs');
+const { bkvcFileQtyHeader } = require('./labels');
 const path = require('node:path');
 const E = require('../engine');
 const { AppError } = require('../../shared/errors');
@@ -570,7 +571,7 @@ class ReportService {
       if (report === 'BKVC') await xlsx.writeBkvc(data, targetPath);
       else await xlsx.writeTable(data, targetPath, { landscape: true });
     } else if (format === 'CSV') {
-      const cols = report === 'BKVC' ? BKVC_CSV : data.columns;
+      const cols = report === 'BKVC' ? BKVC_CSV.map((c) => (c.key === 'ton' ? { ...c, header: bkvcFileQtyHeader(data) } : c)) : data.columns;
       const rows = report === 'BKVC' ? data.lines.map((l) => ({ ...l })) : data.rows;
       fs.writeFileSync(targetPath, toCsv(cols, rows));
     } else if (format === 'HTML' || format === 'PDF') {
