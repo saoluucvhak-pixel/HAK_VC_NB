@@ -1,6 +1,7 @@
 'use strict';
 /** Xuất Excel bằng exceljs. BKVC theo bố cục sheet BKVC hiện tại (A4 dọc, 10 cột A–J); bảng khác: A4 ngang, dòng tiêu đề cố định. */
 const ExcelJS = require('exceljs');
+const { bkvcQtyHeader } = require('./labels');
 
 const FMT = { int: '#,##0', money: '#,##0', dec1: '#,##0.0', dec2: '#,##0.00', date: '@', text: '@' };
 const thin = { style: 'thin', color: { argb: 'FF7F7F7F' } };
@@ -22,7 +23,7 @@ async function writeBkvc(d, file) {
   if (H.contractNo) put('H1', `Hợp đồng số: ${H.contractNo}`, { font: { italic: true } });
   merge('A4', 'J4', H.title, { font: { bold: true, size: 14 }, align: { horizontal: 'center' } });
   merge('A5', 'J5', H.periodText, { font: { italic: true }, align: { horizontal: 'center' } });
-  const heads = ['STT', 'Biển số xe', 'Số chuyến', 'Khối lượng (KG)', 'Khối lượng (Tấn)', 'Đơn giá', 'Thành tiền', `VAT (${H.vatPct}%)`, 'Thành tiền', 'Ghi chú'];
+  const heads = ['STT', 'Biển số xe', 'Số chuyến', 'Khối lượng (KG)', bkvcQtyHeader(d.lines), 'Đơn giá', 'Thành tiền', `VAT (${H.vatPct}%)`, 'Thành tiền', 'Ghi chú'];
   const hr = ws.getRow(6); hr.height = 30;
   heads.forEach((h, i) => { const c = hr.getCell(i + 1); c.value = h; c.font = { name: FONT, bold: true, size: 11 }; c.border = box;
     c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFEFEF' } }; });

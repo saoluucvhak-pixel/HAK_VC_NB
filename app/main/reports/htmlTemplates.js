@@ -1,4 +1,5 @@
 'use strict';
+const { bkvcQtyHeader } = require('./labels');
 /** Mẫu HTML để in / xuất PDF (A4). Không tải gì từ Internet — font hệ thống Times New Roman như chứng từ Excel hiện tại. */
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function vn(x, d = 0) {
@@ -17,8 +18,7 @@ thead{display:table-header-group}tr{page-break-inside:avoid}`;
 
 function bkvc(d) {
   const H = d.header; const S = d.signers; const T = d.totals;
-  const hasM3 = (d.lines || []).some((l) => l.uom === 'M3');
-  const qtyHdr = hasM3 ? 'Khối lượng (Tấn / m³)' : 'Khối lượng (Tấn)';
+  const qtyHdr = bkvcQtyHeader(d.lines); // dùng chung với Excel / CSV (labels.js)
   const draft = H.status === 'NHAP' ? '<div class="wm">BẢN NHÁP — CHƯA XÁC NHẬN</div>' : '';
   const rows = d.lines.map((l) => `<tr><td class="c">${l.seq}</td><td class="nw">${esc(l.plate_no)}</td><td class="r">${vn(l.trip_count)}</td><td class="r">${vn(l.kg)}</td>
 <td class="r">${vn(l.ton, 2)}</td><td class="r">${vn(l.unit_price)}</td><td class="r">${vn(l.amount)}</td><td class="r">${vn(l.vat)}</td><td class="r">${vn(l.amount_incl_vat)}</td><td>${esc(l.note)}</td></tr>`).join('\n');
