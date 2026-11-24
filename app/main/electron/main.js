@@ -7,6 +7,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu, screen } = require('electron');
 const { AppContext } = require('../app/AppContext');
+const { assertSafeOpenPath } = require('../app/openPathPolicy');
 const { Router } = require('../api/router');
 const { electronPdfRenderer } = require('../reports/pdf');
 
@@ -51,7 +52,10 @@ function host() {
     openFile: async ({ title, filters } = {}) => { const r = await dialog.showOpenDialog(win, { title, properties: ['openFile'], filters: filters || [] }); return r.canceled ? { canceled: true } : { path: r.filePaths[0] }; },
     openFolder: async ({ title } = {}) => { const r = await dialog.showOpenDialog(win, { title, properties: ['openDirectory', 'createDirectory'] }); return r.canceled ? { canceled: true } : { path: r.filePaths[0] }; },
     saveFile: async ({ title, defaultPath, filters } = {}) => { const r = await dialog.showSaveDialog(win, { title, defaultPath: defaultPath ? path.join(app.getPath('documents'), defaultPath) : undefined, filters: filters || [] }); return r.canceled ? { canceled: true } : { path: r.filePath }; },
-    openPath: async ({ path: p }) => ({ ok: !(await shell.openPath(p)) }),
+    openPath: async ({ path: p }) => {
+      const safePath = assertSafeOpenPath(p);
+      return { ok: !(await shell.openPath(safePath)) };
+    },
     print: async ({ html, landscape }) => {
       const w = new BrowserWindow({ show: false, webPreferences: { sandbox: true, javascript: false } });
       await w.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
