@@ -104,6 +104,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $notes = "docs\PHAT_HANH_$env:VERSION.md"; if (-not (Test-Path "..\$notes")) { $notes = $null }
-          $body = "Bộ cài Windows x64 (chưa ký số). SHA-256: $env:SHA256`n`nCài đè lên bản cũ; dữ liệu giữ nguyên. Kho mặc định JSON; SQLite là thí điểm."
+          $body = "Bộ cài Windows x64 (chưa ký số). SHA-256: $env:SHA256`n`nCài đè lên bản cũ; dữ liệu giữ nguyên. Kho mặc định SQLite; JSON dùng cho sao lưu và trao đổi."
           if ($notes) { gh release create "v$env:VERSION" "dist\DGVC-Setup-$env:VERSION.exe" "dist\DGVC-Setup-$env:VERSION.exe.sha256" --target ${{ github.sha }} --title "DGVC $env:VERSION" --notes-file "..\$notes" }
           else { gh release create "v$env:VERSION" "dist\DGVC-Setup-$env:VERSION.exe" "dist\DGVC-Setup-$env:VERSION.exe.sha256" --target ${{ github.sha }} --title "DGVC $env:VERSION" --notes $body }

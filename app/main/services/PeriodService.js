@@ -77,27 +77,27 @@ class PeriodService {
                     reportDate = '', vatRate, clientRequestId, user = { username: 'system' } }) {
     if (!clientRequestId) throw new AppError('VALIDATION_FAILED', 'Thiếu clientRequestId');
     if (this.done.has(clientRequestId)) return this.done.get(clientRequestId);
-    const contract = this._contract(contractId);
-    const existing = periodId ? this._period(periodId) : null;
-    this._guardWrite(existing, contract);
-    if (existing && existing.status !== 'NHAP') throw businessError('E_PERIOD_STATUS', `Kỳ ${existing.period_code} đang "${existing.status}" — phải trả về nháp trước khi tính lại`);
-    if (existing && (existing.date_from !== dateFrom || existing.date_to !== dateTo || existing.contract_id !== contractId)) {
-      throw new AppError('VALIDATION_FAILED', 'Tính lại phải giữ nguyên hợp đồng và khoảng ngày của kỳ');
-    }
-    // phiếu / dòng dầu đã bỏ khỏi kỳ: tính lại mà không truyền → giữ như lần tính trước (không tự đưa lại dòng đã bỏ)
-    const prev = existing ? this.exclusions({ periodId: existing.period_id }) : { excludeTicketIds: [], excludeReceiptIds: [] };
-    if (excludeTicketIds === undefined) excludeTicketIds = prev.excludeTicketIds;
-    if (excludeReceiptIds === undefined) excludeReceiptIds = prev.excludeReceiptIds;
-    if (overrides === undefined) overrides = prev.overrides || [];
-    for (const o of overrides) if (!o.reason) throw new AppError('VALIDATION_FAILED', `Cho phép ${o.code} phải có lý do`);
-    if (!existing) this._periodCode(contract, dateFrom, dateTo, routeCode); // kỳ trùng → báo ngay, trước khi chạy Engine
-    const vat = this._vat(vatRate, prev.vatRate, dateTo);
-    const params = { dateFrom, dateTo, routeCode, periodId, excludeTicketIds, excludeReceiptIds, moveFromDraft, overrides, vatRate: vat.rate };
-    const out = this._run(contract, params);
-    if (!out.canCalculate) throw businessError('E_CALC_BLOCKED', 'Còn lỗi chặn — không tính được', { issues: out.issues.filter((i) => i.level === 'ERROR'), blocked: out.blocked });
-    const cfgSnap = { ...Object.fromEntries(this.store.all('CONFIG').map((c) => [c.config_key, c.config_value])), VAT_RATE: String(vat.rate) };
-
     const result = await this.store.transaction((tx) => {
+      const contract = this._contract(contractId);
+      const existing = periodId ? this._period(periodId) : null;
+      this._guardWrite(existing, contract);
+      if (existing && existing.status !== 'NHAP') throw businessError('E_PERIOD_STATUS', `Kỳ ${existing.period_code} đang "${existing.status}" — phải trả về nháp trước khi tính lại`);
+      if (existing && (existing.date_from !== dateFrom || existing.date_to !== dateTo || existing.contract_id !== contractId)) {
+        throw new AppError('VALIDATION_FAILED', 'Tính lại phải giữ nguyên hợp đồng và khoảng ngày của kỳ');
+      }
+      // phiếu / dòng dầu đã bỏ khỏi kỳ: tính lại mà không truyền → giữ như lần tính trước (không tự đưa lại dòng đã bỏ)
+      const prev = existing ? this.exclusions({ periodId: existing.period_id }) : { excludeTicketIds: [], excludeReceiptIds: [] };
+      if (excludeTicketIds === undefined) excludeTicketIds = prev.excludeTicketIds;
+      if (excludeReceiptIds === undefined) excludeReceiptIds = prev.excludeReceiptIds;
+      if (overrides === undefined) overrides = prev.overrides || [];
+      for (const o of overrides) if (!o.reason) throw new AppError('VALIDATION_FAILED', `Cho phép ${o.code} phải có lý do`);
+      if (!existing) this._periodCode(contract, dateFrom, dateTo, routeCode); // kỳ trùng → báo ngay, trước khi chạy Engine
+      const vat = this._vat(vatRate, prev.vatRate, dateTo);
+      const params = { dateFrom, dateTo, routeCode, periodId, excludeTicketIds, excludeReceiptIds, moveFromDraft, overrides, vatRate: vat.rate };
+      const out = this._run(contract, params);
+      if (!out.canCalculate) throw businessError('E_CALC_BLOCKED', 'Còn lỗi chặn — không tính được', { issues: out.issues.filter((i) => i.level === 'ERROR'), blocked: out.blocked });
+      const cfgSnap = { ...Object.fromEntries(this.store.all('CONFIG').map((c) => [c.config_key, c.config_value])), VAT_RATE: String(vat.rate) };
+
       // 1. kỳ
       let period = existing ? tx.get('KY_TINH', existing.period_id) : null;
       if (!period) {
@@ -151,23 +151,23 @@ class PeriodService {
   }
 
   async _transition(periodId, { from, to, action, rowVersion, reason, user, needUnlock }) {
-    const p = this._period(periodId);
-    const contract = this._contract(p.contract_id);
-    this._guardWrite(p, contract);
-    if (needUnlock && !(user.role === 'ADMIN' || user.canUnlock)) throw new AppError('FORBIDDEN', 'Chỉ ADMIN hoặc người có quyền mở khóa mới làm được');
-    if (needUnlock && !reason) throw new AppError('VALIDATION_FAILED', 'Phải nhập lý do');
-    if (p.status !== from) throw businessError('E_PERIOD_STATUS', `Kỳ ${p.period_code} đang "${p.status}", không thể ${action.toLowerCase()} (cần "${from}")`);
-    if (to === 'DA_XAC_NHAN' && from === 'NHAP') {
-      if (p.needs_recalc) throw businessError('E_NEEDS_RECALC', `Dữ liệu nguồn đã sửa sau lần tính — tính lại kỳ ${p.period_code} trước khi xác nhận`);
-      if (!p.calc_version) throw businessError('E_PERIOD_STATUS', 'Kỳ chưa được tính');
-      // phiếu cân / dòng dầu hợp lệ trong phạm vi kỳ nhưng nhập hoặc khôi phục SAU lần tính → kỳ chốt sẽ thiếu số liệu: bắt buộc tính lại
-      const miss = missingSources(this.store, p);
-      if (miss.tickets.length || miss.fuel.length) {
-        throw businessError('E_NEEDS_RECALC', `Kỳ ${p.period_code} còn ${miss.tickets.length} phiếu cân và ${miss.fuel.length} dòng dầu hợp lệ trong phạm vi nhưng chưa được tính (nhập hoặc khôi phục sau lần tính) — tính lại kỳ trước khi xác nhận`,
-          { tickets: miss.tickets.slice(0, 20).map((t) => t.ticket_no), fuel: miss.fuel.slice(0, 20).map((r) => r.receipt_id), ticketCount: miss.tickets.length, fuelCount: miss.fuel.length });
-      }
-    }
     return this.store.transaction((tx) => {
+      const p = this._period(periodId);
+      const contract = this._contract(p.contract_id);
+      this._guardWrite(p, contract);
+      if (needUnlock && !(user.role === 'ADMIN' || user.canUnlock)) throw new AppError('FORBIDDEN', 'Chỉ ADMIN hoặc người có quyền mở khóa mới làm được');
+      if (needUnlock && !reason) throw new AppError('VALIDATION_FAILED', 'Phải nhập lý do');
+      if (p.status !== from) throw businessError('E_PERIOD_STATUS', `Kỳ ${p.period_code} đang "${p.status}", không thể ${action.toLowerCase()} (cần "${from}")`);
+      if (to === 'DA_XAC_NHAN' && from === 'NHAP') {
+        if (p.needs_recalc) throw businessError('E_NEEDS_RECALC', `Dữ liệu nguồn đã sửa sau lần tính — tính lại kỳ ${p.period_code} trước khi xác nhận`);
+        if (!p.calc_version) throw businessError('E_PERIOD_STATUS', 'Kỳ chưa được tính');
+        // phiếu cân / dòng dầu hợp lệ trong phạm vi kỳ nhưng nhập hoặc khôi phục SAU lần tính → kỳ chốt sẽ thiếu số liệu: bắt buộc tính lại
+        const miss = missingSources(this.store, p);
+        if (miss.tickets.length || miss.fuel.length) {
+          throw businessError('E_NEEDS_RECALC', `Kỳ ${p.period_code} còn ${miss.tickets.length} phiếu cân và ${miss.fuel.length} dòng dầu hợp lệ trong phạm vi nhưng chưa được tính (nhập hoặc khôi phục sau lần tính) — tính lại kỳ trước khi xác nhận`,
+            { tickets: miss.tickets.slice(0, 20).map((t) => t.ticket_no), fuel: miss.fuel.slice(0, 20).map((r) => r.receipt_id), ticketCount: miss.tickets.length, fuelCount: miss.fuel.length });
+        }
+      }
       const patch = { status: to };
       if (action === 'CONFIRM') Object.assign(patch, { confirmed_at: tx.now, confirmed_by: user.username });
       if (action === 'LOCK') Object.assign(patch, { locked_at: tx.now, locked_by: user.username });

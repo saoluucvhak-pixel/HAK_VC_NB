@@ -155,8 +155,8 @@ class ArchiveService {
     return { year: Y, counts, zip: zfile, sizeBytes: zbuf.length, mirrored, safetyBackup: safety && safety.file, warnings: [] };
   }
 
-  _readArchive(y) {
-    const dir = this._dir(y); const entry = this.store.archives[y];
+  _readArchive(y, dir = this._dir(y)) {
+    const entry = this.store.archives[y];
     if (!entry) throw new AppError('NOT_FOUND', `Năm ${y} chưa lưu trữ`);
     const mp = path.join(dir, 'archive-manifest.json');
     if (!fs.existsSync(mp)) throw new AppError('NOT_FOUND', `Thiếu thư mục lưu trữ năm ${y} (archive/${y}) — bấm "Nạp file lưu trữ…" và chọn file ${entry.zip}`, { code: 'E_ARCHIVE_MISSING', year: y });
@@ -213,13 +213,20 @@ class ArchiveService {
     const counts = {};
     await s.transaction((tx) => {
       tx.allowArchived = true;
+      if (!s.archives[y] || Number(y) !== s.archivedThrough) throw new AppError('VALIDATION_FAILED', `Trạng thái lưu trữ năm ${y} đã thay đổi — tải lại trước khi thử tiếp`);
       for (const t of ARCH_TABLES) if (rows[t]) counts[t] = tx.restoreRows(t, rows[t]);
       const rest = { ...s.archives }; delete rest[y];
       tx.setManifest('archives', Object.keys(rest).length ? rest : undefined);
       tx.audit('REOPEN_YEAR', 'DATA', y, null, { counts }, { reason });
     }, { user: user.username });
-    const dir = this._dir(y); fs.renameSync(dir, `${dir}.mo-lai-${Date.now()}`); // giữ bản cũ, không xóa
-    return { year: Number(y), counts };
+    const dir = this._dir(y);
+    const warnings = [];
+    try {
+      fs.renameSync(dir, `${dir}.mo-lai-${Date.now()}`);
+    } catch (e) {
+      warnings.push({ code: 'W_ARCHIVE_CLEANUP', level: 'WARNING', message: `Đã mở lại năm ${y}, nhưng chưa đổi tên được thư mục lưu trữ cũ: ${e.message}` });
+    }
+    return { year: Number(y), counts, warnings };
   }
 
   /** Máy mới / khôi phục: nạp lại thư mục lưu trữ năm từ file zip lưu trữ. */
@@ -232,11 +239,25 @@ class ArchiveService {
     if (!entry) throw new AppError('VALIDATION_FAILED', `Kho dữ liệu này không có năm lưu trữ ${am.year}`);
     if (am.installId !== s.installId) throw new AppError('VALIDATION_FAILED', `File lưu trữ của bản cài khác (${am.unitCode} · ${am.installId})`);
     if (entry.manifestSha256 !== sha256(mb)) throw new AppError('INTEGRITY_ERROR', `File lưu trữ năm ${am.year} không đúng bản đã lưu trữ`);
-    const dir = this._dir(am.year); const tmp = `${dir}.tmp`;
-    fs.rmSync(tmp, { recursive: true, force: true }); zip.extractAllTo(tmp, true);
-    if (fs.existsSync(dir)) fs.renameSync(dir, `${dir}.old-${Date.now()}`);
-    fs.renameSync(tmp, dir);
-    this._readArchive(am.year); // kiểm SHA-256 từng file
+    const dir = this._dir(am.year);
+    fs.mkdirSync(path.dirname(dir), { recursive: true });
+    const tmp = fs.mkdtempSync(`${dir}.tmp-`);
+    const old = `${dir}.old-${path.basename(tmp)}`;
+    let movedOld = false;
+    try {
+      zip.extractAllTo(tmp, true);
+      this._readArchive(am.year, tmp);
+      if (fs.existsSync(dir)) {
+        fs.renameSync(dir, old);
+        movedOld = true;
+      }
+      fs.renameSync(tmp, dir);
+    } catch (e) {
+      if (movedOld) fs.renameSync(old, dir);
+      throw e;
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
     return { year: am.year, ok: true };
   }
 

@@ -82,14 +82,19 @@
     async render(p) {
       const plate = h('input', { placeholder: 'biển số', 'aria-label': 'Biển số' }); const q = h('input', { placeholder: 'số phiếu', 'aria-label': 'Số phiếu' });
       const out = h('div', { class: 'card flush' }); let pid = '';
+      let applied = {}; let loadVersion = 0;
       const load = async (id) => {
         if (id !== undefined) pid = id; if (!pid) return;
-        const d = await D.api('reports.bkct', { periodId: pid, plateNo: plate.value.trim().toUpperCase(), q: q.value.trim() });
+        const params = { periodId: pid, plateNo: plate.value.trim().toUpperCase(), q: q.value.trim() };
+        const version = ++loadVersion;
+        const d = await D.api('reports.bkct', params);
+        if (version !== loadVersion) return;
+        applied = params;
         out.innerHTML = '';
         out.append(D.table({ rows: d.rows, columns: d.columns.map((c) => ({ key: c.key, label: c.header, fmt: c.fmt === 'text' ? undefined : c.fmt })), footer: { stt: `${d.totals.trips}`, ticket_no: 'TỔNG CỘNG', net_kg: d.totals.kg } }));
       };
       const pk = await periodPicker(p, load);
-      const page = D.page('Chi tiết vận chuyển', '8 · Bảng kê chi tiết phiếu cân của kỳ', [printBtn('BKCT', () => ({ periodId: pid })), ...exportBtns('BKCT', () => ({ periodId: pid }))],
+      const page = D.page('Chi tiết vận chuyển', '8 · Bảng kê chi tiết phiếu cân của kỳ', [printBtn('BKCT', () => applied), ...exportBtns('BKCT', () => applied)],
         h('div', { class: 'card' }, h('div', { class: 'filters' }, h('label', { class: 'field wide' }, h('span', {}, 'Kỳ'), pk.sel), h('label', { class: 'field' }, h('span', {}, 'Biển số'), plate), h('label', { class: 'field' }, h('span', {}, 'Số phiếu'), q), h('button', { class: 'btn primary', onclick: () => load() }, 'Lọc'))), out);
       await load(pk.first);
       return page;
