@@ -108,6 +108,19 @@ test('Giao diện HAKQN: form dòng đơn giá — ô ĐVT tính giá, nhãn m³
     // giới hạn độ dài: tối đa 15 chữ số nguyên và 6 số lẻ (dài hơn mất độ chính xác khi lưu)
     await kl.fill('12345678901234567890'); assert.equal(await kl.inputValue(), '123.456.789.012.345', 'tối đa 15 chữ số nguyên');
     await kl.fill('0,123456789'); assert.equal(await kl.inputValue(), '0,123456', 'tối đa 6 số lẻ'); await typeInto(kl, '12,5');
+    // tổng chữ số có nghĩa <= 15: hiển thị TRƯỚC khi rời ô = giá trị lưu = hiển thị SAU khi rời ô (số thực 64 bit chỉ chính xác ~15 chữ số)
+    await kl.fill('1234567890123,45678'); const shown = await kl.inputValue(); assert.equal(shown, '1.234.567.890.123,45', '13 chữ số nguyên → còn 2 số lẻ');
+    await kl.press('Tab'); assert.equal(await kl.inputValue(), shown, 'rời ô không đổi giá trị hiển thị');
+    assert.equal(await page.evaluate((v) => window.DGVC.parseVn(v), shown), 1234567890123.45, 'giá trị lưu = giá trị hiển thị'); await typeInto(kl, '12,5');
+    // dán chuỗi SAI QUY CÁCH vào ô thập phân: giữ nguyên + đánh dấu nhập sai (KHÔNG đoán — đoán sai có thể lệch 10–100 lần) và không lưu được
+    for (const bad of ['0.4.5', '1,234,567', '1.2,5', '-5']) {
+      await kl.fill(bad); assert.equal(await kl.inputValue(), bad, `giữ nguyên ${bad}`);
+      await page.waitForFunction((el) => el.getAttribute('aria-invalid') === 'true', await kl.elementHandle(), { timeout: 3000 });
+      await nm.getByRole('button', { name: 'Lưu' }).click(); await toast(/Có ô số nhập sai/);
+      assert.equal(ctx.store.all('PRICE_HISTORY').filter((x) => x.price_code === 'PT-TD' && x.route_code === 'VC.008' && x.effective_from === '2027-03-01').length, 0, `${bad}: không lưu`);
+      await page.evaluate(() => document.querySelectorAll('.toast').forEach((e) => e.remove()));
+    }
+    await typeInto(kl, '12,5'); assert.equal(await kl.getAttribute('aria-invalid'), 'false', 'số đúng thì bỏ cờ nhập sai');
     await nm.getByLabel(/Nguồn đơn giá tham khảo/).fill('Bảng giá thử'); await nm.getByLabel(/Ngày cập nhật/).fill('2027-03-01');
     await nm.getByText(/cao hơn \(1\) DG_CUOC/).waitFor(); await nm.getByText(/\+5\.000 đ \(\+3,03%\)/).waitFor();
     // dán '0.400' vào định mức → 0,4 (giống gõ từng ký tự; nhóm nghìn không bao giờ đứng sau một số 0 đơn lẻ), không còn thành 400
@@ -138,10 +151,10 @@ test('Giao diện HAKQN: form dòng đơn giá — ô ĐVT tính giá, nhãn m³
     const nr2 = ctx.store.get('PRICE_HISTORY', nr.price_id); assert.equal(nr2.avg_load_ton, 12.5); assert.equal(nr2.fuel_norm_l_per_km, 0.4); assert.equal(nr2.new_price, 165000);
 
     // ── Phân tích số: ô tiền tương thích cũ ("150,000" = 150000), "1,5" = 1,5; ô thập phân không đoán ──
-    const parsed = await page.evaluate(() => { const D = window.DGVC; return { m: ['150,000', '1,5', '150.000', '1.234,5', '150000', '1,234,567'].map((x) => D.parseVn(x, true)), old: ['150,000', '150.000'].map((x) => D.parseMoney(x)), dec: ['0,4', '12,5', '0.4', '12.5', '0.400', '0.450', '0.080', '1.234'].map((x) => D.parseVn(x)) }; });
+    const parsed = await page.evaluate(() => { const D = window.DGVC; return { m: ['150,000', '1,5', '150.000', '1.234,5', '150000', '1,234,567'].map((x) => D.parseVn(x, true)), old: ['150,000', '150.000'].map((x) => D.parseMoney(x)), dec: ['0,4', '12,5', '0.4', '12.5', '0.400', '0.450', '0.080', '1.234', '00.400'].map((x) => D.parseVn(x)) }; });
     assert.deepEqual(parsed.m, [150000, 1.5, 150000, 1234.5, 150000, 1234567]); assert.deepEqual(parsed.old, [150000, 150000]);
     // ô thập phân: "0.ddd" = thập phân (0,4 / 0,45 / 0,08); "1.234" vẫn là ngăn nghìn = 1234. Ô tiền không đổi: "0.400" = 400.
-    assert.deepEqual(parsed.dec, [0.4, 12.5, 0.4, 12.5, 0.4, 0.45, 0.08, 1234]);
+    assert.deepEqual(parsed.dec, [0.4, 12.5, 0.4, 12.5, 0.4, 0.45, 0.08, 1234, 0.4]);
     assert.equal(await page.evaluate(() => window.DGVC.parseVn('0.400', true)), 400, 'ô tiền: 0.400 giữ nguyên = 400');
     // ngưỡng hỏi lại: đúng biên KHÔNG hỏi (0,05 / 1 / 1 m³ và 10 / 100 / 500), vượt biên mới hỏi; chỉ xét ô đang dùng
     const oddN = await page.evaluate(() => { const D = window.DGVC; const n = (v, m = 'THEO_DAU', m3 = false, nv = false) => D.oddPriceNumbers(v, m, m3, nv).length;

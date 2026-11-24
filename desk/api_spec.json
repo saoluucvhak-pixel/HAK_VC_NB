@@ -5409,7 +5409,7 @@
      "từ dialog.saveFile"
     ]
    ],
-   "output": "{path, packageSha256, counts}",
+   "output": "{exchangeId, file, sizeBytes, contentSha256, counts, header, remindersMarked, warnings}",
    "errors": [
     "BUSINESS_RULE:E_PERIOD_STATUS",
     "STORAGE_ERROR"

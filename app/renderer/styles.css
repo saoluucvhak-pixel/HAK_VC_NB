@@ -97,6 +97,7 @@ a { color: var(--brand-text); }
 .filters-inline .field input[type="date"], .filters-inline .field input { width: 150px; min-height: 38px; }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
 .field > span { font-size: .84rem; font-weight: 600; color: var(--text); }
+input[aria-invalid="true"] { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); } /* ô số nhập sai (chặn lưu) */
 ::placeholder { color: var(--text-mute); opacity: 1; } /* chữ gợi ý đạt 4.5:1 ở mọi bảng màu (mặc định của trình duyệt ~3.4:1 ở nền tối) */
 input:not([type="checkbox"]):not([type="radio"]), select, textarea { border: 1px solid var(--field-line); border-radius: 8px; padding: 7px 11px; background: var(--field-bg); min-height: 38px; transition: border-color .15s, box-shadow .15s; }
 input:not([type="checkbox"]):not([type="radio"]):focus, select:focus, textarea:focus { outline: 0; border-color: var(--brand); box-shadow: 0 0 0 .2rem var(--brand-soft); }

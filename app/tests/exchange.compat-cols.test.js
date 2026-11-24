@@ -54,3 +54,65 @@ test('Gói danh mục có dòng m³: chỉ dòng m³ mang calc_basis; bản mớ
   const again = ex.previewPackage({ filePath: file, user: U }); assert.equal(again.summary.PRICE_HISTORY.NEW + again.summary.PRICE_HISTORY.UPDATE + again.summary.PRICE_HISTORY.CONFLICT, 0, 'nhập lại cùng gói: không có gì mới / khác');
   a.store.close(); b.store.close();
 });
+
+// ── So sánh gói đến với dòng trên máy: cột calc_basis / total_m3 KHÔNG có trong gói = "không có thông tin" (không so); có mặt nhưng rỗng ('') vẫn so ──
+const crypto = require('node:crypto');
+const { canon } = require('../main/services/ExchangeService');
+const resign = (pkg) => { pkg.contentSha256 = crypto.createHash('sha256').update(canon(pkg.tables)).digest('hex'); return pkg; };
+
+async function twoMachines(tag) {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-compat-'));
+  const a = await install('DH', { installId: `INS-CMP-${tag}-A`, withData: false }); const cat = new CatalogService(a.store);
+  await cat.backfillCodeMethods({ user: { username: 'system' } });
+  const l = await cat.addCodeLine({ priceCode: 'PT-TD', record: { routeCode: 'VC.007', effectiveFrom: '2027-04-01', newPrice: 165000, fuelPriceExclVat: 15500, fuelNormLPerKm: 0.4, avgLoadTon: 0, avgVolumeM3: 22, calcBasis: 'M3' }, user: KETOAN });
+  await cat.activatePrice({ priceId: l.record.price_id, rowVersion: l.record.row_version, user: KETOAN });
+  const full = path.join(out, 'full.json'); await new ExchangeService(a.store).exportPackage({ packageType: 'DANH_MUC', targetPath: full, user: U });
+  const variant = (name, mut) => { const pkg = JSON.parse(fs.readFileSync(full, 'utf8')); const row = pkg.tables.PRICE_HISTORY.find((r) => r.price_id === l.record.price_id); mut(row, pkg); const f = path.join(out, name); fs.writeFileSync(f, JSON.stringify(resign(pkg))); return f; };
+  const b = await install('HAKQN', { installId: `INS-CMP-${tag}-B`, withData: false }); const ex = new ExchangeService(b.store);
+  const take = async (file, decisions = {}) => { const pv = ex.previewPackage({ filePath: file, user: U }); await ex.importPackage({ previewId: pv.previewId, decisions, user: U }); return pv; };
+  const lineChange = (pv) => { const c = pv.conflicts.find((x) => x.table === 'PRICE_HISTORY' && x.id === l.record.price_id); return c || null; };
+  return { a, b, ex, id: l.record.price_id, full, variant, take, lineChange, dispose: () => { a.store.close(); b.store.close(); } };
+}
+
+test('Máy nhận đã có dòng m³; gói đến thiếu cột calc_basis, các trường khác y hệt → SAME, không có dòng khác biệt giả', async () => {
+  const m = await twoMachines('1'); await m.take(m.full);
+  assert.equal(m.b.store.get('PRICE_HISTORY', m.id).calc_basis, 'M3');
+  const noCol = m.variant('nocol.json', (r) => { delete r.calc_basis; });
+  const pv = m.ex.previewPackage({ filePath: noCol, user: U });
+  assert.equal(m.lineChange(pv), null, 'không xung đột'); assert.ok(pv.summary.PRICE_HISTORY.SAME >= 1, 'dòng giá được coi là giống nhau'); assert.equal(pv.summary.PRICE_HISTORY.CONFLICT + pv.summary.PRICE_HISTORY.UPDATE + pv.summary.PRICE_HISTORY.NEW, 0, 'không có gì mới / khác');
+  m.dispose();
+});
+
+test('Máy nhận có calc_basis rỗng; gói đến thiếu cột → SAME, không dòng khác biệt giả', async () => {
+  const m = await twoMachines('2'); const noCol = m.variant('nocol.json', (r) => { delete r.calc_basis; });
+  await m.take(noCol); assert.equal(m.b.store.get('PRICE_HISTORY', m.id).calc_basis || '', '');
+  const pv = m.ex.previewPackage({ filePath: noCol, user: U });
+  assert.equal(pv.summary.PRICE_HISTORY.CONFLICT + pv.summary.PRICE_HISTORY.UPDATE + pv.summary.PRICE_HISTORY.NEW, 0); m.dispose();
+});
+
+test('Máy nhận có calc_basis rỗng; gói đến M3 → thay đổi VẪN hiện (không bị giấu)', async () => {
+  const m = await twoMachines('3'); await m.take(m.variant('nocol.json', (r) => { delete r.calc_basis; }));
+  const pv = m.ex.previewPackage({ filePath: m.full, user: U }); const c = m.lineChange(pv);
+  assert.ok(c, 'có xung đột / thay đổi ở dòng giá'); assert.ok(c.changes.some((x) => x.field === 'calc_basis' && (x.local || '') === '' && x.incoming === 'M3'), 'thấy calc_basis: rỗng → M3');
+  m.dispose();
+});
+
+test('Máy nhận đã có m³; gói thiếu cột và KHÁC ở trường khác → xung đột không nhắc calc_basis; chọn lấy bản đến: giữ M3 và lần sau là SAME', async () => {
+  const m = await twoMachines('4'); await m.take(m.full);
+  const edited = m.variant('edited.json', (r) => { delete r.calc_basis; r.source_note = 'ghi chú khác'; });
+  const pv = m.ex.previewPackage({ filePath: edited, user: U }); const c = m.lineChange(pv);
+  assert.ok(c, 'khác nội dung → có xung đột'); assert.ok(c.changes.some((x) => x.field === 'source_note'), 'thấy trường khác'); assert.ok(!c.changes.some((x) => x.field === 'calc_basis'), 'KHÔNG liệt kê calc_basis');
+  await m.ex.importPackage({ previewId: pv.previewId, decisions: { [`PRICE_HISTORY:${m.id}`]: 'TAKE' }, user: U });
+  const row = m.b.store.get('PRICE_HISTORY', m.id); assert.equal(row.calc_basis, 'M3', 'M3 được giữ'); assert.equal(row.source_note, 'ghi chú khác', 'trường khác được lấy');
+  const again = m.ex.previewPackage({ filePath: edited, user: U }); assert.equal(m.lineChange(again), null, 'lần sau không còn xung đột'); m.dispose();
+});
+
+test('Xuất gói có dòng m³ → cảnh báo bên gửi (bản ≤ 1.9.3 sẽ từ chối); gói chỉ dữ liệu cũ → không cảnh báo', async () => {
+  const m = await twoMachines('5'); const out = fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-compat-'));
+  const r = await new ExchangeService(m.a.store).exportPackage({ packageType: 'DANH_MUC', targetPath: path.join(out, 'x.dgvc'), user: U });
+  assert.equal(r.warnings.length, 1); assert.match(r.warnings[0].message, /1 dòng đơn giá tính theo m³.*1\.9\.3 trở xuống/); assert.equal(r.warnings[0].level, 'WARNING');
+  const legacy = await install('DH', { installId: 'INS-CMP-5-L' }); const kp = await legacy.periods.calculate({ contractId: legacy.contractId, dateFrom: '2026-09-18', dateTo: '2026-09-23', routeCode: 'VC.007', excludeReceiptIds: [], reportDate: '2026-09-25', clientRequestId: rid(), user: KETOAN });
+  await legacy.periods.confirm({ periodId: kp.period.period_id, user: KETOAN });
+  const r2 = await new ExchangeService(legacy.store).exportPackage({ packageType: 'KY_TINH', periodIds: [kp.period.period_id], targetPath: path.join(out, 'y.dgvc'), user: U });
+  assert.deepEqual(r2.warnings, []); legacy.store.close(); m.dispose();
+});
