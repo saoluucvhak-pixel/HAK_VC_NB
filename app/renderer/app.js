@@ -200,6 +200,7 @@
   D.parseVn = (v, money = false) => {
     const s = String(v ?? '').trim().replace(/\s/g, ''); if (!s) return '';
     if (money && /^\d{1,3}(,\d{3})+$/.test(s)) return Number(s.replace(/,/g, '')); // ô tiền: ',' + đúng 3 chữ số = ngăn nghìn (150,000 → 150000), như D.parseMoney cũ; thập phân khi rõ ràng (1,5)
+    if (!money && /^0\.\d+$/.test(s)) return Number(s); // ô thập phân: "0.400" = 0,4 (nhóm nghìn không bao giờ đứng sau một số 0 đơn lẻ; cùng kết quả với gõ từng ký tự)
     if (/^\d+(\.\d{3})*(,\d+)?$/.test(s) && /^\d{1,3}(\.\d{3})*(,\d+)?$|^\d+(,\d+)?$/.test(s)) return Number(s.replace(/\./g, '').replace(',', '.'));
     if (/^\d+\.\d+$/.test(s)) return Number(s);
     return NaN;
@@ -210,15 +211,18 @@
     if (!decimal && /^\d{1,3}(,\d{3}){2,}$/.test(s)) s = s.replace(/,/g, ''); // ô tiền: dán 1,234,567 (kiểu en-US) = 1.234.567, không phải 1,234567
     const ci = s.indexOf(',');
     if (ci >= 0) { ip = s.slice(0, ci).replace(/\./g, ''); fp = s.slice(ci + 1).replace(/[.,]/g, ''); }
-    else if (decimal && s.includes('.')) { const parts = s.split('.'); const last = parts[parts.length - 1]; if (parts.length === 2 && last.length !== 3) { ip = parts[0]; fp = last; } else ip = parts.join(''); }
+    else if (decimal && s.includes('.')) { const parts = s.split('.'); const last = parts[parts.length - 1]; if (parts.length === 2 && (last.length !== 3 || /^0+$/.test(parts[0]))) { ip = parts[0]; fp = last; } else ip = parts.join(''); }
     else ip = s.replace(/\./g, '');
-    ip = ip.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    ip = ip.replace(/^0+(?=\d)/, '').slice(0, 15); if (fp !== null) fp = fp.slice(0, 6); // tối đa 15 chữ số nguyên, 6 số lẻ (khớp D.vnExact): dài hơn sẽ mất độ chính xác khi lưu
+    ip = ip.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     if (fp !== null && ip === '') ip = '0';
     return fp === null ? ip : `${ip},${fp}`;
   };
   const attachLiveNumber = (inp, decimal) => { inp.addEventListener('blur', () => { const n = D.parseVn(inp.value, !decimal); if (typeof n === 'number' && Number.isFinite(n)) inp.value = D.vnExact(n); }); inp.addEventListener('input', () => {
     const before = inp.value; const caret = inp.selectionStart == null ? before.length : inp.selectionStart;
-    const sig = (before.slice(0, caret).match(/[\d,]/g) || []).length; const next = D.liveNumber(before, decimal);
+    const next = D.liveNumber(before, decimal);
+    let sig = (before.slice(0, caret).match(/[\d,]/g) || []).length;
+    if (before[caret - 1] === '.' && (next.match(/,/g) || []).length > (before.match(/,/g) || []).length) sig += 1; // vừa gõ '.' và nó thành dấu thập phân ',' → con trỏ nằm SAU dấu phẩy (gõ giữa chuỗi)
     if (next === before) return;
     inp.value = next; let n = 0; let pos = next.length; if (caret >= before.length) pos = next.length; /* đang gõ ở cuối ô: con trỏ luôn ở cuối (gõ 0.4 → 0,4) */ else if (sig === 0) pos = 0; else for (let i = 0; i < next.length; i++) { if (/[\d,]/.test(next[i])) n++; if (n === sig) { pos = i + 1; break; } }
     try { inp.setSelectionRange(pos, pos); } catch { /* ô không hỗ trợ đặt con trỏ */ }

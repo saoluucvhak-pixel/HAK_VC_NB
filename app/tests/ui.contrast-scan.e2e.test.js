@@ -1,121 +1,93 @@
 'use strict';
 /**
- * Tương phản chữ/nền >= 4.5:1 (chữ thường) hoặc >= 3:1 (chữ lớn) cho MỌI phần tử có chữ trên các màn chính,
- * ở 4 bảng màu x sáng/tối. Khác ui.palette.e2e (đo một danh sách cặp cố định): ở đây quét tất cả phần tử có chữ.
- * Phần tử nghi ngờ được kiểm lại bằng ĐIỂM ẢNH THẬT (ẩn chữ, chụp vùng chữ, đo với màu chữ) vì nền chuyển sắc / bán trong suốt
- * làm công thức tính sai. Tắt hiệu ứng (fade của màn hình mới làm độ mờ chưa về 1 → đo sai).
+ * Tương phản chữ/nền >= 4.5:1 (chữ thường) hoặc >= 3:1 (chữ lớn) cho MỌI phần tử có chữ, ở 4 bảng màu x sáng/tối, trên:
+ *  - màn khởi tạo (chọn thư mục, đơn vị, tạo tài khoản) và màn đăng nhập;
+ *  - các màn chính CÓ DỮ LIỆU (nhập một gói kỳ tính mẫu trước khi quét) kèm thẻ trạng thái, thông báo;
+ *  - các hộp thoại thêm/sửa chính và hộp xác nhận.
+ * Khác ui.palette.e2e (đo một danh sách cặp cố định): ở đây quét tất cả phần tử có chữ; phần tử nghi ngờ được kiểm lại bằng điểm ảnh thật
+ * (xem contrast-lib.js). Chưa đo: trạng thái hover/focus, chữ trong ảnh / biểu tượng.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { start } = require('../tools/dev-server');
+const { install, KETOAN, rid } = require('./install');
+const { ExchangeService } = require('../main/services/ExchangeService');
+const { SKINS, measure } = require('./contrast-lib');
 
 const CHROME = process.env.CHROMIUM_PATH || (fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '');
-const SKINS = ['luxe', 'classic', 'neutral', 'champagne'];
-// Các màn đại diện: nhiều kiểu thành phần (thẻ KPI, bảng, ô tìm, thẻ tab, hộp hướng dẫn, viên trạng thái, liên kết, nút nhỏ).
-const VIEWS = [['dashboard'], ['guide'], ['units'], ['tickets'], ['fuel'], ['forms'], ['pricecodes'], ['basis'], ['bkct'], ['exchange', { tab: 'import' }], ['reconcile', { tab: 'compare' }], ['settings', { tab: 'backup' }]];
+const COMBOS = ['light', 'dark'].flatMap((t) => SKINS.map((s) => [t, s]));
+// Các màn chính (đủ kiểu thành phần: thẻ KPI, bảng, ô tìm, thẻ tab, hộp hướng dẫn, viên trạng thái, liên kết, nút nhỏ).
+const VIEWS = [['dashboard'], ['guide'], ['units'], ['vehicles'], ['routes'], ['contracts'], ['forms'], ['pricecodes'], ['tickets'], ['fuel'], ['calc'], ['bkvc'], ['bkct'], ['reports'], ['basis'], ['rentreport'],
+  ['exchange', { tab: 'import' }], ['exchange', { tab: 'history' }], ['reconcile', { tab: 'compare' }], ['settings', { tab: 'backup' }], ['settings', { tab: 'users' }]];
+// Hộp thoại mở bằng nút: [màn, tham số, tên nút]
+const MODALS = [['units', {}, 'Sửa thông tin công ty'], ['vehicles', {}, 'Thêm xe'], ['routes', {}, 'Thêm tuyến'], ['contracts', {}, 'Thêm hợp đồng'], ['forms', {}, 'Thêm hình thức'], ['pricecodes', {}, 'Thêm đơn giá'], ['settings', { tab: 'users' }, 'Thêm người dùng']];
 
-const SCAN = () => {
-  const parse = (s) => { const m = s.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number); return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }; };
-  const over = (f, b) => ({ r: f.r * f.a + b.r * (1 - f.a), g: f.g * f.a + b.g * (1 - f.a), b: f.b * f.a + b.b * (1 - f.a), a: 1 });
-  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
-  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
-  const chain = (el) => { const c = []; for (let e = el; e; e = e.parentElement) c.unshift(e); return c; };
-  const backgrounds = (el) => {
-    let cands = [{ r: 255, g: 255, b: 255, a: 1 }];
-    for (const e of chain(el)) {
-      const cs = getComputedStyle(e); const bc = parse(cs.backgroundColor); let ls = [];
-      if (cs.backgroundImage && cs.backgroundImage !== 'none') ls = (cs.backgroundImage.match(/rgba?\([^)]+\)/g) || []).map(parse).filter(Boolean);
-      else if (bc && bc.a > 0) ls = [bc];
-      if (ls.length) cands = cands.flatMap((c) => ls.map((l) => over(l, c)));
-    }
-    return cands;
-  };
-  const label = (el) => { const id = el.id ? `#${el.id}` : ''; const cls = (el.className && el.className.toString().trim().split(/\s+/).slice(0, 2).join('.')) || ''; return `${el.tagName.toLowerCase()}${id}${cls ? `.${cls}` : ''}`; };
-  const all = [...document.querySelectorAll('body *')]; const out = [];
-  all.forEach((el, idx) => {
-    if (['SCRIPT', 'STYLE', 'SVG', 'PATH', 'OPTION'].includes(el.tagName.toUpperCase())) return;
-    let text = ''; for (const n of el.childNodes) if (n.nodeType === 3) text += n.textContent; text = text.trim();
-    const isField = el.matches('input:not([type=hidden]):not([type=checkbox]):not([type=radio]),textarea');
-    const ph = isField && !el.value && el.placeholder ? el.placeholder : '';
-    const sel = el.tagName === 'SELECT' ? (el.selectedOptions[0] ? el.selectedOptions[0].textContent.trim() : '') : '';
-    const sample = text || ph || sel || (isField && el.value) || ''; if (!sample) return;
-    const cs = getComputedStyle(el);
-    if (!el.getClientRects().length || cs.visibility === 'hidden' || el.closest('[hidden],[inert]')) return;
-    if (el.disabled || el.closest(':disabled,[aria-disabled=true]')) return; // chữ của điều khiển vô hiệu hóa được miễn (WCAG 1.4.3)
-    let op = 1; for (const e of chain(el)) op *= Number(getComputedStyle(e).opacity); if (op === 0) return;
-    const fgStr = ph ? getComputedStyle(el, '::placeholder').color : cs.color; const fg = parse(fgStr); if (!fg) return;
-    const worst = Math.min(...backgrounds(el).map((bg) => { const f = over({ ...fg, a: fg.a * op }, bg); return ratio(f, bg); }));
-    const px = parseFloat(cs.fontSize); const large = px >= 24 || (px >= 18.66 && Number(cs.fontWeight) >= 700); const need = large ? 3 : 4.5;
-    if (worst < need) out.push({ idx, ph: !!ph, fg: fgStr, op, el: label(el), text: sample.slice(0, 40), calc: Number(worst.toFixed(2)), need });
-  });
-  return out;
-};
+/** Gói kỳ tính mẫu từ máy khác đơn vị (DH): nhập vào bản cài HAKQN để các màn có kỳ / phiếu cân / dầu / hợp đồng thật. */
+async function samplePackage(file) {
+  const { store, periods, contractId } = await install('DH', { installId: 'INS-CONTRAST-DH' });
+  const k = await periods.calculate({ contractId, dateFrom: '2026-09-18', dateTo: '2026-09-23', routeCode: 'VC.007', excludeReceiptIds: [], reportDate: '2026-09-25', clientRequestId: rid(), user: KETOAN });
+  await periods.confirm({ periodId: k.period.period_id, user: KETOAN });
+  await new ExchangeService(store).exportPackage({ packageType: 'KY_TINH', periodIds: [k.period.period_id], targetPath: file, user: { username: 'ketoan' } });
+  store.close(); return file;
+}
 
-const VERIFY_PREP = ([idx, ph]) => {
-  const el = document.querySelectorAll('body *')[idx]; if (!el) return null;
-  el.scrollIntoView({ block: 'center', inline: 'nearest' });
-  let rects = [];
-  if (ph || el.matches('input,textarea,select')) {
-    const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); const pl = parseFloat(cs.paddingLeft); const pr = parseFloat(cs.paddingRight); const pt = parseFloat(cs.paddingTop); const pb = parseFloat(cs.paddingBottom);
-    rects = [{ x: r.x + pl + 1, y: r.y + pt + 1, width: Math.max(4, r.width - pl - pr - 2), height: Math.max(4, r.height - pt - pb - 2) }];
-  } else { for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); for (const r of rg.getClientRects()) if (r.width > 1 && r.height > 1) rects.push({ x: r.x, y: r.y, width: r.width, height: r.height }); } }
-  if (!rects.length) return null;
-  el.setAttribute('data-cv', '1'); return rects[0];
-};
-const PIXEL = ([b64, fg, op]) => new Promise((resolve) => {
-  const img = new Image(); img.onload = () => {
-    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const g = c.getContext('2d'); g.drawImage(img, 0, 0); const d = g.getImageData(0, 0, c.width, c.height).data;
-    const m = fg.match(/rgba?\(([^)]+)\)/); const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number); const fa = (p.length > 3 ? p[3] : 1) * op;
-    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
-    const L = (r, gg, bb) => 0.2126 * f(r) + 0.7152 * f(gg) + 0.0722 * f(bb);
-    let worst = 99; const step = Math.max(1, Math.floor(d.length / 4 / 1500));
-    for (let i = 0; i < d.length; i += 4 * step) {
-      const r = d[i]; const gg = d[i + 1]; const bb = d[i + 2]; const a = L(p[0] * fa + r * (1 - fa), p[1] * fa + gg * (1 - fa), p[2] * fa + bb * (1 - fa)); const b = L(r, gg, bb);
-      const ra = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); if (ra < worst) worst = ra;
-    }
-    resolve(worst);
-  }; img.src = `data:image/png;base64,${b64}`;
-});
-
-test('Tương phản: mọi chữ trên các màn chính đạt 4.5:1 (chữ lớn 3:1) ở 4 bảng màu x sáng/tối', { skip: !CHROME && 'không có Chromium', timeout: 900000 }, async () => {
+test('Tương phản: mọi chữ đạt 4.5:1 (chữ lớn 3:1) ở 4 bảng màu x sáng/tối — khởi tạo, đăng nhập, màn có dữ liệu, hộp thoại', { skip: !CHROME && 'không có Chromium', timeout: 1500000 }, async () => {
   const { chromium } = require('playwright-core');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-contrast-'));
+  const pkgFile = await samplePackage(path.join(tmp, 'ky_mau.dgvc'));
   const srv = await start({ port: 0, quiet: true });
   const browser = await chromium.launch({ executablePath: CHROME });
   const page = await browser.newPage({ viewport: { width: 1366, height: 768 }, locale: 'vi-VN' });
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
-  const fails = []; let scans = 0;
+  const fails = []; const seen = new Set(); let states = 0;
+  const apply = (t, s) => page.evaluate(([th, sk]) => { localStorage.setItem('dgvc.theme', th); localStorage.setItem('dgvc.skin', sk); window.DGVC.applyTheme(); }, [t, s]);
+  const everyCombo = async (label) => { for (const [t, s] of COMBOS) { await apply(t, s); fails.push(...await measure(page, `${s}/${t} · ${label}`)); states += 1; } };
+  const go = async (view, params) => { await page.evaluate(([v, p]) => window.DGVC.go(v, p || {}), [view, params]); await page.waitForFunction(() => !document.querySelector('main[aria-busy="true"]'), null, { timeout: 8000 }); };
   try {
+    // ── khởi tạo: chọn thư mục → đơn vị → bước kế → tạo bản cài → đăng nhập → đặt mật khẩu lần đầu ──
     await page.goto(srv.url);
-    await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
-    await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
+    await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA')); await everyCombo('khởi tạo 1 (thư mục)');
+    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click(); await everyCombo('khởi tạo 2 (đơn vị)');
+    await page.getByRole('button', { name: 'Tiếp' }).click(); await everyCombo('khởi tạo 3');
+    await page.getByRole('button', { name: 'Tiếp' }).click(); await everyCombo('khởi tạo 4 (xác nhận)');
     await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
+    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor(); await everyCombo('đặt mật khẩu lần đầu');
     await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
     await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
-    await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important}[data-cv],[data-cv]::placeholder{color:transparent!important;text-shadow:none!important;-webkit-text-fill-color:transparent!important}' });
-    for (const theme of ['light', 'dark']) for (const skin of SKINS) {
-      await page.evaluate(([t, s]) => { localStorage.setItem('dgvc.theme', t); localStorage.setItem('dgvc.skin', s); window.DGVC.applyTheme(); }, [theme, skin]);
-      for (const [view, params] of VIEWS) {
-        await page.evaluate(([v, p]) => window.DGVC.go(v, p || {}), [view, params]);
-        await page.waitForFunction(() => !document.querySelector('main[aria-busy="true"]'), null, { timeout: 8000 });
-        const cands = await page.evaluate(`(${SCAN.toString()})()`); scans += 1;
-        for (const c of cands.slice(0, 60)) {
-          const r = await page.evaluate(`(${VERIFY_PREP.toString()})(${JSON.stringify([c.idx, c.ph])})`); if (!r) continue;
-          const x = Math.max(0, Math.floor(r.x)); const y = Math.max(0, Math.floor(r.y));
-          const png = await page.screenshot({ clip: { x, y, width: Math.max(2, Math.min(Math.ceil(r.width), 1366 - x)), height: Math.max(2, Math.min(Math.ceil(r.height), 768 - y)) } }).catch(() => null);
-          await page.evaluate((i) => { const el = document.querySelectorAll('body *')[i]; if (el) el.removeAttribute('data-cv'); }, c.idx);
-          if (!png) continue;
-          const truth = await page.evaluate(`(${PIXEL.toString()})(${JSON.stringify([png.toString('base64'), c.fg, c.op])})`);
-          if (truth < c.need) fails.push(`${skin}/${theme} · ${view}${params && params.tab ? `:${params.tab}` : ''} · ${c.el} “${c.text}” = ${truth.toFixed(2)} (cần ${c.need})`);
-        }
+    // ── nạp dữ liệu mẫu (gói kỳ tính của máy khác) rồi quét các màn chính ──
+    const imp = await page.evaluate(async (fp) => { const D = window.DGVC; const pv = await D.api('exchange.previewPackage', { filePath: fp, ticketsOnly: false }); const r = await D.api('exchange.importPackage', { previewId: pv.previewId, decisions: {} }); await D.refreshBoot(); return Object.keys(r.counts || {}); }, pkgFile);
+    assert.ok(imp.length > 0, 'đã nhập dữ liệu mẫu');
+    for (const [view, params] of VIEWS) {
+      for (const [t, s] of COMBOS) {
+        await apply(t, s); await go(view, params);
+        await page.evaluate(() => { const D = window.DGVC; const m = document.querySelector('.main'); if (m && !document.getElementById('probe-tags')) m.prepend(D.h('div', { class: 'card', id: 'probe-tags' }, ['ok', 'warn', 'info', 'mute', 'err'].map((k) => D.tag(k, `Thẻ ${k}`)))); });
+        fails.push(...await measure(page, `${s}/${t} · ${view}${params && params.tab ? `:${params.tab}` : ''}`)); states += 1;
       }
     }
-    assert.equal(scans, 2 * SKINS.length * VIEWS.length, 'đã quét đủ mọi màn x bảng màu');
+    // ── hộp thoại thêm / sửa, hộp xác nhận, thông báo ──
+    for (const [view, params, btn] of MODALS) {
+      for (const [t, s] of COMBOS) {
+        await apply(t, s); await go(view, params);
+        await page.getByRole('button', { name: btn }).first().click(); await page.locator('.modal, .drawer').first().waitFor({ timeout: 8000 });
+        fails.push(...await measure(page, `${s}/${t} · hộp thoại “${btn}”`)); states += 1;
+        await page.keyboard.press('Escape'); await page.locator('.overlay').first().waitFor({ state: 'detached', timeout: 8000 }).catch(() => page.evaluate(() => document.querySelectorAll('.overlay').forEach((e) => e.remove())));
+      }
+    }
+    for (const [t, s] of COMBOS) {
+      await apply(t, s); await go('dashboard');
+      await page.evaluate(() => { const D = window.DGVC; D.confirm({ title: 'Xác nhận mẫu', message: 'Nội dung hộp xác nhận mẫu.\nDòng thứ hai.', okLabel: 'Đồng ý' }); for (const k of ['ok', 'err', 'info', 'warn']) D.toast(`Thông báo ${k} mẫu`, k, 60000); });
+      await page.locator('.modal').waitFor(); fails.push(...await measure(page, `${s}/${t} · hộp xác nhận + thông báo`)); states += 1;
+      await page.evaluate(() => { document.querySelectorAll('.overlay,.toast').forEach((e) => e.remove()); });
+    }
+    // ── đăng nhập lại (sau đăng xuất) ──
+    await page.evaluate(async () => { const D = window.DGVC; await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); D.go('login'); });
+    await page.getByLabel('Tên đăng nhập').waitFor(); await everyCombo('đăng nhập');
+    assert.equal(states, COMBOS.length * (6 + VIEWS.length + MODALS.length + 1), 'đã quét đủ mọi trạng thái x bảng màu');
     assert.deepEqual(errors, [], 'không có lỗi JavaScript khi quét');
-    assert.deepEqual([...new Set(fails)], [], `Chữ dưới ngưỡng tương phản:\n${[...new Set(fails)].slice(0, 30).join('\n')}`);
+    for (const f of fails) seen.add(f);
+    assert.deepEqual([...seen], [], `Chữ dưới ngưỡng tương phản:\n${[...seen].slice(0, 40).join('\n')}`);
   } finally { await browser.close(); await srv.close(); }
 });

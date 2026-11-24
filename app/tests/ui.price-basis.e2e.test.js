@@ -103,10 +103,17 @@ test('Giao diện HAKQN: form dòng đơn giá — ô ĐVT tính giá, nhãn m³
     // dán kiểu en-US nhiều dấu phẩy vào ô tiền = ngăn nghìn như D.parseMoney cũ
     await cuoc.fill('1,234,567'); assert.equal(await cuoc.inputValue(), '1.234.567', 'dán 1,234,567 vào ô tiền → 1.234.567'); await typeInto(cuoc, '165000');
     await typeInto(tk, '1234567'); assert.equal(await tk.inputValue(), '1.234.567'); await typeInto(tk, '170000'); assert.equal(await tk.inputValue(), '170.000');
+    // gõ '.' GIỮA chuỗi: dấu '.' thành ',' và con trỏ nằm sau dấu phẩy (rà soát: "15" + '.2' sau chữ 1 từng ra "12,5")
+    await kl.fill('15'); await kl.evaluate((e) => { e.focus(); e.setSelectionRange(1, 1); }); await page.keyboard.type('.'); await page.keyboard.type('2'); assert.equal(await kl.inputValue(), '1,25', 'gõ . giữa chuỗi → 1,25');
+    // giới hạn độ dài: tối đa 15 chữ số nguyên và 6 số lẻ (dài hơn mất độ chính xác khi lưu)
+    await kl.fill('12345678901234567890'); assert.equal(await kl.inputValue(), '123.456.789.012.345', 'tối đa 15 chữ số nguyên');
+    await kl.fill('0,123456789'); assert.equal(await kl.inputValue(), '0,123456', 'tối đa 6 số lẻ'); await typeInto(kl, '12,5');
     await nm.getByLabel(/Nguồn đơn giá tham khảo/).fill('Bảng giá thử'); await nm.getByLabel(/Ngày cập nhật/).fill('2027-03-01');
     await nm.getByText(/cao hơn \(1\) DG_CUOC/).waitFor(); await nm.getByText(/\+5\.000 đ \(\+3,03%\)/).waitFor();
-    // dán '0.400' vào định mức → hiểu thành 400 (> 10 lít/km) → chặn bằng hộp xác nhận, hủy thì không lưu
-    await dm.fill('0.400'); assert.equal(await dm.inputValue(), '400');
+    // dán '0.400' vào định mức → 0,4 (giống gõ từng ký tự; nhóm nghìn không bao giờ đứng sau một số 0 đơn lẻ), không còn thành 400
+    await dm.fill('0.400'); assert.equal(await dm.inputValue(), '0,400', 'dán 0.400 → 0,4');
+    // nhập thẳng 400 (> 10 lít/km) → chặn bằng hộp xác nhận, hủy thì không lưu
+    await typeInto(dm, '400'); assert.equal(await dm.inputValue(), '400');
     await nm.getByRole('button', { name: 'Lưu' }).click();
     const ck = page.locator('.modal', { hasText: 'Kiểm tra dấu chấm / phẩy' }); await ck.getByText(/Định mức dầu = 400 lít\/km/).waitFor(); await ck.getByRole('button', { name: 'Hủy' }).click();
     await page.waitForTimeout(300); assert.equal(ctx.store.all('PRICE_HISTORY').filter((x) => x.price_code === 'PT-TD' && x.route_code === 'VC.008' && x.effective_from === '2027-03-01').length, 0, 'hủy → không lưu');
@@ -131,8 +138,18 @@ test('Giao diện HAKQN: form dòng đơn giá — ô ĐVT tính giá, nhãn m³
     const nr2 = ctx.store.get('PRICE_HISTORY', nr.price_id); assert.equal(nr2.avg_load_ton, 12.5); assert.equal(nr2.fuel_norm_l_per_km, 0.4); assert.equal(nr2.new_price, 165000);
 
     // ── Phân tích số: ô tiền tương thích cũ ("150,000" = 150000), "1,5" = 1,5; ô thập phân không đoán ──
-    const parsed = await page.evaluate(() => { const D = window.DGVC; return { m: ['150,000', '1,5', '150.000', '1.234,5', '150000', '1,234,567'].map((x) => D.parseVn(x, true)), old: ['150,000', '150.000'].map((x) => D.parseMoney(x)), dec: ['0,4', '12,5', '0.4', '12.5'].map((x) => D.parseVn(x)) }; });
-    assert.deepEqual(parsed.m, [150000, 1.5, 150000, 1234.5, 150000, 1234567]); assert.deepEqual(parsed.old, [150000, 150000]); assert.deepEqual(parsed.dec, [0.4, 12.5, 0.4, 12.5]);
+    const parsed = await page.evaluate(() => { const D = window.DGVC; return { m: ['150,000', '1,5', '150.000', '1.234,5', '150000', '1,234,567'].map((x) => D.parseVn(x, true)), old: ['150,000', '150.000'].map((x) => D.parseMoney(x)), dec: ['0,4', '12,5', '0.4', '12.5', '0.400', '0.450', '0.080', '1.234'].map((x) => D.parseVn(x)) }; });
+    assert.deepEqual(parsed.m, [150000, 1.5, 150000, 1234.5, 150000, 1234567]); assert.deepEqual(parsed.old, [150000, 150000]);
+    // ô thập phân: "0.ddd" = thập phân (0,4 / 0,45 / 0,08); "1.234" vẫn là ngăn nghìn = 1234. Ô tiền không đổi: "0.400" = 400.
+    assert.deepEqual(parsed.dec, [0.4, 12.5, 0.4, 12.5, 0.4, 0.45, 0.08, 1234]);
+    assert.equal(await page.evaluate(() => window.DGVC.parseVn('0.400', true)), 400, 'ô tiền: 0.400 giữ nguyên = 400');
+    // ngưỡng hỏi lại: đúng biên KHÔNG hỏi (0,05 / 1 / 1 m³ và 10 / 100 / 500), vượt biên mới hỏi; chỉ xét ô đang dùng
+    const oddN = await page.evaluate(() => { const D = window.DGVC; const n = (v, m = 'THEO_DAU', m3 = false, nv = false) => D.oddPriceNumbers(v, m, m3, nv).length;
+      return [n({ fuelNormLPerKm: 0.05 }), n({ fuelNormLPerKm: 0.0499 }), n({ fuelNormLPerKm: 0 }), n({ fuelNormLPerKm: 10 }), n({ fuelNormLPerKm: 10.01 }),
+        n({ avgLoadTon: 1 }), n({ avgLoadTon: 0.99 }), n({ avgLoadTon: 100 }), n({ avgLoadTon: 100.01 }),
+        n({ avgVolumeM3: 1 }, 'THEO_DAU', true, true), n({ avgVolumeM3: 0.99 }, 'THEO_DAU', true, true), n({ avgVolumeM3: 500 }, 'THEO_DAU', true, true), n({ avgVolumeM3: 500.01 }, 'THEO_DAU', true, true),
+        n({ avgVolumeM3: 0.5 }), n({ avgLoadTon: 0.5 }, 'THEO_DAU', true, true), n({ fuelNormLPerKm: 400 }, 'CO_DINH')]; });
+    assert.deepEqual(oddN, [0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0], 'biên ngưỡng hỏi lại + chỉ xét ô đang dùng');
 
     // ── Sửa dòng nháp CŨ (chưa có ĐVT riêng) trên tuyến m³: giữ trống, ĐG ký HĐ không đổi ──
     const E = require('../main/engine');
