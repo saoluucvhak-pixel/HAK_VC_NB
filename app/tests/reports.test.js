@@ -317,3 +317,24 @@ test('Báo cáo theo ngày: tổng hợp khối lượng theo khách hàng / nh�
   }
   store.close();
 });
+
+test('Xuất Excel BKVC cho kỳ tính theo m³ hiển thị đúng tiêu đề cột Khối lượng (m³) và ĐVT sheet HOA_DON', async () => {
+  const { store, pid } = await period('HAKQN');
+  const d = new ReportService(store).bkvc({ periodId: pid });
+  const m3Doc = {
+    ...d,
+    uomLabel: 'm³',
+    lines: d.lines.map((l) => ({ ...l, uom: 'M3' })),
+    invoiceLines: d.invoiceLines.map((l) => ({ ...l, uom: 'm³' }))
+  };
+  const { writeBkvc } = require('../main/reports/xlsxExport');
+  const m3File = path.join(OUT, 'BKVC_m3.xlsx');
+  await writeBkvc(m3Doc, m3File);
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.readFile(m3File);
+  const ws = wb.getWorksheet('BKVC');
+  assert.equal(cellText(ws.getCell('E6')), 'Khối lượng (m³)');
+  const hd = wb.getWorksheet('HOA_DON');
+  assert.equal(cellText(hd.getCell(`C${m3Doc.invoiceLines.length + 2}`)), 'm³');
+  store.close();
+});

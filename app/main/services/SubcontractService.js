@@ -64,6 +64,14 @@ class SubcontractService {
     return path.join(this._batchesDir(), 'files');
   }
 
+  /** Ưu tiên tệp chi tiết nằm trong thư mục dữ liệu hiện hành (để sau khi khôi phục sang máy/thư mục khác vẫn đọc và xóa đúng tệp). */
+  _resolveBatchFile(meta) {
+    if (!meta) return '';
+    const local = meta.batchId ? path.join(this._filesDir(), `${meta.batchId}.json`) : '';
+    if (local && fs.existsSync(local)) return local;
+    return meta.filePath && fs.existsSync(meta.filePath) ? meta.filePath : local;
+  }
+
   _readBatches() {
     const f = this._batchesFile();
     if (!fs.existsSync(f)) return [];
@@ -87,7 +95,8 @@ class SubcontractService {
   _sigOf(meta) {
     if (meta.contentSig !== undefined) return meta.contentSig;
     try {
-      const d = JSON.parse(fs.readFileSync(meta.filePath, 'utf8'));
+      const fp = this._resolveBatchFile(meta);
+      const d = JSON.parse(fs.readFileSync(fp, 'utf8'));
       return contentSig(d.tickets || [], d.fuelRows || []);
     } catch {
       return '';
@@ -337,14 +346,15 @@ class SubcontractService {
     if (!meta) throw new AppError('NOT_FOUND', `Không tìm thấy đợt ${batchId}`);
 
     let details = null;
-    if (fs.existsSync(meta.filePath)) {
+    const fp = this._resolveBatchFile(meta);
+    if (fp && fs.existsSync(fp)) {
       try {
-        details = JSON.parse(fs.readFileSync(meta.filePath, 'utf8'));
+        details = JSON.parse(fs.readFileSync(fp, 'utf8'));
       } catch {
         details = null;
       }
     }
-    return { ...meta, details };
+    return { ...meta, filePath: fp || meta.filePath, details };
   }
 
   // ─────────────────────────── BÁO CÁO THUÊ VẬN CHUYỂN (tổng hợp số liệu nhận về) ───────────────────────────
@@ -354,7 +364,8 @@ class SubcontractService {
    */
   _computeBatch(meta) {
     let data = null;
-    try { if (meta.filePath && fs.existsSync(meta.filePath)) data = JSON.parse(fs.readFileSync(meta.filePath, 'utf8')); } catch { data = null; }
+    const fp = this._resolveBatchFile(meta);
+    try { if (fp && fs.existsSync(fp)) data = JSON.parse(fs.readFileSync(fp, 'utf8')); } catch { data = null; }
     const ex = extractFromObj(data); const tickets = normTickets(ex.tickets); const fuelRows = normFuels(ex.fuelRows);
     let from = ''; let to = '';
     if (meta.periodId) { const period = this.store.get('KY_TINH', meta.periodId); if (period) { from = period.date_from || ''; to = period.date_to || ''; } }
@@ -530,9 +541,10 @@ class SubcontractService {
     }
 
     this._writeBatches(this._readBatches().filter((b) => b.batchId !== batchId));
-    if (removed.filePath && fs.existsSync(removed.filePath)) {
+    const fp = this._resolveBatchFile(removed);
+    if (fp && fs.existsSync(fp)) {
       try {
-        fs.unlinkSync(removed.filePath);
+        fs.unlinkSync(fp);
       } catch {
         /* bỏ qua nếu không xóa được file chi tiết (đợt đã bỏ khỏi danh sách) */
       }

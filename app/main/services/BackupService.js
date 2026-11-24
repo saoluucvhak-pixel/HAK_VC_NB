@@ -20,6 +20,67 @@ const os = require('node:os');
 
 const KINDS = ['daily', 'monthly', 'manual', 'safety'];
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex');
+const SUBCONTRACT_ENTRY = /^subcontract\/(?:batches\.json|files\/[A-Za-z0-9_.-]+\.json)$/;
+
+function walkSubcontractFiles(root) {
+  const base = path.join(root, 'subcontract');
+  if (!fs.existsSync(base)) return [];
+  const out = [];
+  const visit = (dir) => {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (ent.name.includes('.tmp-') || ent.name.endsWith('.part')) continue;
+      const full = path.join(dir, ent.name);
+      if (ent.isDirectory()) visit(full);
+      else if (ent.isFile()) {
+        const rel = path.relative(root, full).replace(/\\/g, '/');
+        if (SUBCONTRACT_ENTRY.test(rel)) out.push({ rel, full });
+      }
+    }
+  };
+  visit(base);
+  return out.sort((a, b) => a.rel.localeCompare(b.rel));
+}
+
+function packSubcontract(zip, root) {
+  const hashes = {};
+  for (const { rel, full } of walkSubcontractFiles(root)) {
+    const buf = fs.readFileSync(full);
+    zip.addFile(rel, buf);
+    hashes[rel] = sha(buf);
+  }
+  return hashes;
+}
+
+function prepareSubcontractSwap(zip, root) {
+  const entries = zip.getEntries().filter((e) => !e.isDirectory && SUBCONTRACT_ENTRY.test(e.entryName.replace(/\\/g, '/')));
+  const cur = path.join(root, 'subcontract');
+  const next = path.join(root, `subcontract.restoring-${Date.now()}`);
+  const bak = path.join(root, `subcontract.before-restore-${Date.now()}`);
+  const rmQuiet = (p) => { try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* không có */ } };
+  if (entries.length) {
+    fs.mkdirSync(next, { recursive: true });
+    for (const e of entries) {
+      const rel = e.entryName.replace(/\\/g, '/');
+      const target = path.join(next, rel.slice('subcontract/'.length));
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, e.getData());
+    }
+  }
+  let hadOld = false;
+  return {
+    apply() {
+      if (fs.existsSync(cur)) { rmQuiet(bak); fs.renameSync(cur, bak); hadOld = true; }
+      if (entries.length) fs.renameSync(next, cur);
+    },
+    commit() { rmQuiet(next); rmQuiet(bak); },
+    rollback() {
+      rmQuiet(next);
+      if (hadOld || entries.length) rmQuiet(cur);
+      if (hadOld && fs.existsSync(bak)) { try { fs.renameSync(bak, cur); } catch { /* cố hết sức */ } }
+      rmQuiet(bak);
+    }
+  };
+}
 const stamp = (d = new Date()) => {
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
@@ -56,6 +117,8 @@ class BackupService {
         if (fs.existsSync(p)) zip.addFile(rel.replace(/\\/g, '/'), fs.readFileSync(p));
       }
     }
+    const subcontractFiles = packSubcontract(zip, root);
+    if (Object.keys(subcontractFiles).length) extra.subcontractFiles = subcontractFiles;
     const info = { app: 'DGVC', kind, note, createdAt: this.now().toISOString(), createdBy: user.username, installId: m.installId, unitCode: m.unitCode, dataVersion: m.dataVersion, ...extra };
     zip.addFile('backup-info.json', Buffer.from(JSON.stringify(info, null, 1)));
     const name = `DGVC_${m.unitCode}_${stamp(this.now())}_${kind}${note ? `_${note.replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 30)}` : ''}.zip`;
@@ -157,8 +220,21 @@ class BackupService {
       const p = path.join(dir, rel); if (!fs.existsSync(p)) throw new AppError('INTEGRITY_ERROR', `Thư mục dữ liệu thiếu tệp ${rel} — chép đủ thư mục (manifest.json + tables) rồi chọn lại`, { problems: [`${rel}: thiếu`] });
       zip.addFile(rel.replace(/\\/g, '/'), fs.readFileSync(p));
     }
-    zip.addFile('backup-info.json', Buffer.from(JSON.stringify({ app: 'DGVC', kind: 'folder', note: 'thư mục dữ liệu JSON', installId: m.installId, unitCode: m.unitCode, dataVersion: m.dataVersion, createdAt: m.lastBackupAt || '' })));
+    const subcontractFiles = packSubcontract(zip, dir);
+    zip.addFile('backup-info.json', Buffer.from(JSON.stringify({ app: 'DGVC', kind: 'folder', note: 'thư mục dữ liệu JSON', installId: m.installId, unitCode: m.unitCode, dataVersion: m.dataVersion, createdAt: m.lastBackupAt || '', ...(Object.keys(subcontractFiles).length ? { subcontractFiles } : {}) })));
     return zip;
+  }
+
+  _verifySubcontractEntries(zip) {
+    let info = {}; try { info = JSON.parse(zip.readAsText('backup-info.json') || '{}'); } catch { /* thiếu info */ }
+    if (!info.subcontractFiles || typeof info.subcontractFiles !== 'object') return;
+    const bad = [];
+    for (const [rel, expectedSha] of Object.entries(info.subcontractFiles)) {
+      const b = zip.readFile(rel.replace(/\\/g, '/'));
+      if (!b) bad.push(`${rel}: thiếu`);
+      else if (sha(b) !== expectedSha) bad.push(`${rel}: sai SHA-256`);
+    }
+    if (bad.length) throw new AppError('INTEGRITY_ERROR', `File sao lưu không toàn vẹn (thuê VC): ${bad.join('; ')}`, { problems: bad });
   }
 
   verify(file) {
@@ -170,6 +246,7 @@ class BackupService {
     } else {
       try { zip = new AdmZip(file); } catch (e) { throw new AppError('INTEGRITY_ERROR', `File sao lưu hỏng: ${e.message}`); }
     }
+    this._verifySubcontractEntries(zip);
     const dbBuf = zip.readFile('dgvc.db');
     if (dbBuf) return this._verifySqlite(zip, dbBuf);
     const mBuf = zip.readFile('manifest.json'); if (!mBuf) throw new AppError('INTEGRITY_ERROR', 'File sao lưu không có manifest.json');
@@ -231,6 +308,9 @@ class BackupService {
       const buf = fs.readFileSync(path.join(root, rel)); if (sha(buf) !== meta.sha256) throw new AppError('INTEGRITY_ERROR', `Tệp ${rel} sai SHA-256 — dừng xuất`);
       const to = path.join(dest, rel); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.writeFileSync(to, buf);
     }
+    for (const { rel, full } of walkSubcontractFiles(root)) {
+      const to = path.join(dest, rel); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(full, to);
+    }
     fs.writeFileSync(path.join(dest, 'manifest.json'), mBuf);
     const info = { app: 'DGVC', source: 'json', exportedAt: new Date().toISOString(), exportedBy: user.username, dataVersion: m.dataVersion, schemaVersion: m.schemaVersion, installId: m.installId, unitCode: m.unitCode,
       appVersion: require('../../package.json').version, files: Object.keys(m.files).length, rows: this.store.stats().rows };
@@ -250,6 +330,7 @@ class BackupService {
     if (kind === 'json' && storageFormat === 'sqlite') throw new AppError('VALIDATION_FAILED', 'Bản sao lưu này là của kho SQLite — không khôi phục được vào kho JSON (dùng công cụ xuất ngược SQLite → JSON trước)');
     const safety = await this.backup({ kind: 'safety', note: 'truoc-khoi-phuc', user });
     const root = this.store.root;
+    const subSwap = prepareSubcontractSwap(zip, root);
     this.store.close();
     let store = null;
     if (kind === 'json') {
@@ -265,9 +346,12 @@ class BackupService {
         rmQuiet(tablesBak); rmQuiet(manBak);
         fs.renameSync(tables, tablesBak); movedOld = true; fs.copyFileSync(manifest0, manBak);
         fs.renameSync(tablesNew, tables); fs.copyFileSync(path.join(tmp, 'manifest.json'), manifest0);
+        subSwap.apply();
         store = this.reopen(root); // lỗi ở đây → khối catch trả bản cũ
+        subSwap.commit();
         rmQuiet(tablesBak); rmQuiet(manBak); rmQuiet(tmp);
       } catch (e) {
+        subSwap.rollback();
         if (movedOld) { rmQuiet(tables); try { fs.renameSync(tablesBak, tables); if (fs.existsSync(manBak)) fs.copyFileSync(manBak, manifest0); } catch { /* cố hết sức; bước dưới vẫn mở lại */ } }
         rmQuiet(tmp); rmQuiet(manBak);
         try { this.store = this.reopen(root); } catch { /* không mở lại được — ném lỗi gốc */ }
@@ -288,9 +372,12 @@ class BackupService {
           fs.rmSync(tmp, { recursive: true, force: true }); tmp = '';
         }
         clean(old); fs.renameSync(cur, old); swapped = true; clean(cur); fs.renameSync(next, cur);
+        subSwap.apply();
         this.store = this.reopen(root);
+        subSwap.commit();
         clean(old);
       } catch (e) {
+        subSwap.rollback();
         if (tmp) { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* bỏ */ } }
         clean(next);
         if (swapped && fs.existsSync(old)) { clean(cur); try { fs.renameSync(old, cur); } catch { /* cố hết sức */ } }

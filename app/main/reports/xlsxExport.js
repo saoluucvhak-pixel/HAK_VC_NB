@@ -22,7 +22,10 @@ async function writeBkvc(d, file) {
   if (H.contractNo) put('H1', `Hợp đồng số: ${H.contractNo}`, { font: { italic: true } });
   merge('A4', 'J4', H.title, { font: { bold: true, size: 14 }, align: { horizontal: 'center' } });
   merge('A5', 'J5', H.periodText, { font: { italic: true }, align: { horizontal: 'center' } });
-  const heads = ['STT', 'Biển số xe', 'Số chuyến', 'Khối lượng (KG)', 'Khối lượng (Tấn)', 'Đơn giá', 'Thành tiền', `VAT (${H.vatPct}%)`, 'Thành tiền', 'Ghi chú'];
+  const allM3 = d.uomLabel === 'm³' || (Array.isArray(d.lines) && d.lines.length > 0 && d.lines.every((l) => l.uom === 'M3'));
+  const someM3 = !allM3 && ((d.uomLabel && d.uomLabel.includes('m³')) || (Array.isArray(d.lines) && d.lines.some((l) => l.uom === 'M3')));
+  const uomColTitle = allM3 ? 'Khối lượng (m³)' : someM3 ? 'Khối lượng (Tấn / m³)' : 'Khối lượng (Tấn)';
+  const heads = ['STT', 'Biển số xe', 'Số chuyến', 'Khối lượng (KG)', uomColTitle, 'Đơn giá', 'Thành tiền', `VAT (${H.vatPct}%)`, 'Thành tiền', 'Ghi chú'];
   const hr = ws.getRow(6); hr.height = 30;
   heads.forEach((h, i) => { const c = hr.getCell(i + 1); c.value = h; c.font = { name: FONT, bold: true, size: 11 }; c.border = box;
     c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFEFEF' } }; });
@@ -69,7 +72,7 @@ async function writeBkvc(d, file) {
       const row = inv.addRow([l.seq, l.description, l.uom, l.qty, l.unit_price, l.amount, l.vat_rate_pct, l.vat, l.total]);
       row.eachCell((c, i) => { c.numFmt = fm[i - 1]; c.border = box; c.font = { name: FONT, size: 10 }; c.alignment = { vertical: 'top', wrapText: i === 2 }; });
     }
-    const t = inv.addRow(['', 'TỔNG CỘNG', '', d.totals.ton, '', d.totals.amount, '', d.totals.vat, d.totals.total]);
+    const t = inv.addRow(['', 'TỔNG CỘNG', allM3 ? 'm³' : '', d.totals.ton, '', d.totals.amount, '', d.totals.vat, d.totals.total]);
     t.eachCell((c, i) => { c.numFmt = fm[i - 1]; c.border = box; c.font = { name: FONT, bold: true }; });
   }
   await wb.xlsx.writeFile(file);
