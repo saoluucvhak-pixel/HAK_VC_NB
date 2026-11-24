@@ -338,7 +338,7 @@ class SubcontractService {
     let batches = this._readBatches();
     if (periodId) batches = batches.filter((b) => b.periodId === periodId);
     if (contractId) batches = batches.filter((b) => b.contractId === contractId);
-    return batches;
+    return batches.map((b) => { const fp = this._resolveBatchFile(b); return fp && fp !== b.filePath ? { ...b, filePath: fp } : b; });
   }
 
   getBatch({ batchId }) {

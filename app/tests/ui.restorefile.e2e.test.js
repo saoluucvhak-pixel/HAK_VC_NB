@@ -47,7 +47,7 @@ test('Giao diện ĐH: sao lưu JSON ra thư mục, thay đổi dữ liệu, kh�
     await next(zipJson); await page.getByRole('button', { name: 'Khôi phục từ file…' }).click();
     const m = page.locator('.modal', { hasText: 'Khôi phục từ file' }); await m.getByText(/Đơn vị DH/).waitFor(); await m.getByText(/kho JSON/).waitFor(); await m.getByText(/Dữ liệu Thuê vận chuyển: \d+ tệp/).waitFor();
     await m.locator('textarea').fill('khôi phục thử từ JSON'); await m.getByRole('button', { name: 'Khôi phục' }).click();
-    await toast(/Đã khôi phục từ file · Thuê vận chuyển: \d+ tệp/); assert.equal(live(), n0); assert.equal(srv.ctx.store.storageKind, 'sqlite', 'sau khôi phục từ JSON vẫn là SQLite');
+    await toast(/Đã khôi phục từ file · Thuê vận chuyển: \d+ tệp · năm lưu trữ: \d+ tệp/); assert.equal(live(), n0); assert.equal(srv.ctx.store.storageKind, 'sqlite', 'sau khôi phục từ JSON vẫn là SQLite');
     // 3) khôi phục từ bản sao lưu SQL (.zip có dgvc.db) đặt ở nơi khác
     await nav('Cài đặt');
     const b = await srv.ctx.svc.backup.backup({ kind: 'manual', user: { username: 'phuthuy.apple@gmail.com' } }); const usb = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-ui-usb-')), 'sao-luu.zip'); fs.copyFileSync(b.file, usb);

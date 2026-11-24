@@ -174,10 +174,14 @@ test('Khôi phục sang MÁY / THƯ MỤC KHÁC: đợt nạp vẫn đọc đư�
   const reportA = a.sub().report({ periodId: a.period.period_id }); a.store.close(); fs.rmSync(path.dirname(path.dirname(stored)), { recursive: true, force: true }); // máy A mất
   const kind = a.store.storageKind; const b = await install('DH', { installId: 'MAY-B-TEST', withData: false, kind });
   const bs = new BackupService(b.store, { reopen: (root) => newStore(root, {}, kind).open() });
-  const r = await bs.restore({ file: zip, reason: 'chuyển máy', user: U, allowOtherInstall: true }); assert.notEqual(r.store.root, path.dirname(path.dirname(stored)), 'khác thư mục');
+  const r = await bs.restore({ file: zip, reason: 'chuyển máy', user: U, allowOtherInstall: true }); assert.notEqual(r.store.root, a.store.root, 'khác thư mục');
   const sub = new SubcontractService(r.store, { exchange: new ExchangeService(r.store) });
   const g = sub.getBatch({ batchId: b1.batchId }); assert.ok(g.details && g.details.tickets.length === 1, 'chi tiết đợt đọc được từ subcontract/files của máy mới');
   assert.equal(g.filePath, path.join(r.store.root, 'subcontract', 'files', `${b1.batchId}.json`));
+  assert.equal(sub.list({ periodId: a.period.period_id })[0].filePath, g.filePath, 'danh sách trả đường dẫn đã quy về thư mục hiện tại (màn đối chiếu dùng)');
+  const { ReconcileService } = require('../main/services/ReconcileService');
+  const cmp = await new ReconcileService(r.store, { exchange: new ExchangeService(r.store), subcontract: sub }).compare({ batchId: b1.batchId, periodId: a.period.period_id });
+  assert.ok(JSON.stringify(cmp).includes('T-ĐỢT-1'), 'đối chiếu thấy phiếu của đợt');
   assert.deepEqual(sub.report({ periodId: a.period.period_id }).rows.map((x) => x.ticketCount), reportA.rows.map((x) => x.ticketCount), 'báo cáo thuê vận chuyển tính được số phiếu');
   assert.equal(sub.report({ periodId: a.period.period_id }).rows[0].ticketCount, 1);
   await sub.deleteBatch({ batchId: b1.batchId, user: KETOAN }); assert.deepEqual(subFiles(r.store.root).filter((f) => f.startsWith('files/')), [], 'xóa đợt xóa luôn tệp chi tiết nằm trong thư mục mới');
