@@ -27,7 +27,11 @@ const CMP_SKIP = new Set([...META, 'catalog_date', 'is_used']); // is_used là t
 // cột thêm sau 1.9.3 (calc_basis, total_m3): gói của bản cũ không có cột = bản mới có cột trống → coi như giống nhau
 const OPTIONAL_NEW = new Set(['calc_basis', 'total_m3']);
 const content = (r) => Object.fromEntries(Object.entries(r).filter(([k, v]) => !CMP_SKIP.has(k) && !(OPTIONAL_NEW.has(k) && (v === '' || v === undefined || v === null))));
-const sameContent = (a, b) => canon(content(a)) === canon(content(b));
+// So gói đến (b) với dòng cục bộ (a): gói đến KHÔNG có cột calc_basis / total_m3 (bản ≤ 1.9.3, hoặc dòng cũ bị bỏ cột khi xuất) = KHÔNG CÓ THÔNG TIN → không so cột đó
+// ở dòng cục bộ (nếu so, dòng đã là m³ ở máy nhận sẽ báo xung đột mãi, kể cả sau khi chọn "lấy bản đến"). Cột có mặt nhưng rỗng ('') vẫn so bình thường.
+// An toàn vì hai cột này không bao giờ đổi trên dòng đã xuất: dòng giá chỉ sửa được khi là NHÁP (gói danh mục không xuất nháp), dòng tính chỉ thêm mới.
+const alignLocal = (local, incoming) => Object.fromEntries(Object.entries(local).filter(([k]) => !(OPTIONAL_NEW.has(k) && !(k in incoming))));
+const sameContent = (a, b) => canon(content(alignLocal(a, b))) === canon(content(b));
 const vnNum = (n) => Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 const stampOf = (r) => r.updated_at || r.created_at || '';
 const CORE_TICKET = ['ticket_no', 'weigh1_date', 'weigh1_time', 'weigh2_date', 'weigh2_time', 'plate_no', 'weight1_kg', 'weight2_kg', 'net_kg', 'route_code', 'owner_unit_code'];
@@ -112,7 +116,10 @@ class ExchangeService {
         source_install_id: s.installId, source_unit_code: s.unitCode, target_unit_code: header.targetUnitCode, counts_json: JSON.stringify(counts), status: 'DONE', message: '', created_at: tx.now, created_by: user.username });
       tx.audit('EXPORT_PACKAGE', 'EXCHANGE_LOG', id, null, { packageType, file: path.basename(file), counts, targetUnitCode: header.targetUnitCode });
       const marked = reminderIds.length ? markTx(tx, reminderIds, targetUnitCode, 'PACKAGE', path.basename(file)).updated : 0;
-      return { exchangeId: id, file, sizeBytes: buf.length, contentSha256, counts, header, remindersMarked: marked };
+      // bản ≤ 1.9.3 xem trước báo "nhập được" rồi mới từ chối gói có dòng m³ (cột calc_basis lạ với bản đó) → cảnh báo bên gửi ngay lúc xuất
+      const m3Lines = (tables.PRICE_HISTORY || []).filter((r) => r && r.calc_basis === 'M3').length;
+      const warnings = m3Lines ? [{ level: 'WARNING', message: `Gói có ${m3Lines} dòng đơn giá tính theo m³: máy nhận chạy bản 1.9.3 trở xuống sẽ KHÔNG nhập được gói này (cả gói bị từ chối). Nâng máy nhận lên 1.9.4 trở lên trước khi gửi.` }] : [];
+      return { exchangeId: id, file, sizeBytes: buf.length, contentSha256, counts, header, remindersMarked: marked, warnings };
     }, { user: user.username });
   }
 
@@ -217,11 +224,11 @@ class ExchangeService {
         }
         if (sameContent(local, r)) { add(t, id, 'SAME', r); continue; }
         if (t === 'HINH_THUC_GIA') { // hạt giống mỗi máy tự tạo dòng mặc định: bên gửi chỉ đóng dòng (thêm dòng mới cùng mã) / gỡ dòng → cập nhật, không phải "hai bên cùng sửa"
-          const onlyClose = canon(content({ ...local, effective_to: '', status: '' })) === canon(content({ ...r, effective_to: '', status: '' })) && r.status === 'CLOSED';
+          const onlyClose = canon(content({ ...alignLocal(local, r), effective_to: '', status: '' })) === canon(content({ ...r, effective_to: '', status: '' })) && r.status === 'CLOSED';
           if (onlyClose) { add(t, id, 'UPDATE', r, { changes: diff(local, r) }); continue; }
         }
         if (t === 'PRICE_HISTORY') {
-          const onlyClose = canon(content({ ...local, effective_to: '', status: '' })) === canon(content({ ...r, effective_to: '', status: '' })) && r.status === 'CLOSED';
+          const onlyClose = canon(content({ ...alignLocal(local, r), effective_to: '', status: '' })) === canon(content({ ...r, effective_to: '', status: '' })) && r.status === 'CLOSED';
           if (onlyClose || (local.status === 'DRAFT' && r.status !== 'DRAFT')) { add(t, id, 'UPDATE', r, { changes: diff(local, r) }); continue; }
           if (local.is_used) { add(t, id, 'CONFLICT', r, { changes: diff(local, r), note: 'phiên bản giá đã dùng ở kỳ của bản cài này', default: 'KEEP' }); continue; }
         }
@@ -448,7 +455,7 @@ function sanitize(t, r, h, pkgSha) {
   if (t === 'KY_TINH') Object.assign(x, { origin: 'IMPORTED', origin_install_id: h.sourceInstallId, package_sha256: pkgSha });
   return x;
 }
-function diff(a, b) { return Object.keys({ ...a, ...b }).filter((k) => !CMP_SKIP.has(k) && canon(a[k]) !== canon(b[k])).map((k) => ({ field: k, local: a[k], incoming: b[k] })); }
+function diff(a, b) { return Object.keys({ ...a, ...b }).filter((k) => !CMP_SKIP.has(k) && !(OPTIONAL_NEW.has(k) && !(k in b)) && canon(a[k]) !== canon(b[k])).map((k) => ({ field: k, local: a[k], incoming: b[k] })); }
 function roleText(h, s) {
   if (h.packageType === 'KY_TINH') return `Bản cài ${s.unitCode} nhận kỳ tính của bên vận chuyển ${h.sourceUnitCode} — lưu để xem / in lại, không sửa được`;
   if (h.packageType === 'DANH_MUC') return `Nhận danh mục do bản cài ${h.sourceUnitCode} gửi — cập nhật tuyến, giá, đơn vị, xe, hợp đồng liên quan`;
