@@ -11,6 +11,7 @@
     "start": "electron .",
     "dev": "node tools/dev-server.js",
     "test:electron": "xvfb-run -a node tests/electron.smoke.js && xvfb-run -a electron tests/electron.sqlite.main.js --no-sandbox && xvfb-run -a node tests/electron.autoupgrade.js",
+    "test:electron:win": "node tests/electron.smoke.js && electron tests/electron.sqlite.main.js && node tests/electron.autoupgrade.js",
     "compare": "node tools/compare-excel.js",
     "build:catalog": "node tools/build-catalog.js",
     "dist": "electron-builder --win dir --x64 && makensis -V2 /INPUTCHARSET UTF8 installer/dgvc.nsi",
