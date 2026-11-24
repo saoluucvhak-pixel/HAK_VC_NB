@@ -146,7 +146,7 @@
           res.append(h('div', { class: 'card ok-card' }, h('h2', {}, 'Đã nhập gói'), h('p', { class: 'small' }, Object.entries(r.counts || {}).map(([t, c]) => line(t, c)).join(' · ') || 'Không có dòng nào thay đổi.'),
             h('div', { class: 'btns' }, h('button', { class: 'btn primary', onclick: () => D.go('reconcile', { tab: 'compare' }) }, 'Mở đối chiếu'),
               h('button', { class: 'btn', onclick: () => D.go('exchange', { tab: 'history' }) }, 'Xem lịch sử gói'), h('button', { class: 'btn', onclick: () => D.go('exchange', { tab: 'import' }) }, 'Nhập gói khác'))));
-          res.scrollIntoView({ block: 'start', behavior: 'smooth' });
+          res.scrollIntoView({ block: 'start' });
         };
         const show = async (fp, ticketsOnly) => {
           const pv = await D.api('exchange.previewPackage', { filePath: fp, ticketsOnly });
@@ -186,7 +186,7 @@
             if (!(await D.confirm({ title: 'Nhập gói', message: 'APP tự sao lưu an toàn trước khi ghi. Tiếp tục?' }))) return;
             const r = await D.api('exchange.importPackage', { previewId: pv.previewId, decisions }); D.toast(`Đã nhập gói · sao lưu an toàn: ${r.safetyBackup || '—'}`, 'ok', 8000); await D.refreshBoot(); done(r);
           } }, 'Nhập gói')));
-          res.style.scrollMarginTop = '90px'; res.scrollIntoView({ block: 'start', behavior: 'smooth' }); // chọn gói mới → cuộn tới kết quả, thấy ngay nút Nhập gói
+          res.style.scrollMarginTop = '90px'; res.scrollIntoView({ block: 'start' }); // chọn gói mới → cuộn tới kết quả, thấy ngay nút Nhập gói
         };
         body.append(h('div', { class: 'card' }, h('p', {}, 'Nhận gói .dgvc hoặc .json do nhà máy / đối tác gửi: kỳ tính (bên vận chuyển gửi bên thuê), danh mục (nhà máy nào sửa danh mục cũng gửi được), phiếu cân kèm dầu.'), (D.writer() ? h('button', { class: 'btn primary', onclick: pick }, 'Chọn gói…') : h('p', { class: 'small muted' }, 'Vai trò Chỉ xem không nhận gói.'))), res,
           h('details', { class: 'card small' }, h('summary', {}, h('b', {}, 'Đối tác gửi gì → làm gì?')), h('ul', { style: { margin: '8px 0 0 18px', padding: 0 } },

@@ -184,7 +184,7 @@
     return NaN;
   };
   /** Màn hẹp (< 1280 px): ngăn xem chéo nằm DƯỚI bảng — sau khi chọn dòng thì cuộn tới ngăn để người dùng thấy ngay. */
-  D.revealSide = (el) => { try { if (el && window.innerWidth < 1280 && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* không cuộn được thì bỏ qua */ } };
+  D.revealSide = (el) => { try { if (el && window.innerWidth < 1280 && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); } catch { /* không cuộn được thì bỏ qua */ } };
   /** Ô chọn công ty từ Danh mục công ty & đối tác để điền nhanh vào ô tên (vd tên in trên chứng từ); vẫn sửa tay được. */
   const unitPicker = (inp) => {
     const units = (state.boot && state.boot.units) || [];
