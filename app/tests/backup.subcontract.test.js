@@ -166,3 +166,20 @@ test('Sao lưu JSON ra thư mục mang theo archive/ (chỉ kho JSON)', { skip: 
   fs.rmSync(path.join(c.store.root, 'archive'), { recursive: true, force: true });
   const r = await c.bs.restore({ file: path.join(dest, 'manifest.json'), reason: 'thử', user: U }); assert.deepEqual(walkAll(c.store.root, 'archive'), ['2025/archive-manifest.json', '2025/tables/PHIEU_CAN.json']); r.store.close();
 });
+
+test('Khôi phục sang MÁY / THƯ MỤC KHÁC: đợt nạp vẫn đọc được chi tiết, báo cáo, xóa (filePath tuyệt đối của máy cũ không còn)', async () => {
+  const a = await scene(); const b1 = await a.addBatch('ĐỢT-1'); const stored = JSON.parse(fs.readFileSync(path.join(a.store.root, 'subcontract', 'batches.json'), 'utf8'))[0].filePath;
+  assert.ok(path.isAbsolute(stored) && stored.startsWith(a.store.root), 'filePath lưu là đường dẫn tuyệt đối của máy A');
+  const bk = await a.bs.backup({ kind: 'manual', user: U }); const zip = path.join(tmp('mang'), 'mang-di.zip'); fs.copyFileSync(bk.file, zip);
+  const reportA = a.sub().report({ periodId: a.period.period_id }); a.store.close(); fs.rmSync(path.dirname(path.dirname(stored)), { recursive: true, force: true }); // máy A mất
+  const kind = a.store.storageKind; const b = await install('DH', { installId: 'MAY-B-TEST', withData: false, kind });
+  const bs = new BackupService(b.store, { reopen: (root) => newStore(root, {}, kind).open() });
+  const r = await bs.restore({ file: zip, reason: 'chuyển máy', user: U, allowOtherInstall: true }); assert.notEqual(r.store.root, path.dirname(path.dirname(stored)), 'khác thư mục');
+  const sub = new SubcontractService(r.store, { exchange: new ExchangeService(r.store) });
+  const g = sub.getBatch({ batchId: b1.batchId }); assert.ok(g.details && g.details.tickets.length === 1, 'chi tiết đợt đọc được từ subcontract/files của máy mới');
+  assert.equal(g.filePath, path.join(r.store.root, 'subcontract', 'files', `${b1.batchId}.json`));
+  assert.deepEqual(sub.report({ periodId: a.period.period_id }).rows.map((x) => x.ticketCount), reportA.rows.map((x) => x.ticketCount), 'báo cáo thuê vận chuyển tính được số phiếu');
+  assert.equal(sub.report({ periodId: a.period.period_id }).rows[0].ticketCount, 1);
+  await sub.deleteBatch({ batchId: b1.batchId, user: KETOAN }); assert.deepEqual(subFiles(r.store.root).filter((f) => f.startsWith('files/')), [], 'xóa đợt xóa luôn tệp chi tiết nằm trong thư mục mới');
+  r.store.close();
+});

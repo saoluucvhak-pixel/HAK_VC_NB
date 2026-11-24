@@ -64,6 +64,17 @@ class SubcontractService {
     return path.join(this._batchesDir(), 'files');
   }
 
+  /**
+   * File chi tiết của một đợt: ưu tiên bản nằm trong thư mục dữ liệu hiện tại (`subcontract/files/<batchId>.json`),
+   * vì `filePath` lưu đường dẫn tuyệt đối của máy đã nạp — sau khi khôi phục sao lưu sang máy / thư mục khác thì đường dẫn đó không còn.
+   */
+  _resolveBatchFile(meta) {
+    if (!meta) return '';
+    const local = meta.batchId ? path.join(this._filesDir(), `${meta.batchId}.json`) : '';
+    if (local && fs.existsSync(local)) return local;
+    return meta.filePath && fs.existsSync(meta.filePath) ? meta.filePath : local;
+  }
+
   _readBatches() {
     const f = this._batchesFile();
     if (!fs.existsSync(f)) return [];
@@ -87,7 +98,7 @@ class SubcontractService {
   _sigOf(meta) {
     if (meta.contentSig !== undefined) return meta.contentSig;
     try {
-      const d = JSON.parse(fs.readFileSync(meta.filePath, 'utf8'));
+      const d = JSON.parse(fs.readFileSync(this._resolveBatchFile(meta), 'utf8'));
       return contentSig(d.tickets || [], d.fuelRows || []);
     } catch {
       return '';
@@ -337,14 +348,15 @@ class SubcontractService {
     if (!meta) throw new AppError('NOT_FOUND', `Không tìm thấy đợt ${batchId}`);
 
     let details = null;
-    if (fs.existsSync(meta.filePath)) {
+    const fp = this._resolveBatchFile(meta);
+    if (fp && fs.existsSync(fp)) {
       try {
-        details = JSON.parse(fs.readFileSync(meta.filePath, 'utf8'));
+        details = JSON.parse(fs.readFileSync(fp, 'utf8'));
       } catch {
         details = null;
       }
     }
-    return { ...meta, details };
+    return { ...meta, filePath: fp || meta.filePath, details };
   }
 
   // ─────────────────────────── BÁO CÁO THUÊ VẬN CHUYỂN (tổng hợp số liệu nhận về) ───────────────────────────
@@ -354,7 +366,7 @@ class SubcontractService {
    */
   _computeBatch(meta) {
     let data = null;
-    try { if (meta.filePath && fs.existsSync(meta.filePath)) data = JSON.parse(fs.readFileSync(meta.filePath, 'utf8')); } catch { data = null; }
+    try { const fp = this._resolveBatchFile(meta); if (fp && fs.existsSync(fp)) data = JSON.parse(fs.readFileSync(fp, 'utf8')); } catch { data = null; }
     const ex = extractFromObj(data); const tickets = normTickets(ex.tickets); const fuelRows = normFuels(ex.fuelRows);
     let from = ''; let to = '';
     if (meta.periodId) { const period = this.store.get('KY_TINH', meta.periodId); if (period) { from = period.date_from || ''; to = period.date_to || ''; } }
@@ -530,9 +542,10 @@ class SubcontractService {
     }
 
     this._writeBatches(this._readBatches().filter((b) => b.batchId !== batchId));
-    if (removed.filePath && fs.existsSync(removed.filePath)) {
+    const rfp = this._resolveBatchFile(removed);
+    if (rfp && fs.existsSync(rfp)) {
       try {
-        fs.unlinkSync(removed.filePath);
+        fs.unlinkSync(rfp);
       } catch {
         /* bỏ qua nếu không xóa được file chi tiết (đợt đã bỏ khỏi danh sách) */
       }
