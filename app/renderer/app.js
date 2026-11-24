@@ -227,12 +227,12 @@
     return fp === null ? ip : `${ip},${fp}`;
   };
   const attachLiveNumber = (inp, decimal) => { const mark = () => inp.setAttribute('aria-invalid', Number.isNaN(D.parseVn(inp.value, !decimal)) ? 'true' : 'false'); inp.addEventListener('blur', () => { const n = D.parseVn(inp.value, !decimal); if (typeof n === 'number' && Number.isFinite(n)) inp.value = D.vnExact(n); mark(); }); inp.addEventListener('input', () => {
-    const before = inp.value; setTimeout(mark, 0); const caret = inp.selectionStart == null ? before.length : inp.selectionStart;
+    const before = inp.value; const caret = inp.selectionStart == null ? before.length : inp.selectionStart;
     const next = D.liveNumber(before, decimal);
     let sig = (before.slice(0, caret).match(/[\d,]/g) || []).length;
     if (before[caret - 1] === '.' && (next.match(/,/g) || []).length > (before.match(/,/g) || []).length) sig += 1; // vừa gõ '.' và nó thành dấu thập phân ',' → con trỏ nằm SAU dấu phẩy (gõ giữa chuỗi)
-    if (next === before) return;
-    inp.value = next; let n = 0; let pos = next.length; if (caret >= before.length) pos = next.length; /* đang gõ ở cuối ô: con trỏ luôn ở cuối (gõ 0.4 → 0,4) */ else if (sig === 0) pos = 0; else for (let i = 0; i < next.length; i++) { if (/[\d,]/.test(next[i])) n++; if (n === sig) { pos = i + 1; break; } }
+    if (next === before) { mark(); return; }
+    inp.value = next; mark(); let n = 0; let pos = next.length; if (caret >= before.length) pos = next.length; /* đang gõ ở cuối ô: con trỏ luôn ở cuối (gõ 0.4 → 0,4) */ else if (sig === 0) pos = 0; else for (let i = 0; i < next.length; i++) { if (/[\d,]/.test(next[i])) n++; if (n === sig) { pos = i + 1; break; } }
     try { inp.setSelectionRange(pos, pos); } catch { /* ô không hỗ trợ đặt con trỏ */ }
   }); };
   D.form = (fields, values = {}) => {
