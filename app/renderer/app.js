@@ -28,7 +28,11 @@
     archBanner.append(h('span', {}, `Đang xem dữ liệu năm lưu trữ ${ys.join(', ')} — chỉ xem, không sửa được. `),
       h('button', { class: 'btn small', onclick: async () => { if (D.canLeave && !(await D.canLeave())) return; await D.api('archive.unmount', {}); D.render && D.render(); } }, 'Thôi xem'));
   };
+  // Ô số nhập sai (NaN) mà gửi đi thì JSON.stringify đổi thành null = trông như ô TRỐNG và có thể lưu im lặng → chặn ngay ở cổng chung, báo rõ ô nào.
+  const firstNaN = (o, path = '', depth = 0) => { if (typeof o === 'number') return Number.isNaN(o) ? path : null; if (!o || typeof o !== 'object' || depth > 5) return null; for (const [k, v] of Object.entries(o)) { const r = firstNaN(v, path ? `${path}.${k}` : k, depth + 1); if (r) return r; } return null; };
   D.api = async function api(action, payload, { quiet = false } = {}) {
+    const badField = firstNaN(payload);
+    if (badField) { const e = Object.assign(new Error(`Có ô số nhập sai (${badField.split('.').pop()}): chỉ dùng chữ số, dấu chấm ngăn nghìn và dấu phẩy thập phân. Kiểm tra lại rồi lưu.`), { code: 'VALIDATION_FAILED' }); if (!quiet) D.toast(e.message, 'err', 7000); throw e; }
     let res;
     try { res = await raw(action, payload); } catch (err) { throw ipcFailure(err, quiet); }
     if (!res || typeof res !== 'object' || typeof res.ok !== 'boolean') throw ipcFailure(new Error('phản hồi không hợp lệ'), quiet);
@@ -200,26 +204,30 @@
   D.parseVn = (v, money = false) => {
     const s = String(v ?? '').trim().replace(/\s/g, ''); if (!s) return '';
     if (money && /^\d{1,3}(,\d{3})+$/.test(s)) return Number(s.replace(/,/g, '')); // ô tiền: ',' + đúng 3 chữ số = ngăn nghìn (150,000 → 150000), như D.parseMoney cũ; thập phân khi rõ ràng (1,5)
-    if (!money && /^0\.\d+$/.test(s)) return Number(s); // ô thập phân: "0.400" = 0,4 (nhóm nghìn không bao giờ đứng sau một số 0 đơn lẻ; cùng kết quả với gõ từng ký tự)
+    if (!money && /^0+\.\d+$/.test(s)) return Number(s); // ô thập phân: "0.400" = 0,4 (nhóm nghìn không bao giờ đứng sau một số 0 đơn lẻ; cùng kết quả với gõ từng ký tự)
     if (/^\d+(\.\d{3})*(,\d+)?$/.test(s) && /^\d{1,3}(\.\d{3})*(,\d+)?$|^\d+(,\d+)?$/.test(s)) return Number(s.replace(/\./g, '').replace(',', '.'));
     if (/^\d+\.\d+$/.test(s)) return Number(s);
     return NaN;
   };
   /** Định dạng số đang gõ: nghìn '.', thập phân ','. Ô tiền: '.' luôn là ngăn nghìn. Ô số thập phân: '.' cuối nhóm không đủ 3 chữ số = dấu thập phân (gõ 0.4 → 0,4). */
   D.liveNumber = (s, decimal) => {
-    s = String(s).replace(/[^\d.,]/g, ''); let ip; let fp = null;
+    s = String(s).replace(/[^\d.,-]/g, ''); let ip; let fp = null;
+    if (s.includes('-')) return s; // dấu trừ: không ô số nào dùng số âm → giữ nguyên để báo "nhập sai" (trước đây bị bỏ im lặng, đổi dấu mà không báo)
     if (!decimal && /^\d{1,3}(,\d{3}){2,}$/.test(s)) s = s.replace(/,/g, ''); // ô tiền: dán 1,234,567 (kiểu en-US) = 1.234.567, không phải 1,234567
     const ci = s.indexOf(',');
+    const grouped = (t) => /^\d{1,3}(\.\d{3})+$/.test(t);
+    // ô thập phân: chuỗi sai quy cách (0.4.5, 1,234,567, 1.2,5) → giữ nguyên để báo "nhập sai", KHÔNG đoán (đoán sai có thể lệch 10–100 lần)
+    if (decimal && ((s.match(/,/g) || []).length > 1 || (ci >= 0 && s.slice(0, ci).includes('.') && !grouped(s.slice(0, ci))) || (ci < 0 && (s.match(/\./g) || []).length > 1 && !grouped(s)))) return s;
     if (ci >= 0) { ip = s.slice(0, ci).replace(/\./g, ''); fp = s.slice(ci + 1).replace(/[.,]/g, ''); }
     else if (decimal && s.includes('.')) { const parts = s.split('.'); const last = parts[parts.length - 1]; if (parts.length === 2 && (last.length !== 3 || /^0+$/.test(parts[0]))) { ip = parts[0]; fp = last; } else ip = parts.join(''); }
     else ip = s.replace(/\./g, '');
-    ip = ip.replace(/^0+(?=\d)/, '').slice(0, 15); if (fp !== null) fp = fp.slice(0, 6); // tối đa 15 chữ số nguyên, 6 số lẻ (khớp D.vnExact): dài hơn sẽ mất độ chính xác khi lưu
+    ip = ip.replace(/^0+(?=\d)/, '').slice(0, 15); if (fp !== null) fp = fp.slice(0, Math.max(0, Math.min(6, 15 - ip.length))); // tối đa 15 chữ số có nghĩa (nguyên + lẻ), 6 số lẻ (khớp D.vnExact): hiển thị luôn khớp giá trị lưu (số thực 64 bit chỉ chính xác ~15 chữ số)
     ip = ip.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     if (fp !== null && ip === '') ip = '0';
     return fp === null ? ip : `${ip},${fp}`;
   };
-  const attachLiveNumber = (inp, decimal) => { inp.addEventListener('blur', () => { const n = D.parseVn(inp.value, !decimal); if (typeof n === 'number' && Number.isFinite(n)) inp.value = D.vnExact(n); }); inp.addEventListener('input', () => {
-    const before = inp.value; const caret = inp.selectionStart == null ? before.length : inp.selectionStart;
+  const attachLiveNumber = (inp, decimal) => { const mark = () => inp.setAttribute('aria-invalid', Number.isNaN(D.parseVn(inp.value, !decimal)) ? 'true' : 'false'); inp.addEventListener('blur', () => { const n = D.parseVn(inp.value, !decimal); if (typeof n === 'number' && Number.isFinite(n)) inp.value = D.vnExact(n); mark(); }); inp.addEventListener('input', () => {
+    const before = inp.value; setTimeout(mark, 0); const caret = inp.selectionStart == null ? before.length : inp.selectionStart;
     const next = D.liveNumber(before, decimal);
     let sig = (before.slice(0, caret).match(/[\d,]/g) || []).length;
     if (before[caret - 1] === '.' && (next.match(/,/g) || []).length > (before.match(/,/g) || []).length) sig += 1; // vừa gõ '.' và nó thành dấu thập phân ',' → con trỏ nằm SAU dấu phẩy (gõ giữa chuỗi)
