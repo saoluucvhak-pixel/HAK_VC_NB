@@ -24,8 +24,8 @@ const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `dgvc-bs-${p}-`));
 const entries = (file) => new AdmZip(file).getEntries().map((e) => e.entryName);
 const subFiles = (root) => { const out = []; const walk = (d, rel) => { if (!fs.existsSync(d)) return; for (const e of fs.readdirSync(d, { withFileTypes: true })) { const r = rel ? `${rel}/${e.name}` : e.name; if (e.isDirectory()) walk(path.join(d, e.name), r); else out.push(r); } }; walk(path.join(root, 'subcontract'), ''); return out.sort(); };
 
-async function scene(failFirstReopen = false) {
-  const c = await install('DH');
+async function scene(failFirstReopen = false, kindOverride) {
+  const c = await install('DH', kindOverride ? { kind: kindOverride } : {});
   const k = await c.periods.calculate({ contractId: c.contractId, ...W, excludeReceiptIds: [], reportDate: '2026-09-25', clientRequestId: rid(), user: KETOAN });
   await c.periods.confirm({ periodId: k.period.period_id, user: KETOAN });
   let reopens = 0; const kind = c.store.storageKind;
@@ -104,8 +104,8 @@ test('Sao lưu JSON ra thư mục + khôi phục từ thư mục mang theo subco
 const { AppContext } = require('../main/app/AppContext');
 const fakeCtx = (c) => ({ storageKind: () => c.store.storageKind, store: c.store, svc: { backup: c.bs }, exportStorageToJson: AppContext.prototype.exportStorageToJson });
 
-test('Xuất ngược SQLite ra thư mục JSON mang theo subcontract/ (chỉ kho SQLite)', { skip: process.env.DGVC_STORAGE !== 'sqlite' && 'chỉ kho SQLite' }, async () => {
-  const c = await scene(); const b1 = await c.addBatch('ĐỢT-1'); const before = c.sub().getBatch({ batchId: b1.batchId });
+test('Xuất ngược SQLite ra thư mục JSON mang theo subcontract/ (luôn chạy với kho SQLite dựng sẵn — CI job JSON không cho test bị bỏ qua)', async () => {
+  const c = await scene(false, 'sqlite'); const b1 = await c.addBatch('ĐỢT-1'); const before = c.sub().getBatch({ batchId: b1.batchId });
   const dest = path.join(tmp('exp'), 'JSON'); await AppContext.prototype.exportStorageToJson.call(fakeCtx(c), { dest });
   assert.ok(fs.existsSync(path.join(dest, 'subcontract', 'batches.json')) && fs.existsSync(path.join(dest, 'subcontract', 'files', `${b1.batchId}.json`)), 'thư mục xuất có subcontract/');
   fs.rmSync(path.join(c.store.root, 'subcontract'), { recursive: true, force: true });
