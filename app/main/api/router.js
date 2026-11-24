@@ -172,7 +172,7 @@ const ROUTES = {
     let r;
     // rà soát 1.8.2: khôi phục lỗi SAU khi đã đóng kho → BackupService đã mở lại kho (bản cũ) cho chính nó; gắn kho đó cho cả app, nếu không mọi thao tác sau báo "Kho dữ liệu chưa mở"
     try { r = await ctx.svc.backup.restore({ ...p, user: s.user }); } catch (e) { const b = ctx.svc.backup.store; if (b && b !== ctx.store) ctx.replaceStore(b); throw e; }
-    ctx.replaceStore(r.store); return { restoredFrom: r.restoredFrom, safetyBackup: r.safetyBackup, dataVersion: r.dataVersion }; }],
+    ctx.replaceStore(r.store); return { restoredFrom: r.restoredFrom, safetyBackup: r.safetyBackup, dataVersion: r.dataVersion, subcontractFiles: r.subcontractFiles, archiveFiles: r.archiveFiles }; }],
   'data.inspectBackup': [null, (ctx, p) => ctx.svc.backup.inspect(p)],
   'data.exportJson': [null, (ctx, p, s) => (p.file ? ctx.exportJsonShare({ file: p.file, user: s.user }) : ctx.exportJsonSnapshot({ dest: p.dest, user: s.user }))],
   'data.changeFolder': [null, (ctx, p, s) => ctx.changeFolder({ ...p, user: s.user })],

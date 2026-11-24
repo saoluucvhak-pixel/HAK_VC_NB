@@ -1386,14 +1386,14 @@ Không tham số.
 
 #### `data.restore`
 
-Khôi phục từ 1 bản sao lưu: tự sao lưu hiện trạng trước, thay thư mục tables/, mở lại APP. Quyền: ADMIN.
+Khôi phục từ 1 bản sao lưu: tự sao lưu hiện trạng trước, thay thư mục tables/ (hoặc `dgvc.sqlite`) **và dữ liệu ngoài kho — Thuê vận chuyển `subcontract/`, năm lưu trữ `archive/<năm>/` — nếu bản sao lưu có `sidecar.json` (từ 1.9.5; bản cũ hơn không đụng các dữ liệu đó đang có)** — cả hai cùng một lúc, lỗi giữa chừng trả lại cả hai — rồi mở lại APP. Quyền: ADMIN.
 
 | Tham số | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
 | `file` | string | ✔ | đường dẫn .zip hoặc manifest.json |
 | `reason` | string | ✔ |  |
 
-- **Trả về:** `{restoredDataVersion, safetyBackupPath}`
+- **Trả về:** `{restoredFrom, safetyBackup, dataVersion, subcontractFiles, archiveFiles}` (số tệp Thuê vận chuyển / năm lưu trữ được khôi phục; `null` = bản sao lưu cũ, không đụng các dữ liệu đó đang có)
 - **Lỗi:** `INTEGRITY_ERROR`, `STORAGE_ERROR`
 
 #### `data.changeFolder`
@@ -1421,7 +1421,7 @@ Xuất gói .dgvc (JSON nén + SHA-256): DANH_MUC (đơn vị, xe, tuyến, giá
 | `plates` | array<string> |  | với PHIEU_CAN |
 | `targetPath` | string | ✔ | từ dialog.saveFile |
 
-- **Trả về:** `{path, packageSha256, counts}`
+- **Trả về:** `{exchangeId, file, sizeBytes, contentSha256, counts, header, remindersMarked, warnings}` (`warnings`: cảnh báo bên gửi, vd gói có dòng đơn giá tính theo m³ mà máy nhận chạy bản 1.9.3 trở xuống sẽ từ chối)
 - **Lỗi:** `BUSINESS_RULE:E_PERIOD_STATUS`, `STORAGE_ERROR`
 - **Đọc:** DON_VI, XE, TUYEN_VC, PRICE_HISTORY, HOP_DONG, HOP_DONG_XE, PHIEU_CAN, KY_TINH, TRANSPORT_CALCULATION, TRANSPORT_DETAIL, FUEL_DETAIL, BKVC_LINE, GIAO_NHAN_DAU
 - **Ghi:** EXCHANGE_LOG · AUDIT `EXPORT_PACKAGE`
