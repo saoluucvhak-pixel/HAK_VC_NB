@@ -358,4 +358,4 @@ class BackupService {
   }
 }
 
-module.exports = { BackupService };
+module.exports = { BackupService, listSidecar, addSidecar, SUB };

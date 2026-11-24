@@ -5164,7 +5164,7 @@
      "đường dẫn .zip hoặc manifest.json"
     ]
    ],
-   "output": "{storageFormat, unitCode, installId, dataVersion, createdAt, sameInstall, sameUnit, canRestore, problem, needsOtherInstallConfirm}",
+   "output": "{storageFormat, unitCode, installId, dataVersion, createdAt, sameInstall, sameUnit, canRestore, problem, needsOtherInstallConfirm, subcontractFiles, subcontractNote}",
    "errors": [
     "INTEGRITY_ERROR",
     "NOT_FOUND",
@@ -5203,7 +5203,7 @@
      "xác nhận khôi phục bản sao lưu của máy khác cùng đơn vị (thay cả mã bản cài)"
     ]
    ],
-   "output": "{restoredFrom, safetyBackup, dataVersion}",
+   "output": "{restoredFrom, safetyBackup, dataVersion, subcontractFiles}",
    "errors": [
     "INTEGRITY_ERROR",
     "STORAGE_ERROR",

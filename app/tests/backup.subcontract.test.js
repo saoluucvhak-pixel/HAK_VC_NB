@@ -99,3 +99,24 @@ test('Sao lưu JSON ra thư mục + khôi phục từ thư mục mang theo subco
   const r = await c.bs.restore({ file: path.join(dest, 'manifest.json'), reason: 'thử', user: U });
   assert.deepEqual(c.sub().getBatch({ batchId: b1.batchId }), before, 'khôi phục từ thư mục: đợt về đủ'); r.store.close();
 });
+
+// ── đường xuất ngược SQLite → JSON và "Sao lưu phụ JSON gửi máy khác" (AppContext) cũng mang theo subcontract/ và khôi phục đúng ──
+const { AppContext } = require('../main/app/AppContext');
+const fakeCtx = (c) => ({ storageKind: () => c.store.storageKind, store: c.store, svc: { backup: c.bs }, exportStorageToJson: AppContext.prototype.exportStorageToJson });
+
+test('Xuất ngược SQLite ra thư mục JSON mang theo subcontract/ (chỉ kho SQLite)', { skip: process.env.DGVC_STORAGE !== 'sqlite' && 'chỉ kho SQLite' }, async () => {
+  const c = await scene(); const b1 = await c.addBatch('ĐỢT-1'); const before = c.sub().getBatch({ batchId: b1.batchId });
+  const dest = path.join(tmp('exp'), 'JSON'); await AppContext.prototype.exportStorageToJson.call(fakeCtx(c), { dest });
+  assert.ok(fs.existsSync(path.join(dest, 'subcontract', 'batches.json')) && fs.existsSync(path.join(dest, 'subcontract', 'files', `${b1.batchId}.json`)), 'thư mục xuất có subcontract/');
+  fs.rmSync(path.join(c.store.root, 'subcontract'), { recursive: true, force: true });
+  const r = await c.bs.restore({ file: path.join(dest, 'manifest.json'), reason: 'thử', user: U }); assert.deepEqual(c.sub().getBatch({ batchId: b1.batchId }), before, 'khôi phục từ thư mục xuất: đợt về đủ'); r.store.close();
+});
+
+test('"Sao lưu phụ JSON gửi máy khác" (zip) có sidecar: máy nhận khôi phục đúng dữ liệu Thuê vận chuyển', async () => {
+  const c = await scene(); const b1 = await c.addBatch('ĐỢT-1'); const before = c.sub().getBatch({ batchId: b1.batchId });
+  const file = path.join(tmp('share'), 'DGVC_JSON.zip'); await AppContext.prototype.exportJsonShare.call(fakeCtx(c), { file, user: U });
+  assert.ok(entries(file).includes('sidecar.json') && entries(file).includes(`subcontract/files/${b1.batchId}.json`), 'zip có sidecar + đợt');
+  assert.equal(c.bs.inspect({ file }).subcontractFiles, 2);
+  fs.rmSync(path.join(c.store.root, 'subcontract'), { recursive: true, force: true });
+  const r = await c.bs.restore({ file, reason: 'thử', user: U }); assert.deepEqual(c.sub().getBatch({ batchId: b1.batchId }), before); r.store.close();
+});

@@ -55,10 +55,11 @@
     const reason = await D.confirm({ title: 'Khôi phục từ file', danger: true, reason: true, okLabel: 'Khôi phục',
       message: `File: ${file}\nĐơn vị ${i.unitCode} · phiên bản dữ liệu ${i.dataVersion}${i.createdAt ? ` · lập lúc ${D.dt(i.createdAt)}` : ''} · ${i.storageFormat === 'sqlite' ? 'kho SQLite' : 'kho JSON'}.\n`
         + (i.needsOtherInstallConfirm ? 'Đây là bản sao lưu của MỘT MÁY KHÁC cùng đơn vị: khôi phục sẽ thay TOÀN BỘ dữ liệu và mã bản cài của máy này. ' : '')
+        + (i.subcontractNote ? `${i.subcontractNote}.\n` : '')
         + 'APP sao lưu an toàn hiện trạng trước khi thay.' });
     if (!reason) return;
-    try { await D.api('data.restore', { file, reason, allowOtherInstall: !!i.needsOtherInstallConfirm }); } catch { return; }
-    D.toast('Đã khôi phục từ file', 'ok'); await D.refreshBoot(); D.go('dashboard');
+    let rr; try { rr = await D.api('data.restore', { file, reason, allowOtherInstall: !!i.needsOtherInstallConfirm }); } catch { return; }
+    D.toast(`Đã khôi phục từ file${rr && rr.subcontractFiles != null ? ` · Thuê vận chuyển: ${rr.subcontractFiles} tệp` : ' · dữ liệu Thuê vận chuyển giữ nguyên (bản sao lưu chưa có phần này)'}`, 'ok', 7000); await D.refreshBoot(); D.go('dashboard');
   }
 
   /** Kho lưu trữ (thí điểm SQLite) — chỉ ADMIN. Mặc định vẫn là kho JSON; chuyển là thao tác chủ động, có chạy thử, có đường lui. */
