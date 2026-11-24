@@ -7,7 +7,7 @@ Nâng từ 1.9.4. Cách tính giá **không đổi** (không đổi `app/main/en
 - **Sửa lỗi nút "Nhập gói" thỉnh thoảng không mở hộp xác nhận:** trang cuộn mượt làm nút trượt khỏi con trỏ giữa lúc nhấn và nhả chuột. Nay cuộn tức thì.
 - **Chữ đạt tương phản 4,5:1 ở cả 4 bảng màu (sáng/tối):** viên trạng thái ở Hướng dẫn, chữ gợi ý ở ô tìm kiếm, số phím tắt ở menu trái, chữ thương hiệu ở bảng Xanh ngọc / Vàng champagne, nhãn đơn vị ở màn khởi tạo, ô chỉ-đọc. Có test tự động quét mọi chữ (khởi tạo, đăng nhập, các màn có dữ liệu, hộp thoại).
 - **Ô số trên form:** dán `0.400` vào ô thập phân nay ra 0,4 (trước ra 400); `1.234` vẫn là 1234, ô tiền không đổi. Gõ dấu `.` giữa chuỗi đặt con trỏ đúng chỗ; giới hạn 15 chữ số nguyên và 6 số lẻ; hộp "Kiểm tra dấu chấm / phẩy" chỉ xét ô đang dùng và nêu cả ngưỡng nhỏ.
-- **Bảng kê vận chuyển (BKVC) xuất Excel / CSV:** kỳ có dòng tính theo m³ ghi tiêu đề cột "Khối lượng (Tấn / m³)" như bản in (trước ghi "(Tấn)" dù số là m³). Kỳ chỉ có tấn giữ nguyên tiêu đề cũ.
+- **Bảng kê vận chuyển (BKVC) xuất Excel / CSV:** kỳ tính từ 1.9.4 theo m³ ghi tiêu đề cột "Khối lượng (Tấn / m³)" (trước ghi "(Tấn)" dù số là m³). Kỳ chỉ có tấn và **mọi kỳ cũ (trước 1.9.4) giữ nguyên tiêu đề cũ** "Khối lượng (Tấn)" vì cột đó vẫn là tấn.
 
 ## Từ 1.9.4
 - **Đơn giá theo giá dầu tính theo m³** cho dòng đơn giá MỚI (ô "ĐVT tính giá" Tấn / m³, mặc định theo tuyến): công thức chia Thể tích TB và tổng m³ thùng xe; bảng kê vận chuyển theo m³. Dòng cũ và kỳ cũ giữ cách tính cũ.
