@@ -103,13 +103,17 @@ class BackupService {
       m = JSON.parse(manifest);
       for (const rel of Object.keys(m.files)) {
         const p = path.join(root, rel);
-        if (fs.existsSync(p)) zip.addFile(rel.replace(/\\/g, '/'), fs.readFileSync(p));
+        if (!fs.existsSync(p)) throw new AppError('INTEGRITY_ERROR', `Thiếu tệp sao lưu ${rel}`);
+        const data = fs.readFileSync(p);
+        if (sha(data) !== m.files[rel].sha256) throw new AppError('INTEGRITY_ERROR', `Tệp sao lưu ${rel} sai SHA-256`);
+        zip.addFile(rel.replace(/\\/g, '/'), data);
       }
     }
     const sidecarFiles = addSidecar(zip, root, true); // dữ liệu Thuê vận chuyển nằm ngoài kho (xem SIDECAR)
     const info = { app: 'DGVC', kind, note, createdAt: this.now().toISOString(), createdBy: user.username, installId: m.installId, unitCode: m.unitCode, dataVersion: m.dataVersion, sidecarFiles, ...extra };
     zip.addFile('backup-info.json', Buffer.from(JSON.stringify(info, null, 1)));
-    const name = `DGVC_${m.unitCode}_${stamp(this.now())}_${kind}${note ? `_${note.replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 30)}` : ''}.zip`;
+    const createdAt = new Date(info.createdAt);
+    const name = `DGVC_${m.unitCode}_${stamp(createdAt)}-${String(createdAt.getMilliseconds()).padStart(3, '0')}_${kind}${note ? `_${note.replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 30)}` : ''}_${crypto.randomUUID()}.zip`;
     const file = path.join(this._dir(kind), name);
     const buf = zip.toBuffer(); fs.writeFileSync(`${file}.part`, buf); fs.renameSync(`${file}.part`, file);
     const out = { file, kind, sizeBytes: buf.length, sha256: sha(buf), mirrored: null, createdAt: info.createdAt };
@@ -317,25 +321,40 @@ class BackupService {
     const swapSub = () => { for (const dir of sideDirs) { const cur = path.join(root, dir); const bak = path.join(root, `${dir}.before-restore`); rmq(bak); if (fs.existsSync(cur)) fs.renameSync(cur, bak); moved.push(dir); fs.renameSync(path.join(root, `${dir}.restoring`), cur); } };
     const undoSub = () => { for (const dir of sideDirs) { if (moved.includes(dir)) { const cur = path.join(root, dir); const bak = path.join(root, `${dir}.before-restore`); rmq(cur); try { if (fs.existsSync(bak)) fs.renameSync(bak, cur); } catch { /* cố hết sức */ } } rmq(path.join(root, `${dir}.restoring`)); } };
     const doneSub = () => { for (const dir of sideDirs) { rmq(path.join(root, `${dir}.before-restore`)); rmq(path.join(root, `${dir}.restoring`)); } };
+    const auditRestore = (store) => store.transaction((tx) => tx.audit('RESTORE', 'DATA', path.basename(file), { dataVersionBefore: safety && safety.sha256 }, { file: path.basename(file), dataVersion: manifest.dataVersion, storageFormat, safety: path.basename(safety.file) }, { reason }), { user: user.username });
     this.store.close();
     let store = null;
     if (kind === 'json') {
       // an toàn: giải nén + kiểm SHA-256 → đổi tên bản cũ sang *.before-restore → đặt bản mới → thử mở lại; lỗi bất kỳ → trả bản cũ, kho luôn được mở lại
       const tmp = path.join(root, `restore-${Date.now()}`); const tablesNew = path.join(tmp, 'tables'); const tables = path.join(root, 'tables');
       const tablesBak = path.join(root, 'tables.before-restore'); const manifest0 = path.join(root, 'manifest.json'); const manBak = path.join(root, 'manifest.json.before-restore');
-      let movedOld = false; const rmQuiet = (p) => { try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* không có */ } };
+      const journal = path.join(root, 'journal'); const journalBak = path.join(root, 'journal.before-restore');
+      let movedOld = false; let movedJournal = false; const rmQuiet = (p) => { try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* không có */ } };
       try {
         fs.mkdirSync(tmp, { recursive: true }); zip.extractAllTo(tmp, true);
         const mNew = JSON.parse(fs.readFileSync(path.join(tmp, 'manifest.json'), 'utf8')); const bad = [];
         for (const [rel, meta] of Object.entries(mNew.files)) { const p = path.join(tmp, rel); if (!fs.existsSync(p)) bad.push(`${rel}: thiếu`); else if (sha(fs.readFileSync(p)) !== meta.sha256) bad.push(`${rel}: sai SHA-256`); }
         if (bad.length) throw new AppError('INTEGRITY_ERROR', `Giải nén sai: ${bad.join('; ')}`, { problems: bad });
         rmQuiet(tablesBak); rmQuiet(manBak);
-        fs.renameSync(tables, tablesBak); movedOld = true; fs.copyFileSync(manifest0, manBak);
+        fs.copyFileSync(manifest0, manBak);
+        fs.renameSync(tables, tablesBak); movedOld = true;
+        // Nhật ký của kho khôi phục phải đi cùng bảng của kho đó khi audit thất bại.
+        if (fs.existsSync(journal)) {
+          fs.renameSync(journal, journalBak);
+          movedJournal = true;
+        }
         fs.renameSync(tablesNew, tables); fs.copyFileSync(path.join(tmp, 'manifest.json'), manifest0);
         swapSub();
         store = this.reopen(root); // lỗi ở đây → khối catch trả bản cũ
-        rmQuiet(tablesBak); rmQuiet(manBak); rmQuiet(tmp); doneSub();
+        await auditRestore(store);
+        rmQuiet(tablesBak); rmQuiet(manBak); rmQuiet(journalBak); rmQuiet(tmp); doneSub();
       } catch (e) {
+        if (store) {
+          store.close();
+          rmQuiet(journal);
+          rmQuiet(`${manifest0}.new`);
+        }
+        if (movedJournal) fs.renameSync(journalBak, journal);
         undoSub();
         if (movedOld) { rmQuiet(tables); try { fs.renameSync(tablesBak, tables); if (fs.existsSync(manBak)) fs.copyFileSync(manBak, manifest0); } catch { /* cố hết sức; bước dưới vẫn mở lại */ } }
         rmQuiet(tmp); rmQuiet(manBak);
@@ -358,9 +377,11 @@ class BackupService {
         }
         clean(old); fs.renameSync(cur, old); swapped = true; clean(cur); fs.renameSync(next, cur);
         swapSub();
-        this.store = this.reopen(root);
+        store = this.reopen(root);
+        await auditRestore(store);
         clean(old); doneSub();
       } catch (e) {
+        if (store) store.close();
         if (tmp) { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* bỏ */ } }
         clean(next); undoSub();
         if (swapped && fs.existsSync(old)) { clean(cur); try { fs.renameSync(old, cur); } catch { /* cố hết sức */ } }
@@ -368,9 +389,7 @@ class BackupService {
         throw e;
       }
     }
-    if (kind !== 'json') store = this.store;
     this.store = store;
-    await store.transaction((tx) => tx.audit('RESTORE', 'DATA', path.basename(file), { dataVersionBefore: safety && safety.sha256 }, { file: path.basename(file), dataVersion: manifest.dataVersion, storageFormat, safety: path.basename(safety.file) }, { reason }), { user: user.username });
     return { store, restoredFrom: file, safetyBackup: safety.file, dataVersion: store.dataVersion, subcontractFiles: sidecar ? sidecar.counts[SUB] : null, archiveFiles: sidecar ? sidecar.counts[ARC] : null };
   }
 }

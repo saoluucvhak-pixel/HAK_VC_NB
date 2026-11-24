@@ -49,6 +49,15 @@ class SubcontractService {
     this.exchange = exchange;
     this.importService = importService;
     this.done = store.requestMap('subcontract'); // clientRequestId → kết quả (bấm 2 lần / gửi lại không nạp 2 đợt)
+    this.writeQueue = Promise.resolve();
+    for (const method of ['importBatch', 'updateTerms', 'deleteBatch']) {
+      const write = this[method].bind(this);
+      this[method] = (...args) => {
+        const result = this.writeQueue.then(() => write(...args));
+        this.writeQueue = result.catch(() => {});
+        return result;
+      };
+    }
     idempotentMethod(this, 'importBatch');
   }
 
@@ -76,13 +85,13 @@ class SubcontractService {
   }
 
   _readBatches() {
-    const f = this._batchesFile();
-    if (!fs.existsSync(f)) return [];
     try {
-      const data = JSON.parse(fs.readFileSync(f, 'utf8'));
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
+      const data = JSON.parse(fs.readFileSync(this._batchesFile(), 'utf8'));
+      if (!Array.isArray(data)) throw new Error('Cần một danh sách đợt nạp');
+      return data;
+    } catch (e) {
+      if (e.code === 'ENOENT') return [];
+      throw new AppError('INTEGRITY_ERROR', `Không đọc được chỉ mục đợt thuê vận chuyển: ${e.message}`);
     }
   }
 
