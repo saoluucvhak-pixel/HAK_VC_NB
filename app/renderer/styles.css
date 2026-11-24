@@ -19,7 +19,7 @@
   --field-bg: var(--field, #fff);
   --field-line: var(--ctl, #d5cdbb);
   --field-off-bg: var(--th, #f1ece0);
-  --field-off-fg: var(--mut, #756f63);
+  --field-off-fg: var(--mut-aa, var(--mut, #756f63));
   --danger-line: rgba(194, 65, 12, .3);
   --mute-bg: var(--line2, #eee9dc);
   --surface: var(--card, #fffefb);
@@ -157,7 +157,7 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 .gate .box { width: min(460px, 100%); }
 .steps { display: flex; gap: 8px; margin-bottom: 16px; } .steps span { flex: 1; height: 4px; border-radius: 3px; background: var(--line); } .steps span.on { background: var(--green); }
 .unit-pick { display: grid; gap: 8px; } .unit-pick label { text-align: left; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: flex; gap: 10px; }
-.unit-pick input:checked + div b { color: var(--brand-text); } .unit-pick label:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
+.unit-pick input:checked + div b { color: var(--text); } .unit-pick label:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
 
 /* báo cáo, truy vết */
 .preview { width: 100%; height: 72vh; border: 1px solid var(--line); border-radius: 10px; background: #fff; }

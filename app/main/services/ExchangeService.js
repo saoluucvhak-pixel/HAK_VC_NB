@@ -90,6 +90,13 @@ class ExchangeService {
       header.periodCodes = ps.map((p) => p.period_code);
     } else throw new AppError('VALIDATION_FAILED', `Loại gói không hợp lệ: ${packageType}`);
 
+    // Tương thích bản cũ (≤ 1.9.3 từ chối "cột lạ" khi nhập): cột thêm sau 1.9.3 chỉ ghi vào gói khi CÓ giá trị. Dòng cũ / không dùng m³ → bỏ cột,
+    // nên gói chỉ có dữ liệu cũ y hệt định dạng 1.9.3 và nhập được ở cả bản cũ lẫn mới (bản mới nhận gói thiếu cột = cột trống, xem OPTIONAL_NEW).
+    // Gói có dòng m³ mới (calc_basis = M3) thì bản cũ vẫn từ chối — đúng, vì bản cũ không tính được dòng đó.
+    for (const t of Object.keys(tables)) {
+      tables[t] = tables[t].map((r) => (r && [...OPTIONAL_NEW].some((k) => k in r && (r[k] === '' || r[k] === null || r[k] === undefined))
+        ? Object.fromEntries(Object.entries(r).filter(([k, v]) => !(OPTIONAL_NEW.has(k) && (v === '' || v === null || v === undefined)))) : r));
+    }
     const contentSha256 = sha(canon(tables));
     const counts = Object.fromEntries(Object.entries(tables).map(([k, v]) => [k, v.length]));
     const asJson = Boolean(targetPath && targetPath.toLowerCase().endsWith('.json'));

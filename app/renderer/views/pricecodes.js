@@ -7,6 +7,12 @@
  */
 (function () {
   const D = window.DGVC; const { h } = D;
+  /** Số thập phân dễ do gõ / dán nhầm dấu chấm-phẩy: lớn hơn ngưỡng trên (vd 400 thay vì 0,4) hoặc nhỏ hơn ngưỡng dưới (vd 0,004). Chỉ xét ô ĐANG DÙNG (tuyến tấn không xét Thể tích TB, tính theo m³ không xét KL_TB). Trả về danh sách câu cảnh báo. */
+  D.oddPriceNumbers = (v, method, m3, needVol) => (method === 'CO_DINH' ? []
+    : [['fuelNormLPerKm', 10, 'Định mức dầu', 'lít/km', 0.05], ['avgLoadTon', 100, 'KL_TB', 'tấn', 1], ['avgVolumeM3', 500, 'Thể tích TB', 'm³', 1]]
+      .filter(([k]) => (k === 'avgLoadTon' ? !m3 : k === 'avgVolumeM3' ? needVol : true))
+      .filter(([k, max, , , min]) => Number(v[k]) > max || (Number(v[k]) > 0 && Number(v[k]) < min))
+      .map(([k, max, name, u, min]) => `${name} = ${D.vnExact(v[k])} ${u} (${Number(v[k]) > max ? `lớn hơn ${max}` : `nhỏ hơn ${D.vnExact(min)}`})`));
   const lineMethod = (r) => (r.price_method === 'CO_DINH' ? 'CO_DINH' : 'THEO_DAU');
   const METHOD_LABEL = { CO_DINH: 'Đơn giá cố định', THEO_DAU: 'Đơn giá điều chỉnh theo giá dầu' };
   const CODE_OF = { CO_DINH: 'PT-CD', THEO_DAU: 'PT-TD' };
@@ -44,10 +50,10 @@
           ? [{ ...all.fixedPrice, required: true, hint: 'dùng nguyên số này làm đơn giá vận chuyển — không tính dầu, không làm tròn lại' }]
           : [
             { ...all.newPrice, label: '(1) DG_CUOC — Đơn giá cước dự kiến (chưa VAT)', hint: 'đầu vào của công thức; gồm dầu định mức' },
-            { ...all.avgLoadTon, label: '(2) KL_TB — KL trung bình / chuyến (tấn)', hint: 'đầu vào của công thức; trên 100 tấn sẽ hỏi lại' },
-            { ...all.avgVolumeM3, label: '(2) Thể tích TB / chuyến (m³) — chỉ tuyến tính theo m³', hint: 'tuyến tính theo m³ thì nhập số này thay cho KL_TB; trên 500 m³ sẽ hỏi lại' },
+            { ...all.avgLoadTon, label: '(2) KL_TB — KL trung bình / chuyến (tấn)', hint: 'đầu vào của công thức; trên 100 tấn hoặc dưới 1 tấn sẽ hỏi lại' },
+            { ...all.avgVolumeM3, label: '(2) Thể tích TB / chuyến (m³) — chỉ tuyến tính theo m³', hint: 'tuyến tính theo m³ thì nhập số này thay cho KL_TB; trên 500 m³ hoặc dưới 1 m³ sẽ hỏi lại' },
             kmField,
-            { ...all.fuelNormLPerKm, label: '(4) DINH_MUC — Định mức dầu (lít/km)', hint: '0,4 lít/km = 40 lít/100 km; trên 10 lít/km sẽ hỏi lại' },
+            { ...all.fuelNormLPerKm, label: '(4) DINH_MUC — Định mức dầu (lít/km)', hint: '0,4 lít/km = 40 lít/100 km; trên 10 hoặc dưới 0,05 lít/km sẽ hỏi lại' },
             { ...all.fuelPriceExclVat, label: '(5) DG_DAU — ĐG dầu chưa VAT (đ/lít)', hint: 'đầu vào của công thức' },
             { key: 'estimatePrice', label: '(6) Đơn giá dự kiến ký hợp đồng (tự tính theo công thức)', readonly: true, money: true, hint: 'tự tính khi nhập (1)–(5), đã làm tròn — không nhập tay' },
             { ...all.basePriceExclVat, label: 'Đơn giá tham khảo (chưa VAT) — nhập tay', hint: 'chỉ để so sánh với (1) DG_CUOC, không dùng để tính' },
@@ -115,7 +121,7 @@
           const needVol = f.inputs.calcBasis.value === 'M3' || (f.inputs.calcBasis.value === '' && routeUom(curRoute()) === 'M3'); // dòng cũ trên tuyến m³: Thể tích TB vẫn bắt buộc như trước
           setLabel('avgLoadTon', `(2) KL_TB — KL trung bình / chuyến (tấn)${f.inputs.calcBasis.value === 'M3' ? ' — không bắt buộc khi tính theo m³' : ''}`, f.inputs.calcBasis.value !== 'M3');
           setLabel('avgVolumeM3', needVol ? '(2) Thể tích TB / chuyến (m³)' : '(2) Thể tích TB / chuyến (m³) — chỉ tuyến tính theo m³', needVol);
-          setHint('avgVolumeM3', `${m ? 'tính theo m³ thì nhập số này thay cho KL_TB' : 'tuyến tính theo m³ thì nhập số này thay cho KL_TB'}; trên 500 m³ sẽ hỏi lại`);
+          setHint('avgVolumeM3', `${m ? 'tính theo m³ thì nhập số này thay cho KL_TB' : 'tuyến tính theo m³ thì nhập số này thay cho KL_TB'}; trên 500 m³ hoặc dưới 1 m³ sẽ hỏi lại`);
           fMono.textContent = m ? '(6) ĐG dự kiến = ROUND( ( ((1) × (2)) − ((3) × (4) × (5)) ) / (2), −3 ), (2) = Thể tích TB (m³)' : '(6) ĐG dự kiến = ROUND( ( ((1) × (2)) − ((3) × (4) × (5)) ) / (2), −3 )';
         };
         f.inputs.calcBasis.addEventListener('change', () => { uomTouched = true; relabel(); });
@@ -198,7 +204,7 @@
               const miss = fields.filter((x) => need(x) && x.key !== 'distanceKm' && (v[x.key] === '' || v[x.key] === null)).map((x) => x.label);
               if (miss.length) { D.toast(`Chưa nhập: ${miss.join(', ')}`, 'err'); return false; }
               // số thập phân vượt ngưỡng hợp lý thường do gõ / dán nhầm dấu chấm-phẩy (vd 0.400 hiểu thành 400): hỏi lại trước khi lưu
-              const odd = method === 'CO_DINH' ? [] : [['fuelNormLPerKm', 10, 'Định mức dầu', 'lít/km', 0.05], ['avgLoadTon', 100, 'KL_TB', 'tấn', 1], ['avgVolumeM3', 500, 'Thể tích TB', 'm³', 1]].filter(([k, max, , , min]) => Number(v[k]) > max || (Number(v[k]) > 0 && Number(v[k]) < min)).map(([k, max, name, u, min]) => `${name} = ${D.vnExact(v[k])} ${u} (${Number(v[k]) > max ? `lớn hơn ${max}` : `nhỏ hơn ${D.vnExact(min)}`})`);
+              const odd = D.oddPriceNumbers(v, method, m3, needVol);
               if (odd.length && !(await D.confirm({ title: 'Kiểm tra dấu chấm / phẩy', okLabel: 'Vẫn lưu', message: `${odd.join('\n')}\nKiểm tra dấu chấm/phẩy: dấu phẩy (,) là thập phân, dấu chấm (.) là ngăn cách nghìn — vd định mức 0,4 (không phải 0.400 hay 400). Vẫn lưu số này?` }))) return false;
               if (line) await D.api('prices.updateDraft', { priceId: line.price_id, rowVersion: line.row_version, record: { ...v, priceMethod: method } });
               else await D.api('pricecodes.addLine', { priceCode: code.price_code, record: { ...v, priceMethod: method } });
