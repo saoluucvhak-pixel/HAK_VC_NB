@@ -69,3 +69,7 @@ color-scheme:light}
 .skin-select:hover{background:rgba(255,255,255,.12)}
 .skin-select:focus-visible{outline:2px solid var(--champ,var(--brand2));outline-offset:2px}
 .skin-select option{color:#182638;background:#fff}
+
+/* Chữ thương hiệu trên nền sáng phải đạt 4.5:1 (kể cả trên nền nhạt brandSoft): hai bảng này có màu thương hiệu quá nhạt để làm chữ. Chỉ đổi màu CHỮ, không đổi nút/đường viền. */
+html[data-skin="classic"][data-theme="light"]{--brand-text:#0b6870}
+html[data-skin="champagne"][data-theme="light"]{--brand-text:#7b5817}
