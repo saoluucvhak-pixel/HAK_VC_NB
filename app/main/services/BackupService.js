@@ -26,38 +26,54 @@ const stamp = (d = new Date()) => {
 };
 const localDate = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-// ── Dữ liệu NGOÀI kho nằm cạnh kho: thư mục subcontract/ của phân hệ Thuê vận chuyển (batches.json + files/<đợt>.json). Trước 1.9.5 sao lưu bỏ sót →
-// chuyển máy / khôi phục sau sự cố là mất toàn bộ các đợt nạp của đối tác. Bản sao lưu mới LUÔN có sidecar.json (kể cả khi 0 tệp) để phân biệt
-// "lúc sao lưu chưa có đợt nào" với "bản sao lưu cũ (trước 1.9.5)": cũ → khôi phục không đụng subcontract/ đang có; mới → thay đúng như lúc sao lưu.
+// ── Dữ liệu NGOÀI kho nằm cạnh kho, mà trước 1.9.5 sao lưu bỏ sót (chuyển máy / khôi phục sau sự cố là MẤT):
+//   subcontract/        — phân hệ Thuê vận chuyển: các đợt nạp của đối tác (batches.json + files/<đợt>.json);
+//   archive/<năm>/      — dữ liệu các năm đã "Lưu trữ" (chuyển khỏi kho đang dùng; chủ sản phẩm chốt 24/11/2026: đưa vào sao lưu thường).
+// Bản sao lưu mới LUÔN có sidecar.json (kể cả khi 0 tệp) ghi danh sách thư mục + SHA-256 từng tệp: phân biệt "lúc sao lưu chưa có gì" với "bản sao lưu cũ
+// (trước 1.9.5)": cũ → khôi phục KHÔNG đụng các thư mục này; mới → thay đúng như lúc sao lưu (cùng thời điểm với bảng).
 const SIDECAR = 'sidecar.json';
 const SUB = 'subcontract';
+const ARC = 'archive';
+const SIDE_DIRS = [SUB, ARC];
 const SKIP_TMP = /\.tmp-|\.part$/; // tệp tạm của lần ghi nguyên tử (ghi tệp tạm rồi đổi tên) — không chụp nửa vời
-function listSidecar(root) {
-  const base = path.join(root, SUB); const out = [];
-  const walk = (d, rel) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const r = rel ? `${rel}/${e.name}` : e.name; if (e.isDirectory()) walk(path.join(d, e.name), r); else if (e.isFile() && !SKIP_TMP.test(e.name)) out.push(r); } };
-  if (fs.existsSync(base)) walk(base, '');
-  return out.sort(); // batches.json đứng trước files/…: tệp đợt luôn được ghi TRƯỚC danh sách, nên không bao giờ chụp được dòng danh sách trỏ vào tệp chưa có
+/** Mọi tệp ngoài kho cần sao lưu, theo đường dẫn tương đối so với `root` (vd "subcontract/batches.json", "archive/2025/…"). archive/ chỉ lấy thư mục năm 4 chữ số
+ *  (bỏ bản cũ *.old-… / *.mo-lai-… / *.tmp mà ArchiveService giữ lại). `dirs` = chỉ xét các thư mục này. */
+function listSidecar(root, dirs = SIDE_DIRS) {
+  const out = [];
+  for (const dir of dirs) {
+    const base = path.join(root, dir); if (!fs.existsSync(base)) continue;
+    const walk = (d, rel) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      if (!rel && dir === ARC && !/^\d{4}$/.test(e.name)) continue;
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) walk(path.join(d, e.name), r); else if (e.isFile() && !SKIP_TMP.test(e.name)) out.push(`${dir}/${r}`);
+    } };
+    walk(base, '');
+  }
+  return out.sort(); // subcontract/batches.json đứng trước subcontract/files/…: tệp đợt luôn được ghi TRƯỚC danh sách, nên không bao giờ chụp được dòng danh sách trỏ vào tệp chưa có
 }
-/** Thêm subcontract/** + sidecar.json vào zip. `always` = ghi sidecar kể cả khi thư mục chưa có (bản sao lưu mới). */
+/** Thêm các tệp ngoài kho + sidecar.json vào zip. `always` = ghi đủ mọi thư mục kể cả khi chưa có (bản sao lưu mới); không thì chỉ các thư mục ĐANG có (thư mục JSON). */
 function addSidecar(zip, root, always) {
-  const dirExists = fs.existsSync(path.join(root, SUB)); if (!dirExists && !always) return 0;
+  const dirs = SIDE_DIRS.filter((d) => always || fs.existsSync(path.join(root, d))); if (!dirs.length) return 0;
   const files = {};
-  for (const rel of listSidecar(root)) { const buf = fs.readFileSync(path.join(root, SUB, rel)); const name = `${SUB}/${rel}`; zip.addFile(name, buf); files[name] = { sha256: sha(buf), size: buf.length }; }
-  zip.addFile(SIDECAR, Buffer.from(JSON.stringify({ version: 1, dir: SUB, files }, null, 1)));
+  for (const name of listSidecar(root, dirs)) { const buf = fs.readFileSync(path.join(root, name)); zip.addFile(name, buf); files[name] = { sha256: sha(buf), size: buf.length }; }
+  zip.addFile(SIDECAR, Buffer.from(JSON.stringify({ version: 2, dirs, files }, null, 1)));
   return Object.keys(files).length;
 }
-const safeSidecarName = (n) => { const x = String(n).replace(/\\/g, '/'); return x.startsWith(`${SUB}/`) && !x.split('/').some((p) => p === '..' || p === '' || p === '.') && !path.isAbsolute(x) && !/^[A-Za-z]:/.test(x); };
-/** Đọc + kiểm sidecar.json trong zip: null = bản sao lưu cũ (không có); ngoài ra {files:n}. Thiếu tệp / sai SHA-256 / tên lạ → INTEGRITY_ERROR. */
+const safeSidecarName = (n) => { const x = String(n).replace(/\\/g, '/'); return SIDE_DIRS.some((d) => x.startsWith(`${d}/`)) && !x.split('/').some((p) => p === '..' || p === '' || p === '.') && !path.isAbsolute(x) && !/^[A-Za-z]:/.test(x); };
+const dirOfName = (n) => String(n).replace(/\\/g, '/').split('/')[0];
+/** Đọc + kiểm sidecar.json trong zip: null = bản sao lưu cũ (không có); ngoài ra {files, names, dirs, counts}. Thiếu tệp / sai SHA-256 / tên lạ → INTEGRITY_ERROR. */
 function checkSidecar(zip) {
   const buf = zip.readFile(SIDECAR); if (!buf) return null;
   let sc; try { sc = JSON.parse(buf.toString('utf8')); } catch (e) { throw new AppError('INTEGRITY_ERROR', `sidecar.json hỏng: ${e.message}`); }
   const bad = []; const files = sc && sc.files && typeof sc.files === 'object' ? sc.files : {};
+  const dirs = (Array.isArray(sc && sc.dirs) ? sc.dirs : [SUB]).filter((d) => SIDE_DIRS.includes(d)); // bản đầu (chỉ subcontract) không có trường dirs
   for (const [name, meta] of Object.entries(files)) {
     if (!safeSidecarName(name)) { bad.push(`${name}: tên không hợp lệ`); continue; }
     const b = zip.readFile(name); if (!b) bad.push(`${name}: thiếu`); else if (sha(b) !== meta.sha256) bad.push(`${name}: sai SHA-256`);
   }
-  if (bad.length) throw new AppError('INTEGRITY_ERROR', `Dữ liệu Thuê vận chuyển trong bản sao lưu không toàn vẹn: ${bad.join('; ')}`, { problems: bad });
-  return { files: Object.keys(files).length, names: Object.keys(files) };
+  if (bad.length) throw new AppError('INTEGRITY_ERROR', `Dữ liệu Thuê vận chuyển / năm lưu trữ trong bản sao lưu không toàn vẹn: ${bad.join('; ')}`, { problems: bad });
+  const names = Object.keys(files); const counts = Object.fromEntries(SIDE_DIRS.map((d) => [d, names.filter((n) => dirOfName(n) === d).length]));
+  return { files: names.length, names, dirs, counts };
 }
 
 class BackupService {
@@ -250,7 +266,8 @@ class BackupService {
       : kindHere === 'json' && storageFormat === 'sqlite' ? 'Bản sao lưu này là của kho SQLite — không khôi phục vào kho JSON (xuất ngược SQLite → JSON trước)' : '';
     return { file, storageFormat, unitCode: manifest.unitCode, installId: manifest.installId, dataVersion: manifest.dataVersion, createdAt: info.createdAt || '', kind: info.kind || '', note: info.note || '',
       sameInstall, sameUnit, canRestore: !problem, problem, needsOtherInstallConfirm: sameUnit && !sameInstall,
-      subcontractFiles: sidecar ? sidecar.files : null, subcontractNote: sidecar ? `Dữ liệu Thuê vận chuyển: ${sidecar.files} tệp (sẽ thay thư mục hiện có)` : 'Bản sao lưu này chưa có dữ liệu Thuê vận chuyển (tạo trước 1.9.5): giữ nguyên dữ liệu Thuê vận chuyển đang có' };
+      subcontractFiles: sidecar ? sidecar.counts[SUB] : null, archiveFiles: sidecar ? sidecar.counts[ARC] : null,
+      subcontractNote: sidecar ? `Dữ liệu Thuê vận chuyển: ${sidecar.counts[SUB]} tệp; năm lưu trữ: ${sidecar.counts[ARC]} tệp (sẽ thay các thư mục hiện có)` : 'Bản sao lưu này chưa có dữ liệu Thuê vận chuyển và năm lưu trữ (tạo trước 1.9.5): giữ nguyên các dữ liệu đó đang có' };
   }
 
   /**
@@ -269,8 +286,8 @@ class BackupService {
       const to = path.join(dest, rel); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.writeFileSync(to, buf);
     }
     fs.writeFileSync(path.join(dest, 'manifest.json'), mBuf);
-    fs.mkdirSync(path.join(dest, SUB), { recursive: true }); // luôn có (kể cả rỗng): khôi phục từ thư mục này thay đúng như lúc xuất
-    for (const rel of listSidecar(root)) { const to = path.join(dest, SUB, rel); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(path.join(root, SUB, rel), to); }
+    for (const dir of SIDE_DIRS) fs.mkdirSync(path.join(dest, dir), { recursive: true }); // luôn có (kể cả rỗng): khôi phục từ thư mục này thay đúng như lúc xuất
+    for (const name of listSidecar(root)) { const to = path.join(dest, name); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(path.join(root, name), to); }
     const info = { app: 'DGVC', source: 'json', exportedAt: new Date().toISOString(), exportedBy: user.username, dataVersion: m.dataVersion, schemaVersion: m.schemaVersion, installId: m.installId, unitCode: m.unitCode,
       appVersion: require('../../package.json').version, files: Object.keys(m.files).length, rows: this.store.stats().rows };
     fs.writeFileSync(path.join(dest, 'snapshot-info.json'), JSON.stringify(info, null, 1));
@@ -289,17 +306,17 @@ class BackupService {
     if (kind === 'json' && storageFormat === 'sqlite') throw new AppError('VALIDATION_FAILED', 'Bản sao lưu này là của kho SQLite — không khôi phục được vào kho JSON (dùng công cụ xuất ngược SQLite → JSON trước)');
     const safety = await this.backup({ kind: 'safety', note: 'truoc-khoi-phuc', user }); // đã gồm cả subcontract/ hiện có → khôi phục nhầm vẫn quay lại được
     const root = this.store.root;
-    // Dữ liệu Thuê vận chuyển (ngoài kho): dựng sẵn bản mới ở thư mục tạm TRƯỚC khi đụng kho; đổi chỗ trong CÙNG khối thử-và-trả-lại với kho chính
-    // (khôi phục nửa vời = bảng ở thời điểm này, đợt nạp ở thời điểm khác; với kho SQLite bảng "đã xử lý yêu cầu" nằm trong DB nên phải cùng thời điểm).
-    const subStage = path.join(root, `${SUB}.restoring`); const subDir = path.join(root, SUB); const subBak = path.join(root, `${SUB}.before-restore`);
-    let subMoved = false; const rmq = (p) => { try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* không có */ } };
-    if (sidecar) {
-      rmq(subStage); fs.mkdirSync(subStage, { recursive: true });
-      for (const name of sidecar.names) { const to = path.join(subStage, name.slice(SUB.length + 1)); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.writeFileSync(to, zip.readFile(name)); }
+    // Dữ liệu ngoài kho (Thuê vận chuyển, năm lưu trữ): dựng sẵn bản mới ở thư mục tạm TRƯỚC khi đụng kho; đổi chỗ trong CÙNG khối thử-và-trả-lại với kho chính
+    // (khôi phục nửa vời = bảng ở thời điểm này, đợt nạp / năm lưu trữ ở thời điểm khác; với kho SQLite bảng "đã xử lý yêu cầu" và danh sách năm lưu trữ nằm trong DB nên phải cùng thời điểm).
+    const sideDirs = sidecar ? sidecar.dirs : []; const rmq = (p) => { try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* không có */ } };
+    const moved = [];
+    for (const dir of sideDirs) {
+      const stage = path.join(root, `${dir}.restoring`); rmq(stage); fs.mkdirSync(stage, { recursive: true });
+      for (const name of sidecar.names.filter((n) => dirOfName(n) === dir)) { const to = path.join(stage, name.slice(dir.length + 1)); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.writeFileSync(to, zip.readFile(name)); }
     }
-    const swapSub = () => { if (!sidecar) return; rmq(subBak); if (fs.existsSync(subDir)) fs.renameSync(subDir, subBak); subMoved = true; fs.renameSync(subStage, subDir); };
-    const undoSub = () => { if (sidecar) { if (subMoved) { rmq(subDir); try { if (fs.existsSync(subBak)) fs.renameSync(subBak, subDir); } catch { /* cố hết sức */ } } rmq(subStage); } };
-    const doneSub = () => { rmq(subBak); rmq(subStage); };
+    const swapSub = () => { for (const dir of sideDirs) { const cur = path.join(root, dir); const bak = path.join(root, `${dir}.before-restore`); rmq(bak); if (fs.existsSync(cur)) fs.renameSync(cur, bak); moved.push(dir); fs.renameSync(path.join(root, `${dir}.restoring`), cur); } };
+    const undoSub = () => { for (const dir of sideDirs) { if (moved.includes(dir)) { const cur = path.join(root, dir); const bak = path.join(root, `${dir}.before-restore`); rmq(cur); try { if (fs.existsSync(bak)) fs.renameSync(bak, cur); } catch { /* cố hết sức */ } } rmq(path.join(root, `${dir}.restoring`)); } };
+    const doneSub = () => { for (const dir of sideDirs) { rmq(path.join(root, `${dir}.before-restore`)); rmq(path.join(root, `${dir}.restoring`)); } };
     this.store.close();
     let store = null;
     if (kind === 'json') {
@@ -354,8 +371,8 @@ class BackupService {
     if (kind !== 'json') store = this.store;
     this.store = store;
     await store.transaction((tx) => tx.audit('RESTORE', 'DATA', path.basename(file), { dataVersionBefore: safety && safety.sha256 }, { file: path.basename(file), dataVersion: manifest.dataVersion, storageFormat, safety: path.basename(safety.file) }, { reason }), { user: user.username });
-    return { store, restoredFrom: file, safetyBackup: safety.file, dataVersion: store.dataVersion, subcontractFiles: sidecar ? sidecar.files : null };
+    return { store, restoredFrom: file, safetyBackup: safety.file, dataVersion: store.dataVersion, subcontractFiles: sidecar ? sidecar.counts[SUB] : null, archiveFiles: sidecar ? sidecar.counts[ARC] : null };
   }
 }
 
-module.exports = { BackupService, listSidecar, addSidecar, SUB };
+module.exports = { BackupService, listSidecar, addSidecar, SIDE_DIRS };

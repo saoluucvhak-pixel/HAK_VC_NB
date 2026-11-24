@@ -59,7 +59,7 @@
         + 'APP sao lưu an toàn hiện trạng trước khi thay.' });
     if (!reason) return;
     let rr; try { rr = await D.api('data.restore', { file, reason, allowOtherInstall: !!i.needsOtherInstallConfirm }); } catch { return; }
-    D.toast(`Đã khôi phục từ file${rr && rr.subcontractFiles != null ? ` · Thuê vận chuyển: ${rr.subcontractFiles} tệp` : ' · dữ liệu Thuê vận chuyển giữ nguyên (bản sao lưu chưa có phần này)'}`, 'ok', 7000); await D.refreshBoot(); D.go('dashboard');
+    D.toast(`Đã khôi phục từ file${rr && rr.subcontractFiles != null ? ` · Thuê vận chuyển: ${rr.subcontractFiles} tệp · năm lưu trữ: ${rr.archiveFiles || 0} tệp` : ' · dữ liệu Thuê vận chuyển và năm lưu trữ giữ nguyên (bản sao lưu chưa có phần này)'}`, 'ok', 7000); await D.refreshBoot(); D.go('dashboard');
   }
 
   /** Kho lưu trữ (thí điểm SQLite) — chỉ ADMIN. Mặc định vẫn là kho JSON; chuyển là thao tác chủ động, có chạy thử, có đường lui. */

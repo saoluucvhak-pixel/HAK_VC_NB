@@ -391,10 +391,10 @@ class AppContext {
     const tmpRoot = path.join(os.tmpdir(), `dgvc-snap-${process.pid}-${Date.now()}`); fs.mkdirSync(tmpRoot, { recursive: true });
     try {
       this.store.snapshotDbTo(path.join(tmpRoot, 'dgvc.sqlite')); const out = await exportSqliteToJson({ root: tmpRoot, dest });
-      // dữ liệu Thuê vận chuyển nằm ngoài kho (cạnh dgvc.sqlite): mang theo, nếu không thư mục JSON xuất ra rồi khôi phục sẽ mất các đợt nạp (luôn tạo thư mục, kể cả rỗng)
-      const { listSidecar, SUB } = require('../services/BackupService');
-      fs.mkdirSync(path.join(dest, SUB), { recursive: true });
-      for (const rel of listSidecar(this.store.root)) { const to = path.join(dest, SUB, rel); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(path.join(this.store.root, SUB, rel), to); }
+      // dữ liệu Thuê vận chuyển + năm lưu trữ nằm ngoài kho (cạnh dgvc.sqlite): mang theo, nếu không thư mục JSON xuất ra rồi khôi phục sẽ mất các đợt nạp (luôn tạo thư mục, kể cả rỗng)
+      const { listSidecar, SIDE_DIRS } = require('../services/BackupService');
+      for (const dir of SIDE_DIRS) fs.mkdirSync(path.join(dest, dir), { recursive: true });
+      for (const name of listSidecar(this.store.root)) { const to = path.join(dest, name); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(path.join(this.store.root, name), to); }
       return out;
     } finally { fs.rmSync(tmpRoot, { recursive: true, force: true }); }
   }

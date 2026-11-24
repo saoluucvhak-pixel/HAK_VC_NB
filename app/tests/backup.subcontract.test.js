@@ -120,3 +120,49 @@ test('"Sao lưu phụ JSON gửi máy khác" (zip) có sidecar: máy nhận khô
   fs.rmSync(path.join(c.store.root, 'subcontract'), { recursive: true, force: true });
   const r = await c.bs.restore({ file, reason: 'thử', user: U }); assert.deepEqual(c.sub().getBatch({ batchId: b1.batchId }), before); r.store.close();
 });
+
+// ── Năm lưu trữ (archive/<năm>/) cũng nằm trong bản sao lưu thường (chủ sản phẩm chốt 24/11/2026) ──
+const putArc = (root) => {
+  const w = (rel, txt) => { const p = path.join(root, rel); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, txt); };
+  w('archive/2025/archive-manifest.json', '{"year":2025}'); w('archive/2025/tables/PHIEU_CAN.json', '[{"x":1}]');
+  w('archive/2025.old-1700000000/tables/PHIEU_CAN.json', 'bản cũ ArchiveService giữ lại'); w('archive/2025.tmp/dang-ghi.json', 'nửa vời'); w('archive/ghi-chu.txt', 'không phải thư mục năm');
+};
+const walkAll = (root, dir) => { const out = []; const base = path.join(root, dir); const walk = (d, rel) => { if (!fs.existsSync(d)) return; for (const e of fs.readdirSync(d, { withFileTypes: true })) { const r = rel ? `${rel}/${e.name}` : e.name; if (e.isDirectory()) walk(path.join(d, e.name), r); else out.push(r); } }; walk(base, ''); return out.sort(); };
+
+test('Năm lưu trữ: sao lưu mang archive/<năm>/** (bỏ bản cũ *.old-…, *.tmp và tệp lẻ); khôi phục đưa về đúng như lúc sao lưu', async () => {
+  const c = await scene(); putArc(c.store.root);
+  const bk = await c.bs.backup({ kind: 'manual', user: U }); const names = entries(bk.file);
+  assert.ok(names.includes('archive/2025/archive-manifest.json') && names.includes('archive/2025/tables/PHIEU_CAN.json'), 'có thư mục năm');
+  assert.ok(!names.some((n) => /\.old-|\.tmp|ghi-chu/.test(n)), 'không có bản cũ / tệp tạm / tệp lẻ');
+  const i = c.bs.inspect({ file: bk.file }); assert.equal(i.archiveFiles, 2); assert.match(i.subcontractNote, /năm lưu trữ: 2 tệp/);
+  const content = fs.readFileSync(path.join(c.store.root, 'archive/2025/tables/PHIEU_CAN.json'), 'utf8');
+  // sau sao lưu: sửa năm 2025, thêm năm 2026 (lưu trữ sau), mất sạch thư mục
+  fs.writeFileSync(path.join(c.store.root, 'archive/2025/tables/PHIEU_CAN.json'), '[]'); fs.mkdirSync(path.join(c.store.root, 'archive/2026'), { recursive: true }); fs.writeFileSync(path.join(c.store.root, 'archive/2026/archive-manifest.json'), '{}');
+  const r = await c.bs.restore({ file: bk.file, reason: 'thử', user: U }); assert.equal(r.archiveFiles, 2);
+  assert.equal(fs.readFileSync(path.join(c.store.root, 'archive/2025/tables/PHIEU_CAN.json'), 'utf8'), content, 'năm 2025 về đúng như lúc sao lưu');
+  assert.ok(!fs.existsSync(path.join(c.store.root, 'archive/2026')), 'năm 2026 lưu trữ SAU khi sao lưu không còn (cùng thời điểm với bảng: dòng của năm đó lại nằm trong kho)');
+  assert.deepEqual(walkAll(c.store.root, 'archive'), ['2025/archive-manifest.json', '2025/tables/PHIEU_CAN.json'], 'chỉ còn đúng thư mục năm'); r.store.close();
+});
+
+test('Năm lưu trữ: tệp bị sửa → INTEGRITY_ERROR; bản sao lưu cũ (không sidecar) không đụng archive/; lỗi giữa chừng trả lại cả archive/ lẫn subcontract/', async () => {
+  const c = await scene(true); putArc(c.store.root); await c.addBatch('ĐỢT-1'); const bk = await c.bs.backup({ kind: 'manual', user: U });
+  const z = new AdmZip(bk.file); z.updateFile(z.getEntry('archive/2025/tables/PHIEU_CAN.json'), Buffer.from('sửa tay')); const bad = path.join(tmp('arc'), 'bad.zip'); z.writeZip(bad);
+  assert.throws(() => c.bs.inspect({ file: bad }), (e) => e.code === 'INTEGRITY_ERROR' && /archive\/2025\/tables\/PHIEU_CAN\.json: sai SHA-256/.test(e.message));
+  // bản cũ: bỏ sidecar + mọi tệp ngoài kho
+  const zo = new AdmZip(bk.file); for (const n of entries(bk.file)) if (n === 'sidecar.json' || n.startsWith('subcontract/') || n.startsWith('archive/')) zo.deleteFile(n); const old = path.join(tmp('arc'), 'cu.zip'); zo.writeZip(old);
+  // lỗi giữa chừng (mở lại kho lỗi lần đầu): thêm đợt + sửa archive SAU sao lưu, khôi phục bản MỚI lỗi → trạng thái trước khôi phục
+  await c.addBatch('ĐỢT-2'); fs.writeFileSync(path.join(c.store.root, 'archive/2025/tables/PHIEU_CAN.json'), '[sau sao lưu]');
+  const arc0 = walkAll(c.store.root, 'archive'); const sub0 = subFiles(c.store.root); const arcContent0 = fs.readFileSync(path.join(c.store.root, 'archive/2025/tables/PHIEU_CAN.json'), 'utf8');
+  await assert.rejects(c.bs.restore({ file: bk.file, reason: 'thử', user: U }), /mở lại kho lỗi/);
+  assert.deepEqual(walkAll(c.store.root, 'archive'), arc0); assert.equal(fs.readFileSync(path.join(c.store.root, 'archive/2025/tables/PHIEU_CAN.json'), 'utf8'), arcContent0, 'archive/ như trước'); assert.deepEqual(subFiles(c.store.root), sub0, 'subcontract/ như trước');
+  assert.ok(!fs.existsSync(path.join(c.store.root, 'archive.before-restore')) && !fs.existsSync(path.join(c.store.root, 'archive.restoring')), 'không để thư mục tạm');
+  // bản cũ: khôi phục KHÔNG đụng archive/ và subcontract/ (lần này reopen đã ổn)
+  const r = await c.bs.restore({ file: old, reason: 'thử', user: U }); assert.equal(r.archiveFiles, null); assert.deepEqual(walkAll(c.store.root, 'archive'), arc0); assert.deepEqual(subFiles(c.store.root), sub0); r.store.close();
+});
+
+test('Sao lưu JSON ra thư mục mang theo archive/ (chỉ kho JSON)', { skip: process.env.DGVC_STORAGE === 'sqlite' && 'chỉ kho JSON' }, async () => {
+  const c = await scene(); putArc(c.store.root); const dest = path.join(tmp('jarc'), 'JSON'); await c.bs.exportJsonFolder({ dest, user: U });
+  assert.deepEqual(walkAll(dest, 'archive'), ['2025/archive-manifest.json', '2025/tables/PHIEU_CAN.json']);
+  fs.rmSync(path.join(c.store.root, 'archive'), { recursive: true, force: true });
+  const r = await c.bs.restore({ file: path.join(dest, 'manifest.json'), reason: 'thử', user: U }); assert.deepEqual(walkAll(c.store.root, 'archive'), ['2025/archive-manifest.json', '2025/tables/PHIEU_CAN.json']); r.store.close();
+});
