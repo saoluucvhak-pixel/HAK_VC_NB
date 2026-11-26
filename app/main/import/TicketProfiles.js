@@ -143,7 +143,7 @@ function chooseSheet(wb, sheetName, config) {
 }
 
 function dateTime(raw) {
-  if (raw && typeof raw === 'object') return { date: M.toDate(raw), time: M.toTime(raw) };
+  if (raw && typeof raw === 'object') return { date: M.toDate(raw), time: M.toTime(raw.__dateOnly ? null : raw) };
   if (typeof raw === 'number' && raw > 20000 && raw < 80000) {
     return { date: M.toDate(raw), time: raw % 1 ? M.toTime(raw % 1) : { value: '' } };
   }
@@ -247,17 +247,26 @@ function read(wb, sheetName, input, numberStyle = 'AUTO') {
     const issues = [];
     const warn = (message, code = 'E_PROFILE_ROW') => issues.push({ code, level: 'ERROR', message });
     const secondary = dateTime(at('weigh2_date'));
-    const time1 = colOf.weigh1_time !== colOf.weigh1_date && present(at('weigh1_time')) ? M.toTime(at('weigh1_time')) : primary.time;
-    const time2 = colOf.weigh2_time !== colOf.weigh2_date && present(at('weigh2_time')) ? M.toTime(at('weigh2_time')) : secondary.time;
+    const hasTimeColumn = (time, date) => colOf[time] !== undefined && colOf[time] !== colOf[date];
+    const time1 = hasTimeColumn('weigh1_time', 'weigh1_date') && present(at('weigh1_time')) ? M.toTime(at('weigh1_time')) : primary.time;
+    const secondDateHasTime = colOf.weigh2_date !== colOf.weigh1_date || colOf.weigh2_time === colOf.weigh2_date;
+    const time2 = hasTimeColumn('weigh2_time', 'weigh2_date') && present(at('weigh2_time'))
+      ? M.toTime(at('weigh2_time')) : secondDateHasTime ? secondary.time : { value: '' };
     const record = Object.fromEntries([...columns].map((field) => [field, M.toText(at(field))]));
+    const explicitDate2 = secondary.date.value && colOf.weigh2_date !== colOf.weigh1_date;
+    const bothTimes = time1.value && time2.value;
     let date2 = secondary.date.value || primary.date.value || '';
-    if (primary.date.value && time1.value && time2.value && time2.value < time1.value) {
-      if (colOf.weigh2_date === undefined || colOf.weigh2_date === colOf.weigh1_date) {
-        const d = new Date(primary.date.value + 'T00:00:00Z');
-        d.setUTCDate(d.getUTCDate() + 1);
-        date2 = d.toISOString().slice(0, 10);
-      }
+    if (primary.date.value && !explicitDate2 && !secondary.date.error && bothTimes && time2.value < time1.value) {
+      const nextDay = new Date(primary.date.value + 'T00:00:00Z');
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      date2 = nextDay.toISOString().slice(0, 10);
     }
+    // For a new ticket the second date defaults to the first date. An update
+    // needs an explicit date or both times before replacing a stored second date.
+    const absentTimestamps = new Set();
+    if (!explicitDate2 && !bothTimes) absentTimestamps.add('weigh2_date');
+    if (!time1.value && !hasTimeColumn('weigh1_time', 'weigh1_date')) absentTimestamps.add('weigh1_time');
+    if (!time2.value && !hasTimeColumn('weigh2_time', 'weigh2_date')) absentTimestamps.add('weigh2_time');
     Object.assign(record, {
       ticket_no: ticket, plate_no: plate, weigh1_date: primary.date.value || '', weigh1_time: time1.value || '',
       weigh2_date: date2, weigh2_time: time2.value || '',
@@ -265,6 +274,9 @@ function read(wb, sheetName, input, numberStyle = 'AUTO') {
     if (!plate) warn('Thiếu biển số');
     if (!record.weigh1_date) warn(primary.date.error || 'Thiếu ngày cân');
     for (const v of [secondary.date, time1, time2]) if (v.error) warn(v.error);
+    if (M.weighOrderInvalid(record.weigh1_date, record.weigh1_time, date2, record.weigh2_time)) {
+      warn('Ngày/giờ cân 2 trước cân 1', 'E_DATE_INVALID');
+    }
     if (rawRowUnit && !rowUnit) unitErrors.push({ rowNo, message: `Đơn vị “${rawRowUnit}” chưa được hỗ trợ` });
     for (const field of WEIGHTS) {
       if (colOf[field] === undefined) continue;
@@ -284,7 +296,7 @@ function read(wb, sheetName, input, numberStyle = 'AUTO') {
     const valid = !issues.length;
     rows.push({ rowNo, normalized: record, issues, valid });
     rowWarnings.push(...issues.map(({ message }) => ({ rowNo, message })));
-    dataRows.push({ rowNo, cells, normalized: record, issues });
+    dataRows.push({ rowNo, cells, normalized: record, issues, absentTimestamps });
   }
   if (unitErrors.length) {
     const description = unitErrors.slice(0, 5).map((w) => `Dòng ${w.rowNo}: ${w.message}`).join(' · ');

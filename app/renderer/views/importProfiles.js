@@ -58,6 +58,7 @@
 
   function editor({ profile, fields, initialFile, numberStyle = 'AUTO', onSave, onDefault, onApply, onCancel }) {
     const root = h('div', { class: 'card import-profile-editor' });
+    const heading = h('h2', {}, onSave ? (profile ? `Sửa mẫu nhập: ${profile.name}` : 'Tạo mới mẫu nhập Excel') : 'Ghép cột cho tệp Excel');
     const sourceControls = h('div', { class: 'import-profile-source-controls' });
     const headerPreview = h('div', { 'aria-label': 'Xem trước tiêu đề', role: 'region', 'aria-live': 'polite' });
     const mappingArea = h('div');
@@ -105,6 +106,8 @@
     const payload = () => ({ filePath, sheetName: state.sheet, config: config(), numberStyle: style.value });
     const trialButton = button('Đọc thử', async () => {
       const version = ++revision;
+      trial = null;
+      saveButton.disabled = true;
       trialButton.disabled = true;
       result.textContent = 'Đang đọc file…';
       try {
@@ -122,20 +125,23 @@
     });
     const saveButton = button(onSave ? 'Lưu mẫu' : 'Áp dụng cách ghép', async () => {
       const current = payload();
-      saveButton.disabled = true;
+      root.inert = true;
       try {
         if (onApply) {
-          if (!await onApply({ readConfig: current.config, sheetName: current.sheetName, numberStyle: current.numberStyle })) saveButton.disabled = false;
+          await onApply({ readConfig: current.config, sheetName: current.sheetName, numberStyle: current.numberStyle });
           return;
         }
         const saved = await D.api('import.profiles.save', { ...current, id: profile?.id, rowVersion: profile?.rowVersion, name: name.value }, { quiet: true });
         profile = saved.item;
+        heading.textContent = `Sửa mẫu nhập: ${profile.name}`;
+        defaultButton.hidden = profile.isDefault;
         trial = saved.trial;
         result.replaceChildren(D.importTrialResult(trial), h('p', { role: 'status' }, `Đã lưu mẫu “${profile.name}”.`));
         await onSave(profile);
       } catch (error) {
         showError(result, error);
-        saveButton.disabled = false;
+      } finally {
+        root.inert = false;
       }
     }, 'primary');
 
@@ -189,7 +195,7 @@
           : h('p', { class: 'small muted' }, 'Dòng này không có ô tiêu đề.'));
 
       const extraFields = ['origin', 'customer', 'ldd', 'weigh_type', 'transport_unit_name', 'row_no'];
-      const requiredKeys = new Set(['ticket_no', 'plate_no', 'weigh1_date', 'net_kg', 'route_code']);
+      const requiredKeys = new Set(['plate_no', 'weigh1_date']);
       const headerColumns = new Map(state.headerCells.map(({ title, column }) => [title, excelColumn(column)]));
       const rows = Object.entries(fields).map(([key, title]) => {
         const isRequired = requiredKeys.has(key);
@@ -224,13 +230,9 @@
         h('div', { class: 'import-profile-options' }, onSave ? field('Tên mẫu', name) : null,
           field('Đơn vị dự phòng', unit), field('Kiểu số khi đọc thử', style)),
         h('div', { class: 'row' }, h('h4', {}, 'Ghép cột'), button('Gợi ý lại', () => { mapped = { ...state.suggested }; invalidate(); draw(); })),
-        h('div', { class: 'profile-tip' },
-          h('div', { style: 'font-weight: 600; margin-bottom: 4px;' }, '💡 Hướng dẫn ghép cột và xử lý ngày giờ:'),
-          h('div', {}, '• Tách ngày & giờ: Ghép từng cột vào Ngày cân và Giờ cân tương ứng.'),
-          h('div', {}, '• Gộp ngày giờ: Có thể chọn cùng cột cho Ngày cân và Giờ cân của lần cân đó.'),
-          h('div', {}, '• Cân qua đêm: Nếu giờ cân ra nhỏ hơn giờ vào, hệ thống tự động cộng 1 ngày cho Ngày cân 2.'),
-          h('div', {}, '• Dùng chung 1 cột ngày: Ngày cân 2 có thể ghép cùng cột với Ngày cân 1 (tự động nhận diện).')
-        ),
+        h('div', { class: 'profile-tip small' },
+          h('p', {}, 'Ghép Biển số, Ngày cân 1 và Khối lượng hàng hoặc cả hai cột Cân lần 1 và Cân lần 2. Số phiếu là tùy chọn. Nếu file thiếu mã tuyến, chọn tuyến chung lúc nhập.'),
+          h('p', {}, 'Cột chứa cả ngày và giờ có thể ghép vào hai trường của cùng lần cân. Nếu file dùng chung ngày hoặc bỏ trống ngày cân 2, giờ ra nhỏ hơn giờ vào được hiểu là qua ngày kế tiếp.')),
         mappingTable(rows.filter(({ key }) => !extraFields.includes(key))),
         h('details', { open: extraFields.some((key) => mapped[key]) },
           h('summary', {}, 'Cột bổ sung'), mappingTable(rows.filter(({ key }) => extraFields.includes(key)))));
@@ -256,8 +258,7 @@
     const cancelBtn = onCancel ? button('✕ Đóng', onCancel, 'small') : null;
     root.append(
       h('div', { class: 'row', style: 'justify-content: space-between; align-items: center; margin-bottom: 8px;' },
-        h('h2', {}, onSave ? (profile ? `Sửa mẫu nhập: ${profile.name}` : 'Tạo mới mẫu nhập Excel') : 'Ghép cột cho tệp Excel'),
-        cancelBtn
+        heading, cancelBtn
       ),
       stepperContainer,
       h('section', { class: 'import-profile-step' }, h('h3', {}, '1. Chọn file Excel mẫu và dòng tiêu đề'),
@@ -290,10 +291,7 @@
         editing.replaceChildren(editor({
           profile,
           fields,
-          onSave: async () => {
-            editing.replaceChildren();
-            await refresh();
-          },
+          onSave: refresh,
           onDefault: setDefault,
           onCancel: () => editing.replaceChildren()
         }));
@@ -325,9 +323,8 @@
               await refresh();
             }, 'small danger')) }] : []),
         ] }),
-        h('div', { class: 'profile-management-banner' },
-          h('strong', {}, '💡 Chuẩn hóa cấu hình nhập dữ liệu: '),
-          'Sử dụng Mẫu nhập khi các trạm cân xuất file Excel có tên cột hoặc cấu trúc khác nhau (ví dụ: ngày giờ gộp chung, tên cột viết tắt...). Khi file import có tiêu đề khớp với mẫu, phần mềm sẽ tự động áp dụng cấu hình đã lưu mà không cần thiết lập lại.')
+        h('p', { class: 'profile-management-banner' },
+          'File mới sử dụng mẫu mặc định. Trong màn nhập phiếu cân, có thể đổi mẫu hoặc chọn Tự nhận diện.')
       );
     };
     root.append(listing, editing);

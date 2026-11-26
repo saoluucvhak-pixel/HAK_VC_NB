@@ -25,18 +25,39 @@ function normCell(v) {
   return v;
 }
 
-function parseCsv(text) {
+function splitCsv(text, delimiter, maxRows = Infinity) {
   const rows = []; let row = []; let cur = ''; let q = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
     else if (c === '"') q = true;
-    else if (c === ',' || c === ';') { row.push(cur); cur = ''; }
-    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+    else if (c === delimiter) { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; if (rows.length >= maxRows) break; }
     else cur += c;
   }
   if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
-  return rows.map((r) => r.map((x) => (x === '' ? null : x)));
+  return rows;
+}
+
+function parseCsv(text) {
+  // Choose one delimiter for the file. A semicolon-separated CSV commonly
+  // contains decimal commas, and a comma-separated CSV can contain semicolons in notes.
+  const score = (delimiter) => {
+    const counts = new Map();
+    for (const row of splitCsv(text, delimiter, 20)) {
+      if (row.length > 1) counts.set(row.length, (counts.get(row.length) || 0) + 1);
+    }
+    return [...counts].sort(([widthA, countA], [widthB, countB]) => countB - countA || widthB - widthA)[0] || [0, 0];
+  };
+  const [commaWidth, commaCount] = score(',');
+  const [semicolonWidth, semicolonCount] = score(';');
+  const delimiter = (semicolonCount > commaCount || (semicolonCount === commaCount && semicolonWidth > commaWidth)) ? ';' : ',';
+  return splitCsv(text, delimiter).map((row) => row.map((value) => value === '' ? null : value));
+}
+
+function hasClockFormat(format = '') {
+  const tokens = format.replace(/"[^"]*"|\\.|_.|\*./g, '');
+  return /[hs:]|am\/pm|a\/p/i.test(tokens);
 }
 
 /** Mở file → { fileName, fileSha256, sheets:[{name, hidden, rowCount}], rows(sheetName) → mảng các dòng (mảng ô, cột A = chỉ số 0) }. */
@@ -75,9 +96,14 @@ async function openWorkbook(filePath) {
       if (!ws) throw new AppError('NOT_FOUND', `File ${fileName} không có sheet "${sheetName}"`);
       const out = [];
       for (let r = 1; r <= ws.rowCount; r++) {
-        const vals = ws.getRow(r).values; // chỉ số 1 = cột A
+        const source = ws.getRow(r);
+        const vals = source.values; // chỉ số 1 = cột A
         const row = [];
-        for (let c = 1; c < vals.length; c++) row.push(normCell(vals[c]));
+        for (let c = 1; c < vals.length; c++) {
+          const value = normCell(vals[c]);
+          if (value?.__date && value.__time === '00:00:00' && !hasClockFormat(source.getCell(c).numFmt)) value.__dateOnly = true;
+          row.push(value);
+        }
         out.push(row);
       }
       cache.set(sheetName, out);

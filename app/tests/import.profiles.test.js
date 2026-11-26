@@ -3,8 +3,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
+const path = require('node:path');
+const ExcelJS = require('exceljs');
 const { newStore } = require('../main/repo/createStore');
-const { openWorkbook } = require('../main/import/excelReader');
+const { openWorkbook, parseCsv } = require('../main/import/excelReader');
 const { ImportService } = require('../main/import/ImportService');
 const Profiles = require('../main/import/TicketProfiles');
 const { install, rid, storageKinds } = require('./install');
@@ -77,12 +79,28 @@ for (const kind of storageKinds()) test(`Mẫu phiếu cân (${kind}) giữ các
   assert.deepEqual(historical.readConfig.config, CONFIG);
   assert.deepEqual(historical.rows.map((row) => row.normalized.ticket_no), ['000042', '000043']);
   assert.equal(historical.summary.duplicate, 2);
+  const id = confirmed.insertedIds[0];
+  await storage.transaction((tx) => tx.update('PHIEU_CAN', id, { weigh2_date: '2026-09-23', weigh2_time: '00:30:00' }));
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet('Cân');
+  sheet.addRow(['Số phiếu', 'Biển số', 'Ngày cân 1', 'Khối lượng hàng (kg)', 'Mã tuyến']);
+  const row = sheet.addRow(['000042', catalog.plate, new Date('2026-09-22T00:00:00Z'), 1600, catalog.route]);
+  row.getCell(3).numFmt = 'dd/mm/yyyy';
+  const plainDate = path.join(dir, 'phieu-chi-co-ngay.xlsx');
+  await wb.xlsx.writeFile(plainDate);
+  const readConfig = { headerRow: 1, mapping: { ticket_no: 'Số phiếu', plate_no: 'Biển số', weigh1_date: 'Ngày cân 1',
+    net_kg: 'Khối lượng hàng (kg)', route_code: 'Mã tuyến' } };
+  const update = await reopened.preview({ ...input, filePath: plainDate, readConfig });
+  assert.equal(update.rows[0].normalized.weigh1_time, '');
+  assert.equal(update.summary.update, 1);
+  await reopened.confirm({ batchId: update.batchId, acceptWarnings: true, clientRequestId: rid(), user });
+  const preserved = storage.get('PHIEU_CAN', id);
+  assert.deepEqual([preserved.weigh1_time, preserved.weigh2_date, preserved.weigh2_time, preserved.net_kg],
+    ['08:15:30', '2026-09-23', '00:30:00', 1600]);
 });
 
 test('Mẫu ghép hai tầng, tính chênh hai lần cân, đơn vị dự phòng và mã phiếu tự sinh', async (t) => {
   const { tmpdir } = require('node:os');
-  const path = require('node:path');
-  const ExcelJS = require('exceljs');
   const dir = await fs.mkdtemp(path.join(tmpdir(), 'dgvc-profile-'));
   t.after(() => fs.rm(dir, { recursive: true, force: true }));
   const file = path.join(dir, 'can.xlsx');
@@ -211,4 +229,33 @@ test('Ngày cân 2 dùng chung cột Ngày cân 1 và tự động qua đêm khi
     [ticket.weigh1_date, ticket.weigh1_time, ticket.weigh2_date, ticket.weigh2_time],
     ['2026-11-26', '23:45:00', '2026-11-27', '01:15:00']
   );
+});
+
+
+test('Đọc thử phân biệt ngày cân 2 trống và ngày cân 2 ghi rõ', () => {
+  const rows = [
+    ['Số phiếu', 'Biển số', 'Ngày cân 1', 'Giờ cân 1', 'Ngày cân 2', 'Giờ cân 2', 'Khối lượng hàng (kg)'],
+    ['001', '92H-00057', '26/11/2026', '23:50', '', '00:30', 1600],
+    ['002', '92H-00057', '26/11/2026', '23:50', '26/11/2026', '00:30', 1700],
+    ['003', '92H-00057', '26/11/2026', '07:00', '25/11/2026', '08:00', 1800],
+    ['004', '92H-00057', '26/11/2026', '23:50', '27/11/2026', '00:30', 1900],
+  ];
+  const wb = { sheets: [{ name: sheetName }], rows: () => rows };
+  const result = Profiles.read(wb, sheetName, { headerRow: 1, mapping: Profiles.inspect(wb, sheetName, 1).suggested }).trial;
+  assert.equal(result.count, 2);
+  assert.equal(result.totalKg, 3500);
+  assert.equal(result.rows[0].normalized.weigh2_date, '2026-11-27');
+  assert.equal(result.rows[1].normalized.weigh2_date, '2026-11-26');
+  for (const row of result.rows.slice(1, 3)) assert.deepEqual(row.issues.map((item) => item.code), ['E_DATE_INVALID']);
+});
+
+test('CSV giữ dấu phẩy thập phân và nội dung có dấu phân cách trong ô', () => {
+  const text = 'Số phiếu;Biển số;Ngày cân;Khối lượng (t);Ghi chú\r\n'
+    + '0001;92H-00057;26/11/2026;17,470;"Có ""ghi chú""; hợp lệ"\r\n';
+  const rows = parseCsv(text);
+  assert.deepEqual(rows[1], ['0001', '92H-00057', '26/11/2026', '17,470', 'Có "ghi chú"; hợp lệ']);
+  assert.deepEqual(parseCsv('Mã,Ghi chú\n001,"Dòng 1;\nDòng 2"'), [['Mã', 'Ghi chú'], ['001', 'Dòng 1;\nDòng 2']]);
+  const wb = { sheets: [{ name: 'CSV' }], rows: () => rows };
+  const result = Profiles.read(wb, 'CSV', { headerRow: 1, mapping: Profiles.inspect(wb, 'CSV', 1).suggested }, 'VN').trial;
+  assert.equal(result.totalKg, 17470);
 });

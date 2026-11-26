@@ -77,6 +77,10 @@
       }
     }
     if (!pv) return false;
+    const profileMapping = pv.readConfig?.config?.mapping;
+    const previewMapping = profileMapping
+      ? Object.entries(profileMapping).map(([f, h]) => ({ h, f }))
+      : Object.entries(pv.mapping).map(([h, f]) => ({ h, f }));
     const skip = new Set();
     const rows = [];
     try {
@@ -156,7 +160,7 @@
       pv.sameFileImportedBefore ? h('p', {}, h('span', { class: 'tag warn' }, 'Cảnh báo'), ' File này đã import trước đây (cùng SHA-256).') : null,
       h('div', { class: 'kpis', style: { marginTop: '10px' } }, [['Tổng dòng', S.total], ['Hợp lệ', S.ok], ['Cảnh báo', S.warning], ...(S.update ? [['Cập nhật / khôi phục', S.update]] : []), ['Đã có (bỏ qua)', S.duplicate], ['Lỗi', S.error]].map(([l, v]) => h('div', { class: 'kpi' }, h('div', { class: 'l' }, l), h('div', { class: 'v' }, D.vn(v))))),
       pv.trial ? h('details', {}, h('summary', {}, 'Tổng kg, tổng công bố và cảnh báo đọc file'), D.importTrialResult(pv.trial)) : null,
-      h('details', {}, h('summary', {}, 'Ghép cột'), D.table({ columns: [{ key: 'h', label: 'Cột trong file' }, { key: 'f', label: 'Cột dữ liệu' }], rows: Object.entries(pv.mapping).map(([k, v]) => ({ h: k, f: v })), maxHeight: '220px' })),
+      h('details', {}, h('summary', {}, 'Ghép cột'), D.table({ columns: [{ key: 'h', label: 'Cột trong file' }, { key: 'f', label: 'Cột dữ liệu' }], rows: previewMapping, maxHeight: '220px' })),
       h('label', { class: 'field' }, h('span', {}, 'Lọc dòng xem trước'), status), preview,
       h('label', { class: 'check', for: 'acc', style: { marginTop: '10px' } }, accept, S.update ? 'Chấp nhận các dòng cảnh báo và cập nhật phiếu đã có theo file' : 'Chấp nhận các dòng cảnh báo'));
     for (const r of rows) if (r.status === 'ERROR') skip.add(r.rowNo);

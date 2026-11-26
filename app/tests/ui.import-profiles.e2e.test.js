@@ -95,6 +95,22 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await page.getByText('2 phiếu hợp lệ / 2 dòng · Tổng 3.800 kg', { exact: true }).waitFor();
     await page.getByText(/Dòng 6 · Tổng công bố 3.900 kg.*−100|Dòng 6 · Tổng công bố 3.900 kg.*-100/).waitFor();
     await page.getByText('000042', { exact: true }).waitFor();
+    const failTrial = (route) => {
+      const { action, payload } = route.request().postDataJSON() || {};
+      return action === 'import.profiles.inspect' && payload.config
+        ? route.fulfill({ json: { ok: false, error: { code: 'VALIDATION_FAILED', message: 'File đọc thử không còn khả dụng' } } })
+        : route.continue();
+    };
+    await page.route('**/api', failTrial);
+    try {
+      await button('Đọc thử').click();
+      await page.getByRole('alert').getByText('File đọc thử không còn khả dụng').waitFor();
+      assert.equal(await button('Lưu mẫu').isDisabled(), true);
+    } finally {
+      await page.unroute('**/api', failTrial);
+    }
+    await button('Đọc thử').click();
+    await page.getByText('2 phiếu hợp lệ / 2 dòng · Tổng 3.800 kg', { exact: true }).waitFor();
     await button('Lưu mẫu').click();
     await page.getByText('Đã lưu mẫu “Nhà cung cấp A”.').waitFor();
     await button('Đặt mẫu này làm mặc định').click();
