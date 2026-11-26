@@ -166,3 +166,25 @@ test('Mẫu tách ngày giờ hai lần cân, cho xem đúng tiêu đề và b�
   rows.push(['00043', '92H-00057', '27/11/2026', '09:00', null, null, 'Sai dữ liệu', 'bao']);
   assert.throws(() => Profiles.read(wb, sheetName, { headerRow: 2, mapping }), /Dòng 8: Đơn vị “bao”/);
 });
+
+test('Một cột Date Time được ghép vào cả ngày và giờ của cùng một lần cân', () => {
+  const rows = [
+    ['Số phiếu', 'Biển số', 'Ngày giờ cân 1', 'Ngày giờ cân 2', 'Khối lượng hàng (kg)'],
+    ['00042', '92H-00057', { __date: '2026-11-26', __time: '23:50:00' }, '27/11/2026 00:30', 2500],
+  ];
+  const wb = { sheets: [{ name: sheetName }], rows: () => rows };
+  const config = { headerRow: 1, mapping: {
+    ...Profiles.inspect(wb, sheetName, 1).suggested,
+    weigh1_time: 'Ngày giờ cân 1',
+    weigh2_time: 'Ngày giờ cân 2',
+  } };
+  const result = Profiles.read(wb, sheetName, config).trial;
+  assert.equal(result.count, 1);
+  const ticket = result.rows[0].normalized;
+  assert.deepEqual(
+    [ticket.weigh1_date, ticket.weigh1_time, ticket.weigh2_date, ticket.weigh2_time],
+    ['2026-11-26', '23:50:00', '2026-11-27', '00:30:00']
+  );
+  assert.throws(() => Profiles.read(wb, sheetName, { ...config, mapping: { ...config.mapping, weigh2_time: 'Ngày giờ cân 1' } }),
+    /Chỉ được ghép chung một cột/);
+});

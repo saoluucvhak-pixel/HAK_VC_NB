@@ -161,7 +161,7 @@
           state.headerCells.length ? h('ul', { class: 'small' }, state.headerCells.map(({ column, title }) => h('li', {}, `${excelColumn(column)}: ${title}`)))
             : h('p', { class: 'small muted' }, 'Dòng này không có ô tiêu đề.')),
         h('div', { class: 'row' }, h('h3', {}, 'Ghép cột'), button('Gợi ý lại', () => { mapped = { ...state.suggested }; invalidate(); draw(); })),
-        h('p', { class: 'small muted' }, 'Nếu Excel tách ngày và giờ, ghép từng cột vào Ngày cân và Giờ cân tương ứng. Nếu chung một cột, ghép vào Ngày cân và để trống Giờ cân.'),
+        h('p', { class: 'small muted' }, 'Nếu Excel tách ngày và giờ, ghép từng cột vào Ngày cân và Giờ cân tương ứng. Nếu Excel gộp ngày giờ, có thể chọn cùng cột cho Ngày cân và Giờ cân của lần cân đó.'),
         h('div', { class: 'grid g3' }, columns.filter((c) => !c.extra).map((c) => c.node)),
         h('details', { open: extraFields.some((key) => mapped[key]), style: { margin: '12px 0' } },
           h('summary', {}, 'Cột bổ sung'), h('div', { class: 'grid g3' }, columns.filter((c) => c.extra).map((c) => c.node))),

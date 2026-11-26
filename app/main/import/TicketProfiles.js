@@ -41,13 +41,23 @@ function totalParts(value) {
 }
 const profileError = (message, details = {}) => businessError('E_IMPORT_PROFILE', message, details);
 
+// Một cột Date Time có thể cấp cả ngày và giờ cho cùng một lần cân.
+const dateForTime = { weigh1_time: 'weigh1_date', weigh2_time: 'weigh2_date' };
+function hasConflictingColumn(mapping) {
+  const assigned = Object.entries(mapping).filter(([field, column]) =>
+    !Object.hasOwn(dateForTime, field) || mapping[dateForTime[field]] !== column);
+  return new Set(assigned.map(([, column]) => column)).size !== assigned.length;
+}
+
 function validateConfig(config) {
   const { headerRow, mapping, fallbackUnit = '' } = config || {};
   if (!Number.isInteger(headerRow) || headerRow < 1 || headerRow > 1048576) throw profileError('Dòng tiêu đề phải là số nguyên từ 1 đến 1.048.576');
   if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) throw profileError('Chưa ghép cột');
   const entries = Object.entries(mapping);
   if (entries.some(([field, name]) => !Object.hasOwn(FIELDS, field) || typeof name !== 'string' || !key(name))) throw profileError('Cách ghép cột không hợp lệ');
-  if (new Set(entries.map(([, name]) => key(name))).size !== entries.length) throw profileError('Mỗi tiêu đề chỉ được ghép với một trường');
+  if (hasConflictingColumn(Object.fromEntries(entries.map(([field, name]) => [field, key(name)])))) {
+    throw profileError('Chỉ được ghép chung một cột cho Ngày cân và Giờ cân của cùng lần cân');
+  }
   const missing = ['plate_no', 'weigh1_date'].filter((field) => !mapping[field]);
   if (!mapping.net_kg && !(mapping.weight1_kg && mapping.weight2_kg)) missing.push('net_kg');
   if (missing.length) throw profileError('Cần ghép biển số, ngày cân 1 và khối lượng hàng hoặc cả hai lần cân', { missing });
@@ -74,7 +84,7 @@ function resolveColumns(headers, mapping, headerRow) {
     else problems.push(`${hits.length ? 'Trùng' : 'Thiếu'} tiêu đề “${title}” (${FIELDS[field]})`);
   }
   if (problems.length) throw profileError(`Dòng ${headerRow}: ${problems.join(' · ')}`, { problems });
-  if (new Set(Object.values(colOf)).size !== Object.keys(colOf).length) throw profileError(`Dòng ${headerRow}: nhiều trường đang ghép vào cùng một cột`);
+  if (hasConflictingColumn(colOf)) throw profileError(`Dòng ${headerRow}: nhiều trường đang ghép vào cùng một cột`);
   return colOf;
 }
 
@@ -237,8 +247,8 @@ function read(wb, sheetName, input, numberStyle = 'AUTO') {
     const issues = [];
     const warn = (message, code = 'E_PROFILE_ROW') => issues.push({ code, level: 'ERROR', message });
     const secondary = dateTime(at('weigh2_date'));
-    const time1 = present(at('weigh1_time')) ? M.toTime(at('weigh1_time')) : primary.time;
-    const time2 = present(at('weigh2_time')) ? M.toTime(at('weigh2_time')) : secondary.time;
+    const time1 = colOf.weigh1_time !== colOf.weigh1_date && present(at('weigh1_time')) ? M.toTime(at('weigh1_time')) : primary.time;
+    const time2 = colOf.weigh2_time !== colOf.weigh2_date && present(at('weigh2_time')) ? M.toTime(at('weigh2_time')) : secondary.time;
     const record = Object.fromEntries([...columns].map((field) => [field, M.toText(at(field))]));
     Object.assign(record, {
       ticket_no: ticket, plate_no: plate, weigh1_date: primary.date.value || '', weigh1_time: time1.value || '',
