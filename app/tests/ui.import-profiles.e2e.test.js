@@ -61,6 +61,12 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await row.fill('3');
     await row.press('Tab');
     await page.getByRole('heading', { name: 'Ghép cột', exact: true }).waitFor();
+    const titles = page.getByRole('region', { name: 'Xem trước tiêu đề' });
+    await titles.getByRole('heading', { name: 'Tiêu đề Excel · Dòng 3' }).waitFor();
+    await titles.getByText('A: Số phiếu', { exact: true }).waitFor();
+    await titles.getByText('D: Khối lượng hàng', { exact: true }).waitFor();
+    await page.getByLabel('Ngày cân 1', { exact: true }).waitFor();
+    await page.getByLabel('Giờ cân 1', { exact: true }).waitFor();
     await page.getByLabel('Tên mẫu', { exact: true }).fill('Nhà cung cấp A');
     await button('Đọc thử').click();
     await page.getByText('2 phiếu hợp lệ / 2 dòng · Tổng 3.800 kg', { exact: true }).waitFor();

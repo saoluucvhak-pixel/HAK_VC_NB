@@ -230,7 +230,7 @@ ep('import.template', 'Import', 'Tạo FILE EXCEL MẪU để import theo danh m
 ep('import.profiles.list', 'Import', 'Danh sách mẫu nhập phiếu cân và mẫu mặc định', ALL, [], '{items, fields}', reads=['IMPORT_PROFILE'])
 ep('import.profiles.inspect', 'Import', 'Xem sheet, gợi ý ghép cột hoặc đọc thử file Excel', EDIT,
    [('filePath', 'string', True, ''), ('sheetName', 'string', False, ''), ('headerRow', 'integer', False, ''),
-    ('config', 'object', False, 'có cấu hình thì đọc thử'), ('numberStyle', 'string', False, 'AUTO, VN hoặc EN')], '{sheets, options, suggested} hoặc {trial: {rows, totalKg, warnings, declaredTotals}}')
+    ('config', 'object', False, 'có cấu hình thì đọc thử'), ('numberStyle', 'string', False, 'AUTO, VN hoặc EN')], '{sheets, headerCells, options, suggested} hoặc {trial: {rows, totalKg, warnings, declaredTotals}}')
 ep('import.profiles.save', 'Import', 'Tạo, sửa hoặc sao chép mẫu nhập phiếu cân', ADM,
    [('id', 'string', False, ''), ROWV_OPT, ('name', 'string', True, ''), ('filePath', 'string', False, 'cần khi tạo/sửa'),
     ('sheetName', 'string', False, ''), ('config', 'object', False, ''), ('numberStyle', 'string', False, ''), ('copyFromId', 'string', False, '')],

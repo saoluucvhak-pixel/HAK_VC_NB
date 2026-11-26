@@ -14,6 +14,15 @@
     control.setAttribute('aria-label', label);
     return h('label', { class: 'field' }, h('span', {}, label), control);
   };
+  const excelColumn = (index) => {
+    let label = '';
+    while (index > 0) {
+      index--;
+      label = String.fromCharCode(65 + index % 26) + label;
+      index = Math.floor(index / 26);
+    }
+    return label;
+  };
   const button = (label, onclick, color = '') => h('button', { type: 'button', class: `btn ${color}`, onclick }, label);
 
   D.importTrialResult = (result) => h('div', { class: 'stack', 'aria-label': 'Kết quả đọc thử' },
@@ -24,7 +33,10 @@
       { key: 'rowNo', label: 'Dòng Excel' },
       { key: 'ticket_no', label: 'Số phiếu', render: (row) => row.normalized.ticket_no },
       { key: 'plate_no', label: 'Biển số', render: (row) => row.normalized.plate_no },
-      { key: 'weigh1_date', label: 'Ngày giờ cân', render: (row) => `${D.dmy(row.normalized.weigh1_date)} ${row.normalized.weigh1_time}` },
+      { key: 'weigh1_date', label: 'Ngày cân 1', render: (row) => D.dmy(row.normalized.weigh1_date) },
+      { key: 'weigh1_time', label: 'Giờ cân 1', render: (row) => row.normalized.weigh1_time },
+      { key: 'weigh2_date', label: 'Ngày cân 2', render: (row) => D.dmy(row.normalized.weigh2_date) },
+      { key: 'weigh2_time', label: 'Giờ cân 2', render: (row) => row.normalized.weigh2_time },
       { key: 'net_kg', label: 'Khối lượng (kg)', num: true, render: (row) => D.vnAuto(row.normalized.net_kg) },
       { key: 'warehouse', label: 'Kho', render: (row) => row.normalized.warehouse },
       { key: 'import_note', label: 'Ghi chú', wrap: true, render: (row) => row.normalized.import_note },
@@ -130,7 +142,7 @@
       const sheet = select(state.sheets.map((s) => option(s.name, s.name)), state.sheet, (event) => inspect(event.target.value));
       const header = h('input', { type: 'number', min: 1, max: state.rowCount, value: state.headerRow,
         onchange: (event) => inspect(state.sheet, Number(event.target.value)) });
-      const extraFields = ['weigh1_time', 'weigh2_date', 'weigh2_time', 'origin', 'customer', 'ldd', 'weigh_type', 'transport_unit_name', 'row_no'];
+      const extraFields = ['origin', 'customer', 'ldd', 'weigh_type', 'transport_unit_name', 'row_no'];
       const columns = Object.entries(fields).map(([key, title]) => {
         const value = mapped[key] || '';
         const available = state.options.find((o) => o.name === value);
@@ -144,7 +156,12 @@
         })) };
       });
       mappingArea.replaceChildren(h('div', { class: 'grid g2' }, field('Sheet', sheet), field('Dòng tiêu đề', header)),
+        h('section', { 'aria-label': 'Xem trước tiêu đề' },
+          h('h3', {}, `Tiêu đề Excel · Dòng ${state.headerRow}`),
+          state.headerCells.length ? h('ul', { class: 'small' }, state.headerCells.map(({ column, title }) => h('li', {}, `${excelColumn(column)}: ${title}`)))
+            : h('p', { class: 'small muted' }, 'Dòng này không có ô tiêu đề.')),
         h('div', { class: 'row' }, h('h3', {}, 'Ghép cột'), button('Gợi ý lại', () => { mapped = { ...state.suggested }; invalidate(); draw(); })),
+        h('p', { class: 'small muted' }, 'Nếu Excel tách ngày và giờ, ghép từng cột vào Ngày cân và Giờ cân tương ứng. Nếu chung một cột, ghép vào Ngày cân và để trống Giờ cân.'),
         h('div', { class: 'grid g3' }, columns.filter((c) => !c.extra).map((c) => c.node)),
         h('details', { open: extraFields.some((key) => mapped[key]), style: { margin: '12px 0' } },
           h('summary', {}, 'Cột bổ sung'), h('div', { class: 'grid g3' }, columns.filter((c) => c.extra).map((c) => c.node))),

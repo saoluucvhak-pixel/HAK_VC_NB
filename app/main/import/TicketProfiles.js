@@ -8,14 +8,15 @@ const M = require('./mapping');
 const TABLE = 'IMPORT_PROFILE';
 const WEIGHTS = ['net_kg', 'weight1_kg', 'weight2_kg'];
 const FIELDS = {
-  ticket_no: 'Số phiếu', plate_no: 'Biển số', weigh1_date: 'Ngày giờ cân', weigh1_time: 'Giờ cân 1',
-  weigh2_date: 'Ngày giờ cân 2', weigh2_time: 'Giờ cân 2', net_kg: 'Khối lượng hàng', weight1_kg: 'Cân lần 1',
+  ticket_no: 'Số phiếu', plate_no: 'Biển số', weigh1_date: 'Ngày cân 1', weigh1_time: 'Giờ cân 1',
+  weigh2_date: 'Ngày cân 2', weigh2_time: 'Giờ cân 2', net_kg: 'Khối lượng hàng', weight1_kg: 'Cân lần 1',
   weight2_kg: 'Cân lần 2', weight_unit: 'Đơn vị khối lượng', warehouse: 'Kho', import_note: 'Ghi chú', route_code: 'Mã tuyến',
   origin: 'Nguồn gốc', customer: 'Khách hàng', ldd: 'Lệnh điều động', weigh_type: 'Kiểu cân',
   transport_unit_name: 'Đơn vị vận chuyển', row_no: 'STT',
 };
 const aliases = {
-  weigh1_date: ['ngày cân', 'ngày giờ cân', 'thời gian cân', 'ngày giờ cân 1'], weigh2_date: ['ngày giờ cân 2'],
+  weigh1_date: ['ngày cân 1', 'ngày cân', 'ngày giờ cân', 'thời gian cân', 'ngày giờ cân 1'],
+  weigh1_time: ['giờ cân', 'giờ cân 1'], weigh2_date: ['ngày cân 2', 'ngày giờ cân 2'], weigh2_time: ['giờ cân 2'],
   net_kg: ['kl hàng', 'khối lượng hàng', 'khối lượng', 'khối lượng tịnh', 'net'], weight_unit: ['đơn vị', 'đơn vị tính', 'đvt', 'đơn vị khối lượng'],
   warehouse: ['kho', 'kho hàng'], import_note: ['ghi chú', 'ghi chú cân'],
 };
@@ -31,6 +32,7 @@ const unitPattern = /(?:\(\s*(kg|kgs|t|tấn|tan|tons?|tonnes?|mt|kilograms?)\s*
 const matchUnit = (s) => M.toText(s).match(unitPattern);
 const headerUnit = (s) => { const m = matchUnit(s); return m ? unitOf(m[1] || m[2]) : ''; };
 const dateSignature = /\bngay\s+(?:\d{1,2}\s+thang\s+\d{1,2}\s+nam\s+\d{4}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})\s*$/u;
+const signatureLabel = /^(?:nguoi (?:duyet|kiem tra|lap(?: bieu| bang)?|ky)|(?:\(\s*)?ky(?:\s*,)?\s+ghi ro ho ten(?:\s*\))?)$/u;
 const totalLabel = /^(?:tong(?: cong| khoi luong(?: hang)?| kl(?: hang)?)?|cong|total|grand total)(?:\s*\([^()]+\))?$/;
 function totalParts(value) {
   if (typeof value !== 'string') return null;
@@ -48,7 +50,7 @@ function validateConfig(config) {
   if (new Set(entries.map(([, name]) => key(name))).size !== entries.length) throw profileError('Mỗi tiêu đề chỉ được ghép với một trường');
   const missing = ['plate_no', 'weigh1_date'].filter((field) => !mapping[field]);
   if (!mapping.net_kg && !(mapping.weight1_kg && mapping.weight2_kg)) missing.push('net_kg');
-  if (missing.length) throw profileError('Cần ghép biển số, ngày giờ cân và khối lượng hàng hoặc cả hai lần cân', { missing });
+  if (missing.length) throw profileError('Cần ghép biển số, ngày cân 1 và khối lượng hàng hoặc cả hai lần cân', { missing });
   if (!['', 'kg', 't'].includes(fallbackUnit)) throw profileError('Đơn vị dự phòng phải là kg hoặc tấn');
   return { headerRow, mapping: Object.fromEntries(entries.map(([field, name]) => [field, name.trim()])), fallbackUnit };
 }
@@ -105,7 +107,11 @@ function inspect(wb, sheetName, headerRow) {
     const chosen = counts.get(key(name)) === 1 ? name : combined;
     if (field && !suggested[field] && counts.get(key(chosen)) === 1) suggested[field] = chosen;
   });
-  return { sheets, sheet, rowCount: rows.length, headerRow, options, suggested };
+  const headerCells = (rows[headerRow - 1] || []).flatMap((value, index) => {
+    const title = M.toText(value);
+    return title ? [{ column: index + 1, title }] : [];
+  });
+  return { sheets, sheet, rowCount: rows.length, headerRow, headerCells, options, suggested };
 }
 
 function chooseSheet(wb, sheetName, config) {
@@ -186,6 +192,7 @@ function read(wb, sheetName, input, numberStyle = 'AUTO') {
   const rows = [];
   const declared = [];
   const unitErrors = [];
+  const footerFields = ['plate_no', 'weigh1_date', 'weight_unit', ...WEIGHTS];
   const columns = new Set(Object.keys(colOf).filter((field) => field !== 'weight_unit'));
   columns.add('ticket_no');
   columns.add('net_kg');
@@ -218,13 +225,17 @@ function read(wb, sheetName, input, numberStyle = 'AUTO') {
     const plate = M.toText(at('plate_no')).toUpperCase();
     const hasMass = WEIGHTS.some((field) => present(at(field)));
     const ticketLike = /^\S*[0-9]\S*$/.test(ticket) && !M.toDate(ticket).value;
-    if (!hasMass && !ticketLike && (!plate || dateSignature.test(key(plate)) || M.toDate(at('plate_no')).value)) {
+    const primary = dateTime(at('weigh1_date'));
+    const signature = !primary.date.value && footerFields.some((field) => {
+      const label = key(at(field));
+      return signatureLabel.test(label) || dateSignature.test(label);
+    });
+    if (!ticketLike && (signature || (!hasMass && (!plate || M.toDate(at('plate_no')).value)))) {
       rowWarnings.push({ rowNo, message: 'Bỏ qua dòng ngoài bảng phiếu cân' });
       continue;
     }
     const issues = [];
     const warn = (message, code = 'E_PROFILE_ROW') => issues.push({ code, level: 'ERROR', message });
-    const primary = dateTime(at('weigh1_date'));
     const secondary = dateTime(at('weigh2_date'));
     const time1 = present(at('weigh1_time')) ? M.toTime(at('weigh1_time')) : primary.time;
     const time2 = present(at('weigh2_time')) ? M.toTime(at('weigh2_time')) : secondary.time;

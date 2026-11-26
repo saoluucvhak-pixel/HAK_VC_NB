@@ -131,3 +131,38 @@ test('Mẫu nhập phân biệt dấu thập phân của tấn và từ chối n
   assert.equal(read(['1,2,3 kg'], 'EN').count, 0);
   assert.equal(read(['12,34.56 kg'], 'VN').count, 0);
 });
+
+test('Mẫu tách ngày giờ hai lần cân, cho xem đúng tiêu đề và bỏ qua phần ký sau dòng tổng', () => {
+  const headers = ['Số phiếu', 'Biển số', 'Ngày cân 1', 'Giờ cân 1', 'Ngày cân 2', 'Giờ cân 2', 'Khối lượng hàng (kg)', 'ĐVT'];
+  const rows = [
+    ['BẢNG KÊ PHIẾU CÂN'],
+    headers,
+    ['00042', '92H-00057', '26/11/2026', { __time: '23:50:00' }, '27/11/2026', 1 / 48, 2500, 'kg'],
+    ['Tổng cộng (kg)', null, null, null, null, null, 2500, null],
+    [null, null, null, null, null, null, 'Ngày 26 tháng 11 năm 2026', 'Ngày 26 tháng 11 năm 2026'],
+    [null, null, null, null, null, null, 'Người kiểm tra', 'Người duyệt'],
+    [null, null, null, null, null, null, '(Ký, ghi rõ họ tên)', '(Ký, ghi rõ họ tên)'],
+  ];
+  const wb = { sheets: [{ name: sheetName }], rows: () => rows };
+  const inspected = Profiles.inspect(wb, sheetName, 2);
+  assert.deepEqual(inspected.headerCells, headers.map((title, i) => ({ column: i + 1, title })));
+  assert.deepEqual(Profiles.inspect(wb, sheetName, 1).headerCells, [{ column: 1, title: 'BẢNG KÊ PHIẾU CÂN' }]);
+  const mapping = inspected.suggested;
+  assert.equal(mapping.weigh1_date, 'Ngày cân 1');
+  assert.equal(mapping.weigh1_time, 'Giờ cân 1');
+  assert.equal(mapping.weigh2_date, 'Ngày cân 2');
+  assert.equal(mapping.weigh2_time, 'Giờ cân 2');
+  const result = Profiles.read(wb, sheetName, { headerRow: 2, mapping }).trial;
+  const ticket = result.rows[0].normalized;
+  assert.deepEqual(
+    [ticket.weigh1_date, ticket.weigh1_time, ticket.weigh2_date, ticket.weigh2_time],
+    ['2026-11-26', '23:50:00', '2026-11-27', '00:30:00']
+  );
+  assert.equal(result.totalRows, 1);
+  assert.equal(result.totalKg, 2500);
+  assert.deepEqual(result.declaredTotals, [{ rowNo: 4, kg: 2500, differenceKg: 0 }]);
+  assert.deepEqual(result.warnings.map((warning) => warning.rowNo), [5, 6, 7]);
+
+  rows.push(['00043', '92H-00057', '27/11/2026', '09:00', null, null, 'Sai dữ liệu', 'bao']);
+  assert.throws(() => Profiles.read(wb, sheetName, { headerRow: 2, mapping }), /Dòng 8: Đơn vị “bao”/);
+});
