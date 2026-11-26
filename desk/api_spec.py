@@ -86,14 +86,25 @@ ep('pricecodes.save', 'Đơn giá', 'Tạo / sửa mã đơn giá (cha): mã, đ
 ep('pricecodes.setActive', 'Đơn giá', 'Đóng / mở lại mã đơn giá (đóng: không thêm dòng, không gán hợp đồng mới; hợp đồng đang dùng vẫn tính)', EDIT,
    [('priceCode', 'string', True, ''), ('active', 'boolean', True, ''), ROWV, ('reason', 'string', False, '')], '{record}', ['NOT_FOUND', 'CONFLICT_VERSION'], ['MA_DON_GIA'], ['MA_DON_GIA'], 'PRICE_CODE_OPEN/CLOSE', True)
 ep('pricecodes.addLine', 'Đơn giá', 'Thêm dòng giá (con) vào mã (hình thức dòng = hình thức của mã, trái hình thức → VALIDATION_FAILED): nhập tuyến + đơn giá cố định (hoặc đơn giá ký hợp đồng + giá dầu + định mức nếu mã theo giá dầu) + hiệu lực, hoặc chọn một đơn giá có sẵn (fromPriceId) để sao chép; dòng mới NHÁP → prices.activate', EDIT,
-   [('priceCode', 'string', True, ''), ('record', 'object', False, '{routeCode, effectiveFrom, fixedPrice?, priceMethod?, …}'), ('fromPriceId', 'string', False, 'sao chép từ một phiên bản giá có sẵn')], '{record, contractPrice}',
-   ['VALIDATION_FAILED', 'BUSINESS_RULE:E_PRICE_DATE_OVERLAP', 'NOT_FOUND'], ['MA_DON_GIA', 'PRICE_HISTORY', 'TUYEN_VC'], ['PRICE_HISTORY'], 'PRICE_CREATE', True)
+   [('priceCode', 'string', True, ''), ('record', 'object', False, '{routeCode, effectiveFrom, fixedPrice?, priceMethod?, calcBasis? (TAN|M3), …}'),
+    ('fromPriceId', 'string', False, 'sao chép từ một phiên bản giá có sẵn')],
+   '{record, contractPrice}',
+   errors=['VALIDATION_FAILED', 'BUSINESS_RULE:E_PRICE_DATE_OVERLAP', 'NOT_FOUND'],
+   reads=['MA_DON_GIA', 'PRICE_HISTORY', 'TUYEN_VC'],
+   writes=['PRICE_HISTORY'],
+   audit='PRICE_CREATE',
+   lock=True)
 ep('prices.preview', 'Đơn giá', 'Tính Tầng A (ĐG 1 chuyến → ĐG_HĐ) cho 1 bộ tham số, không lưu — dùng khi nhập giá mới', ALL,
    [('record', 'object', True, 'tham số giá + tuyến')], '{tripPrice, fuelPerTrip, fuelCostPerTrip, fuelCostRatio, priceNoDiesel, contractPrice, trace}',
    ['VALIDATION_FAILED'], ['TUYEN_VC', 'CONFIG'])
 ep('prices.createVersion', 'Đơn giá', 'Tạo phiên bản giá mới (DRAFT); phiên bản cũ không bị sửa', EDIT,
-   [('record', 'object', True, 'routeCode, contractId?, effectiveFrom, newPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, basePriceExclVat, sourceNote')],
-   '{record, contractPrice}', ['VALIDATION_FAILED', 'BUSINESS_RULE:E_PRICE_DATE_OVERLAP'], ['PRICE_HISTORY'], ['PRICE_HISTORY'], 'PRICE_CREATE', True)
+   [('record', 'object', True, 'routeCode, contractId?, effectiveFrom, newPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, calcBasis?, basePriceExclVat, sourceNote')],
+   '{record, contractPrice}',
+   errors=['VALIDATION_FAILED', 'BUSINESS_RULE:E_PRICE_DATE_OVERLAP'],
+   reads=['PRICE_HISTORY'],
+   writes=['PRICE_HISTORY'],
+   audit='PRICE_CREATE',
+   lock=True)
 ep('prices.updateDraft', 'Đơn giá', 'Sửa phiên bản DRAFT (cấm khi ACTIVE đã dùng)', EDIT, [('priceId', 'string', True, ''), ('record', 'object', True, ''), ROWV],
    '{record}', ['BUSINESS_RULE:E_PRICE_USED', 'CONFLICT_VERSION'], ['PRICE_HISTORY'], ['PRICE_HISTORY'], 'PRICE_UPDATE', True)
 ep('prices.activate', 'Đơn giá', 'Kích hoạt DRAFT → ACTIVE; tự đóng phiên bản trước (effective_to = ngày mới − 1)', EDIT, [('priceId', 'string', True, ''), ROWV],
@@ -166,8 +177,13 @@ ep('tickets.list', 'Phiếu cân', 'Tra cứu phiếu cân', ALL,
    [('dateFrom', 'date', False, ''), ('dateTo', 'date', False, ''), ('routeCode', 'string', False, ''), ('plateNo', 'string', False, ''),
     ('ownerUnitCode', 'string', False, ''), ('contractId', 'string', False, 'kèm trạng thái sử dụng theo HĐ này'),
     ('usage', 'enum(CHUA_TINH|DA_DUA_VAO_KY|DA_XAC_NHAN|DA_KHOA)', False, 'cần contractId'), ('hasFlags', 'boolean', False, ''),
-    ('q', 'string', False, 'số phiếu / biển số'), ('idsOnly', 'boolean', False, 'true: trả TOÀN BỘ mã phiếu theo bộ lọc {ids, total, totals, lockedCount} (không phân trang) — cho thao tác hàng loạt')] + PAGING,
-   '{items:[PHIEU_CAN + usageByContract:[{contractCode, periodCode, state}]], total, sums:{trips, kg}}', reads=['PHIEU_CAN', 'TRANSPORT_DETAIL', 'KY_TINH'])
+    ('q', 'string', False, 'số phiếu / biển số'),
+    ('idsOnly', 'boolean', False, 'true: trả TOÀN BỘ mã phiếu theo bộ lọc {ids, total, totals, lockedCount} (không phân trang) — cho thao tác hàng loạt'),
+    ('page', 'integer', False, 'mặc định 1'), ('pageSize', 'integer', False, 'mặc định 100, tối đa 1000'),
+    ('sort', 'string', False, 'vd `weigh1_date:desc`'),
+    ('importedSince', 'datetime', False, 'chỉ phiếu nhập vào máy từ thời điểm này (giờ UTC, ISO); bộ lọc "mới nhập hôm nay"')],
+   '{items:[PHIEU_CAN + usageByContract:[{contractCode, periodCode, state}]], total, sums:{trips, kg}}',
+   reads=['PHIEU_CAN', 'TRANSPORT_DETAIL', 'KY_TINH'])
 ep('tickets.get', 'Phiếu cân', 'Chi tiết 1 phiếu + các kỳ đã dùng + audit', ALL, [('ticketId', 'string', True, '')],
    '{record, usages, raw, audit}', ['NOT_FOUND'], ['PHIEU_CAN', 'TRANSPORT_DETAIL', 'AUDIT_LOG'])
 ep('tickets.update', 'Phiếu cân', 'Sửa phiếu — cấm nếu đang ở kỳ DA_XAC_NHAN/DA_KHOA; kỳ NHAP → needs_recalc', EDIT,
@@ -203,9 +219,14 @@ ep('fuel.softDelete', 'Giao nhận dầu', 'Xóa mềm dòng dầu', EDIT, [('re
 ep('fuel.ackFlags', 'Giao nhận dầu', 'Xác nhận cảnh báo dòng dầu (vd nghi trùng nhưng không trùng)', EDIT,
    [('receiptIds', 'array<string>', True, ''), ('note', 'string', True, '')], '{updated}', [], ['GIAO_NHAN_DAU'], ['GIAO_NHAN_DAU'], 'ACK_FLAGS', True)
 
-ep('import.template', 'Import', 'Tạo FILE EXCEL MẪU để import theo danh mục hiện tại của bản cài: sheet nhập liệu (tiêu đề đúng tên cột phần mềm nhận, cột bắt buộc có *, định dạng ô, danh sách chọn tuyến / xe / đơn vị, tô màu ô thiếu / KL lệch), HUONG_DAN, DANH_MUC, VI_DU', EDIT,
-   [('importType', 'enum(PHIEU_CAN|GIAO_NHAN_DAU)', True, ''), ('contractId', 'string', False, 'bắt buộc với GIAO_NHAN_DAU (danh sách xe của hợp đồng)'), ('targetPath', 'string', False, 'từ dialog.saveFile; trống = thư mục exports')],
-   '{path, sizeBytes, sheet, firstDataRow, columns[{header, required}]}', ['VALIDATION_FAILED'], ['TUYEN_VC', 'XE', 'HOP_DONG_XE', 'DON_VI', 'HOP_DONG'])
+ep('import.template', 'Import', 'Tạo FILE EXCEL MẪU để import theo danh mục hiện tại của bản cài: sheet nhập liệu (tiêu đề đúng tên cột phần mềm nhận, cột bắt buộc có *, định dạng ô, danh sách chọn tuyến / xe / đơn vị, tô màu ô thiếu / KL lệch), HUONG_DAN, DANH_MUC, VI_DU · partner=true: mẫu dầu cho file của đối tác ở màn Đối chiếu dữ liệu (đọc lại bằng reconcile.compare / subcontract.preview)', EDIT,
+   [('importType', 'enum(PHIEU_CAN|GIAO_NHAN_DAU)', True, ''),
+    ('contractId', 'string', False, 'bắt buộc với GIAO_NHAN_DAU (danh sách xe của hợp đồng)'),
+    ('targetPath', 'string', False, 'từ dialog.saveFile; trống = thư mục exports'),
+    ('partner', 'boolean', False, 'chỉ với GIAO_NHAN_DAU: mẫu dầu để ĐỐI CHIẾU với đối tác — không cần contractId, liệt kê mọi xe đang dùng')],
+   '{path, sizeBytes, sheet, firstDataRow, columns[{header, required}]}',
+   errors=['VALIDATION_FAILED'],
+   reads=['TUYEN_VC', 'XE', 'HOP_DONG_XE', 'DON_VI', 'HOP_DONG'])
 ep('import.profiles.list', 'Import', 'Danh sách mẫu nhập phiếu cân và mẫu mặc định', ALL, [], '{items, fields}', reads=['IMPORT_PROFILE'])
 ep('import.profiles.inspect', 'Import', 'Xem sheet, gợi ý ghép cột hoặc đọc thử file Excel', EDIT,
    [('filePath', 'string', True, ''), ('sheetName', 'string', False, ''), ('headerRow', 'integer', False, ''),
@@ -219,16 +240,23 @@ ep('import.profiles.default', 'Import', 'Đặt mẫu nhập mặc định hoặ
 ep('import.profiles.delete', 'Import', 'Xóa mẫu nhập phiếu cân', ADM, [('id', 'string', True, '')],
    '{id}', writes=['IMPORT_PROFILE'], audit='IMPORT_PROFILE_DELETE', lock=True)
 ep('import.preview', 'Import', 'Bước 1: main process đọc file Excel/CSV theo đường dẫn → gợi ý mapping, kiểm tra từng dòng, giữ dữ liệu tạm trong bộ nhớ theo batchId. KHÔNG ghi dữ liệu', EDIT,
-   [('importType', 'enum(PHIEU_CAN|GIAO_NHAN_DAU)', True, ''), ('contractId', 'string', False, 'bắt buộc với GIAO_NHAN_DAU; HĐ bên VC = đơn vị bản cài'),
-    ('filePath', 'string', True, 'từ dialog.openFile'), ('sheetName', 'string', False, 'trống = sheet đầu / tự dò sheet có header phù hợp'),
-    ('headerRow', 'integer', False, 'trống = tự dò'), ('mapping', 'object', False, 'trống = tự gợi ý; gửi lại để preview với mapping mới'),
-    ('profileId', 'string', False, 'bỏ qua = dùng mặc định; chuỗi trống = tự nhận diện'), ('readConfig', 'object', False, 'cấu hình tùy chỉnh cho file hiện tại'),
-    ('sourceBatchId', 'string', False, 'đọc lại file gốc bằng cấu hình của đợt'), ('replaceBatchId', 'string', False, 'thay đợt xem trước sau khi cách đọc mới hợp lệ'),
-    ('reuseReading', 'boolean', False, 'dùng cách đọc của đợt đang thay để đổi kiểu số'),
+   [('importType', 'enum(PHIEU_CAN|GIAO_NHAN_DAU)', True, ''),
+    ('contractId', 'string', False, 'bắt buộc với GIAO_NHAN_DAU; HĐ bên VC = đơn vị bản cài'), ('filePath', 'string', True, 'từ dialog.openFile'),
+    ('sheetName', 'string', False, 'trống = sheet đầu / tự dò sheet có header phù hợp'), ('headerRow', 'integer', False, 'trống = tự dò'),
+    ('mapping', 'object', False, 'trống = tự gợi ý; gửi lại để preview với mapping mới'),
+    ('numberStyle', 'enum(AUTO|VN|EN)', False, 'kiểu số của ô chữ: AUTO (mặc định; "17,470" bị báo mơ hồ) · VN 1.234,5 · EN 1,234.5'),
+    ('profileId', 'string', False, 'bỏ qua = dùng mặc định; chuỗi trống = tự nhận diện'),
+    ('readConfig', 'object', False, 'cấu hình tùy chỉnh cho file hiện tại'),
+    ('sourceBatchId', 'string', False, 'đọc lại file gốc bằng cấu hình của đợt'),
+    ('replaceBatchId', 'string', False, 'thay đợt xem trước sau khi cách đọc mới hợp lệ'),
     ('fixedValues', 'object', False, 'giá trị dùng chung nếu file thiếu cột'),
-    ('numberStyle', 'enum(AUTO|VN|EN)', False, 'kiểu số của ô chữ: AUTO (mặc định; "17,470" bị báo mơ hồ) · VN 1.234,5 · EN 1,234.5')],
+    ('reuseReading', 'boolean', False, 'dùng cách đọc của đợt đang thay để đổi kiểu số')],
    '{batchId, fileSha256, sameFileImportedBefore, sheets, mapping, summary:{total, ok, warning, error, duplicate}, rows:[{rowNo, status, flags:[code], normalized}] (trang đầu), page}',
-   ['VALIDATION_FAILED', 'BUSINESS_RULE:E_MAPPING_REQUIRED', 'BUSINESS_RULE:E_NOT_CARRIER', 'STORAGE_ERROR', 'BUSINESS_RULE:E_IMPORT_PROFILE'], ['PHIEU_CAN', 'GIAO_NHAN_DAU', 'XE', 'TUYEN_VC', 'DON_VI', 'IMPORT_BATCH', 'IMPORT_PROFILE'], ['IMPORT_BATCH'], 'IMPORT_PREVIEW', True)
+   errors=['VALIDATION_FAILED', 'BUSINESS_RULE:E_MAPPING_REQUIRED', 'BUSINESS_RULE:E_NOT_CARRIER', 'STORAGE_ERROR', 'BUSINESS_RULE:E_IMPORT_PROFILE'],
+   reads=['PHIEU_CAN', 'GIAO_NHAN_DAU', 'XE', 'TUYEN_VC', 'DON_VI', 'IMPORT_BATCH', 'IMPORT_PROFILE'],
+   writes=['IMPORT_BATCH'],
+   audit='IMPORT_PREVIEW',
+   lock=True)
 ep('import.previewRows', 'Import', 'Xem trang tiếp theo / lọc dòng lỗi của lô đang preview', EDIT, [('batchId', 'string', True, ''), ('status', 'enum(OK|WARNING|ERROR)', False, '')] + PAGING,
    '{rows, total}', ['NOT_FOUND'])
 ep('import.confirm', 'Import', 'Bước 2: kiểm tra lại (dữ liệu có thể đã đổi) → ghi 1 giao dịch', EDIT,
@@ -338,11 +366,15 @@ ep('data.backupNow', 'Dữ liệu', 'Sao lưu ngay toàn bộ thư mục dữ li
    '{path, sizeBytes, sha256}', ['STORAGE_ERROR'], audit='BACKUP')
 ep('data.listBackups', 'Dữ liệu', 'Danh sách bản sao lưu (ngày / tháng / thủ công)', ADM, [], '{items:[{path, kind, createdAt, sizeBytes, dataVersion}]}')
 ep('data.inspectBackup', 'Dữ liệu', 'Xem trước 1 file sao lưu chọn từ bất kỳ đâu (.zip, hoặc manifest.json của thư mục dữ liệu JSON) trước khi khôi phục: đơn vị, mã bản cài, phiên bản dữ liệu, có khôi phục được không', ADM,
-   [('file', 'string', True, 'đường dẫn .zip hoặc manifest.json')], '{storageFormat, unitCode, installId, dataVersion, createdAt, sameInstall, sameUnit, canRestore, problem, needsOtherInstallConfirm}',
-   ['INTEGRITY_ERROR', 'NOT_FOUND', 'VALIDATION_FAILED'])
+   [('file', 'string', True, 'đường dẫn .zip hoặc manifest.json')],
+   '{storageFormat, unitCode, installId, dataVersion, createdAt, sameInstall, sameUnit, canRestore, problem, needsOtherInstallConfirm, subcontractFiles, archiveFiles, subcontractNote}',
+   errors=['INTEGRITY_ERROR', 'NOT_FOUND', 'VALIDATION_FAILED'])
 ep('data.restore', 'Dữ liệu', 'Khôi phục từ 1 bản sao lưu (trong danh sách hoặc chọn file .zip / manifest.json): tự sao lưu hiện trạng trước, thay dữ liệu, mở lại APP. Bản của máy khác cùng đơn vị cần allowOtherInstall', ADM,
-   [('file', 'string', True, 'đường dẫn .zip hoặc manifest.json'), ('reason', 'string', True, ''), ('allowOtherInstall', 'boolean', False, 'xác nhận khôi phục bản sao lưu của máy khác cùng đơn vị (thay cả mã bản cài)')],
-   '{restoredFrom, safetyBackup, dataVersion}', ['INTEGRITY_ERROR', 'STORAGE_ERROR', 'VALIDATION_FAILED'], audit='RESTORE')
+   [('file', 'string', True, 'đường dẫn .zip hoặc manifest.json'), ('reason', 'string', True, ''),
+    ('allowOtherInstall', 'boolean', False, 'xác nhận khôi phục bản sao lưu của máy khác cùng đơn vị (thay cả mã bản cài)')],
+   '{restoredFrom, safetyBackup, dataVersion, subcontractFiles, archiveFiles}',
+   errors=['INTEGRITY_ERROR', 'STORAGE_ERROR', 'VALIDATION_FAILED'],
+   audit='RESTORE')
 ep('data.exportJson', 'Dữ liệu', 'Sao lưu JSON: xuất bản chụp ra thư mục TRỐNG (manifest.json + tables/ + snapshot-info.json; kho SQLite: xuất ngược có kiểm chứng). Khôi phục bằng "Khôi phục từ file → manifest.json"', ADM,
    [('dest', 'string', True, 'thư mục đích trống')], '{ok, dest, dataVersion, rows}', ['VALIDATION_FAILED', 'INTEGRITY_ERROR'], audit='EXPORT_JSON')
 ep('data.changeFolder', 'Dữ liệu', 'Chuyển thư mục dữ liệu sang vị trí khác (copy + kiểm SHA-256 + đổi cấu hình)', ADM, [('newFolder', 'string', True, '')],
@@ -358,17 +390,25 @@ ep('storage.exportJson', 'Dữ liệu', 'Xuất ngược SQLite → thư mục J
    [('dest', 'string', True, 'thư mục đích trống')], '{ok, dest, fingerprint, rows}', ['VALIDATION_FAILED', 'INTEGRITY_ERROR'])
 
 # ------------------------------------------------------------ Trao đổi giữa các bản cài
-ep('exchange.exportPackage', 'Trao đổi', 'Xuất gói .dgvc (JSON nén + SHA-256): DANH_MUC (đơn vị, xe, tuyến, giá, HĐ liên quan), PHIEU_CAN (theo khoảng ngày / xe), KY_TINH (kỳ đã xác nhận/khóa + chi tiết + BKVC)', EDIT,
+ep('exchange.exportPackage', 'Trao đổi', 'Xuất gói .dgvc (JSON nén + SHA-256): DANH_MUC (đơn vị, xe, tuyến, giá, HĐ liên quan), PHIEU_CAN (theo khoảng ngày / xe, kèm dòng giao nhận dầu lọc theo receive_date), KY_TINH (kỳ đã xác nhận/khóa + chi tiết + BKVC)', EDIT,
    [('packageType', 'enum(DANH_MUC|PHIEU_CAN|KY_TINH)', True, ''), ('targetUnitCode', 'string', False, 'đơn vị nhận'),
     ('periodIds', 'array<string>', False, 'với KY_TINH — chỉ kỳ DA_XAC_NHAN/DA_KHOA'), ('dateFrom', 'date', False, ''), ('dateTo', 'date', False, ''),
     ('plates', 'array<string>', False, 'với PHIEU_CAN'), ('targetPath', 'string', True, 'từ dialog.saveFile')],
-   '{path, packageSha256, counts}', ['BUSINESS_RULE:E_PERIOD_STATUS', 'STORAGE_ERROR'],
-   ['DON_VI', 'XE', 'TUYEN_VC', 'PRICE_HISTORY', 'HOP_DONG', 'HOP_DONG_XE', 'PHIEU_CAN', 'KY_TINH', 'TRANSPORT_CALCULATION', 'TRANSPORT_DETAIL', 'FUEL_DETAIL', 'BKVC_LINE', 'GIAO_NHAN_DAU'],
-   ['EXCHANGE_LOG'], 'EXPORT_PACKAGE', True)
-ep('exchange.previewPackage', 'Trao đổi', 'Đọc gói, kiểm SHA-256 + schemaVersion, so với dữ liệu hiện có → mới / cập nhật / giống / xung đột / thay bản cũ (chỉ khi CÙNG máy gửi gửi lại) / từ chối. Kỳ cùng hợp đồng + khoảng ngày đã nhận từ MÁY KHÁC → xung đột; kỳ có phiếu cân / dòng dầu đã tính ở kỳ khác → từ chối; mã trùng nhưng khác kỳ → đổi mã, lưu riêng. KHÔNG ghi', EDIT,
-   [('filePath', 'string', True, ''), ('ticketsOnly', 'boolean', False, 'chỉ lấy phiếu cân trong gói (vd bản cài là bên vận chuyển nhận gói kỳ của máy khác)')], '{previewId, header:{packageType, sourceUnitCode, sourceInstallId, createdAt, schemaVersion}, summary, conflicts:[{table, id, note, changes}], rejected:[{table, id, note}], canImport, ticketsOnly, ticketsInPackage, remapped}',
-   ['INTEGRITY_ERROR', 'BUSINESS_RULE:E_PACKAGE_SCHEMA', 'BUSINESS_RULE:E_PACKAGE_OWN'],
-   ['DON_VI', 'XE', 'TUYEN_VC', 'PRICE_HISTORY', 'HOP_DONG', 'HOP_DONG_XE', 'PHIEU_CAN', 'KY_TINH'], ['EXCHANGE_LOG'], 'IMPORT_PACKAGE_PREVIEW', True)
+   '{exchangeId, file, sizeBytes, contentSha256, counts, header, remindersMarked, warnings}',
+   errors=['BUSINESS_RULE:E_PERIOD_STATUS', 'STORAGE_ERROR'],
+   reads=['DON_VI', 'XE', 'TUYEN_VC', 'PRICE_HISTORY', 'HOP_DONG', 'HOP_DONG_XE', 'PHIEU_CAN', 'KY_TINH', 'TRANSPORT_CALCULATION', 'TRANSPORT_DETAIL', 'FUEL_DETAIL', 'BKVC_LINE', 'GIAO_NHAN_DAU'],
+   writes=['EXCHANGE_LOG'],
+   audit='EXPORT_PACKAGE',
+   lock=True)
+ep('exchange.previewPackage', 'Trao đổi', 'Đọc gói, kiểm SHA-256 + schemaVersion, so với dữ liệu hiện có → mới / cập nhật / giống / xung đột / thay bản cũ (chỉ khi CÙNG máy gửi gửi lại) / từ chối. Kỳ cùng hợp đồng + khoảng ngày đã nhận từ MÁY KHÁC → xung đột; kỳ có phiếu cân / dòng dầu đã tính ở kỳ khác → từ chối; mã trùng nhưng khác kỳ → đổi mã, lưu riêng. KHÔNG ghi · Gói PHIEU_CAN có dầu: dòng dầu cũng được xem trước (mới / đã có / nghi trùng POSSIBLE_DUPLICATE / bỏ qua do thiếu danh mục — fuelSkipped); mã dòng dầu trùng nhưng khác nội dung thì đổi mã, không ghi đè', EDIT,
+   [('filePath', 'string', True, ''),
+    ('ticketsOnly', 'boolean', False, 'chỉ lấy phiếu cân trong gói (vd bản cài là bên vận chuyển nhận gói kỳ của máy khác)')],
+   '{previewId, header:{packageType, sourceUnitCode, sourceInstallId, createdAt, schemaVersion}, summary, conflicts:[{table, id, note, changes}], rejected:[{table, id, note}], canImport, ticketsOnly, ticketsInPackage, remapped}',
+   errors=['INTEGRITY_ERROR', 'BUSINESS_RULE:E_PACKAGE_SCHEMA', 'BUSINESS_RULE:E_PACKAGE_OWN'],
+   reads=['DON_VI', 'XE', 'TUYEN_VC', 'PRICE_HISTORY', 'HOP_DONG', 'HOP_DONG_XE', 'PHIEU_CAN', 'KY_TINH'],
+   writes=['EXCHANGE_LOG'],
+   audit='IMPORT_PACKAGE_PREVIEW',
+   lock=True)
 ep('exchange.importPackage', 'Trao đổi', 'Nhập gói theo quy tắc gộp (§ Trao đổi); kỳ nhận về là IMPORTED — chỉ xem', EDIT,
    [('previewId', 'string', True, 'mã phiên xem trước từ exchange.previewPackage — gọi lặp cùng previewId trả chung một kết quả'), ('decisions', 'object<"BẢNG:mã", KEEP|TAKE|SKIP>', False, 'cách xử lý từng xung đột (mặc định theo default của xung đột)')],
    '{exchangeId, counts, safetyBackup}', ['BUSINESS_RULE:E_PREVIEW_STALE', 'BUSINESS_RULE:E_CONFLICT_UNRESOLVED', 'STORAGE_ERROR'],
@@ -379,12 +419,127 @@ ep('exchange.list', 'Trao đổi', 'Lịch sử gói đã xuất / nhập', ALL,
 ep('reconcile.audit', 'Đối chiếu', 'Kiểm tra nội bộ (chỉ đọc): phiếu cân của xe thuộc hợp đồng mình vận chuyển mà chưa tính ở kỳ nào — LATE (về muộn, ngày thuộc kỳ đã chốt) · GAP (lọt khe giữa các kỳ) · DRAFT (kỳ nháp chưa tính lại) · EXCLUDED (chủ động bỏ) · WAITING (chờ kỳ sau); kèm xe nằm trong 2 hợp đồng cùng lúc', ALL,
    [('dateFrom', 'date', False, 'ngày cân 1 từ'), ('dateTo', 'date', False, ''), ('includeWaiting', 'boolean', False, 'kèm phiếu chờ kỳ sau (mặc định không)')],
    '{summary{LATE,GAP,DRAFT,EXCLUDED,WAITING:{label,count,kg}}, rows[{kind, ticketId, ticketNo, date, plateNo, netKg, contractCode, periodId, periodCode, periodStatus}], overlaps[{plateNo, contractA, contractB, overlap, sameCustomer}], problems}', [], ['PHIEU_CAN', 'TRANSPORT_DETAIL', 'KY_TINH', 'CALC_RUN', 'HOP_DONG', 'HOP_DONG_XE'])
-ep('reconcile.compare', 'Đối chiếu', 'Đối chiếu phiếu cân của đơn vị khác (gói .dgvc có phiếu cân hoặc file Excel phiếu cân) với phiếu cân bên mình theo số phiếu + ngày cân 1 + biển số; không ghi gì', ALL,
-   [('filePath', 'string', True, 'từ dialog.openFile'), ('dateFrom', 'date', False, 'mặc định theo file'), ('dateTo', 'date', False, ''), ('allPlates', 'boolean', False, 'so cả xe không có trong file (mặc định chỉ xe có trong file)')],
-   '{source{fileName, sourceText, rows, unreadable, duplicates}, dateFrom, dateTo, summary{KHOP,LECH,KHAC_SO_PHIEU,THIEU_BEN_MINH,THIEU_BEN_KIA}, totals, rows[{kind, date, plateNo, ticketNo, theirTicketNo, mineKg, theirKg, diffKg, fields, periodCode}], byPlate, matched, problems}', ['VALIDATION_FAILED', 'INTEGRITY_ERROR', 'E_MAPPING_REQUIRED'], ['PHIEU_CAN', 'TRANSPORT_DETAIL', 'KY_TINH'])
+ep('reconcile.compare', 'Đối chiếu', 'Đối chiếu dữ liệu của đối tác (gói .dgvc, .json, file Excel mẫu phiếu cân / mẫu dầu, hoặc đợt đã lưu) với dữ liệu bên mình: phiếu cân theo số phiếu + ngày cân 1 + biển số, dầu nhận theo ngày + biển số, đơn giá & thực trả; không ghi gì', ALL,
+   [('dateFrom', 'date', False, 'mặc định theo file'), ('dateTo', 'date', False, ''),
+    ('allPlates', 'boolean', False, 'so cả xe không có trong file (mặc định chỉ xe có trong file)'),
+    ('filePath', 'string', False, 'file đối tác (.xlsx phiếu cân / dầu / cả hai sheet, .json, .dgvc) — hoặc dùng batchId'),
+    ('batchId', 'string', False, 'đợt đối tác đã lưu (subcontract.list) thay cho filePath'),
+    ('deductFuel', 'boolean', False, 'không gửi → dùng giá trị đã lưu của đợt; không có đợt → mặc định có trừ dầu')],
+   '{source{fileName, sourceText, rows, unreadable, duplicates}, dateFrom, dateTo, summary{KHOP,LECH,KHAC_SO_PHIEU,THIEU_BEN_MINH,THIEU_BEN_KIA}, totals, rows[{kind, date, plateNo, ticketNo, theirTicketNo, mineKg, theirKg, diffKg, fields, periodCode}], byPlate, matched, problems}',
+   errors=['VALIDATION_FAILED', 'INTEGRITY_ERROR', 'E_MAPPING_REQUIRED'],
+   reads=['PHIEU_CAN', 'TRANSPORT_DETAIL', 'KY_TINH'])
 ep('reconcile.export', 'Đối chiếu', 'Xuất Excel kết quả đối chiếu (nhiều sheet: Tổng hợp · Chi tiết …)', ALL,
    [('kind', 'enum(AUDIT|COMPARE)', True, ''), ('params', 'object', True, 'như reconcile.audit / reconcile.compare'), ('targetPath', 'string', False, 'từ dialog.saveFile')],
    '{path, sizeBytes}', ['VALIDATION_FAILED', 'STORAGE_ERROR'], [], [], 'EXPORT')
+
+# ------------------------------------------------------------ Hành động bổ sung
+ep('routes.priceLines', 'Danh mục', 'Đơn giá của một tuyến (chỉ đọc), kèm hình thức giá có hiệu lực tại ngày hiệu lực của từng dòng — dùng cho ngăn xem chéo ở Danh mục tuyến', ALL,
+   [('routeCode', 'string', True, '')],
+   '{route:{routeCode, routeName, distanceKm, uom, isActive}, items:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, calcBasis, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}',
+   errors=['NOT_FOUND'],
+   reads=['TUYEN_VC', 'PRICE_HISTORY', 'HINH_THUC_GIA'])
+ep('forms.list', 'Đơn giá', 'Danh mục Hình thức giá (chỉ liệt kê dòng chưa gỡ): sắp theo mã hình thức rồi ngày cập nhật giảm dần; kèm số đơn giá dùng hình thức (tính theo ngày hiệu lực của đơn giá). Công thức chỉ để hiển thị — KHÔNG ảnh hưởng cách tính giá', ALL,
+   [('includeClosed', 'boolean', False, 'mặc định true — false: chỉ dòng đang hiệu lực'),
+    ('methodCode', 'enum(CO_DINH|THEO_DAU)', False, 'lọc theo mã hình thức')],
+   '{items:[{formId, methodCode, methodLabel, formName, formulaText, catalogDate, effectiveTo, status, priceLineCount, activeLineCount, note, rowVersion}], total}',
+   reads=['HINH_THUC_GIA', 'PRICE_HISTORY'])
+ep('forms.get', 'Đơn giá', 'Chi tiết một hình thức giá + các đơn giá đang dùng hình thức này (price_method = mã hình thức và hiệu lực từ nằm trong thời gian hiệu lực của dòng hình thức) — chỉ xem', ALL,
+   [('formId', 'string', True, 'vd HT-CD-20000101')],
+   '{record:{formId, methodCode, methodLabel, formName, formulaText, catalogDate, effectiveTo, status, priceLineCount, activeLineCount, note, rowVersion}, lines:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, calcBasis, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}]}',
+   errors=['NOT_FOUND'],
+   reads=['HINH_THUC_GIA', 'PRICE_HISTORY', 'TUYEN_VC'])
+ep('forms.save', 'Đơn giá', 'Thêm dòng hình thức mới (create=true: {methodCode, catalogDate?, formName?, formulaText?, note?}; ngày mặc định hôm nay, KHÔNG điền lùi — phải sau ngày dòng đang hiệu lực cùng mã; dòng cũ tự đóng: hiệu lực đến = ngày mới − 1, trạng thái CLOSED, cùng một giao dịch) hoặc sửa tên / công thức mô tả / ghi chú ({formId, …} + rowVersion; không đổi mã hình thức và ngày cập nhật). Công thức chỉ mô tả, không đổi cách tính giá; có nhắc sửa giống ở nhà máy khác', EDIT,
+   [('record', 'object', True, '{formId? (khi sửa), methodCode, catalogDate, formName, formulaText, note} (camelCase)'),
+    ('create', 'boolean', False, 'true = thêm dòng mới'), ('rowVersion', 'integer', False, 'bắt buộc khi sửa')],
+   '{record:{formId, methodCode, methodLabel, formName, formulaText, catalogDate, effectiveTo, status, priceLineCount, activeLineCount, note, rowVersion}, closed:[formId dòng cũ đã đóng], warnings}',
+   errors=['VALIDATION_FAILED', 'NOT_FOUND', 'CONFLICT_VERSION'],
+   reads=['HINH_THUC_GIA', 'PRICE_HISTORY'],
+   writes=['HINH_THUC_GIA', 'SYNC_REMINDER'],
+   audit='FORM_CREATE/FORM_UPDATE/FORM_CLOSE',
+   lock=True)
+ep('forms.remove', 'Đơn giá', 'Xóa hình thức giá chưa dùng = ĐÓNG dòng (hiệu lực kết thúc trước ngày bắt đầu, ẩn khỏi danh sách; không xóa cứng để gói trao đổi Danh mục mang được) và mở lại dòng trước. Chỉ dòng mới nhất của mã, không còn đơn giá nào dùng, và không phải dòng duy nhất của mã; còn dùng → BUSINESS_RULE:E_FORM_IN_USE kèm hướng dẫn', EDIT,
+   [('formId', 'string', True, '')],
+   '{removed, methodCode, reopened:[formId], warnings}',
+   errors=['NOT_FOUND', 'BUSINESS_RULE:E_FORM_IN_USE', 'BUSINESS_RULE:E_FORM_NOT_LATEST', 'BUSINESS_RULE:E_FORM_LAST'],
+   reads=['HINH_THUC_GIA', 'PRICE_HISTORY'],
+   writes=['HINH_THUC_GIA', 'SYNC_REMINDER'],
+   audit='FORM_REMOVE',
+   lock=True)
+ep('prices.catalog', 'Đơn giá', 'Danh mục Đơn giá phẳng (chỉ đọc): ngày cập nhật (= hiệu lực từ) · mã đơn giá (priceId; priceCode nếu có) · tuyến + tên tuyến · hình thức giá (mã, tên, công thức của dòng hình thức có hiệu lực tại ngày hiệu lực của đơn giá) · giá theo hình thức (price) · hiệu lực · trạng thái. Không gồm dòng giá riêng đã gỡ', ALL,
+   [('routeCode', 'string', False, ''), ('methodCode', 'enum(CO_DINH|THEO_DAU)', False, ''), ('status', 'enum(DRAFT|ACTIVE|CLOSED)', False, '')],
+   '{items:[{updateDate, priceId, priceCode, contractId, routeCode, routeName, uom, methodCode, methodLabel, formId, formName, formulaText, price, fixedPrice, newPrice, contractPrice, fuelPriceExclVat, fuelNormLPerKm, avgLoadTon, avgVolumeM3, calcBasis, effectiveFrom, effectiveTo, status, isUsed, versionNo, rowVersion}], total}',
+   errors=['VALIDATION_FAILED'],
+   reads=['PRICE_HISTORY', 'TUYEN_VC', 'HINH_THUC_GIA', 'CONFIG'])
+ep('prices.remove', 'Đơn giá', 'Xóa dòng đơn giá dùng chung ở Danh mục Đơn giá: nháp → xóa hẳn; đã kích hoạt nhưng chưa dùng ở kỳ nào → đóng dòng (gói Danh mục mang trạng thái gỡ sang nhà máy khác) và mở lại bản trước; đã dùng ở kỳ đã xác nhận/khóa → E_PRICE_USED', EDIT,
+   [('priceId', 'string', True, 'mã đơn giá (price_id)')],
+   '{removed, routeCode, wasDraft, reopened[], affectedPeriods[], warnings[]}',
+   errors=['NOT_FOUND', 'VALIDATION_FAILED', 'BUSINESS_RULE:E_PRICE_USED'],
+   reads=['PRICE_HISTORY'],
+   writes=['PRICE_HISTORY'],
+   audit='PRICE_REMOVE',
+   lock=True)
+ep('subcontract.preview', 'Nhập liệu', 'Đọc và trích xuất phiếu cân + dòng dầu từ file .json, .dgvc hoặc .xlsx (mẫu phiếu cân NL_VC, mẫu dầu NL_GIAONHANDAU hoặc cả hai sheet) để xem trước đợt của đối tác; báo các đợt đã nạp trùng file / trùng khóa phiếu', EDIT,
+   [('filePath', 'string', False, 'Đường dẫn file'), ('jsonContent', 'string', False, 'Nội dung JSON')],
+   '{fileName, fileSha256, contentSig, partnerSuggested, summary, tickets, fuelRows, unreadable[{sheet,rowNo,note}], duplicates[{batchId,batchName,createdAt,reason:SAME_FILE|SAME_TICKETS}]}',
+   errors=['VALIDATION_FAILED', 'NOT_FOUND', 'BUSINESS_RULE:E_MAPPING_REQUIRED'])
+ep('subcontract.importBatch', 'Nhập liệu', 'Lưu một đợt dữ liệu của đối tác (bản sao phục vụ đối chiếu — không vào kỳ). Chống trùng: cùng clientRequestId → một kết quả; trùng SHA-256 file hoặc trùng toàn bộ khóa phiếu với đợt đã có → E_BATCH_DUPLICATE (giao diện hỏi xác nhận, gửi lại confirmDuplicate=true). Ghi file đợt kiểu tạm rồi đổi tên; không ghi được nhật ký thì hoàn tác đợt', EDIT,
+   [('periodId', 'string', False, 'Kỳ vận chuyển liên quan (tùy chọn)'), ('partnerName', 'string', False, 'Tên đơn vị thuê'),
+    ('batchName', 'string', False, 'Tên đợt'), ('rentUnitPrice', 'number', False, 'Đơn giá thuê (đ/tấn)'),
+    ('fuelUnitPrice', 'number', False, 'Đơn giá dầu (đ/lít)'), ('deductFuel', 'boolean', False, 'Khấu trừ tiền dầu'),
+    ('filePath', 'string', False, ''), ('jsonContent', 'string', False, ''),
+    ('confirmDuplicate', 'boolean', False, 'đã xác nhận nạp thêm dù trùng đợt cũ (sau lỗi E_BATCH_DUPLICATE)'),
+    ('clientRequestId', 'string', False, 'mã chống bấm 2 lần — cùng mã trả cùng một đợt')],
+   '{batchId, periodId, periodCode, contractId, partnerName, batchName, rentUnitPrice, fuelUnitPrice, deductFuel, summary, status}',
+   errors=['VALIDATION_FAILED', 'NOT_FOUND', 'BUSINESS_RULE:E_BATCH_DUPLICATE', 'BUSINESS_RULE:E_MAPPING_REQUIRED'],
+   reads=['KY_TINH'],
+   audit='IMPORT_SUBCONTRACT_BATCH')
+ep('subcontract.list', 'Nhập liệu', 'Danh sách các đợt dữ liệu của đối tác đã nạp', ALL,
+   [('periodId', 'string', False, ''), ('contractId', 'string', False, '')],
+   '{batches:[{batchId, periodId, periodCode, partnerName, batchName, rentUnitPrice, fuelUnitPrice, deductFuel, summary, status}]}')
+ep('subcontract.get', 'Nhập liệu', 'Chi tiết đợt nạp thuê vận chuyển kèm danh sách phiếu cân và dầu', ALL,
+   [('batchId', 'string', True, 'Mã đợt')],
+   '{batchId, periodId, periodCode, partnerName, batchName, summary, tickets, fuelRows, details}',
+   errors=['VALIDATION_FAILED', 'NOT_FOUND'])
+ep('subcontract.delete', 'Nhập liệu', 'Xóa một đợt đối tác (chỉ xóa bản sao dùng để đối chiếu). Ghi nhật ký trước khi xóa; lỗi nhật ký thì không xóa', EDIT,
+   [('batchId', 'string', True, 'Mã đợt')],
+   '{ok, batchId}',
+   errors=['VALIDATION_FAILED', 'NOT_FOUND'],
+   audit='DELETE_SUBCONTRACT_BATCH')
+ep('subcontract.report', 'Nhập liệu', 'Báo cáo thuê vận chuyển: tổng hợp số liệu nhận về của các đợt đã nạp (số chuyến, tấn, dầu, tiền thuê = tấn × đơn giá thuê tính theo từng xe, dầu trừ, thực trả). Khớp từng đồng với phần "bên kia" của Đối chiếu 3 tiêu chí trên cùng đợt; không tạo kỳ tính giá', ALL,
+   [('partnerName', 'string', False, 'đơn vị vận chuyển (đúng tên)'), ('q', 'string', False, 'tìm không dấu theo đơn vị / tên đợt / mã kỳ'),
+    ('dateFrom', 'date', False, 'lấy đợt có khoảng ngày dữ liệu giao với [dateFrom, dateTo]'), ('dateTo', 'date', False, ''),
+    ('month', 'string', False, 'yyyy-MM — chọn nhanh một tháng (thay cho dateFrom/dateTo nếu chưa gửi)'), ('contractId', 'string', False, ''),
+    ('periodId', 'string', False, '')],
+   '{filter, partners:[string], totalBatches, rows:[batchId, batchName, partnerName, periodCode, dateFrom, dateTo, ticketCount, plateCount, totalKg, totalTon, fuelLiter, fuelLiterUnmatched, rentUnitPrice, fuelUnitPrice, deductFuel, rentAmount, fuelAmount, deductFuelAmount, payable, importedAt, rowVersion], byPartner:[{partnerName, batchCount, ticketCount, totalKg, totalTon, fuelLiter, rentAmount, fuelAmount, deductFuelAmount, payable}], totals:{batchCount, ticketCount, plateCount, totalKg, totalTon, fuelLiter, rentAmount, fuelAmount, deductFuelAmount, payable}}',
+   errors=['VALIDATION_FAILED'])
+ep('subcontract.reportDetail', 'Nhập liệu', 'Chi tiết một đợt của báo cáo thuê vận chuyển theo xe và theo ngày (cộng lại đúng bằng dòng của subcontract.report); fuelOnly = dầu của xe không có chuyến nào (không tính tiền, chỉ để thấy)', ALL,
+   [('batchId', 'string', True, 'Mã đợt')],
+   '{batch:{batchId, batchName, partnerName, periodCode, dateFrom, dateTo, ticketCount, plateCount, totalKg, totalTon, fuelLiter, fuelLiterUnmatched, rentUnitPrice, fuelUnitPrice, deductFuel, rentAmount, fuelAmount, deductFuelAmount, payable, importedAt, rowVersion}, byPlate:[{plateNo, ticketCount, kg, ton, fuelCount, fuelLiter, rentAmount, fuelAmount, deductFuelAmount, payable}], byDate:[{date, ticketCount, kg, ton, fuelLiter}], fuelOnly:[{plateNo, fuelCount, fuelLiter}], totals}',
+   errors=['VALIDATION_FAILED', 'NOT_FOUND'])
+ep('subcontract.updateTerms', 'Nhập liệu', 'Sửa đơn giá thuê (đ/tấn), giá dầu (đ/lít), trừ dầu của một đợt đã nạp (trước đây chỉ nhập lúc nạp). Bắt buộc lý do; ghi nhật ký trước khi lưu; không đổi dữ liệu phiếu / dầu của đợt', EDIT,
+   [('batchId', 'string', True, 'Mã đợt'),
+    ('rentUnitPrice', 'number|string', False, 'đ/tấn, 0 … 1.000.000.000; chuỗi kiểu Việt "150.000" được hiểu 150000; không gửi = giữ nguyên'),
+    ('fuelUnitPrice', 'number|string', False, 'đ/lít, như trên'), ('deductFuel', 'boolean', False, 'trừ tiền dầu vào cước'),
+    ('reason', 'string', True, 'lý do sửa'), ('rowVersion', 'integer', False, 'tùy chọn: nếu gửi thì kiểm; sai → CONFLICT_VERSION')],
+   '{batchId, batchName, partnerName, periodCode, dateFrom, dateTo, ticketCount, plateCount, totalKg, totalTon, fuelLiter, fuelLiterUnmatched, rentUnitPrice, fuelUnitPrice, deductFuel, rentAmount, fuelAmount, deductFuelAmount, payable, importedAt, rowVersion}',
+   errors=['VALIDATION_FAILED', 'NOT_FOUND', 'CONFLICT_VERSION'],
+   audit='UPDATE_SUBCONTRACT_TERMS')
+ep('subcontract.reportExport', 'Nhập liệu', 'Xuất Excel báo cáo thuê vận chuyển (3 sheet: Tổng hợp theo đợt · Theo đơn vị · Chi tiết theo xe; tiêu đề tiếng Việt, số tiền định dạng)', ALL,
+   [('params', 'object', False, 'như subcontract.report'), ('targetPath', 'string', False, 'từ dialog.saveFile')],
+   '{path, sizeBytes, rows}',
+   errors=['VALIDATION_FAILED', 'STORAGE_ERROR'],
+   audit='EXPORT')
+ep('vehicles.previewImport', 'Danh mục', 'Xem trước danh sách xe nạp từ file Excel (tự động nhận diện Trọng tải, Thể tích m³, Chủ xe, Mã xe dầu)', EDIT,
+   [('filePath', 'string', True, 'Đường dẫn file Excel'), ('sheetName', 'string', False, 'Tên sheet (tùy chọn)')],
+   '{fileName, sheet, totalRows, insertCount, updateCount, errorCount, rows}',
+   errors=['VALIDATION_FAILED', 'NOT_FOUND'],
+   reads=['DON_VI', 'XE'])
+ep('vehicles.import', 'Danh mục', 'Xác nhận nạp/cập nhật danh sách xe từ kết quả xem trước vào danh mục', EDIT,
+   [('rows', 'array', True, 'Danh sách xe từ xem trước')],
+   '{ok, total, inserted, updated}',
+   errors=['VALIDATION_FAILED'],
+   writes=['XE', 'AUDIT_LOG'],
+   audit='IMPORT_VEHICLES_EXCEL')
 
 # ------------------------------------------------------------ Mã lỗi
 ERRORS = [  # (code, mức, ý nghĩa)
@@ -489,4 +644,6 @@ ISSUES = [  # (code, level, message, dùng ở đâu) — 10 lỗi bắt buộc 
     ('W_VEHICLE_PARTIAL_CONTRACT', 'WARNING', 'Xe thuộc hợp đồng nhưng có phiếu trong kỳ nằm ngoài thời gian hiệu lực của xe (đổi hợp đồng giữa kỳ) — phiếu đó không tính', 'periods'),
     ('W_TICKET_NO_CONTRACT', 'WARNING', 'Phiếu trong kỳ của xe không thuộc hợp đồng nào mà đơn vị bản cài là bên vận chuyển — chưa được tính ở đâu', 'periods'),
     ('E_TICKET_IDENTITY', 'ERROR', 'Không sửa số phiếu / ngày cân 1 / biển số — xóa mềm rồi nhập lại', 'tickets.update'),
+    ('W_VEHICLE_NO_VOLUME', 'WARNING', 'Tuyến tính theo m³ nhưng xe chưa khai thể tích thùng (Danh sách xe) — không chặn tính', 'periods'),
+    ('W_OVERLOAD', 'WARNING', 'Phiếu cân có khối lượng vượt trọng tải đăng kiểm của xe', 'periods'),
 ]

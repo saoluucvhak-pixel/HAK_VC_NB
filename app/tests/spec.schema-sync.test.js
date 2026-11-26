@@ -24,3 +24,9 @@ test('schema.py có đủ cột của schema.json', { skip: !PY && 'không tìm 
   for (const [name, t] of Object.entries(SCHEMA.tables)) for (const c of t.columns) if (!(cols[name] || []).includes(c.name)) missing.push(`${name}.${c.name}`);
   assert.deepEqual(missing, []);
 });
+
+test('Nguồn Python và ba bản đặc tả API JSON đồng bộ', { skip: !PY && 'không tìm thấy Python 3' }, () => {
+  const [cmd, ...pre] = PY;
+  const sync = path.join(__dirname, '..', '..', 'desk', 'sync_spec.py');
+  execFileSync(cmd, [...pre, '-B', sync, '--check'], { encoding: 'utf8' });
+});

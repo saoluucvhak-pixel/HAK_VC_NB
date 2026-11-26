@@ -135,13 +135,28 @@ function dateTime(raw) {
   return { date: M.toDate(date || raw), time: M.toTime(time) };
 }
 
+// Validate the whole cell before removing locale separators. The shared legacy parser is permissive.
+const numberVn = /^[+-]?(?:(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d+)?|,\d+)$/;
+const numberEn = /^[+-]?(?:(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?|\.\d+)$/;
+function profileNumber(raw, unit, style) {
+  if (typeof raw !== 'string') return M.toNumber(raw, style);
+  const text = raw.trim().replace(/\s/g, '');
+  const vn = style !== 'EN' && numberVn.test(text) ? M.toNumber(text, 'VN').value : undefined;
+  const en = style !== 'VN' && numberEn.test(text) ? M.toNumber(text, 'EN').value : undefined;
+  if (vn === undefined && en === undefined) return { error: `số không đọc được "${raw}"` };
+  // A dot with three following digits may be decimal for tonnes. Preserve the
+  // existing Vietnamese thousands convention for kilograms.
+  if (vn !== undefined && en !== undefined && vn !== en && (unit === 't' || text.includes(','))) return { ambiguous: true };
+  return { value: vn ?? en };
+}
+
 function weight(raw, columnUnit, rowUnit, fallback, numberStyle) {
   if (!present(raw)) return {};
   const suffix = matchUnit(raw);
   const value = suffix ? String(raw).slice(0, suffix.index).trim() : raw;
-  const n = M.toNumber(value, numberStyle);
-  if (n.ambiguous) return { error: `Số “${raw}” mơ hồ. Hãy chọn kiểu số Việt Nam hoặc Anh / Mỹ.`, ambiguous: true };
   const unit = suffix ? unitOf(suffix[1] || suffix[2]) : rowUnit || columnUnit || fallback;
+  const n = profileNumber(value, unit, numberStyle);
+  if (n.ambiguous) return { error: `Số “${raw}” mơ hồ. Hãy chọn kiểu số Việt Nam hoặc Anh / Mỹ.`, ambiguous: true };
   if (n.error && /\p{L}/u.test(M.toText(value))) return { unitError: `Không xác định được đơn vị của “${raw}”` };
   if (n.error || typeof n.value !== 'number') return { error: n.error || `Khối lượng không hợp lệ “${raw}”` };
   if (!unit) return { unitError: 'Không xác định được đơn vị kg/tấn' };
