@@ -43,7 +43,7 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await button('Vào phần mềm').click();
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     const store = srv.ctx.store;
-    const catalog = { splitDates: true, plate: '99A-00001', route: store.all('TUYEN_VC')[0].route_code };
+    const catalog = { splitDates: true, firstMass: '1.500', plate: '99A-00001', route: store.all('TUYEN_VC')[0].route_code };
     await store.transaction((tx) => tx.insert('XE', {
       ...store.all('XE')[0], plate_no: catalog.plate, plate_key: '99A00001', note: 'Xe tổng hợp dùng để kiểm thử',
     }));
@@ -91,10 +91,27 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await page.getByLabel('Ngày cân 1', { exact: true }).waitFor();
     await page.getByLabel('Giờ cân 1', { exact: true }).waitFor();
     await page.getByLabel('Tên mẫu', { exact: true }).fill('Nhà cung cấp A');
+    await page.getByLabel('Kiểu số của mẫu', { exact: true }).selectOption('EN');
     await button('Đọc thử').click();
     await page.getByText('2 phiếu hợp lệ / 2 dòng · Tổng 3.800 kg', { exact: true }).waitFor();
     await page.getByText(/Dòng 6 · Tổng công bố 3.900 kg.*−100|Dòng 6 · Tổng công bố 3.900 kg.*-100/).waitFor();
     await page.getByText('000042', { exact: true }).waitFor();
+    const failTrial = (route) => {
+      const { action, payload } = route.request().postDataJSON() || {};
+      return action === 'import.profiles.inspect' && payload.config
+        ? route.fulfill({ json: { ok: false, error: { code: 'VALIDATION_FAILED', message: 'File đọc thử không còn khả dụng' } } })
+        : route.continue();
+    };
+    await page.route('**/api', failTrial);
+    try {
+      await button('Đọc thử').click();
+      await page.getByRole('alert').getByText('File đọc thử không còn khả dụng').waitFor();
+      assert.equal(await button('Lưu mẫu').isDisabled(), true);
+    } finally {
+      await page.unroute('**/api', failTrial);
+    }
+    await button('Đọc thử').click();
+    await page.getByText('2 phiếu hợp lệ / 2 dòng · Tổng 3.800 kg', { exact: true }).waitFor();
     await button('Lưu mẫu').click();
     await page.getByText('Đã lưu mẫu “Nhà cung cấp A”.').waitFor();
     await button('Đặt mẫu này làm mặc định').click();
@@ -109,6 +126,7 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await button('Import từ Excel').click();
     let preview = dialog('Import phiếu cân — xem trước');
     await preview.getByText('Cách đọc: Nhà cung cấp A', { exact: true }).waitFor();
+    assert.equal(await preview.getByLabel('Kiểu số trong file').inputValue(), 'EN');
     const previewTicket = preview.getByRole('row').filter({ has: page.getByRole('cell', { name: '000042', exact: true }) });
     for (const time of ['22/09/2026', '23:50:00', '23/09/2026', '00:30:00']) {
       await previewTicket.getByRole('cell', { name: time, exact: true }).waitFor();
@@ -153,7 +171,8 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await button('Vào phần mềm').click();
     await openSettings();
     await page.getByText('Mặc định: Tự nhận diện', { exact: true }).waitFor();
-    await page.getByRole('cell', { name: 'Nhà cung cấp A', exact: true }).waitFor();
+    await page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Nhà cung cấp A', exact: true }) })
+      .getByRole('cell', { name: 'Anh / Mỹ', exact: true }).waitFor();
     await button('Sao chép').click();
     await dialog('Sao chép mẫu').getByRole('button', { name: 'Lưu', exact: true }).click();
     const copy = page.getByRole('row', { name: /Nhà cung cấp A \(bản sao\)/ });

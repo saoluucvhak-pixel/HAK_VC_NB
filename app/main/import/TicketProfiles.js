@@ -50,7 +50,7 @@ function hasConflictingColumn(mapping) {
 }
 
 function validateConfig(config) {
-  const { headerRow, mapping, fallbackUnit = '' } = config || {};
+  const { headerRow, mapping, fallbackUnit = '', numberStyle = 'AUTO' } = config || {};
   if (!Number.isInteger(headerRow) || headerRow < 1 || headerRow > 1048576) throw profileError('Dòng tiêu đề phải là số nguyên từ 1 đến 1.048.576');
   if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) throw profileError('Chưa ghép cột');
   const entries = Object.entries(mapping);
@@ -62,7 +62,8 @@ function validateConfig(config) {
   if (!mapping.net_kg && !(mapping.weight1_kg && mapping.weight2_kg)) missing.push('net_kg');
   if (missing.length) throw profileError('Cần ghép biển số, ngày cân 1 và khối lượng hàng hoặc cả hai lần cân', { missing });
   if (!['', 'kg', 't'].includes(fallbackUnit)) throw profileError('Đơn vị dự phòng phải là kg hoặc tấn');
-  return { headerRow, mapping: Object.fromEntries(entries.map(([field, name]) => [field, name.trim()])), fallbackUnit };
+  if (!['AUTO', 'VN', 'EN'].includes(numberStyle)) throw new AppError('VALIDATION_FAILED', 'Kiểu số không hợp lệ');
+  return { headerRow, mapping: Object.fromEntries(entries.map(([field, name]) => [field, name.trim()])), fallbackUnit, numberStyle };
 }
 
 function headersAt(rows, headerRow) {
@@ -143,7 +144,7 @@ function chooseSheet(wb, sheetName, config) {
 }
 
 function dateTime(raw) {
-  if (raw && typeof raw === 'object') return { date: M.toDate(raw), time: M.toTime(raw) };
+  if (raw && typeof raw === 'object') return { date: M.toDate(raw), time: M.toTime(raw.__dateOnly ? null : raw) };
   if (typeof raw === 'number' && raw > 20000 && raw < 80000) {
     return { date: M.toDate(raw), time: raw % 1 ? M.toTime(raw % 1) : { value: '' } };
   }
@@ -186,9 +187,10 @@ function generatedTicketNo(row) {
   return `AUTO-${createHash('sha256').update(JSON.stringify(identity)).digest('hex').slice(0, 16).toUpperCase()}`;
 }
 
-function read(wb, sheetName, input, numberStyle = 'AUTO') {
-  if (!['AUTO', 'VN', 'EN'].includes(numberStyle)) throw new AppError('VALIDATION_FAILED', 'Kiểu số không hợp lệ');
+function read(wb, sheetName, input, numberStyle) {
   const config = validateConfig(input);
+  if (numberStyle === undefined) numberStyle = config.numberStyle;
+  if (!['AUTO', 'VN', 'EN'].includes(numberStyle)) throw new AppError('VALIDATION_FAILED', 'Kiểu số không hợp lệ');
   const { sheet, colOf } = chooseSheet(wb, sheetName, config);
   const all = wb.rows(sheet);
   const headerDetails = headersAt(all, config.headerRow);
@@ -247,17 +249,26 @@ function read(wb, sheetName, input, numberStyle = 'AUTO') {
     const issues = [];
     const warn = (message, code = 'E_PROFILE_ROW') => issues.push({ code, level: 'ERROR', message });
     const secondary = dateTime(at('weigh2_date'));
-    const time1 = colOf.weigh1_time !== colOf.weigh1_date && present(at('weigh1_time')) ? M.toTime(at('weigh1_time')) : primary.time;
-    const time2 = colOf.weigh2_time !== colOf.weigh2_date && present(at('weigh2_time')) ? M.toTime(at('weigh2_time')) : secondary.time;
+    const hasTimeColumn = (time, date) => colOf[time] !== undefined && colOf[time] !== colOf[date];
+    const time1 = hasTimeColumn('weigh1_time', 'weigh1_date') && present(at('weigh1_time')) ? M.toTime(at('weigh1_time')) : primary.time;
+    const secondDateHasTime = colOf.weigh2_date !== colOf.weigh1_date || colOf.weigh2_time === colOf.weigh2_date;
+    const time2 = hasTimeColumn('weigh2_time', 'weigh2_date') && present(at('weigh2_time'))
+      ? M.toTime(at('weigh2_time')) : secondDateHasTime ? secondary.time : { value: '' };
     const record = Object.fromEntries([...columns].map((field) => [field, M.toText(at(field))]));
+    const explicitDate2 = secondary.date.value && colOf.weigh2_date !== colOf.weigh1_date;
+    const bothTimes = time1.value && time2.value;
     let date2 = secondary.date.value || primary.date.value || '';
-    if (primary.date.value && time1.value && time2.value && time2.value < time1.value) {
-      if (colOf.weigh2_date === undefined || colOf.weigh2_date === colOf.weigh1_date) {
-        const d = new Date(primary.date.value + 'T00:00:00Z');
-        d.setUTCDate(d.getUTCDate() + 1);
-        date2 = d.toISOString().slice(0, 10);
-      }
+    if (primary.date.value && !explicitDate2 && !secondary.date.error && bothTimes && time2.value < time1.value) {
+      const nextDay = new Date(primary.date.value + 'T00:00:00Z');
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      date2 = nextDay.toISOString().slice(0, 10);
     }
+    // For a new ticket the second date defaults to the first date. An update
+    // needs an explicit date or both times before replacing a stored second date.
+    const absentTimestamps = new Set();
+    if (!explicitDate2 && !bothTimes) absentTimestamps.add('weigh2_date');
+    if (!time1.value && !hasTimeColumn('weigh1_time', 'weigh1_date')) absentTimestamps.add('weigh1_time');
+    if (!time2.value && !hasTimeColumn('weigh2_time', 'weigh2_date')) absentTimestamps.add('weigh2_time');
     Object.assign(record, {
       ticket_no: ticket, plate_no: plate, weigh1_date: primary.date.value || '', weigh1_time: time1.value || '',
       weigh2_date: date2, weigh2_time: time2.value || '',
@@ -265,6 +276,9 @@ function read(wb, sheetName, input, numberStyle = 'AUTO') {
     if (!plate) warn('Thiếu biển số');
     if (!record.weigh1_date) warn(primary.date.error || 'Thiếu ngày cân');
     for (const v of [secondary.date, time1, time2]) if (v.error) warn(v.error);
+    if (M.weighOrderInvalid(record.weigh1_date, record.weigh1_time, date2, record.weigh2_time)) {
+      warn('Ngày/giờ cân 2 trước cân 1', 'E_DATE_INVALID');
+    }
     if (rawRowUnit && !rowUnit) unitErrors.push({ rowNo, message: `Đơn vị “${rawRowUnit}” chưa được hỗ trợ` });
     for (const field of WEIGHTS) {
       if (colOf[field] === undefined) continue;
@@ -284,7 +298,7 @@ function read(wb, sheetName, input, numberStyle = 'AUTO') {
     const valid = !issues.length;
     rows.push({ rowNo, normalized: record, issues, valid });
     rowWarnings.push(...issues.map(({ message }) => ({ rowNo, message })));
-    dataRows.push({ rowNo, cells, normalized: record, issues });
+    dataRows.push({ rowNo, cells, normalized: record, issues, absentTimestamps });
   }
   if (unitErrors.length) {
     const description = unitErrors.slice(0, 5).map((w) => `Dòng ${w.rowNo}: ${w.message}`).join(' · ');
@@ -299,7 +313,7 @@ function read(wb, sheetName, input, numberStyle = 'AUTO') {
   };
 }
 
-const unpack = (row) => ({ id: row.profile_id, name: row.name, ...JSON.parse(row.config_json), isDefault: row.is_default === true, rowVersion: row.row_version });
+const unpack = (row) => ({ id: row.profile_id, name: row.name, numberStyle: 'AUTO', ...JSON.parse(row.config_json), isDefault: row.is_default === true, rowVersion: row.row_version });
 const list = (store) => ({ items: store.all(TABLE).map(unpack).sort((a, b) => a.name.localeCompare(b.name, 'vi')) });
 
 async function save(store, { id, rowVersion, name, filePath, sheetName, config, numberStyle, copyFromId }, user) {
@@ -307,7 +321,8 @@ async function save(store, { id, rowVersion, name, filePath, sheetName, config, 
   name = typeof name === 'string' ? name.trim() : '';
   if (!name || name.length > 120) throw new AppError('VALIDATION_FAILED', 'Tên mẫu phải có từ 1 đến 120 ký tự');
   if (id && copyFromId) throw new AppError('VALIDATION_FAILED', 'Hãy lưu bản sao thành mẫu mới');
-  const parsed = copyFromId ? null : read(await openWorkbook(filePath), sheetName, config, numberStyle);
+  const savedConfig = numberStyle === undefined ? config : { ...config, numberStyle };
+  const parsed = copyFromId ? null : read(await openWorkbook(filePath), sheetName, savedConfig);
   if (parsed && !parsed.trial.count) throw profileError('File đọc thử cần có ít nhất một phiếu hợp lệ');
   const saved = await store.transaction((tx) => {
     if (tx.all(TABLE).some((row) => row.profile_id !== id && key(row.name) === key(name))) throw profileError(`Tên mẫu “${name}” đã được dùng`);

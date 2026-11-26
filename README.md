@@ -1,6 +1,6 @@
 # DGVC — Đơn giá vận chuyển dăm (HAK Group)
 
-Ứng dụng desktop (Electron, chạy offline) thay quy trình Excel + Power Query tính đơn giá vận chuyển dăm gỗ cho các nhà máy HAK Group. Một bộ cài dùng cho mọi nhà máy (chọn đơn vị lúc khởi tạo). Bản hiện tại: **1.10.2**.
+Ứng dụng desktop (Electron, chạy offline) thay quy trình Excel + Power Query tính đơn giá vận chuyển dăm gỗ cho các nhà máy HAK Group. Một bộ cài dùng cho mọi nhà máy (chọn đơn vị lúc khởi tạo). Bản hiện tại: **1.10.3**.
 
 - **Kho dữ liệu:** **SQLite là kho chính mặc định** (bản cài cũ tự nâng cấp từ JSON, có sao lưu + đối chiếu, giữ kho JSON cũ làm dự phòng). **JSON** chỉ là sao lưu phụ để gửi máy khác; khôi phục được từ cả bản SQL lẫn bản JSON. Chi tiết: `docs/PHAT_HANH_1.5.0.md`.
 - **Môi trường:** Node.js ≥ 22.12 (CI dùng Node 22), Electron 45, electron-builder 26, NSIS cho bộ cài Windows x64.
@@ -27,7 +27,7 @@ CI (`.github/workflows/ci.yml`): `test` (cài Chromium + poppler, yêu cầu 0 t
 
 Vào **Cài đặt → Mẫu nhập Excel**, tạo mẫu và chọn file để xác định sheet, dòng tiêu đề và cột cần đọc. Nếu tiêu đề chia thành hai tầng, chọn dòng dưới và dùng tên ghép hai tầng khi các tên ở dòng dưới bị trùng. Ghép tối thiểu biển số, ngày giờ cân và khối lượng hàng hoặc cả hai lần cân. Khi file thiếu mã tuyến, chọn tuyến chung lúc nhập. Nếu file thiếu số phiếu, phần mềm sinh mã từ biển số, thời điểm và số liệu cân. Hai dòng có cùng dữ liệu định danh sẽ được kiểm tra như phiếu trùng.
 
-Chọn **Đọc thử** để xem số phiếu, tổng kg, cảnh báo theo dòng Excel và mức chênh với tổng công bố. Đơn vị được lấy từ hậu tố ô cân, cột đơn vị, tiêu đề cột rồi đơn vị dự phòng. Dùng **Lưu mẫu → Đặt mặc định** để áp dụng cho file mới. Mẫu lưu tên, dòng tiêu đề, cách ghép cột và đơn vị dự phòng. File mẫu và file gốc nằm trên máy người dùng.
+Chọn **Đọc thử** để xem số phiếu, tổng kg, cảnh báo theo dòng Excel và mức chênh với tổng công bố. Đơn vị được lấy từ hậu tố ô cân, cột đơn vị, tiêu đề cột rồi đơn vị dự phòng. Dùng **Lưu mẫu → Đặt mặc định** để áp dụng cho file mới. Mẫu lưu tên, dòng tiêu đề, cách ghép cột, đơn vị dự phòng và **kiểu số**. Chọn Việt Nam hoặc Anh / Mỹ nếu nhà cung cấp luôn dùng cùng định dạng. Có thể đổi kiểu số cho riêng một đợt nhập. File mẫu và file gốc nằm trên máy người dùng.
 
 Khi file đổi tiêu đề hoặc đơn vị, mở **Đổi cách đọc** để chọn mẫu khác, chỉnh ghép cột cho file hiện tại hoặc chọn **Tự nhận diện**. Để xem lại cách đọc đã dùng, mở **Phiếu cân → Lịch sử nhập → Xem cấu hình**. Chức năng **Đọc lại file gốc** yêu cầu đúng file của đợt cũ. [Ảnh nghiệm thu trên Chromium](docs/man_hinh_giao_dien_moi/38-mau-nhap-excel.png)
 
@@ -44,7 +44,7 @@ npm run dist               # đóng gói bộ cài NSIS: electron-builder (dir) 
 ### Chạy trực tiếp tại trạm cân (không cần cài đặt)
 Trên các máy tính trạm cân bị hạn chế quyền Administrator, có thể sao chép trực tiếp thư mục `dist/win-unpacked/` và chạy ngay tệp `DGVC.exe`. Dữ liệu sẽ lưu tại `Documents\DGVC_DATA` của tài khoản đang đăng nhập.
 
-## Nâng cấp từ bản cũ (1.8.3 → 1.10.2)
+## Nâng cấp từ bản cũ (1.8.3 → 1.10.3)
 - **Bảo mật:** Lưu trạng thái máy (`machine-state.json`) ở thư mục cấu hình máy cục bộ để chống triệt để lỗ hổng mở lại ngoại lệ "ADMIN đầu tiên" khi khôi phục các bản sao lưu cũ.
 - **Hiệu năng:** Tự động chuyển sang chế độ xuất luồng (streaming `WorkbookWriter`) khi xuất báo cáo danh sách phiếu cân lớn (>2.000 dòng), giải phóng RAM tức thì cho các máy trạm cân 4GB RAM.
 - Cài đè bản mới: bộ cài chỉ thay tệp chương trình; dữ liệu nằm ở thư mục dữ liệu của người dùng (mặc định `Documents\DGVC_DATA`), gỡ cài đặt **không** xóa dữ liệu. Sao lưu thủ công trước khi nâng cấp (Cài đặt → Dữ liệu & sao lưu → Sao lưu ngay). App tự thêm tham số cấu hình mới và dọn lô import xem trước bỏ dở khi mở.

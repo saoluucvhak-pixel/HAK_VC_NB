@@ -3485,7 +3485,7 @@
      "numberStyle",
      "string",
      false,
-     ""
+     "AUTO, VN hoặc EN; lưu cùng mẫu"
     ],
     [
      "copyFromId",
@@ -3603,7 +3603,7 @@
      "numberStyle",
      "enum(AUTO|VN|EN)",
      false,
-     "kiểu số của ô chữ: AUTO (mặc định; \"17,470\" bị báo mơ hồ) · VN 1.234,5 · EN 1,234.5"
+     "kiểu số của ô chữ: nếu bỏ qua thì dùng cấu hình đợt hoặc mẫu, mặc định AUTO; \"17,470\" bị báo mơ hồ ở AUTO · VN 1.234,5 · EN 1,234.5"
     ],
     [
      "profileId",

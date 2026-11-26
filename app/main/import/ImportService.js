@@ -30,10 +30,10 @@ class ImportService {
   }
 
   // ─────────────────────────── preview ───────────────────────────
-  async preview({ importType, contractId = '', filePath, sheetName, headerRow, mapping, fixedValues = {}, numberStyle = 'AUTO',
+  async preview({ importType, contractId = '', filePath, sheetName, headerRow, mapping, fixedValues = {}, numberStyle,
     profileId, readConfig, sourceBatchId, replaceBatchId, reuseReading, user = 'system' }) {
     if (!['PHIEU_CAN', 'GIAO_NHAN_DAU'].includes(importType)) throw new AppError('VALIDATION_FAILED', `importType không hợp lệ: ${importType}`);
-    if (!['AUTO', 'VN', 'EN'].includes(numberStyle)) throw new AppError('VALIDATION_FAILED', `numberStyle phải là AUTO, VN hoặc EN: ${numberStyle}`);
+    if (numberStyle !== undefined && !['AUTO', 'VN', 'EN'].includes(numberStyle)) throw new AppError('VALIDATION_FAILED', `numberStyle phải là AUTO, VN hoặc EN: ${numberStyle}`);
     if (importType === 'GIAO_NHAN_DAU') this._checkFuelContract(contractId);
     const wb = await openWorkbook(filePath);
     let applied;
@@ -53,6 +53,9 @@ class ImportService {
         applied = { mode: 'PROFILE', profileId: profile?.id || '', name: readConfig ? 'Ghép cột tùy chỉnh' : profile.name, config: readConfig || profile };
       }
     }
+    // A saved batch records the actual style used. A profile provides the
+    // default only when importing a new file without an explicit override.
+    numberStyle ??= applied?.numberStyle ?? applied?.config?.numberStyle ?? 'AUTO';
     const fixed = Object.fromEntries(Object.entries(fixedValues || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined));
     const known = new Set(M.FIELDS[importType].map((f) => f.key));
     const badFixed = Object.keys(fixed).filter((k) => !known.has(k));
@@ -131,7 +134,7 @@ class ImportService {
     return { mode: 'AUTO', name: 'Tự nhận diện', sheet: batch.sheet_name, headerRow: index + 1, mapping, fixed, numberStyle: 'AUTO' };
   }
 
-  async inspectProfile({ filePath, sheetName, headerRow, config, numberStyle = 'AUTO' }) {
+  async inspectProfile({ filePath, sheetName, headerRow, config, numberStyle }) {
     const wb = await openWorkbook(filePath);
     if (!config) return Profiles.inspect(wb, sheetName, headerRow);
     return Profiles.read(wb, sheetName, config, numberStyle).trial;
@@ -368,7 +371,7 @@ class ImportService {
     const rows = []; let skippedBlank = 0;
     const fixed = st.fixed || {};
     const get = (cells, key) => (st.colOf[key] === undefined ? (key in fixed ? fixed[key] : null) : cells[st.colOf[key]]);
-    for (const { rowNo, cells, normalized, issues, ticketText } of st.dataRows) {
+    for (const { rowNo, cells, normalized, issues, ticketText, absentTimestamps } of st.dataRows) {
       const vals = Object.keys(st.colOf).map((k) => get(cells, k));
       if (!normalized && vals.every((v) => v == null || v === '')) { skippedBlank++; continue; }
       if (!normalized && cells.some((v) => typeof v === 'string' && /^t[ổo]ng c[ộo]ng$/i.test(v.trim()))) { skippedBlank++; continue; } // dòng tổng
@@ -378,6 +381,7 @@ class ImportService {
         : this._fuelRow(rowNo, cells, get, ctx, st.contractId);
       if (issues?.length) r.issues.unshift(...issues);
       if (r === null) { skippedBlank++; continue; }
+      r.absentTimestamps = absentTimestamps;
       r.raw = Object.fromEntries(st.headers.map((h, i) => [h.replace(/\s+/g, ' ').trim() || `Cột ${i + 1}`, cells[i] && typeof cells[i] === 'object' ? cells[i].__date : (cells[i] ?? null)]).filter(([k]) => k));
       // bản 1.2.5: chỉ lưu MẢNG giá trị ô theo thứ tự cột của file; tên cột nằm 1 lần ở IMPORT_BATCH.header_json (gọn ~2 lần)
       r.record.raw_row_json = JSON.stringify(st.headers.map((h, i) => (cells[i] && typeof cells[i] === 'object' ? cells[i].__date : (cells[i] ?? null))));
@@ -424,7 +428,7 @@ class ImportService {
       const d = M.toDate(get(cells, k)); if (d.error) iss.push(issue('E_DATE_INVALID', { detail: `dòng ${rowNo} ${lab}: ${d.error}` })); rec[k] = d.value || ''; need(k, lab, rec[k]);
     }
     for (const k of ['weigh1_time', 'weigh2_time']) { const t = M.toTime(get(cells, k)); if (t.error) iss.push(issue('E_DATE_INVALID', { detail: `dòng ${rowNo}: ${t.error}` })); rec[k] = t.value || ''; }
-    if (rec.weigh1_date && rec.weigh2_date && (rec.weigh2_date < rec.weigh1_date || (rec.weigh2_date === rec.weigh1_date && rec.weigh1_time && rec.weigh2_time && rec.weigh2_time < rec.weigh1_time))) {
+    if (!normalized && M.weighOrderInvalid(rec.weigh1_date, rec.weigh1_time, rec.weigh2_date, rec.weigh2_time)) {
       iss.push(issue('E_DATE_INVALID', { detail: `dòng ${rowNo}: ngày/giờ cân 2 trước cân 1` }));
     }
     if (rec.weigh1_date && this.store.archivedThrough && Number(rec.weigh1_date.slice(0, 4)) <= this.store.archivedThrough) iss.push(issue('E_YEAR_ARCHIVED', { rowNo, date: rec.weigh1_date.split('-').reverse().join('/'), year: this.store.archivedThrough }));
@@ -483,8 +487,15 @@ class ImportService {
       seen.set(k, r.rowNo);
       const old = ctx.tickets.get(k);
       if (!old) continue;
-      const inFile = (f) => !ctx.cols || ctx.cols.has(f);
+      const inFile = (f) => (!ctx.cols || ctx.cols.has(f)) && !r.absentTimestamps?.has(f);
       const core = CORE_TICKET.filter((f) => inFile(f) && old[f] !== r.record[f]);
+      if (r.absentTimestamps?.size && core.some((field) => /^weigh[12]_(date|time)$/.test(field))) {
+        const value = (field) => inFile(field) ? r.record[field] : old[field];
+        if (M.weighOrderInvalid(value('weigh1_date'), value('weigh1_time'), value('weigh2_date'), value('weigh2_time'))) {
+          r.issues.push(issue('E_DATE_INVALID', { detail: `dòng ${r.rowNo}: ngày/giờ cân 2 trước cân 1 sau khi ghép với phiếu đã lưu` }));
+          continue;
+        }
+      }
       const desc = DESC_TICKET.filter((f) => f !== 'row_no' && inFile(f) && (old[f] || '') !== (r.record[f] || ''));
       const LBL = { weigh1_time: 'giờ cân 1', weigh2_date: 'ngày cân 2', weigh2_time: 'giờ cân 2', weight1_kg: 'cân lần 1', weight2_kg: 'cân lần 2', net_kg: 'KL hàng', route_code: 'tuyến', origin: 'nguồn gốc', customer: 'khách hàng', ldd: 'LDĐ', weigh_type: 'kiểu cân', transport_unit_name: 'đơn vị VC', warehouse: 'kho', import_note: 'ghi chú' };
       const fmtv = (f, v) => (f.endsWith('_date') ? String(v || '').split('-').reverse().join('/') : v === '' || v === null || v === undefined ? '(trống)' : v);

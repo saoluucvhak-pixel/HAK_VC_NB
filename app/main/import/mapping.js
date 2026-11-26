@@ -82,6 +82,9 @@ function toDate(v) {
   if (m) return checkYmd(+m[1], +m[2], +m[3], s);
   return { error: `ngày không đọc được "${s}"` };
 }
+function weighOrderInvalid(date1, time1, date2, time2) {
+  return Boolean(date1 && date2 && (date2 < date1 || (date2 === date1 && time1 && time2 && time2 < time1)));
+}
 function checkYmd(y, mo, d, raw) {
   const dt = new Date(Date.UTC(y, mo - 1, d));
   if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return { error: `ngày không hợp lệ "${raw}"` };
@@ -122,4 +125,4 @@ function toText(v) {
 }
 const plateKey = (s) => String(s || '').trim().toUpperCase().replace(/^[A-Z]{2}_/, '').replace(/[^0-9A-Z]/g, '');
 
-module.exports = { FIELDS, normHeader, matchField, detectHeaderRow, suggestMapping, missingRequired, toDate, toTime, toNumber, toText, plateKey };
+module.exports = { FIELDS, normHeader, matchField, detectHeaderRow, suggestMapping, missingRequired, toDate, toTime, toNumber, weighOrderInvalid, toText, plateKey };

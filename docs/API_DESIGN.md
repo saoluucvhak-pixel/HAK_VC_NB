@@ -937,9 +937,9 @@ Xác nhận cảnh báo dòng dầu (vd nghi trùng nhưng không trùng). Quy�
 #### Mẫu nhập phiếu cân
 
 - `import.profiles.list` trả danh sách mẫu và tên các trường có thể ghép. `import.profiles.inspect` nhận `filePath`, `sheetName` và `headerRow` để liệt kê sheet, tiêu đề và gợi ý. Khi truyền `config` và tùy chọn `numberStyle`, kết quả `trial` có các dòng chuẩn hóa, tổng kg, cảnh báo và tổng công bố.
-- `import.profiles.save` nhận `name`, `filePath`, `sheetName` và `config`. Khi sửa, thêm `id` và `rowVersion`. Để sao chép, chỉ cần `name` và `copyFromId`.
+- `import.profiles.save` nhận `name`, `filePath`, `sheetName` và `config`. Khi sửa, thêm `id` và `rowVersion`. `numberStyle` nếu truyền sẽ được dùng để đọc thử và lưu vào mẫu. Để sao chép, chỉ cần `name` và `copyFromId`.
 - `import.profiles.default` nhận `id` hoặc chuỗi rỗng cho Tự nhận diện. `import.profiles.delete` nhận `id`.
-- `config` gồm `headerRow` tính từ 1, `mapping` theo dạng `{trường: tiêu đề Excel}` và `fallbackUnit` là `kg`, `t` hoặc chuỗi rỗng.
+- `config` gồm `headerRow` tính từ 1, `mapping` theo dạng `{trường: tiêu đề Excel}` `fallbackUnit` là `kg`, `t` hoặc chuỗi rỗng và `numberStyle` là `AUTO`, `VN` hoặc `EN`. Mẫu cũ mặc định `AUTO`.
 
 #### `import.preview`
 
@@ -959,7 +959,7 @@ Bước 1: main process đọc file Excel/CSV theo đường dẫn → gợi ý 
 | `replaceBatchId` | string |  | thay đợt đang xem trước sau khi cách đọc mới hợp lệ |
 | `reuseReading` | boolean |  | dùng lại cách đọc của đợt đang thay khi đổi kiểu số |
 | `fixedValues` | object |  | giá trị dùng chung khi file thiếu cột, ví dụ mã tuyến |
-| `numberStyle` | enum(AUTO\|VN\|EN) |  | kiểu số của ô chữ: AUTO (mặc định; "17,470" bị báo mơ hồ) · VN 1.234,5 · EN 1,234.5 |
+| `numberStyle` | enum(AUTO\|VN\|EN) |  | kiểu số của ô chữ; nếu bỏ qua thì dùng cấu hình đợt hoặc mẫu, mặc định AUTO · VN 1.234,5 · EN 1,234.5 |
 
 - **Trả về:** `{batchId, fileSha256, sameFileImportedBefore, sheets, mapping, summary:{total, ok, warning, error, duplicate}, rows:[{rowNo, status, flags:[code], normalized}] (trang đầu), page}`
 - **Lỗi:** `VALIDATION_FAILED`, `BUSINESS_RULE:E_MAPPING_REQUIRED`, `BUSINESS_RULE:E_NOT_CARRIER`, `STORAGE_ERROR`
