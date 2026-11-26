@@ -23,6 +23,14 @@ npm start | npm run dev       # chạy Electron | giao diện trên trình duy�
 ```
 CI (`.github/workflows/ci.yml`): `test` (cài Chromium + poppler, yêu cầu 0 test bị bỏ qua), `test-sqlite`, `electron`, `quality`, `audit`.
 
+### Cấu hình mẫu phiếu cân của nhà cung cấp
+
+Vào **Cài đặt → Mẫu nhập Excel**, tạo mẫu và chọn file để xác định sheet, dòng tiêu đề và cột cần đọc. Nếu tiêu đề chia thành hai tầng, chọn dòng dưới và dùng tên ghép hai tầng khi các tên ở dòng dưới bị trùng. Ghép tối thiểu biển số, ngày giờ cân và khối lượng hàng hoặc cả hai lần cân. Khi file thiếu mã tuyến, chọn tuyến chung lúc nhập. Nếu file thiếu số phiếu, phần mềm sinh mã từ biển số, thời điểm và số liệu cân. Hai dòng có cùng dữ liệu định danh sẽ được kiểm tra như phiếu trùng.
+
+Chọn **Đọc thử** để xem số phiếu, tổng kg, cảnh báo theo dòng Excel và mức chênh với tổng công bố. Đơn vị được lấy từ hậu tố ô cân, cột đơn vị, tiêu đề cột rồi đơn vị dự phòng. Dùng **Lưu mẫu → Đặt mặc định** để áp dụng cho file mới. Mẫu lưu tên, dòng tiêu đề, cách ghép cột và đơn vị dự phòng. File mẫu và file gốc nằm trên máy người dùng.
+
+Khi file đổi tiêu đề hoặc đơn vị, mở **Đổi cách đọc** để chọn mẫu khác, chỉnh ghép cột cho file hiện tại hoặc chọn **Tự nhận diện**. Để xem lại cách đọc đã dùng, mở **Phiếu cân → Lịch sử nhập → Xem cấu hình**. Chức năng **Đọc lại file gốc** yêu cầu đúng file của đợt cũ. [Ảnh nghiệm thu trên Chromium](docs/man_hinh_giao_dien_moi/38-mau-nhap-excel.png)
+
 ## Đóng gói và chạy trên Windows x64
 ```
 cd app

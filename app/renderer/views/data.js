@@ -41,19 +41,42 @@
     D.toast(`Đã tạo file mẫu: ${r.path} — nhập từ dòng ${r.firstDataRow} sheet ${r.sheet}`, 'ok', 9000);
     if (window.dgvc) D.api('system.openPath', { path: r.path }, { quiet: true }).catch(() => {});
   };
-  D.importWizard = async ({ importType, contractId, onDone, filePath: knownFile, numberStyle = 'AUTO' }) => {
+  D.importWizard = async ({ importType, contractId, onDone, filePath: knownFile, numberStyle = 'AUTO', sourceBatchId,
+    preview: knownPreview, reading = {} }) => {
     const filePath = knownFile || await D.pickFile({ title: importType === 'PHIEU_CAN' ? 'Chọn file Excel phiếu cân' : 'Chọn file Excel bảng kê dầu', filters: [{ name: 'Excel', extensions: ['xlsx', 'xlsm', 'csv'] }] });
     if (!filePath) return;
-    let pv; let fixed = {};
-    const run = async (extra = {}) => { pv = await D.api('import.preview', { importType, contractId, filePath, fixedValues: fixed, numberStyle, ...extra }, { quiet: true }); };
-    try { await run(); } catch (e) {
-      if (e.details && e.details.code === 'E_MAPPING_REQUIRED' && (e.details.missing || []).includes('route_code')) {
+    const readApi = (extra) => D.api('import.preview', { importType, contractId, filePath, numberStyle, sourceBatchId, ...extra }, { quiet: true });
+    const read = async (extra) => {
+      try {
+        return await readApi(extra);
+      } catch (err) {
+        const missing = err.details?.missing || [];
+        if (err.details?.code !== 'E_MAPPING_REQUIRED' || missing.length !== 1 || missing[0] !== 'route_code') throw err;
         const sel = h('select', {}, D.routeOptions(false).map(([v, t]) => h('option', { value: v }, t)));
-        const ok = await new Promise((res) => D.modal({ title: 'File không có cột mã tuyến', body: h('div', {}, h('p', {}, 'File xuất từ trạm cân không có cột "Mã cự ly VC". Chọn 1 mã tuyến áp cho mọi dòng:'), h('label', { class: 'field' }, h('span', {}, 'Mã tuyến'), sel)),
-          actions: [{ label: 'Hủy', run: () => res(false) }, { label: 'Tiếp', primary: true, run: () => res(true) }] }));
-        if (!ok) return; fixed = { route_code: sel.value }; await run();
-      } else { D.toast(`${D.errorText(e)}${e.details && e.details.code === 'E_MAPPING_REQUIRED' ? ' — bấm "Tải file mẫu" để lấy file Excel đúng mẫu' : ''}`, 'err', 9000); return; }
+        const confirmed = await new Promise((resolve) => D.modal({
+          title: 'File không có cột mã tuyến',
+          body: h('div', {}, h('p', {}, 'Chọn mã tuyến áp dụng cho mọi dòng.'), h('label', { class: 'field' }, h('span', {}, 'Mã tuyến'), sel)),
+          actions: [{ label: 'Hủy', run: () => true }, { label: 'Tiếp', primary: true, run: () => resolve(sel.value) }],
+          onClose: () => resolve(''),
+        }));
+        if (!confirmed) return null;
+        return readApi({ ...extra, fixedValues: { route_code: confirmed } });
+      }
+    };
+    let pv = knownPreview;
+    if (!pv) {
+      try {
+        pv = await read(reading);
+      } catch (error) {
+        if (importType === 'PHIEU_CAN' && !sourceBatchId && ['E_MAPPING_REQUIRED', 'E_IMPORT_PROFILE'].includes(error.details?.code)) {
+          pv = await D.fixImportReading({ filePath, numberStyle, error, apply: read });
+        } else {
+          D.toast(D.errorText(error), 'err', 9000);
+          return false;
+        }
+      }
     }
+    if (!pv) return false;
     const skip = new Set();
     const rows = [];
     try {
@@ -72,7 +95,26 @@
     const accept = h('input', { type: 'checkbox', id: 'acc' });
     let modal = null;
     // kiểu số trong file: ô chữ "17,470" đọc được 17,47 (kiểu Việt) hoặc 17.470 (kiểu Anh) → bắt buộc người dùng chọn, đổi thì xem trước lại
-    const styleSel = h('select', { 'aria-label': 'Kiểu số trong file', onchange: (e) => { const ns = e.target.value; modal.close(); D.importWizard({ importType, contractId, onDone, filePath, numberStyle: ns }); } },
+    const reopen = (preview) => {
+      modal.close();
+      return D.importWizard({ importType, contractId, onDone, filePath, sourceBatchId, preview });
+    };
+    const styleSel = h('select', { 'aria-label': 'Kiểu số trong file', disabled: !!sourceBatchId, onchange: async (event) => {
+      const selector = event.currentTarget;
+      selector.disabled = true;
+      const sameReading = pv.readConfig ? { reuseReading: true }
+        : { mapping: pv.mapping, headerRow: pv.headerRowNo, sheetName: pv.sheet, fixedValues: pv.fixedValues };
+      try {
+        const next = await read({ ...sameReading, numberStyle: selector.value,
+          replaceBatchId: pv.batchId });
+        if (next) await reopen(next);
+      } catch (error) {
+        D.toast(D.errorText(error), 'err', 9000);
+      } finally {
+        selector.disabled = false;
+        selector.value = pv.numberStyle || 'AUTO';
+      }
+    } },
       [['AUTO', 'Tự động'], ['VN', 'Việt Nam — 1.234,5 (chấm ngăn nghìn, phẩy thập phân)'], ['EN', 'Anh / Mỹ — 1,234.5 (phẩy ngăn nghìn, chấm thập phân)']].map(([v, t]) => h('option', { value: v, selected: v === (pv.numberStyle || 'AUTO') }, t)));
     const ambiguous = rows.some((r) => (r.issues || []).some((i) => i.code === 'E_NUMBER_AMBIGUOUS'));
     const preview = h('div');
@@ -96,10 +138,21 @@
     const body = h('div', {},
       h('label', { class: 'field', style: { maxWidth: '520px', marginBottom: '8px' } }, h('span', {}, 'Kiểu số trong file'), styleSel),
       ambiguous ? h('p', { class: 'small', style: { color: 'var(--red-text)' } }, 'Có dòng số dạng chữ như "17,470" đọc được hai cách (khác nhau 1.000 lần). Chọn đúng "Kiểu số trong file" ở trên để xem trước lại.') : null,
+      importType === 'PHIEU_CAN' ? h('div', { class: 'row' }, D.tag('info', `Cách đọc: ${pv.readConfig?.name || 'Tự nhận diện'}`),
+        sourceBatchId ? h('span', { class: 'small muted' }, `Theo cấu hình đợt ${sourceBatchId}`) : h('button', { class: 'btn small', onclick: async (event) => {
+          const control = event.currentTarget;
+          control.disabled = true;
+          try {
+            const next = await D.fixImportReading({ filePath, numberStyle: pv.numberStyle, previous: pv.readConfig,
+              apply: (opts) => read({ ...opts, replaceBatchId: pv.batchId, numberStyle: opts.numberStyle ?? pv.numberStyle }) });
+            if (next) await reopen(next);
+          } finally { control.disabled = false; }
+        } }, 'Đổi cách đọc')) : null,
       h('div', { class: 'row small' }, h('span', { class: 'mono' }, pv.fileName), `· sheet "${pv.sheet}" · dòng tiêu đề ${pv.headerRowNo}`, Object.keys(pv.fixedValues || {}).length ? D.tag('info', `Mã tuyến chung: ${pv.fixedValues.route_code}`) : null),
       pv.sameFileImportedBefore ? h('p', {}, h('span', { class: 'tag warn' }, 'Cảnh báo'), ' File này đã import trước đây (cùng SHA-256).') : null,
       h('div', { class: 'kpis', style: { marginTop: '10px' } }, [['Tổng dòng', S.total], ['Hợp lệ', S.ok], ['Cảnh báo', S.warning], ...(S.update ? [['Cập nhật / khôi phục', S.update]] : []), ['Đã có (bỏ qua)', S.duplicate], ['Lỗi', S.error]].map(([l, v]) => h('div', { class: 'kpi' }, h('div', { class: 'l' }, l), h('div', { class: 'v' }, D.vn(v))))),
-      h('details', {}, h('summary', {}, 'Ghép cột (tự nhận)'), D.table({ columns: [{ key: 'h', label: 'Cột trong file' }, { key: 'f', label: 'Cột dữ liệu' }], rows: Object.entries(pv.mapping).map(([k, v]) => ({ h: k, f: v })), maxHeight: '220px' })),
+      pv.trial ? h('details', {}, h('summary', {}, 'Tổng kg, tổng công bố và cảnh báo đọc file'), D.importTrialResult(pv.trial)) : null,
+      h('details', {}, h('summary', {}, 'Ghép cột'), D.table({ columns: [{ key: 'h', label: 'Cột trong file' }, { key: 'f', label: 'Cột dữ liệu' }], rows: Object.entries(pv.mapping).map(([k, v]) => ({ h: k, f: v })), maxHeight: '220px' })),
       h('label', { class: 'field' }, h('span', {}, 'Lọc dòng xem trước'), status), preview,
       h('label', { class: 'check', for: 'acc', style: { marginTop: '10px' } }, accept, S.update ? 'Chấp nhận các dòng cảnh báo và cập nhật phiếu đã có theo file' : 'Chấp nhận các dòng cảnh báo'));
     for (const r of rows) if (r.status === 'ERROR') skip.add(r.rowNo);
@@ -166,6 +219,7 @@
       };
       const page = D.page('Phiếu cân', '2 · Phiếu cân', [D.writer() ? h('button', { class: 'btn', onclick: () => bulkDesc(load) }, 'Sửa hàng loạt cột mô tả') : null,
         D.writer() ? h('button', { class: 'btn', onclick: () => D.importTemplate({ importType: 'PHIEU_CAN' }) }, 'Tải file mẫu') : null,
+        h('button', { class: 'btn', onclick: () => D.showImportHistory(load) }, 'Lịch sử nhập'),
         D.writer() ? h('button', { class: 'btn primary', onclick: () => D.importWizard({ importType: 'PHIEU_CAN', onDone: load }) }, 'Import từ Excel') : null],
       h('div', { class: 'card' }, (sfMount = D.smartFilter.mount(sfCfg)).el), out);
       await load();
@@ -183,6 +237,8 @@
       { key: 'weigh_type', label: 'Kiểu cân' }, { key: 'transport_unit_name', label: 'Đơn vị VC' }, { key: 'reason', label: 'Lý do sửa', full: true }];
     const form = D.form(fields, t);
     const body = h('div', {}, h('p', {}, h('b', { class: 'mono' }, `Phiếu ${t.ticket_no}`), ` · ${D.dmy(t.weigh1_date)} · ${t.plate_no}`),
+      t.warehouse ? h('p', { class: 'small' }, `Kho: ${t.warehouse}`) : null,
+      t.import_note ? h('p', { class: 'small' }, `Ghi chú nhập: ${t.import_note}`) : null,
       locked ? h('p', { class: 'small' }, h('span', { class: 'tag ok' }, 'Đã xác nhận / khóa'), ' Chỉ sửa được cột mô tả (bắt buộc lý do).') : null,
       h('h2', {}, 'Kỳ đang dùng'), g.usages.length ? h('ul', {}, g.usages.map((u) => h('li', {}, D.tag(u.status), ' ', u.periodCode))) : h('p', { class: 'muted' }, 'Chưa vào kỳ nào'),
       D.writer() ? form : null, h('h2', { style: { marginTop: '14px' } }, 'Dữ liệu gốc trong file'), h('pre', { class: 'small mono', style: { whiteSpace: 'pre-wrap' } }, JSON.stringify(g.raw || JSON.parse(t.raw_row_json || '{}'), null, 1)),

@@ -1046,6 +1046,16 @@
      "required": false
     },
     {
+     "name": "warehouse",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "import_note",
+     "type": "TEXT",
+     "required": false
+    },
+    {
      "name": "raw_row_json",
      "type": "JSON",
      "required": false
@@ -1334,6 +1344,63 @@
     }
    ]
   },
+  "IMPORT_PROFILE": {
+   "group": "Hệ thống",
+   "description": "Mẫu nhập Excel phiếu cân",
+   "pk": "profile_id",
+   "unique": [],
+   "partialUnique": [],
+   "fk": {},
+   "partition": null,
+   "audit": true,
+   "columns": [
+    {
+     "name": "profile_id",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "name",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "config_json",
+     "type": "JSON",
+     "required": true
+    },
+    {
+     "name": "is_default",
+     "type": "BOOL",
+     "required": true
+    },
+    {
+     "name": "created_at",
+     "type": "DATETIME",
+     "required": true
+    },
+    {
+     "name": "created_by",
+     "type": "TEXT",
+     "required": true
+    },
+    {
+     "name": "updated_at",
+     "type": "DATETIME",
+     "required": false
+    },
+    {
+     "name": "updated_by",
+     "type": "TEXT",
+     "required": false
+    },
+    {
+     "name": "row_version",
+     "type": "INT",
+     "required": true
+    }
+   ]
+  },
   "IMPORT_BATCH": {
    "group": "Đầu vào",
    "description": "Lô import (preview → xác nhận)",
@@ -1391,6 +1458,11 @@
     },
     {
      "name": "mapping_json",
+     "type": "JSON",
+     "required": false
+    },
+    {
+     "name": "read_config_json",
      "type": "JSON",
      "required": false
     },

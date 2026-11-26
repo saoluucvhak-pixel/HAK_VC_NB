@@ -206,13 +206,29 @@ ep('fuel.ackFlags', 'Giao nhận dầu', 'Xác nhận cảnh báo dòng dầu (v
 ep('import.template', 'Import', 'Tạo FILE EXCEL MẪU để import theo danh mục hiện tại của bản cài: sheet nhập liệu (tiêu đề đúng tên cột phần mềm nhận, cột bắt buộc có *, định dạng ô, danh sách chọn tuyến / xe / đơn vị, tô màu ô thiếu / KL lệch), HUONG_DAN, DANH_MUC, VI_DU', EDIT,
    [('importType', 'enum(PHIEU_CAN|GIAO_NHAN_DAU)', True, ''), ('contractId', 'string', False, 'bắt buộc với GIAO_NHAN_DAU (danh sách xe của hợp đồng)'), ('targetPath', 'string', False, 'từ dialog.saveFile; trống = thư mục exports')],
    '{path, sizeBytes, sheet, firstDataRow, columns[{header, required}]}', ['VALIDATION_FAILED'], ['TUYEN_VC', 'XE', 'HOP_DONG_XE', 'DON_VI', 'HOP_DONG'])
+ep('import.profiles.list', 'Import', 'Danh sách mẫu nhập phiếu cân và mẫu mặc định', ALL, [], '{items, fields}', reads=['IMPORT_PROFILE'])
+ep('import.profiles.inspect', 'Import', 'Xem sheet, gợi ý ghép cột hoặc đọc thử file Excel', EDIT,
+   [('filePath', 'string', True, ''), ('sheetName', 'string', False, ''), ('headerRow', 'integer', False, ''),
+    ('config', 'object', False, 'có cấu hình thì đọc thử'), ('numberStyle', 'string', False, 'AUTO, VN hoặc EN')], '{sheets, options, suggested} hoặc {trial: {rows, totalKg, warnings, declaredTotals}}')
+ep('import.profiles.save', 'Import', 'Tạo, sửa hoặc sao chép mẫu nhập phiếu cân', ADM,
+   [('id', 'string', False, ''), ROWV_OPT, ('name', 'string', True, ''), ('filePath', 'string', False, 'cần khi tạo/sửa'),
+    ('sheetName', 'string', False, ''), ('config', 'object', False, ''), ('numberStyle', 'string', False, ''), ('copyFromId', 'string', False, '')],
+   '{item, trial}', writes=['IMPORT_PROFILE'], audit='IMPORT_PROFILE_SAVE', lock=True)
+ep('import.profiles.default', 'Import', 'Đặt mẫu nhập mặc định hoặc tự nhận diện', ADM, [('id', 'string', False, 'trống = tự nhận diện')],
+   '{defaultId}', writes=['IMPORT_PROFILE'], audit='IMPORT_PROFILE_DEFAULT', lock=True)
+ep('import.profiles.delete', 'Import', 'Xóa mẫu nhập phiếu cân', ADM, [('id', 'string', True, '')],
+   '{id}', writes=['IMPORT_PROFILE'], audit='IMPORT_PROFILE_DELETE', lock=True)
 ep('import.preview', 'Import', 'Bước 1: main process đọc file Excel/CSV theo đường dẫn → gợi ý mapping, kiểm tra từng dòng, giữ dữ liệu tạm trong bộ nhớ theo batchId. KHÔNG ghi dữ liệu', EDIT,
    [('importType', 'enum(PHIEU_CAN|GIAO_NHAN_DAU)', True, ''), ('contractId', 'string', False, 'bắt buộc với GIAO_NHAN_DAU; HĐ bên VC = đơn vị bản cài'),
     ('filePath', 'string', True, 'từ dialog.openFile'), ('sheetName', 'string', False, 'trống = sheet đầu / tự dò sheet có header phù hợp'),
     ('headerRow', 'integer', False, 'trống = tự dò'), ('mapping', 'object', False, 'trống = tự gợi ý; gửi lại để preview với mapping mới'),
+    ('profileId', 'string', False, 'bỏ qua = dùng mặc định; chuỗi trống = tự nhận diện'), ('readConfig', 'object', False, 'cấu hình tùy chỉnh cho file hiện tại'),
+    ('sourceBatchId', 'string', False, 'đọc lại file gốc bằng cấu hình của đợt'), ('replaceBatchId', 'string', False, 'thay đợt xem trước sau khi cách đọc mới hợp lệ'),
+    ('reuseReading', 'boolean', False, 'dùng cách đọc của đợt đang thay để đổi kiểu số'),
+    ('fixedValues', 'object', False, 'giá trị dùng chung nếu file thiếu cột'),
     ('numberStyle', 'enum(AUTO|VN|EN)', False, 'kiểu số của ô chữ: AUTO (mặc định; "17,470" bị báo mơ hồ) · VN 1.234,5 · EN 1,234.5')],
    '{batchId, fileSha256, sameFileImportedBefore, sheets, mapping, summary:{total, ok, warning, error, duplicate}, rows:[{rowNo, status, flags:[code], normalized}] (trang đầu), page}',
-   ['VALIDATION_FAILED', 'BUSINESS_RULE:E_MAPPING_REQUIRED', 'BUSINESS_RULE:E_NOT_CARRIER', 'STORAGE_ERROR'], ['PHIEU_CAN', 'GIAO_NHAN_DAU', 'XE', 'TUYEN_VC', 'DON_VI', 'IMPORT_BATCH'], ['IMPORT_BATCH'], 'IMPORT_PREVIEW', True)
+   ['VALIDATION_FAILED', 'BUSINESS_RULE:E_MAPPING_REQUIRED', 'BUSINESS_RULE:E_NOT_CARRIER', 'STORAGE_ERROR', 'BUSINESS_RULE:E_IMPORT_PROFILE'], ['PHIEU_CAN', 'GIAO_NHAN_DAU', 'XE', 'TUYEN_VC', 'DON_VI', 'IMPORT_BATCH', 'IMPORT_PROFILE'], ['IMPORT_BATCH'], 'IMPORT_PREVIEW', True)
 ep('import.previewRows', 'Import', 'Xem trang tiếp theo / lọc dòng lỗi của lô đang preview', EDIT, [('batchId', 'string', True, ''), ('status', 'enum(OK|WARNING|ERROR)', False, '')] + PAGING,
    '{rows, total}', ['NOT_FOUND'])
 ep('import.confirm', 'Import', 'Bước 2: kiểm tra lại (dữ liệu có thể đã đổi) → ghi 1 giao dịch', EDIT,
@@ -423,6 +439,7 @@ ISSUES = [  # (code, level, message, dùng ở đâu) — 10 lỗi bắt buộc 
     ('E_IN_USE', 'ERROR', 'Đang được dùng — chỉ ngừng sử dụng, không xóa', 'setActive, softDelete'),
     ('E_PREVIEW_STALE', 'ERROR', 'Dữ liệu đã đổi kể từ lúc preview — preview lại', 'import.confirm'),
     ('E_IMPORT_HAS_ERRORS', 'ERROR', 'Còn dòng lỗi chưa bỏ', 'import.confirm'),
+    ('E_IMPORT_PROFILE', 'ERROR', 'Mẫu đọc phiếu cân không khớp file hoặc không xác định được đơn vị', 'import.preview'),
     ('E_MAPPING_REQUIRED', 'ERROR', 'Chưa map đủ cột bắt buộc', 'import.preview'),
     ('E_LAST_ADMIN', 'ERROR', 'Không thể bỏ quyền ADMIN cuối cùng', 'users.save'),
     ('E_PASSWORD_ALREADY_SET', 'ERROR', 'Tài khoản đã có mật khẩu — dùng đổi mật khẩu', 'auth.setFirstPassword'),

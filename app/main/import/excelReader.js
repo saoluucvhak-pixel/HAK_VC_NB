@@ -58,6 +58,17 @@ async function openWorkbook(filePath) {
   return {
     fileName, fileSha256,
     sheets: wb.worksheets.map((w) => ({ name: w.name, hidden: w.state !== 'visible', rowCount: w.actualRowCount })),
+    ticketText(sheetName, rowNo, column) {
+      if (column === undefined) return '';
+      const cell = wb.getWorksheet(sheetName).getRow(rowNo).getCell(column + 1);
+      const value = normCell(cell.value);
+      // Excel stores 00042 as 42 when the leading zeros are a number format.
+      const positiveFormat = (cell.numFmt || '').split(';')[0];
+      if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && /^0+$/.test(positiveFormat)) {
+        return String(value).padStart(positiveFormat.length, '0');
+      }
+      return value == null ? '' : String(value).trim();
+    },
     rows(sheetName) {
       if (cache.has(sheetName)) return cache.get(sheetName);
       const ws = wb.getWorksheet(sheetName);

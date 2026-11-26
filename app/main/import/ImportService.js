@@ -7,6 +7,7 @@ const { idempotentMethod } = require('../services/idempotent');
 const crypto = require('node:crypto');
 const { openWorkbook } = require('./excelReader');
 const M = require('./mapping');
+const Profiles = require('./TicketProfiles');
 const { issue } = require('../engine/issues');
 const { selectPriceVersion } = require('../engine/period');
 const { AppError, businessError } = require('../../shared/errors');
@@ -14,7 +15,7 @@ const { buildCoverage, CLOSED, draftFinder } = require('../services/periodCovera
 const { fuelContentKey } = require('./fuelKey');
 
 const CORE_TICKET = ['ticket_no', 'weigh1_date', 'weigh1_time', 'weigh2_date', 'weigh2_time', 'plate_no', 'weight1_kg', 'weight2_kg', 'net_kg', 'route_code'];
-const DESC_TICKET = ['row_no', 'origin', 'customer', 'ldd', 'weigh_type', 'transport_unit_name'];
+const DESC_TICKET = ['row_no', 'origin', 'customer', 'ldd', 'weigh_type', 'transport_unit_name', 'warehouse', 'import_note'];
 const PAGE = 100;
 
 const KG_IMPLAUSIBLE_BELOW = 1000; // kg — dưới mức này coi là nghi đọc sai dấu ngăn cách số (xe chở dăm hàng tấn)
@@ -29,40 +30,111 @@ class ImportService {
   }
 
   // ─────────────────────────── preview ───────────────────────────
-  async preview({ importType, contractId = '', filePath, sheetName, headerRow, mapping, fixedValues = {}, numberStyle = 'AUTO', user = 'system' }) {
+  async preview({ importType, contractId = '', filePath, sheetName, headerRow, mapping, fixedValues = {}, numberStyle = 'AUTO',
+    profileId, readConfig, sourceBatchId, replaceBatchId, reuseReading, user = 'system' }) {
     if (!['PHIEU_CAN', 'GIAO_NHAN_DAU'].includes(importType)) throw new AppError('VALIDATION_FAILED', `importType không hợp lệ: ${importType}`);
     if (!['AUTO', 'VN', 'EN'].includes(numberStyle)) throw new AppError('VALIDATION_FAILED', `numberStyle phải là AUTO, VN hoặc EN: ${numberStyle}`);
     if (importType === 'GIAO_NHAN_DAU') this._checkFuelContract(contractId);
     const wb = await openWorkbook(filePath);
-    const sheet = sheetName || this._pickSheet(wb, importType);
-    const all = wb.rows(sheet);
-    const hIdx = Number.isInteger(headerRow) ? headerRow - 1 : M.detectHeaderRow(all, importType);
-    if (hIdx < 0) throw businessError('E_MAPPING_REQUIRED', `Không tìm thấy dòng tiêu đề phù hợp trong sheet "${sheet}"`);
-    const headers = (all[hIdx] || []).map((h) => (h === null ? '' : String(h)));
-    const map = mapping || M.suggestMapping(headers, importType);
-    // cột file không có (vd file xuất từ trạm cân không có mã tuyến) → người dùng gán 1 giá trị chung cho mọi dòng
-    const fixed = Object.fromEntries(Object.entries(fixedValues).filter(([, v]) => v !== '' && v !== null && v !== undefined));
+    let applied;
+    const savedBatchId = sourceBatchId || (reuseReading ? replaceBatchId : '');
+    if (savedBatchId) {
+      const batch = this.store.get('IMPORT_BATCH', savedBatchId);
+      if (!batch || batch.import_type !== 'PHIEU_CAN' || importType !== 'PHIEU_CAN') throw new AppError('NOT_FOUND', 'Không tìm thấy đợt phiếu cân');
+      if (!batch.file_sha256 || batch.file_sha256 !== wb.fileSha256) throw Profiles.profileError('Hãy chọn đúng file Excel gốc của đợt này');
+      applied = batch.read_config_json ? JSON.parse(batch.read_config_json) : this._legacyRead(batch, wb);
+      ({ sheet: sheetName, headerRow, mapping, fixed: fixedValues } = applied);
+      if (sourceBatchId) numberStyle = applied.numberStyle;
+    } else if (importType === 'PHIEU_CAN') {
+      const items = Profiles.list(this.store).items;
+      const profile = profileId === undefined ? items.find((p) => p.isDefault) : items.find((p) => p.id === profileId);
+      if (profileId && !profile && !readConfig) throw Profiles.profileError('Không tìm thấy mẫu đã chọn');
+      if (readConfig || (profile && !mapping)) {
+        applied = { mode: 'PROFILE', profileId: profile?.id || '', name: readConfig ? 'Ghép cột tùy chỉnh' : profile.name, config: readConfig || profile };
+      }
+    }
+    const fixed = Object.fromEntries(Object.entries(fixedValues || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined));
     const known = new Set(M.FIELDS[importType].map((f) => f.key));
     const badFixed = Object.keys(fixed).filter((k) => !known.has(k));
     if (badFixed.length) throw new AppError('VALIDATION_FAILED', `Cột gán giá trị chung không hợp lệ: ${badFixed.join(', ')}`);
-    const miss = M.missingRequired(map, importType).filter((k) => !(k in fixed));
-    if (miss.length) throw businessError('E_MAPPING_REQUIRED', `Chưa ghép đủ cột bắt buộc: ${miss.join(', ')}`, { headers, mapping: map, missing: miss });
-    const colOf = {}; headers.forEach((h, i) => { if (map[h]) colOf[map[h]] = i; });
-    const dataRows = [];
-    for (let i = hIdx + 1; i < all.length; i++) dataRows.push({ rowNo: i + 1, cells: all[i] || [] });
-    for (const k of Object.keys(fixed)) if (colOf[k] !== undefined) throw new AppError('VALIDATION_FAILED', `Cột ${k} đã có trong file — không gán giá trị chung`);
-    const staged = { importType, contractId, fileName: wb.fileName, fileSha256: wb.fileSha256, sheet, headerRowNo: hIdx + 1, headers, mapping: map, colOf, fixed, dataRows, numberStyle, user };
+    let staged;
+    let trial;
+    if (applied?.mode === 'PROFILE') {
+      const parsed = Profiles.read(wb, sheetName, applied.config, numberStyle);
+      trial = parsed.trial;
+      if (!trial.count) throw Profiles.profileError('Cách đọc này chưa cho ra phiếu hợp lệ', trial);
+      const { sheet, headers, colOf, dataRows, columns } = parsed;
+      if (colOf.route_code === undefined && !fixed.route_code) throw businessError('E_MAPPING_REQUIRED', 'File không có mã tuyến', { missing: ['route_code'] });
+      const map = Object.fromEntries(Object.entries(parsed.config.mapping).map(([field, name]) => [name, field]));
+      staged = { sheet, headerRowNo: parsed.config.headerRow, headers, mapping: map, colOf, dataRows, columns };
+      applied = { ...applied, config: parsed.config, sheet, fixed, numberStyle };
+    } else {
+      const sheet = sheetName || this._pickSheet(wb, importType);
+      const all = wb.rows(sheet);
+      const hIdx = Number.isInteger(headerRow) ? headerRow - 1 : M.detectHeaderRow(all, importType);
+      if (hIdx < 0 || hIdx >= all.length) throw businessError('E_MAPPING_REQUIRED', `Không tìm thấy dòng tiêu đề phù hợp trong sheet "${sheet}"`);
+      const headers = (all[hIdx] || []).map((h) => (h === null ? '' : String(h)));
+      const map = mapping || M.suggestMapping(headers, importType);
+      const miss = M.missingRequired(map, importType).filter((k) => !(k in fixed));
+      if (miss.length) throw businessError('E_MAPPING_REQUIRED', `Chưa ghép đủ cột bắt buộc: ${miss.join(', ')}`, { headers, mapping: map, missing: miss });
+      const colOf = {};
+      headers.forEach((h, i) => { if (Object.hasOwn(map, h) && known.has(map[h])) colOf[map[h]] = i; });
+      const dataRows = [];
+      for (let i = hIdx + 1; i < all.length; i++) dataRows.push({
+        rowNo: i + 1, cells: all[i] || [],
+        ticketText: importType === 'PHIEU_CAN' && colOf.ticket_no !== undefined ? wb.ticketText?.(sheet, i + 1, colOf.ticket_no) : undefined,
+      });
+      staged = { sheet, headerRowNo: hIdx + 1, headers, mapping: map, colOf, dataRows };
+      if (importType === 'PHIEU_CAN') applied = { mode: 'AUTO', name: 'Tự nhận diện', sheet, headerRow: hIdx + 1, mapping: map, fixed, numberStyle };
+    }
+    for (const k of Object.keys(fixed)) if (staged.colOf[k] !== undefined) throw new AppError('VALIDATION_FAILED', `Cột ${k} đã có trong file — không gán giá trị chung`);
+    Object.assign(staged, { importType, contractId, fileName: wb.fileName, fileSha256: wb.fileSha256, fixed, numberStyle, user });
     const result = this._validate(staged);
+    if (replaceBatchId && !result.rows.some((row) => row.status !== 'ERROR')) {
+      throw Profiles.profileError('Cách đọc mới chưa cho ra dòng có thể nhập', { warnings: result.rows.slice(0, 8).map((row) => ({
+        rowNo: row.rowNo, message: row.issues.map((i) => i.message).join(' · '),
+      })) });
+    }
     const prev = this.store.all('IMPORT_BATCH').find((b) => b.file_sha256 === wb.fileSha256 && b.import_type === importType && b.status === 'CONFIRMED');
     const fileWarnings = prev ? [issue('W_SAME_FILE_IMPORTED', { date: (prev.confirmed_at || prev.created_at).slice(0, 10), batchId: prev.batch_id })] : [];
-    const batch = await this.store.transaction((tx) => tx.insert('IMPORT_BATCH', {
-      batch_id: tx.nextId('IB', 6), import_type: importType, contract_id: contractId, file_name: wb.fileName, file_sha256: wb.fileSha256, sheet_name: sheet,
-      header_json: JSON.stringify(headers), mapping_json: JSON.stringify(Object.keys(fixed).length ? { ...map, '(giá trị chung)': fixed } : map), ...this._counts(result.rows), status: 'PREVIEW',
-    }), { user });
+    const { sheet, headerRowNo, headers, mapping: map } = staged;
+    const batch = await this.store.transaction((tx) => {
+      if (replaceBatchId) {
+        const old = tx.get('IMPORT_BATCH', replaceBatchId);
+        if (!old || old.status !== 'PREVIEW' || old.file_sha256 !== wb.fileSha256 || old.import_type !== importType
+          || old.contract_id !== contractId || old.created_by !== user || this.confirming.has(replaceBatchId)) {
+          throw new AppError('NOT_FOUND', 'Đợt xem trước đã thay đổi. Hãy mở lại file.');
+        }
+        tx.update('IMPORT_BATCH', replaceBatchId, { status: 'CANCELLED' });
+      }
+      return tx.insert('IMPORT_BATCH', {
+        batch_id: tx.nextId('IB', 6), import_type: importType, contract_id: contractId, file_name: wb.fileName, file_sha256: wb.fileSha256, sheet_name: sheet,
+        header_json: JSON.stringify(headers), mapping_json: JSON.stringify(Object.keys(fixed).length ? { ...map, '(giá trị chung)': fixed } : map),
+        read_config_json: applied ? JSON.stringify(applied) : '', ...this._counts(result.rows), status: 'PREVIEW',
+      });
+    }, { user });
+    if (replaceBatchId) this.staging.delete(replaceBatchId);
     this.staging.set(batch.batch_id, { ...staged, result, dataVersion: this.store.dataVersion });
     return { batchId: batch.batch_id, fileName: wb.fileName, fileSha256: wb.fileSha256, sameFileImportedBefore: !!prev, warnings: fileWarnings, numberStyle,
-      sheets: wb.sheets, sheet, headerRowNo: hIdx + 1, headers, mapping: map, fixedValues: fixed, summary: this._summary(result.rows),
+      sheets: wb.sheets, sheet, headerRowNo, headers, mapping: map, fixedValues: fixed, readConfig: applied, trial, summary: this._summary(result.rows),
       rows: result.rows.slice(0, PAGE).map(publicRow), total: result.rows.length, skippedBlank: result.skippedBlank };
+  }
+
+  _legacyRead(batch, wb) {
+    const mapping = JSON.parse(batch.mapping_json || '{}');
+    const fixed = mapping['(giá trị chung)'] || {};
+    delete mapping['(giá trị chung)'];
+    const rows = wb.rows(batch.sheet_name);
+    const expected = JSON.parse(batch.header_json || '[]');
+    const index = rows.findIndex((row) => row.length === expected.length && row.every((cell, i) => String(cell ?? '') === expected[i]));
+    if (index === -1 || !Object.keys(mapping).length) throw Profiles.profileError('Đợt cũ không có đủ thông tin để khôi phục cấu hình đọc');
+    return { mode: 'AUTO', name: 'Tự nhận diện', sheet: batch.sheet_name, headerRow: index + 1, mapping, fixed, numberStyle: 'AUTO' };
+  }
+
+  async inspectProfile({ filePath, sheetName, headerRow, config, numberStyle = 'AUTO' }) {
+    const wb = await openWorkbook(filePath);
+    if (!config) return Profiles.inspect(wb, sheetName, headerRow);
+    return Profiles.read(wb, sheetName, config, numberStyle).trial;
   }
 
   /**
@@ -198,6 +270,7 @@ class ImportService {
     const toInsert = keep.filter((r) => r.status === 'OK' || r.status === 'WARNING');
     const toUpdate = keep.filter((r) => r.status === 'UPDATE');
     const out = await this.store.transaction((tx) => {
+      if (tx.get('IMPORT_BATCH', batchId)?.status !== 'PREVIEW') throw this._noStaging(batchId);
       const ids = []; const updated = []; const restored = []; const recalc = new Set();
       const finder = draftFinder(this.store); // kỳ nháp có phạm vi chứa dòng mới / khôi phục / đổi số liệu → phải tính lại
       for (const r of toUpdate) {
@@ -254,9 +327,10 @@ class ImportService {
   }
 
   async cancel({ batchId, user = 'system' }) {
-    const b = this.store.get('IMPORT_BATCH', batchId);
-    if (!b || b.status !== 'PREVIEW') throw new AppError('NOT_FOUND', `Không có lô PREVIEW ${batchId}`);
-    await this.store.transaction((tx) => tx.update('IMPORT_BATCH', batchId, { status: 'CANCELLED' }), { user });
+    await this.store.transaction((tx) => {
+      if (tx.get('IMPORT_BATCH', batchId)?.status !== 'PREVIEW') throw new AppError('NOT_FOUND', `Không có lô PREVIEW ${batchId}`);
+      tx.update('IMPORT_BATCH', batchId, { status: 'CANCELLED' });
+    }, { user });
     this.staging.delete(batchId);
     return { batchId, status: 'CANCELLED' };
   }
@@ -294,18 +368,22 @@ class ImportService {
     const rows = []; let skippedBlank = 0;
     const fixed = st.fixed || {};
     const get = (cells, key) => (st.colOf[key] === undefined ? (key in fixed ? fixed[key] : null) : cells[st.colOf[key]]);
-    for (const { rowNo, cells } of st.dataRows) {
+    for (const { rowNo, cells, normalized, issues, ticketText } of st.dataRows) {
       const vals = Object.keys(st.colOf).map((k) => get(cells, k));
-      if (vals.every((v) => v === null || v === '')) { skippedBlank++; continue; }
-      if (cells.some((v) => typeof v === 'string' && /^t[ổo]ng c[ộo]ng$/i.test(v.trim()))) { skippedBlank++; continue; } // dòng tổng
-      const r = st.importType === 'PHIEU_CAN' ? this._ticketRow(rowNo, cells, get, ctx) : this._fuelRow(rowNo, cells, get, ctx, st.contractId);
+      if (!normalized && vals.every((v) => v == null || v === '')) { skippedBlank++; continue; }
+      if (!normalized && cells.some((v) => typeof v === 'string' && /^t[ổo]ng c[ộo]ng$/i.test(v.trim()))) { skippedBlank++; continue; } // dòng tổng
+      const read = normalized ? (_cells, field) => normalized[field] ?? get(cells, field)
+        : ticketText === undefined ? get : (_cells, field) => field === 'ticket_no' ? ticketText : get(cells, field);
+      const r = st.importType === 'PHIEU_CAN' ? this._ticketRow(rowNo, cells, read, ctx, normalized)
+        : this._fuelRow(rowNo, cells, get, ctx, st.contractId);
+      if (issues?.length) r.issues.unshift(...issues);
       if (r === null) { skippedBlank++; continue; }
       r.raw = Object.fromEntries(st.headers.map((h, i) => [h.replace(/\s+/g, ' ').trim() || `Cột ${i + 1}`, cells[i] && typeof cells[i] === 'object' ? cells[i].__date : (cells[i] ?? null)]).filter(([k]) => k));
       // bản 1.2.5: chỉ lưu MẢNG giá trị ô theo thứ tự cột của file; tên cột nằm 1 lần ở IMPORT_BATCH.header_json (gọn ~2 lần)
       r.record.raw_row_json = JSON.stringify(st.headers.map((h, i) => (cells[i] && typeof cells[i] === 'object' ? cells[i].__date : (cells[i] ?? null))));
       rows.push(r);
     }
-    ctx.cols = new Set([...Object.keys(st.colOf), ...Object.keys(fixed)]); // chỉ so / cập nhật cột CÓ trong file
+    ctx.cols = new Set([...(st.columns || Object.keys(st.colOf)), ...Object.keys(fixed)]); // chỉ so / cập nhật cột CÓ trong file
     if (st.importType === 'PHIEU_CAN') { this._ticketDupes(rows, ctx); this._ticketLate(rows); }
     else this._fuelDupes(rows, ctx, st.contractId);
     for (const r of rows) {
@@ -334,12 +412,13 @@ class ImportService {
     };
   }
 
-  _ticketRow(rowNo, cells, get, ctx) {
+  _ticketRow(rowNo, cells, get, ctx, normalized) {
     const iss = []; const rec = {};
     const need = (key, label, v) => { if (v === '' || v === null || v === undefined) iss.push(issue('E_FIELD_MISSING', { rowNo, field: label })); };
-    rec.ticket_no = M.toText(get(cells, 'ticket_no')).replace(/\.0$/, '');
+    rec.ticket_no = M.toText(get(cells, 'ticket_no'));
+    if (!normalized) rec.ticket_no = rec.ticket_no.replace(/\.0$/, '');
     rec.row_no = M.toText(get(cells, 'row_no'));
-    if (!rec.ticket_no && !get(cells, 'weigh1_date')) return null; // không phải dòng dữ liệu (vd bảng pivot bên dưới)
+    if (!normalized && !rec.ticket_no && !get(cells, 'weigh1_date')) return null; // không phải dòng dữ liệu (vd bảng pivot bên dưới)
     need('ticket_no', 'số phiếu', rec.ticket_no);
     for (const [k, lab] of [['weigh1_date', 'ngày cân 1'], ['weigh2_date', 'ngày cân 2']]) {
       const d = M.toDate(get(cells, k)); if (d.error) iss.push(issue('E_DATE_INVALID', { detail: `dòng ${rowNo} ${lab}: ${d.error}` })); rec[k] = d.value || ''; need(k, lab, rec[k]);
@@ -366,7 +445,7 @@ class ImportService {
     }
     // KL hàng nhỏ bất thường (xe chở dăm hàng tấn): thường do đọc sai dấu ngăn cách số → cảnh báo buộc người dùng xem lại
     if (typeof rec.net_kg === 'number' && rec.net_kg > 0 && rec.net_kg < KG_IMPLAUSIBLE_BELOW) iss.push(issue('W_KG_IMPLAUSIBLE', { rowNo, value: rec.net_kg, min: KG_IMPLAUSIBLE_BELOW }));
-    for (const k of ['origin', 'customer', 'ldd', 'weigh_type']) rec[k] = M.toText(get(cells, k));
+    for (const k of ['origin', 'customer', 'ldd', 'weigh_type', 'warehouse', 'import_note']) rec[k] = M.toText(get(cells, k));
     rec.route_code = M.toText(get(cells, 'route_code')).toUpperCase();
     if (!rec.route_code) iss.push(issue('E_ROUTE_MISSING', { ticketNo: rec.ticket_no, plateNo: rec.plate_no }));
     else if (!ctx.routes.has(rec.route_code)) iss.push(issue('E_ROUTE_NOT_FOUND', { routeCode: rec.route_code }));
@@ -407,7 +486,7 @@ class ImportService {
       const inFile = (f) => !ctx.cols || ctx.cols.has(f);
       const core = CORE_TICKET.filter((f) => inFile(f) && old[f] !== r.record[f]);
       const desc = DESC_TICKET.filter((f) => f !== 'row_no' && inFile(f) && (old[f] || '') !== (r.record[f] || ''));
-      const LBL = { weigh1_time: 'giờ cân 1', weigh2_date: 'ngày cân 2', weigh2_time: 'giờ cân 2', weight1_kg: 'cân lần 1', weight2_kg: 'cân lần 2', net_kg: 'KL hàng', route_code: 'tuyến', origin: 'nguồn gốc', customer: 'khách hàng', ldd: 'LDĐ', weigh_type: 'kiểu cân', transport_unit_name: 'đơn vị VC' };
+      const LBL = { weigh1_time: 'giờ cân 1', weigh2_date: 'ngày cân 2', weigh2_time: 'giờ cân 2', weight1_kg: 'cân lần 1', weight2_kg: 'cân lần 2', net_kg: 'KL hàng', route_code: 'tuyến', origin: 'nguồn gốc', customer: 'khách hàng', ldd: 'LDĐ', weigh_type: 'kiểu cân', transport_unit_name: 'đơn vị VC', warehouse: 'kho', import_note: 'ghi chú' };
       const fmtv = (f, v) => (f.endsWith('_date') ? String(v || '').split('-').reverse().join('/') : v === '' || v === null || v === undefined ? '(trống)' : v);
       const changes = [...core, ...(old.is_deleted ? desc : [])].map((f) => `${LBL[f] || f} ${fmtv(f, old[f])} → ${fmtv(f, r.record[f])}`).join(', ');
       // phiếu đã xóa trước đây → import lại = KHÔI PHỤC (theo số liệu trong file)

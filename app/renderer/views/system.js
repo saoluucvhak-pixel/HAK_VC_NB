@@ -271,9 +271,11 @@
     async render(p) {
       const tab = p.tab || 'backup'; const admin = D.can('ADMIN'); const only = p.only || ''; // only: 'units' | 'vehicles' — màn riêng tách từ tab cũ "Công ty & xe"
       if (tab === 'units' && !only) { setTimeout(() => D.go('units')); return h('div'); } // đường dẫn cũ D.go('settings', { tab: 'units' }) vẫn chạy
-      const tabs = h('div', { class: 'tabs', role: 'tablist' }, [['backup', 'Dữ liệu & sao lưu'], ['params', 'Tham số tính'], ['users', 'Người dùng'], ['info', 'Thông tin']].map(([k, t]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => D.go('settings', { tab: k }) }, t)));
+      const tabs = h('div', { class: 'tabs', role: 'tablist' }, [['backup', 'Dữ liệu & sao lưu'], ['params', 'Tham số tính'], ['importProfiles', 'Mẫu nhập Excel'], ['users', 'Người dùng'], ['info', 'Thông tin']].map(([k, t]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => D.go('settings', { tab: k }) }, t)));
       const body = h('div');
-      if (tab === 'backup') {
+      if (tab === 'importProfiles') {
+        body.append(await D.renderImportProfiles());
+      } else if (tab === 'backup') {
         const b = await D.api(admin ? 'data.listBackups' : 'data.listBackups', {}, { quiet: true }).catch(() => ({ items: [], warning: null }));
         const cfg = D.state.boot.config;
         body.append(h('div', { class: 'grid g2' }, h('div', { class: 'card' }, h('h2', {}, 'Sao lưu'), h('p', { class: 'small' }, 'Tự động: bản hằng ngày (giữ 30) và hằng tháng (giữ 24) trong thư mục dữ liệu; bản an toàn trước khi khôi phục / nhập gói / đổi thư mục.'),
