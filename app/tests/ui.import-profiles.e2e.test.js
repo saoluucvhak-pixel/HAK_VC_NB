@@ -56,8 +56,28 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await button('Tạo mẫu').click();
     await next(sample);
     await button('Chọn file mẫu').click();
-    await page.getByLabel('Sheet', { exact: true }).selectOption('Phiếu nhà cung cấp');
     const row = page.getByLabel('Dòng tiêu đề', { exact: true });
+    let completeInspection;
+    const isNewSheet = (request) => {
+      const { action, payload } = request.postDataJSON() || {};
+      return action === 'import.profiles.inspect' && payload.sheetName === 'Phiếu nhà cung cấp' && !payload.headerRow;
+    };
+    const inspection = new Promise((resolve) => { completeInspection = resolve; });
+    const delaySheetChange = async (route) => {
+      if (isNewSheet(route.request())) await inspection;
+      await route.continue();
+    };
+    await page.route('**/api', delaySheetChange);
+    try {
+      await Promise.all([page.waitForRequest((request) => request.url().endsWith('/api') && isNewSheet(request)),
+        page.getByLabel('Sheet', { exact: true }).selectOption('Phiếu nhà cung cấp')]);
+      assert.equal(await row.isDisabled(), true, 'Dòng tiêu đề phải chờ sheet mới');
+    } finally {
+      const response = page.waitForResponse((event) => event.url().endsWith('/api') && isNewSheet(event.request()));
+      completeInspection();
+      await response;
+      await page.unroute('**/api', delaySheetChange);
+    }
     await row.fill('3');
     await row.press('Tab');
     for (const step of ['1. Chọn file Excel mẫu và dòng tiêu đề', '2. Ghép cột và đơn vị tính', '3. Đọc thử và đối chiếu dữ liệu']) {

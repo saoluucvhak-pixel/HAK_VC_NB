@@ -127,6 +127,8 @@
       state = null;
       invalidate();
       mappingStep.hidden = true;
+      const controls = sourceControls.querySelectorAll('input, select, button');
+      for (const control of controls) control.disabled = true;
       headerPreview.replaceChildren();
       actions.hidden = true;
       const version = revision;
@@ -138,6 +140,7 @@
         draw();
       } catch (error) {
         if (version !== revision) return;
+        for (const control of controls) control.disabled = false;
         showError(result, error);
         if (sheetName && headerRow) headerPreview.append(button('Chọn lại dòng tiêu đề của sheet', () => inspect(sheetName)));
         actions.hidden = false;
