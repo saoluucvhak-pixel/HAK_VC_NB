@@ -14,6 +14,15 @@
     control.setAttribute('aria-label', label);
     return h('label', { class: 'field' }, h('span', {}, label), control);
   };
+  const excelColumn = (index) => {
+    let label = '';
+    while (index > 0) {
+      index--;
+      label = String.fromCharCode(65 + index % 26) + label;
+      index = Math.floor(index / 26);
+    }
+    return label;
+  };
   const button = (label, onclick, color = '') => h('button', { type: 'button', class: `btn ${color}`, onclick }, label);
 
   D.importTrialResult = (result) => h('div', { class: 'stack', 'aria-label': 'Kết quả đọc thử' },
@@ -24,7 +33,10 @@
       { key: 'rowNo', label: 'Dòng Excel' },
       { key: 'ticket_no', label: 'Số phiếu', render: (row) => row.normalized.ticket_no },
       { key: 'plate_no', label: 'Biển số', render: (row) => row.normalized.plate_no },
-      { key: 'weigh1_date', label: 'Ngày giờ cân', render: (row) => `${D.dmy(row.normalized.weigh1_date)} ${row.normalized.weigh1_time}` },
+      { key: 'weigh1_date', label: 'Ngày cân 1', render: (row) => D.dmy(row.normalized.weigh1_date) },
+      { key: 'weigh1_time', label: 'Giờ cân 1', render: (row) => row.normalized.weigh1_time },
+      { key: 'weigh2_date', label: 'Ngày cân 2', render: (row) => D.dmy(row.normalized.weigh2_date) },
+      { key: 'weigh2_time', label: 'Giờ cân 2', render: (row) => row.normalized.weigh2_time },
       { key: 'net_kg', label: 'Khối lượng (kg)', num: true, render: (row) => D.vnAuto(row.normalized.net_kg) },
       { key: 'warehouse', label: 'Kho', render: (row) => row.normalized.warehouse },
       { key: 'import_note', label: 'Ghi chú', wrap: true, render: (row) => row.normalized.import_note },
@@ -40,12 +52,16 @@
   };
 
   function editor({ profile, fields, initialFile, numberStyle = 'AUTO', onSave, onDefault, onApply }) {
-    const root = h('div', { class: 'card' });
+    const root = h('div', { class: 'card import-profile-editor' });
+    const sourceControls = h('div', { class: 'import-profile-source-controls' });
+    const headerPreview = h('div', { 'aria-label': 'Xem trước tiêu đề', role: 'region', 'aria-live': 'polite' });
     const mappingArea = h('div');
+    const mappingStep = h('section', { class: 'import-profile-step', hidden: true },
+      h('h3', {}, '2. Ghép cột và đơn vị tính'), mappingArea);
     const result = h('div', { 'aria-live': 'polite' });
     const name = h('input', { type: 'text', maxlength: 120, value: profile?.name || '', oninput: () => { saveButton.disabled = !trial?.count || !name.value.trim(); } });
     const fileStatus = h('span', { class: 'small muted' });
-    const actions = h('div');
+    const actions = h('section', { class: 'import-profile-step' });
     root.addEventListener('profile-default', (event) => {
       if (profile?.id === event.detail.id) {
         profile = event.detail;
@@ -110,7 +126,10 @@
     async function inspect(sheetName, headerRow, suggest = true) {
       state = null;
       invalidate();
-      mappingArea.replaceChildren();
+      mappingStep.hidden = true;
+      const controls = sourceControls.querySelectorAll('input, select, button');
+      for (const control of controls) control.disabled = true;
+      headerPreview.replaceChildren();
       actions.hidden = true;
       const version = revision;
       try {
@@ -121,34 +140,62 @@
         draw();
       } catch (error) {
         if (version !== revision) return;
+        for (const control of controls) control.disabled = false;
         showError(result, error);
-        if (sheetName && headerRow) mappingArea.append(button('Chọn lại dòng tiêu đề của sheet', () => inspect(sheetName)));
+        if (sheetName && headerRow) headerPreview.append(button('Chọn lại dòng tiêu đề của sheet', () => inspect(sheetName)));
+        actions.hidden = false;
       }
     }
 
     function draw() {
       const sheet = select(state.sheets.map((s) => option(s.name, s.name)), state.sheet, (event) => inspect(event.target.value));
+      const sheetName = state.sheet;
+      const scan = () => inspect(sheetName, Number(header.value));
       const header = h('input', { type: 'number', min: 1, max: state.rowCount, value: state.headerRow,
-        onchange: (event) => inspect(state.sheet, Number(event.target.value)) });
-      const extraFields = ['weigh1_time', 'weigh2_date', 'weigh2_time', 'origin', 'customer', 'ldd', 'weigh_type', 'transport_unit_name', 'row_no'];
-      const columns = Object.entries(fields).map(([key, title]) => {
+        onchange: scan });
+      sourceControls.replaceChildren(field('Sheet', sheet), field('Dòng tiêu đề', header), button('Quét tiêu đề', scan));
+      headerPreview.replaceChildren(
+        h('h4', {}, `Tiêu đề Excel · Dòng ${state.headerRow}`),
+        state.headerCells.length ? h('ul', { class: 'import-profile-headers small' }, state.headerCells.map(({ column, title }) =>
+          h('li', {}, `${excelColumn(column)}: ${title}`)))
+          : h('p', { class: 'small muted' }, 'Dòng này không có ô tiêu đề.'));
+
+      const extraFields = ['origin', 'customer', 'ldd', 'weigh_type', 'transport_unit_name', 'row_no'];
+      const headerColumns = new Map(state.headerCells.map(({ title, column }) => [title, excelColumn(column)]));
+      const rows = Object.entries(fields).map(([key, title]) => {
         const value = mapped[key] || '';
         const available = state.options.find((o) => o.name === value);
-        const opts = [option('', '— Bỏ qua —'), ...state.options.map((o) => option(o.name, o.duplicate ? `${o.name} (trùng)` : o.name, o.duplicate))];
+        const opts = [option('', '— Bỏ qua —'), ...state.options.map(({ name, duplicate }) => {
+          const column = headerColumns.get(name);
+          const label = column && !duplicate ? `Cột ${column} · ${name}` : name;
+          return option(name, duplicate ? `${label} (trùng)` : label, duplicate);
+        })];
         if (value && !available) opts.push(option(value, `${value} (thiếu)`, true));
-        return { extra: extraFields.includes(key), node: field(title, select(opts, value, (event) => {
+        const originalTitle = h('span', { class: 'small' }, value || '—');
+        const source = select(opts, value, (event) => {
           mapped = { ...mapped };
           if (event.target.value) mapped[key] = event.target.value;
           else delete mapped[key];
+          originalTitle.textContent = mapped[key] || '—';
           invalidate();
-        })) };
+        });
+        source.setAttribute('aria-label', title);
+        return { key, title, source, originalTitle };
       });
-      mappingArea.replaceChildren(h('div', { class: 'grid g2' }, field('Sheet', sheet), field('Dòng tiêu đề', header)),
-        h('div', { class: 'row' }, h('h3', {}, 'Ghép cột'), button('Gợi ý lại', () => { mapped = { ...state.suggested }; invalidate(); draw(); })),
-        h('div', { class: 'grid g3' }, columns.filter((c) => !c.extra).map((c) => c.node)),
-        h('details', { open: extraFields.some((key) => mapped[key]), style: { margin: '12px 0' } },
-          h('summary', {}, 'Cột bổ sung'), h('div', { class: 'grid g3' }, columns.filter((c) => c.extra).map((c) => c.node))),
-        h('div', { class: 'grid g2' }, field('Đơn vị dự phòng', unit), field('Kiểu số khi đọc thử', style)));
+      const mappingTable = (items) => D.table({ rows: items, columns: [
+        { key: 'title', label: 'Trường trên app', wrap: true, render: (row) => h('strong', {}, row.title) },
+        { key: 'source', label: 'Cột nguồn trong Excel', width: '44%', render: (row) => row.source },
+        { key: 'originalTitle', label: 'Tiêu đề gốc', wrap: true, render: (row) => row.originalTitle },
+      ] });
+      mappingArea.replaceChildren(
+        h('div', { class: 'import-profile-options' }, onSave ? field('Tên mẫu', name) : null,
+          field('Đơn vị dự phòng', unit), field('Kiểu số khi đọc thử', style)),
+        h('div', { class: 'row' }, h('h4', {}, 'Ghép cột'), button('Gợi ý lại', () => { mapped = { ...state.suggested }; invalidate(); draw(); })),
+        h('p', { class: 'small muted' }, 'Nếu Excel tách ngày và giờ, ghép từng cột vào Ngày cân và Giờ cân tương ứng. Nếu Excel gộp ngày giờ, có thể chọn cùng cột cho Ngày cân và Giờ cân của lần cân đó.'),
+        mappingTable(rows.filter(({ key }) => !extraFields.includes(key))),
+        h('details', { open: extraFields.some((key) => mapped[key]) },
+          h('summary', {}, 'Cột bổ sung'), mappingTable(rows.filter(({ key }) => extraFields.includes(key)))));
+      mappingStep.hidden = false;
       actions.hidden = false;
       trialButton.disabled = false;
     }
@@ -161,11 +208,15 @@
       await inspect(undefined, profile?.headerRow);
       if (!state && profile?.headerRow) await inspect();
     });
-    actions.append(h('div', { class: 'btns' }, trialButton, saveButton, defaultButton));
+    actions.append(h('div', { class: 'row' }, h('h3', {}, '3. Đọc thử và đối chiếu dữ liệu'), trialButton),
+      h('div', { class: 'btns' }, saveButton, defaultButton), result);
     actions.hidden = true;
     trialButton.disabled = true;
     saveButton.disabled = true;
-    root.append(h('div', { class: 'row' }, open, fileStatus), onSave ? field('Tên mẫu', name) : '', mappingArea, actions, result);
+    root.append(h('h2', {}, onSave ? (profile ? 'Sửa mẫu nhập Excel' : 'Tạo mới mẫu nhập Excel') : 'Ghép cột cho tệp Excel'),
+      h('section', { class: 'import-profile-step' }, h('h3', {}, '1. Chọn file Excel mẫu và dòng tiêu đề'),
+        h('div', { class: 'row' }, open, fileStatus), sourceControls, headerPreview),
+      mappingStep, actions);
     if (initialFile) {
       fileStatus.textContent = initialFile.split(/[\\/]/).pop();
       inspect(undefined, profile?.headerRow).then(() => { if (!state && profile?.headerRow) return inspect(); });
@@ -199,6 +250,7 @@
         D.table({ rows: items, empty: 'Chưa có mẫu nhập. File mới sẽ dùng Tự nhận diện.', columns: [
           { key: 'name', label: 'Tên mẫu' },
           { key: 'headerRow', label: 'Dòng tiêu đề' },
+          { key: 'mapping', label: 'Cột đã ghép', num: true, render: (item) => Object.keys(item.mapping || {}).length },
           { key: 'fallbackUnit', label: 'Đơn vị dự phòng', render: (item) => ({ kg: 'kg', t: 'Tấn' })[item.fallbackUnit] || '—' },
           { key: 'isDefault', label: 'Trạng thái', render: (item) => item.isDefault ? D.tag('ok', 'Đang dùng') : '' },
           ...(admin ? [{ key: 'actions', label: 'Thao tác', render: (item) => h('div', { class: 'btns' },

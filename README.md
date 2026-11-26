@@ -1,6 +1,6 @@
 # DGVC — Đơn giá vận chuyển dăm (HAK Group)
 
-Ứng dụng desktop (Electron, chạy offline) thay quy trình Excel + Power Query tính đơn giá vận chuyển dăm gỗ cho các nhà máy HAK Group. Một bộ cài dùng cho mọi nhà máy (chọn đơn vị lúc khởi tạo). Bản hiện tại: **1.10.1**.
+Ứng dụng desktop (Electron, chạy offline) thay quy trình Excel + Power Query tính đơn giá vận chuyển dăm gỗ cho các nhà máy HAK Group. Một bộ cài dùng cho mọi nhà máy (chọn đơn vị lúc khởi tạo). Bản hiện tại: **1.10.2**.
 
 - **Kho dữ liệu:** **SQLite là kho chính mặc định** (bản cài cũ tự nâng cấp từ JSON, có sao lưu + đối chiếu, giữ kho JSON cũ làm dự phòng). **JSON** chỉ là sao lưu phụ để gửi máy khác; khôi phục được từ cả bản SQL lẫn bản JSON. Chi tiết: `docs/PHAT_HANH_1.5.0.md`.
 - **Môi trường:** Node.js ≥ 22.12 (CI dùng Node 22), Electron 45, electron-builder 26, NSIS cho bộ cài Windows x64.
@@ -44,7 +44,7 @@ npm run dist               # đóng gói bộ cài NSIS: electron-builder (dir) 
 ### Chạy trực tiếp tại trạm cân (không cần cài đặt)
 Trên các máy tính trạm cân bị hạn chế quyền Administrator, có thể sao chép trực tiếp thư mục `dist/win-unpacked/` và chạy ngay tệp `DGVC.exe`. Dữ liệu sẽ lưu tại `Documents\DGVC_DATA` của tài khoản đang đăng nhập.
 
-## Nâng cấp từ bản cũ (1.8.3 → 1.10.1)
+## Nâng cấp từ bản cũ (1.8.3 → 1.10.2)
 - **Bảo mật:** Lưu trạng thái máy (`machine-state.json`) ở thư mục cấu hình máy cục bộ để chống triệt để lỗ hổng mở lại ngoại lệ "ADMIN đầu tiên" khi khôi phục các bản sao lưu cũ.
 - **Hiệu năng:** Tự động chuyển sang chế độ xuất luồng (streaming `WorkbookWriter`) khi xuất báo cáo danh sách phiếu cân lớn (>2.000 dòng), giải phóng RAM tức thì cho các máy trạm cân 4GB RAM.
 - Cài đè bản mới: bộ cài chỉ thay tệp chương trình; dữ liệu nằm ở thư mục dữ liệu của người dùng (mặc định `Documents\DGVC_DATA`), gỡ cài đặt **không** xóa dữ liệu. Sao lưu thủ công trước khi nâng cấp (Cài đặt → Dữ liệu & sao lưu → Sao lưu ngay). App tự thêm tham số cấu hình mới và dọn lô import xem trước bỏ dở khi mở.

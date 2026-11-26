@@ -3429,7 +3429,7 @@
      "AUTO, VN hoặc EN"
     ]
    ],
-   "output": "{sheets, options, suggested} hoặc {trial: {rows, totalKg, warnings, declaredTotals}}",
+   "output": "{sheets, headerCells, options, suggested} hoặc {trial: {rows, totalKg, warnings, declaredTotals}}",
    "errors": [],
    "reads": [],
    "writes": [],

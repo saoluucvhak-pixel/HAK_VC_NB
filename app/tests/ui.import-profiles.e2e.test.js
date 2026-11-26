@@ -43,7 +43,7 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await button('Vào phần mềm').click();
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     const store = srv.ctx.store;
-    const catalog = { plate: '99A-00001', route: store.all('TUYEN_VC')[0].route_code };
+    const catalog = { splitDates: true, plate: '99A-00001', route: store.all('TUYEN_VC')[0].route_code };
     await store.transaction((tx) => tx.insert('XE', {
       ...store.all('XE')[0], plate_no: catalog.plate, plate_key: '99A00001', note: 'Xe tổng hợp dùng để kiểm thử',
     }));
@@ -56,11 +56,40 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await button('Tạo mẫu').click();
     await next(sample);
     await button('Chọn file mẫu').click();
-    await page.getByLabel('Sheet', { exact: true }).selectOption('Phiếu nhà cung cấp');
     const row = page.getByLabel('Dòng tiêu đề', { exact: true });
+    let completeInspection;
+    const isNewSheet = (request) => {
+      const { action, payload } = request.postDataJSON() || {};
+      return action === 'import.profiles.inspect' && payload.sheetName === 'Phiếu nhà cung cấp' && !payload.headerRow;
+    };
+    const inspection = new Promise((resolve) => { completeInspection = resolve; });
+    const delaySheetChange = async (route) => {
+      if (isNewSheet(route.request())) await inspection;
+      await route.continue();
+    };
+    await page.route('**/api', delaySheetChange);
+    try {
+      await Promise.all([page.waitForRequest((request) => request.url().endsWith('/api') && isNewSheet(request)),
+        page.getByLabel('Sheet', { exact: true }).selectOption('Phiếu nhà cung cấp')]);
+      assert.equal(await row.isDisabled(), true, 'Dòng tiêu đề phải chờ sheet mới');
+    } finally {
+      const response = page.waitForResponse((event) => event.url().endsWith('/api') && isNewSheet(event.request()));
+      completeInspection();
+      await response;
+      await page.unroute('**/api', delaySheetChange);
+    }
     await row.fill('3');
     await row.press('Tab');
-    await page.getByRole('heading', { name: 'Ghép cột', exact: true }).waitFor();
+    for (const step of ['1. Chọn file Excel mẫu và dòng tiêu đề', '2. Ghép cột và đơn vị tính', '3. Đọc thử và đối chiếu dữ liệu']) {
+      await page.getByRole('heading', { name: step, exact: true }).waitFor();
+    }
+    await page.getByRole('columnheader', { name: 'Cột nguồn trong Excel' }).waitFor();
+    const titles = page.getByRole('region', { name: 'Xem trước tiêu đề' });
+    await titles.getByRole('heading', { name: 'Tiêu đề Excel · Dòng 3' }).waitFor();
+    await titles.getByText('A: Số phiếu', { exact: true }).waitFor();
+    await titles.getByText('D: Khối lượng hàng', { exact: true }).waitFor();
+    await page.getByLabel('Ngày cân 1', { exact: true }).waitFor();
+    await page.getByLabel('Giờ cân 1', { exact: true }).waitFor();
     await page.getByLabel('Tên mẫu', { exact: true }).fill('Nhà cung cấp A');
     await button('Đọc thử').click();
     await page.getByText('2 phiếu hợp lệ / 2 dòng · Tổng 3.800 kg', { exact: true }).waitFor();
@@ -80,7 +109,10 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await button('Import từ Excel').click();
     let preview = dialog('Import phiếu cân — xem trước');
     await preview.getByText('Cách đọc: Nhà cung cấp A', { exact: true }).waitFor();
-    await preview.getByRole('cell', { name: '000042', exact: true }).waitFor();
+    const previewTicket = preview.getByRole('row').filter({ has: page.getByRole('cell', { name: '000042', exact: true }) });
+    for (const time of ['22/09/2026', '23:50:00', '23/09/2026', '00:30:00']) {
+      await previewTicket.getByRole('cell', { name: time, exact: true }).waitFor();
+    }
     await preview.getByRole('button', { name: 'Đổi cách đọc' }).click();
     let repair = dialog('Cách đọc file phiếu cân');
     await repair.getByLabel('Mẫu đọc file').selectOption('');
@@ -88,8 +120,13 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await repair.getByRole('alert').waitFor();
     assert.equal(await preview.isVisible(), true);
     await repair.getByRole('button', { name: 'Quay lại' }).click();
+    await preview.getByLabel('Chấp nhận các dòng cảnh báo', { exact: true }).check();
     await preview.getByRole('button', { name: 'Xác nhận import 2 dòng' }).click();
     await page.locator('.toast', { hasText: 'Đã import 2 dòng' }).waitFor();
+    const saved = page.getByRole('row').filter({ has: page.getByRole('cell', { name: '000042', exact: true }) });
+    await saved.waitFor();
+    assert.deepEqual(await saved.getByRole('cell').allTextContents().then((cells) => cells.slice(0, 5)),
+      ['000042', '22/09/2026', '23:50:00', '23/09/2026', '00:30:00']);
 
     await next(changed);
     await button('Import từ Excel').click();
