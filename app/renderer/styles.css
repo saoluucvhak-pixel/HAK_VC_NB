@@ -424,3 +424,45 @@ table.t tbody tr.sel td { background: var(--row-hover); } table.t tbody tr.sel t
   background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--brand);
   border-radius: 6px; padding: 10px 14px; font-size: .85rem; color: var(--text-mute); margin-top: 12px;
 }
+
+/* Smart Dropzone & Quick-Action Enhancements */
+.smart-dropzone {
+  border: 2px dashed var(--line); border-radius: 10px; padding: 16px 20px;
+  background: var(--surface); display: flex; align-items: center; gap: 14px;
+  margin-bottom: 12px; transition: all .2s ease; cursor: pointer;
+}
+.smart-dropzone:hover, .smart-dropzone.drag-over {
+  border-color: var(--brand); background: var(--brand-soft);
+}
+.dropzone-icon { font-size: 1.6rem; line-height: 1; }
+.dropzone-text { display: flex; flex-direction: column; gap: 2px; }
+
+.bulk-ack-banner {
+  background: var(--note-bg); border: 1px solid var(--note-line); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center;
+  justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.bulk-ack-title { font-weight: 700; color: var(--warn-fg); font-size: .9rem; }
+
+.anomaly-radar-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 18px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.03);
+}
+.anomaly-radar-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+}
+.anomaly-radar-header h3 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 6px; }
+.anomaly-item {
+  display: flex; align-items: baseline; gap: 8px; font-size: .86rem; padding: 5px 0;
+  border-bottom: 1px solid var(--line2); line-height: 1.4;
+}
+.anomaly-item:last-child { border-bottom: none; }
+.anomaly-badge {
+  font-size: .75rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+}
+.anomaly-badge.danger { background: var(--bad-bg); color: var(--err-fg); }
+.anomaly-badge.warn { background: var(--note-bg); color: var(--warn-fg); }
+.quick-add-btn {
+  font-size: .75rem; padding: 2px 7px; border-radius: 4px; margin-left: 6px;
+  vertical-align: middle; cursor: pointer;
+}

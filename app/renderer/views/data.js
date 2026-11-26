@@ -41,6 +41,72 @@
     D.toast(`Đã tạo file mẫu: ${r.path} — nhập từ dòng ${r.firstDataRow} sheet ${r.sheet}`, 'ok', 9000);
     if (window.dgvc) D.api('system.openPath', { path: r.path }, { quiet: true }).catch(() => {});
   };
+  /** Tự động nhận diện file Excel là Phiếu cân hay Bảng kê dầu và mở luồng nạp tương ứng. */
+  D.autoDetectImport = async ({ filePath: targetFile, onDone, defaultContractId } = {}) => {
+    const filePath = targetFile || await D.pickFile({ title: 'Chọn file Excel phiếu cân hoặc bảng kê dầu', filters: [{ name: 'Excel', extensions: ['xlsx', 'xlsm', 'csv'] }] });
+    if (!filePath) return;
+    try {
+      const inspect = await D.api('import.profiles.inspect', { filePath }, { quiet: true });
+      const sheetNames = (inspect.sheets || []).map((s) => (s.name || '').toUpperCase());
+      const headerTitles = (inspect.headerCells || []).map((c) => (c.title || '').toLowerCase());
+      const isFuel = sheetNames.some((s) => s.includes('GIAONHANDAU') || s.includes('DAU'))
+        || headerTitles.some((t) => t.includes('nhận dầu') || t.includes('lít') || t.includes('đơn giá dầu'));
+      const importType = isFuel ? 'GIAO_NHAN_DAU' : 'PHIEU_CAN';
+      let contractId = defaultContractId;
+      if (importType === 'GIAO_NHAN_DAU' && !contractId) {
+        const contracts = D.contractOptions(false);
+        if (contracts.length === 1) contractId = contracts[0][0];
+        else if (contracts.length > 1) {
+          contractId = await new Promise((resolve) => {
+            const sel = h('select', {}, contracts.map(([v, t]) => h('option', { value: v }, t)));
+            D.modal({
+              title: 'Chọn hợp đồng cho bảng kê dầu',
+              body: h('div', { class: 'stack' },
+                h('p', {}, 'Hệ thống nhận diện file là Bảng kê giao nhận dầu. Vui lòng chọn hợp đồng áp dụng:'),
+                h('label', { class: 'field' }, h('span', {}, 'Hợp đồng'), sel)),
+              actions: [
+                { label: 'Hủy', run: () => true },
+                { label: 'Tiếp tục', primary: true, run: () => resolve(sel.value) }
+              ],
+              onClose: () => resolve('')
+            });
+          });
+          if (!contractId) return;
+        }
+      }
+      D.toast(`Nhận diện tự động: ${importType === 'PHIEU_CAN' ? 'Phiếu cân' : 'Bảng kê giao nhận dầu'}`, 'info', 4000);
+      return D.importWizard({ importType, contractId, filePath, onDone });
+    } catch {
+      return D.importWizard({ importType: 'PHIEU_CAN', contractId: defaultContractId, filePath, onDone });
+    }
+  };
+
+  /** Khung kéo thả thông minh hỗ trợ thả file trực tiếp vào ứng dụng. */
+  D.smartDropzone = (onDone, getContractId) => {
+    const el = h('div', {
+      class: 'smart-dropzone',
+      onclick: () => D.autoDetectImport({ onDone, defaultContractId: typeof getContractId === 'function' ? getContractId() : getContractId }),
+      ondragover: (e) => { e.preventDefault(); el.classList.add('drag-over'); },
+      ondragleave: () => el.classList.remove('drag-over'),
+      ondrop: async (e) => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        const files = e.dataTransfer?.files;
+        if (!files || !files.length) return;
+        const file = files[0].path;
+        if (!file) return;
+        await D.autoDetectImport({ filePath: file, onDone, defaultContractId: typeof getContractId === 'function' ? getContractId() : getContractId });
+      }
+    },
+      h('span', { class: 'dropzone-icon' }, '📥'),
+      h('div', { class: 'dropzone-text' },
+        h('strong', {}, 'Kéo thả file Excel / CSV vào đây hoặc bấm để chọn'),
+        h('span', { class: 'small muted' }, 'Tự động phân biệt Phiếu cân hoặc Bảng kê dầu, quét cột dữ liệu và mở xem trước')
+      )
+    );
+    return el;
+  };
+
   D.importWizard = async ({ importType, contractId, onDone, filePath: knownFile, numberStyle, sourceBatchId,
     preview: knownPreview, reading = {} }) => {
     const filePath = knownFile || await D.pickFile({ title: importType === 'PHIEU_CAN' ? 'Chọn file Excel phiếu cân' : 'Chọn file Excel bảng kê dầu', filters: [{ name: 'Excel', extensions: ['xlsx', 'xlsm', 'csv'] }] });
@@ -139,7 +205,65 @@
           { key: 'd', label: 'KL (KG)', num: true, render: (r) => D.vn(r.normalized.net_kg) }, { key: 'e', label: 'Tuyến', render: (r) => r.normalized.route_code }]
           : [{ key: 'a', label: 'Ngày nhận', render: (r) => D.dmy(r.normalized.receive_date) }, { key: 'b', label: 'Mã xe', render: (r) => r.normalized.fuel_vehicle_code }, { key: 'c', label: 'Biển số', render: (r) => r.normalized.plate_no },
             { key: 'd', label: 'Lít', num: true, render: (r) => D.vnAuto(r.normalized.qty_liter) }, { key: 'e', label: 'Đơn giá', num: true, render: (r) => D.vnAuto(r.normalized.fuel_price_excl_vat) }]),
-        { key: 'i', label: 'Ghi chú', wrap: true, render: (r) => (r.issues || []).map((i) => i.message).join('; ') },
+        { key: 'i', label: 'Ghi chú', wrap: true, render: (r) => {
+          const notes = (r.issues || []).map((i) => i.message);
+          const hasUnknownVehicle = (r.issues || []).some((i) => ['W_VEHICLE_UNKNOWN', 'E_VEHICLE_NOT_FOUND'].includes(i.code));
+          const hasUnknownRoute = (r.issues || []).some((i) => ['E_ROUTE_NOT_FOUND', 'E_ROUTE_MISSING'].includes(i.code));
+          const plateNo = r.normalized.plate_no || r.normalized.fuel_vehicle_code;
+          const routeCode = r.normalized.route_code;
+          const quickActions = [];
+          if (hasUnknownVehicle && plateNo && D.writer()) {
+            quickActions.push(h('button', {
+              class: 'btn small primary quick-add-btn',
+              title: `Thêm nhanh xe ${plateNo} vào danh mục xe`,
+              onclick: async (e) => {
+                e.stopPropagation();
+                D.formModal({
+                  title: `Thêm nhanh xe ${plateNo}`,
+                  fields: [
+                    { key: 'plate_no', label: 'Biển số xe', required: true },
+                    { key: 'owner_unit_code', label: 'Chủ xe', type: 'select', options: D.unitOptions(), required: true },
+                    { key: 'payload_ton', label: 'Tải trọng định mức (tấn)', type: 'number', hint: 'Tùy chọn' },
+                    { key: 'volume_m3', label: 'Thể tích thùng (m³)', type: 'number', hint: 'Tùy chọn' },
+                  ],
+                  values: { plate_no: plateNo, owner_unit_code: D.state.boot?.install?.unitCode || '' },
+                  submit: async (vals) => {
+                    await D.api('vehicles.save', vals);
+                    D.toast(`Đã thêm xe ${plateNo} vào danh mục`, 'ok');
+                    const next = await read({ reuseReading: true, replaceBatchId: pv.batchId });
+                    if (next) await reopen(next);
+                  }
+                });
+              }
+            }, `+ Thêm xe ${plateNo}`));
+          }
+          if (hasUnknownRoute && routeCode && D.writer()) {
+            quickActions.push(h('button', {
+              class: 'btn small primary quick-add-btn',
+              title: `Thêm nhanh tuyến ${routeCode} vào danh mục tuyến`,
+              onclick: async (e) => {
+                e.stopPropagation();
+                D.formModal({
+                  title: `Thêm nhanh tuyến ${routeCode}`,
+                  fields: [
+                    { key: 'route_code', label: 'Mã tuyến', required: true },
+                    { key: 'route_name', label: 'Tên tuyến', required: true },
+                    { key: 'trip_distance_km', label: 'Cự ly chuyến (km)', type: 'number', required: true },
+                    { key: 'uom', label: 'ĐVT', type: 'select', options: [['TAN', 'Tấn'], ['M3', 'm³']], required: true },
+                  ],
+                  values: { route_code: routeCode, route_name: `Tuyến ${routeCode}`, trip_distance_km: 10, uom: 'TAN' },
+                  submit: async (vals) => {
+                    await D.api('routes.save', vals);
+                    D.toast(`Đã thêm tuyến ${routeCode} vào danh mục`, 'ok');
+                    const next = await read({ reuseReading: true, replaceBatchId: pv.batchId });
+                    if (next) await reopen(next);
+                  }
+                });
+              }
+            }, `+ Thêm tuyến ${routeCode}`));
+          }
+          return h('div', {}, notes.join('; '), ...quickActions);
+        } },
         { key: 's', label: 'Bỏ', render: (r) => h('input', { type: 'checkbox', 'aria-label': `Bỏ dòng ${r.rowNo}`, checked: r.status === 'ERROR' || skip.has(r.rowNo), disabled: r.status === 'ERROR', onchange: (e) => { if (e.target.checked) skip.add(r.rowNo); else skip.delete(r.rowNo); refreshConfirm(); } }) }], rows: filtered.slice((page - 1) * pageSize, page * pageSize) }),
         D.pager({ total: filtered.length, page, pageSize, goto: (next) => { page = next; drawPreview(); } }));
     };
@@ -171,7 +295,44 @@
       onClose: () => D.api('import.cancel', { batchId: pv.batchId }, { quiet: true }).catch(() => {}),
       actions: [{ label: 'Hủy', run: () => true }, { label: `Xác nhận import ${confirmCount()} dòng`, primary: true, run: async () => {
         const r = await D.api('import.confirm', { batchId: pv.batchId, skipRowNos: [...skip], acceptWarnings: accept.checked, clientRequestId: D.rid() });
-        D.toast(`Đã import ${r.inserted} dòng${r.updated ? ` · cập nhật ${r.updated} phiếu` : ''}${r.restored ? ` · khôi phục ${r.restored} phiếu` : ''} · bỏ qua ${r.duplicates} dòng đã có${r.recalcPeriods && r.recalcPeriods.length ? ` · ${r.recalcPeriods.length} kỳ nháp phải tính lại` : ''}`, 'ok', 8000); if (onDone) onDone(); return true;
+        D.toast(`Đã import ${r.inserted} dòng${r.updated ? ` · cập nhật ${r.updated} phiếu` : ''}${r.restored ? ` · khôi phục ${r.restored} phiếu` : ''} · bỏ qua ${r.duplicates} dòng đã có${r.recalcPeriods && r.recalcPeriods.length ? ` · ${r.recalcPeriods.length} kỳ nháp phải tính lại` : ''}`, 'ok', 8000);
+        if (onDone) onDone();
+
+        // Nút chuyển nhanh từ Import ➔ Tính giá kỳ (Ưu tiên 1)
+        const validDates = rows.filter((row) => ['OK', 'WARNING', 'UPDATE'].includes(row.status) && !skip.has(row.rowNo))
+          .map((row) => (importType === 'PHIEU_CAN' ? row.normalized.weigh1_date : row.normalized.receive_date))
+          .filter(Boolean)
+          .sort();
+        const minD = validDates[0] || '';
+        const maxD = validDates[validDates.length - 1] || '';
+        const carrierContracts = D.contractOptions(true);
+        const targetContractId = contractId || (carrierContracts[0] || [''])[0];
+
+        if (minD && maxD && targetContractId) {
+          D.modal({
+            title: 'Hoàn tất nhập dữ liệu',
+            body: h('div', { class: 'stack' },
+              h('div', { class: 'trial-kpi-banner' },
+                h('span', { class: 'trial-pill ok' }, `✅ Đã nhập ${r.inserted} dòng`),
+                r.updated ? h('span', { class: 'trial-pill' }, `🔄 Cập nhật ${r.updated}`) : null,
+                h('span', { class: 'trial-pill' }, `📅 Kỳ: ${D.dmy(minD)} ➔ ${D.dmy(maxD)}`)
+              ),
+              h('p', {}, 'Dữ liệu đã được nạp an toàn vào hệ thống. Bạn có muốn chuyển ngay sang màn hình Tính đơn giá cho kỳ này không?')
+            ),
+            actions: [
+              { label: 'Ở lại màn hình hiện tại', run: () => true },
+              {
+                label: '🚀 Chuyển sang Tính giá kỳ này ngay',
+                primary: true,
+                run: () => {
+                  D.go('calc', { contractId: targetContractId, dateFrom: minD, dateTo: maxD });
+                  return true;
+                }
+              }
+            ]
+          });
+        }
+        return true;
       } }] });
   };
 
@@ -229,6 +390,7 @@
         D.writer() ? h('button', { class: 'btn', onclick: () => D.importTemplate({ importType: 'PHIEU_CAN' }) }, 'Tải file mẫu') : null,
         h('button', { class: 'btn', onclick: () => D.showImportHistory(load) }, 'Lịch sử nhập'),
         D.writer() ? h('button', { class: 'btn primary', onclick: () => D.importWizard({ importType: 'PHIEU_CAN', onDone: load }) }, 'Import từ Excel') : null],
+      D.writer() ? D.smartDropzone(load) : null,
       h('div', { class: 'card' }, (sfMount = D.smartFilter.mount(sfCfg)).el), out);
       await load();
       return page;
@@ -343,7 +505,9 @@
         if (sfMount) sfMount.refresh();
       };
       f.inputs.contractId.addEventListener('change', load);
-      const page = D.page('Giao nhận dầu', '3 · Bảng kê dầu theo hợp đồng', [acts], h('div', { class: 'card' }, f, (sfMount = D.smartFilter.mount(sfCfg)).el,
+      const page = D.page('Giao nhận dầu', '3 · Bảng kê dầu theo hợp đồng', [acts],
+        D.writer() && isCarrier() ? D.smartDropzone(load, () => f.values().contractId) : null,
+        h('div', { class: 'card' }, f, (sfMount = D.smartFilter.mount(sfCfg)).el,
         h('p', { class: 'small muted', style: { margin: '8px 0 0' } }, 'Đơn giá dầu của kỳ = trung bình cộng các dòng; dầu trong bảng kê tính hết vào kỳ (kể cả dòng nhận trước ngày bắt đầu).'), fixedNote), out);
       await load();
       return page;

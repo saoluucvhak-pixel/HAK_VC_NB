@@ -5,6 +5,11 @@
 
   const kpi = (label, value, main) => h('div', { class: `kpi ${main ? 'main' : ''}` }, h('div', { class: 'l' }, label), h('div', { class: 'v' }, value));
   const weekAgo = () => { const d = new Date(Date.now() - 6 * 86400000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const toMinutes = (timeStr) => {
+    if (!timeStr) return 0;
+    const parts = String(timeStr).split(':').map(Number);
+    return (parts[0] || 0) * 60 + (parts[1] || 0);
+  };
 
   // ───────── Tổng quan ─────────
   D.views.dashboard = {
@@ -106,9 +111,137 @@
           { key: 'transportPrice', label: 'Đơn giá VC', num: true, render: (r) => h('button', { class: 'btn small', title: 'Xem chi tiết tính', onclick: (e) => { e.stopPropagation(); traceDrawer(r, saved); } }, h('span', { class: 'money' }, D.vn(r.transportPrice))) }],
         rows: r0, empty: 'Chưa có kết quả — kiểm tra lỗi bên dưới' })));
         const blocked = res.blocked || [];
-        out.append(h('div', { class: 'grid g2' }, h('div', { class: 'card' }, h('h2', {}, 'Kiểm tra trước khi xác nhận'), exclDirty && saved === null && period && period.status === 'NHAP' ? h('p', {}, D.tag('NHAP', 'Chưa lưu'), ' Đã thay đổi dầu của kỳ — bấm TÍNH GIÁ để lưu.') : null,
-          D.issueList([...(res.issues || []), ...blocked.slice(0, 20)].map((x, k) => [x, k]).sort((a, b) => (LVORD[a[0].level] ?? 3) - (LVORD[b[0].level] ?? 3) || a[1] - b[1]).map((x) => x[0]), fuelActions),
-          blocked.length > 20 ? h('p', { class: 'small muted' }, `… và ${blocked.length - 20} dòng bị chặn khác`) : null), statusCard(saved)));
+        const dupeFuelIssues = (res.issues || []).filter((i) => i.code === 'W_FUEL_POSSIBLE_DUPLICATE' && i.ref);
+        const bulkAckBanner = dupeFuelIssues.length >= 2 ? h('div', { class: 'bulk-ack-banner' },
+          h('div', {},
+            h('span', { class: 'bulk-ack-title' }, `⚠️ Có ${dupeFuelIssues.length} dòng dầu nghi trùng lặp trong kỳ`),
+            h('div', { class: 'small muted' }, 'Nhiều xe nhận dầu nhiều lần trong ngày hoặc trùng bản kê.')
+          ),
+          h('div', { class: 'btns' },
+            h('button', {
+              class: 'btn small',
+              title: 'Bỏ tất cả dòng dầu nghi trùng khỏi kỳ này (vẫn giữ trong bảng kê)',
+              onclick: async () => {
+                const ok = await D.confirm({
+                  title: 'Bỏ tất cả dầu nghi trùng',
+                  message: `Bỏ toàn bộ ${dupeFuelIssues.length} dòng dầu nghi trùng khỏi kỳ này? Các dòng dầu vẫn được lưu trong hệ thống nhưng không tính vào kỳ.`
+                });
+                if (!ok) return;
+                for (const iss of dupeFuelIssues) excl.add(iss.ref);
+                exclDirty = true;
+                await preview();
+              }
+            }, `Bỏ tất cả (${dupeFuelIssues.length}) khỏi kỳ`),
+            h('button', {
+              class: 'btn small primary',
+              title: 'Xác nhận toàn bộ không trùng (xe nhận dầu nhiều lần hợp lệ)',
+              onclick: async () => {
+                const note = await D.confirm({
+                  title: 'Xác nhận tất cả không trùng',
+                  message: `Xác nhận toàn bộ ${dupeFuelIssues.length} dòng dầu KHÔNG phải nhập trùng (xe thực nhận dầu nhiều lần trong ngày).`,
+                  reason: true
+                });
+                if (!note) return;
+                const receiptIds = dupeFuelIssues.map((iss) => iss.ref);
+                await D.api('fuel.ackFlags', { receiptIds, note });
+                exclDirty = true;
+                await preview();
+              }
+            }, `Xác nhận tất cả (${dupeFuelIssues.length}) không trùng`)
+          )
+        ) : null;
+
+        // Phân tích bất thường tiêu hao dầu và chuyến đi (Radar Intelligence)
+        const anomalies = [];
+        const tickets = res.tickets || [];
+        const receipts = res.receipts || [];
+        const bkvc = res.bkvc || [];
+
+        // 1. Phân tích tiêu hao dầu theo xe
+        if (receipts.length && bkvc.length) {
+          const fuelByPlate = new Map();
+          for (const rec of receipts) {
+            const pl = rec.plate_no || rec.fuel_vehicle_code;
+            if (!pl) continue;
+            fuelByPlate.set(pl, (fuelByPlate.get(pl) || 0) + (rec.qty_liter || 0));
+          }
+          for (const line of bkvc) {
+            const actualFuel = fuelByPlate.get(line.plateNo) || 0;
+            const resRoute = (res.results || []).find((r) => r.routeCode === line.routeCode);
+            if (resRoute && resRoute.fuelNormLPerKm && resRoute.tripDistanceKm) {
+              const stdFuel = line.tripCount * resRoute.tripDistanceKm * resRoute.fuelNormLPerKm;
+              if (stdFuel > 0 && actualFuel > 0) {
+                const diff = actualFuel - stdFuel;
+                const ratio = diff / stdFuel;
+                if (ratio > 0.25 && diff > 50) {
+                  anomalies.push({
+                    type: 'danger',
+                    badge: 'ĂN DẦU BẤT THƯỜNG',
+                    text: `Xe ${line.plateNo} (tuyến ${line.routeCode}): nhận ${D.vnAuto(actualFuel)} lít dầu, vượt định mức +${Math.round(ratio * 100)}% (+${D.vnAuto(diff)} lít) cho ${line.tripCount} chuyến. Cần rà soát rò rỉ / thất thoát.`
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // 2. Phân tích chuyến đi quay vòng phi lý (thời gian quá ngắn)
+        if (tickets.length >= 2) {
+          const ticketsByPlate = new Map();
+          for (const t of tickets) {
+            if (!t.plate_no || !t.weigh1_date) continue;
+            if (!ticketsByPlate.has(t.plate_no)) ticketsByPlate.set(t.plate_no, []);
+            ticketsByPlate.get(t.plate_no).push(t);
+          }
+          for (const [plateNo, tList] of ticketsByPlate.entries()) {
+            tList.sort((a, b) => `${a.weigh1_date} ${a.weigh1_time || ''}`.localeCompare(`${b.weigh1_date} ${b.weigh1_time || ''}`));
+            for (let i = 0; i < tList.length - 1; i++) {
+              const t1 = tList[i];
+              const t2 = tList[i + 1];
+              if (t1.weigh1_date === t2.weigh1_date && t1.weigh1_time && t2.weigh1_time) {
+                const m1 = toMinutes(t1.weigh1_time);
+                const m2 = toMinutes(t2.weigh1_time);
+                const diffMin = m2 - m1;
+                const resRoute = (res.results || []).find((r) => r.routeCode === t1.route_code);
+                const km = resRoute?.tripDistanceKm || 30;
+                if (diffMin > 0 && diffMin < 45 && km >= 25) {
+                  anomalies.push({
+                    type: 'warn',
+                    badge: 'QUAY VÒNG PHI LÝ',
+                    text: `Xe ${plateNo}: Chuyến phiếu ${t1.ticket_no} (${t1.weigh1_time}) và ${t2.ticket_no} (${t2.weigh1_time}) chỉ cách nhau ${diffMin} phút cho tuyến ${km} km. Nghi ngờ quay vòng phiếu khống.`
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        const anomalyRadar = anomalies.length ? h('div', { class: 'anomaly-radar-card' },
+          h('div', { class: 'anomaly-radar-header' },
+            h('h3', {}, h('span', {}, '🔍'), `Radar kiểm soát rủi ro & Thất thoát (${anomalies.length} cảnh báo)`),
+            h('span', { class: 'small muted' }, 'Tự động phát hiện bất thường tiêu hao và quay vòng xe')
+          ),
+          h('div', { class: 'stack', style: { gap: '4px' } }, anomalies.map((a) =>
+            h('div', { class: 'anomaly-item' },
+              h('span', { class: `anomaly-badge ${a.type}` }, a.badge),
+              h('span', { class: 'anomaly-text' }, a.text)
+            )
+          ))
+        ) : null;
+
+        out.append(
+          anomalyRadar,
+          h('div', { class: 'grid g2' },
+            h('div', { class: 'card' },
+              h('h2', {}, 'Kiểm tra trước khi xác nhận'),
+              exclDirty && saved === null && period && period.status === 'NHAP' ? h('p', {}, D.tag('NHAP', 'Chưa lưu'), ' Đã thay đổi dầu của kỳ — bấm TÍNH GIÁ để lưu.') : null,
+              bulkAckBanner,
+              D.issueList([...(res.issues || []), ...blocked.slice(0, 20)].map((x, k) => [x, k]).sort((a, b) => (LVORD[a[0].level] ?? 3) - (LVORD[b[0].level] ?? 3) || a[1] - b[1]).map((x) => x[0]), fuelActions),
+              blocked.length > 20 ? h('p', { class: 'small muted' }, `… và ${blocked.length - 20} dòng bị chặn khác`) : null
+            ),
+            statusCard(saved)
+          )
+        );
       };
       const statusCard = (saved) => {
         const card = h('div', { class: 'card' }, h('h2', {}, 'Trạng thái kỳ'));
