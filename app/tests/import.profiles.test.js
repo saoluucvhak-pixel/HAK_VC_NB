@@ -105,3 +105,29 @@ test('Mẫu ghép hai tầng, tính chênh hai lần cân, đơn vị dự phòn
   assert.match(res.rows[0].normalized.ticket_no, /^AUTO-/);
   assert.equal(res.rows[0].normalized.weigh2_date, '2026-09-22');
 });
+
+test('Mẫu nhập phân biệt dấu thập phân của tấn và từ chối nhóm chữ số sai', () => {
+  const mapping = { ticket_no: 'Mã', plate_no: 'Xe', weigh1_date: 'Ngày', net_kg: 'Cân' };
+  const read = (inputs, numberStyle, fallbackUnit = '') => {
+    const rows = [
+      ['Mã', 'Xe', 'Ngày', 'Cân'],
+      ...inputs.map((input, i) => [`0000${i + 1}`, '99A-00001', '26/11/2026', input]),
+    ];
+    const book = { sheets: [{ name: sheetName }], rows: () => rows };
+    return Profiles.read(book, sheetName, { headerRow: 1, mapping, fallbackUnit }, numberStyle).trial;
+  };
+  const auto = read(['17.470 t', '17,470 t', '17.470 kg', '1,2,3 kg', '12,34.56 kg']);
+  assert.equal(auto.count, 1);
+  assert.equal(auto.totalKg, 17470);
+  assert.equal(auto.rows[0].issues[0].code, 'E_NUMBER_AMBIGUOUS');
+  assert.equal(auto.rows[1].issues[0].code, 'E_NUMBER_AMBIGUOUS');
+  for (const row of auto.rows.slice(3)) assert.match(row.issues[0].message, /số không đọc được/);
+  assert.equal(read(['17.470 t'], 'EN').totalKg, 17470);
+  assert.equal(read(['17,470 t'], 'VN').totalKg, 17470);
+  assert.equal(read(['1.234,5 kg'], 'VN').totalKg, 1234.5);
+  assert.equal(read(['1,234.5 kg'], 'EN').totalKg, 1234.5);
+  assert.equal(read(['17.470'], 'AUTO', 't').rows[0].issues[0].code, 'E_NUMBER_AMBIGUOUS');
+  assert.equal(read([17.47], 'AUTO', 't').totalKg, 17470);
+  assert.equal(read(['1,2,3 kg'], 'EN').count, 0);
+  assert.equal(read(['12,34.56 kg'], 'VN').count, 0);
+});

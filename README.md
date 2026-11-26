@@ -7,7 +7,7 @@
 
 ## Thư mục
 - `app/` — mã nguồn: `main/` (xử lý, kho dữ liệu, dịch vụ, báo cáo), `renderer/` (giao diện), `shared/` (schema, đặc tả API), `tests/`, `tools/`, `installer/` (NSIS). Chi tiết cấu trúc ở `app/README.md`.
-- `desk/` — đặc tả nguồn (`api_spec.py`, `schema.py`). Sửa `api_spec.py` rồi đồng bộ 3 bản `api_spec.json` (`app/shared`, `desk`, `docs`) và bảng trong `docs/API_DESIGN.md`; test `tests/spec.routes.test.js` bắt lệch giữa đặc tả và router.
+- `desk/` — đặc tả nguồn (`api_spec.py`, `schema.py`). Sau khi sửa `api_spec.py`, chạy `python3 desk/sync_spec.py` để cập nhật ba bản JSON và cập nhật bảng trong `docs/API_DESIGN.md`. Bộ kiểm thử xác minh nguồn, JSON và router đồng bộ.
 - `docs/` — hướng dẫn sử dụng, quy tắc tính, mô hình dữ liệu, thiết kế lưu trữ, tài liệu thí điểm SQLite, ghi chú phát hành.
 
 ## Phát triển và kiểm thử
