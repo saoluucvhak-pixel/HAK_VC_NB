@@ -31,7 +31,9 @@ test('Tạo kho mới, ghi danh mục + phiếu cân, đóng, mở lại: dữ l
   assert.equal(s2.all('PHIEU_CAN').length, 326);
   assert.equal(s2.all('XE').length, 17);
   assert.ok(fs.existsSync(path.join(dir, 'tables/PHIEU_CAN/2026/2026-09.json')));
-  assert.deepEqual(s2.get('PHIEU_CAN', SEED.PHIEU_CAN[5].ticket_id), SEED.PHIEU_CAN[5]);
+  assert.deepEqual(s2.get('PHIEU_CAN', SEED.PHIEU_CAN[5].ticket_id), {
+    ...SEED.PHIEU_CAN[5], warehouse: '', import_note: '',
+  });
   s2.close();
 });
 

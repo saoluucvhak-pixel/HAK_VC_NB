@@ -3369,6 +3369,191 @@
    "lock": false
   },
   {
+   "action": "import.profiles.list",
+   "group": "Import",
+   "desc": "Danh sách mẫu nhập phiếu cân và mẫu mặc định",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{items, fields}",
+   "errors": [],
+   "reads": [
+    "IMPORT_PROFILE"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "import.profiles.inspect",
+   "group": "Import",
+   "desc": "Xem sheet, gợi ý ghép cột hoặc đọc thử file Excel",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "filePath",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "sheetName",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "headerRow",
+     "integer",
+     false,
+     ""
+    ],
+    [
+     "config",
+     "object",
+     false,
+     "có cấu hình thì đọc thử"
+    ],
+    [
+     "numberStyle",
+     "string",
+     false,
+     "AUTO, VN hoặc EN"
+    ]
+   ],
+   "output": "{sheets, options, suggested} hoặc {trial: {rows, totalKg, warnings, declaredTotals}}",
+   "errors": [],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "import.profiles.save",
+   "group": "Import",
+   "desc": "Tạo, sửa hoặc sao chép mẫu nhập phiếu cân",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "id",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "rowVersion",
+     "integer",
+     false,
+     "tùy chọn: nếu gửi thì kiểm; sai → CONFLICT_VERSION"
+    ],
+    [
+     "name",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "filePath",
+     "string",
+     false,
+     "cần khi tạo/sửa"
+    ],
+    [
+     "sheetName",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "config",
+     "object",
+     false,
+     ""
+    ],
+    [
+     "numberStyle",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "copyFromId",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{item, trial}",
+   "errors": [],
+   "reads": [],
+   "writes": [
+    "IMPORT_PROFILE"
+   ],
+   "audit": "IMPORT_PROFILE_SAVE",
+   "lock": true
+  },
+  {
+   "action": "import.profiles.default",
+   "group": "Import",
+   "desc": "Đặt mẫu nhập mặc định hoặc tự nhận diện",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "id",
+     "string",
+     false,
+     "trống = tự nhận diện"
+    ]
+   ],
+   "output": "{defaultId}",
+   "errors": [],
+   "reads": [],
+   "writes": [
+    "IMPORT_PROFILE"
+   ],
+   "audit": "IMPORT_PROFILE_DEFAULT",
+   "lock": true
+  },
+  {
+   "action": "import.profiles.delete",
+   "group": "Import",
+   "desc": "Xóa mẫu nhập phiếu cân",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "id",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{id}",
+   "errors": [],
+   "reads": [],
+   "writes": [
+    "IMPORT_PROFILE"
+   ],
+   "audit": "IMPORT_PROFILE_DELETE",
+   "lock": true
+  },
+  {
    "action": "import.preview",
    "group": "Import",
    "desc": "Bước 1: main process đọc file Excel/CSV theo đường dẫn → gợi ý mapping, kiểm tra từng dòng, giữ dữ liệu tạm trong bộ nhớ theo batchId. KHÔNG ghi dữ liệu",
@@ -3419,6 +3604,42 @@
      "enum(AUTO|VN|EN)",
      false,
      "kiểu số của ô chữ: AUTO (mặc định; \"17,470\" bị báo mơ hồ) · VN 1.234,5 · EN 1,234.5"
+    ],
+    [
+     "profileId",
+     "string",
+     false,
+     "bỏ qua = dùng mặc định; chuỗi trống = tự nhận diện"
+    ],
+    [
+     "readConfig",
+     "object",
+     false,
+     "cấu hình tùy chỉnh cho file hiện tại"
+    ],
+    [
+     "sourceBatchId",
+     "string",
+     false,
+     "đọc lại file gốc bằng cấu hình của đợt"
+    ],
+    [
+     "replaceBatchId",
+     "string",
+     false,
+     "thay đợt xem trước sau khi cách đọc mới hợp lệ"
+    ],
+    [
+     "fixedValues",
+     "object",
+     false,
+     "giá trị dùng chung nếu file thiếu cột"
+    ],
+    [
+     "reuseReading",
+     "boolean",
+     false,
+     "dùng cách đọc của đợt đang thay để đổi kiểu số"
     ]
    ],
    "output": "{batchId, fileSha256, sameFileImportedBefore, sheets, mapping, summary:{total, ok, warning, error, duplicate}, rows:[{rowNo, status, flags:[code], normalized}] (trang đầu), page}",
@@ -3426,7 +3647,8 @@
     "VALIDATION_FAILED",
     "BUSINESS_RULE:E_MAPPING_REQUIRED",
     "BUSINESS_RULE:E_NOT_CARRIER",
-    "STORAGE_ERROR"
+    "STORAGE_ERROR",
+    "BUSINESS_RULE:E_IMPORT_PROFILE"
    ],
    "reads": [
     "PHIEU_CAN",
@@ -3434,7 +3656,8 @@
     "XE",
     "TUYEN_VC",
     "DON_VI",
-    "IMPORT_BATCH"
+    "IMPORT_BATCH",
+    "IMPORT_PROFILE"
    ],
    "writes": [
     "IMPORT_BATCH"
@@ -6460,6 +6683,12 @@
    "level": "ERROR",
    "message": "Còn dòng lỗi chưa bỏ",
    "usedIn": "import.confirm"
+  },
+  {
+   "code": "E_IMPORT_PROFILE",
+   "level": "ERROR",
+   "message": "Mẫu đọc phiếu cân không khớp file hoặc không xác định được đơn vị",
+   "usedIn": "import.preview"
   },
   {
    "code": "E_MAPPING_REQUIRED",

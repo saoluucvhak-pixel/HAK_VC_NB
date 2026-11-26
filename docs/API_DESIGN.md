@@ -191,6 +191,11 @@ Quyền: **A** = ADMIN, **K** = KE_TOAN, **X** = XEM, **—** = chưa đăng nh�
 
 | Action | Mô tả | Quyền | Ghi | Audit |
 |---|---|---|---|---|
+| `import.profiles.list` | Danh sách mẫu và mẫu mặc định | A/K/X |  |  |
+| `import.profiles.inspect` | Xem sheet, gợi ý ghép cột hoặc đọc thử | A/K |  |  |
+| `import.profiles.save` | Tạo, sửa hoặc sao chép mẫu | A | 🔒 IMPORT_PROFILE | IMPORT_PROFILE_SAVE |
+| `import.profiles.default` | Đặt mẫu mặc định hoặc dùng Tự nhận diện | A | 🔒 IMPORT_PROFILE | IMPORT_PROFILE_DEFAULT |
+| `import.profiles.delete` | Xóa mẫu | A | 🔒 IMPORT_PROFILE | IMPORT_PROFILE_DELETE |
 | `import.preview` | Bước 1: main process đọc file Excel/CSV theo đường dẫn → gợi ý mapping, kiểm tra từng dòng, giữ dữ liệu tạm trong bộ nhớ theo batchId. KHÔNG ghi dữ liệu | A/K | 🔒 IMPORT_BATCH | IMPORT_PREVIEW |
 | `import.previewRows` | Xem trang tiếp theo / lọc dòng lỗi của lô đang preview | A/K |  |  |
 | `import.confirm` | Bước 2: kiểm tra lại (dữ liệu có thể đã đổi) → ghi 1 giao dịch | A/K | 🔒 PHIEU_CAN, GIAO_NHAN_DAU, IMPORT_BATCH | IMPORT_CONFIRM |
@@ -929,6 +934,13 @@ Xác nhận cảnh báo dòng dầu (vd nghi trùng nhưng không trùng). Quy�
 - **Đọc:** GIAO_NHAN_DAU
 - **Ghi:** GIAO_NHAN_DAU · AUDIT `ACK_FLAGS`
 
+#### Mẫu nhập phiếu cân
+
+- `import.profiles.list` trả danh sách mẫu và tên các trường có thể ghép. `import.profiles.inspect` nhận `filePath`, `sheetName` và `headerRow` để liệt kê sheet, tiêu đề và gợi ý. Khi truyền `config` và tùy chọn `numberStyle`, kết quả `trial` có các dòng chuẩn hóa, tổng kg, cảnh báo và tổng công bố.
+- `import.profiles.save` nhận `name`, `filePath`, `sheetName` và `config`. Khi sửa, thêm `id` và `rowVersion`. Để sao chép, chỉ cần `name` và `copyFromId`.
+- `import.profiles.default` nhận `id` hoặc chuỗi rỗng cho Tự nhận diện. `import.profiles.delete` nhận `id`.
+- `config` gồm `headerRow` tính từ 1, `mapping` theo dạng `{trường: tiêu đề Excel}` và `fallbackUnit` là `kg`, `t` hoặc chuỗi rỗng.
+
 #### `import.preview`
 
 Bước 1: main process đọc file Excel/CSV theo đường dẫn → gợi ý mapping, kiểm tra từng dòng, giữ dữ liệu tạm trong bộ nhớ theo batchId. KHÔNG ghi dữ liệu. Quyền: ADMIN, KE_TOAN.
@@ -941,6 +953,12 @@ Bước 1: main process đọc file Excel/CSV theo đường dẫn → gợi ý 
 | `sheetName` | string |  | trống = sheet đầu / tự dò sheet có header phù hợp |
 | `headerRow` | integer |  | trống = tự dò |
 | `mapping` | object |  | trống = tự gợi ý; gửi lại để preview với mapping mới |
+| `profileId` | string |  | bỏ qua để dùng mặc định, chuỗi rỗng để Tự nhận diện |
+| `readConfig` | object |  | ghép cột tùy chỉnh cho file hiện tại |
+| `sourceBatchId` | string |  | dùng cấu hình đã lưu cùng đợt và đúng file gốc |
+| `replaceBatchId` | string |  | thay đợt đang xem trước sau khi cách đọc mới hợp lệ |
+| `reuseReading` | boolean |  | dùng lại cách đọc của đợt đang thay khi đổi kiểu số |
+| `fixedValues` | object |  | giá trị dùng chung khi file thiếu cột, ví dụ mã tuyến |
 | `numberStyle` | enum(AUTO\|VN\|EN) |  | kiểu số của ô chữ: AUTO (mặc định; "17,470" bị báo mơ hồ) · VN 1.234,5 · EN 1,234.5 |
 
 - **Trả về:** `{batchId, fileSha256, sameFileImportedBefore, sheets, mapping, summary:{total, ok, warning, error, duplicate}, rows:[{rowNo, status, flags:[code], normalized}] (trang đầu), page}`

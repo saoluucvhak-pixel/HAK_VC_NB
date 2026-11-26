@@ -8,6 +8,7 @@
 const crypto = require('node:crypto');
 const path = require('node:path');
 const fs = require('node:fs');
+const Profiles = require('../import/TicketProfiles');
 const SPEC = require('../../shared/api_spec.json');
 const { AppError } = require('../../shared/errors');
 const { assertSafeOpenPath } = require('../app/openPathPolicy');
@@ -117,6 +118,14 @@ const ROUTES = {
   'fuel.softDeleteMany': [null, (ctx, p, s) => ctx.svc.records.softDeleteFuelMany({ ...p, user: s.user })],
   'fuel.softDelete': [null, (ctx, p, s) => ctx.svc.records.softDeleteFuel({ ...p, user: s.user })],
   'fuel.ackFlags': [null, (ctx, p, s) => ctx.svc.records.ackFuelFlags({ ...p, user: s.user })],
+  'import.profiles.list': [null, (ctx) => ({ ...Profiles.list(ctx.store), fields: Profiles.FIELDS })],
+  'import.profiles.inspect': [null, async (ctx, p) => {
+    const result = await ctx.svc.import.inspectProfile(p);
+    return p.config ? { trial: result } : result;
+  }],
+  'import.profiles.save': [null, (ctx, p, s) => Profiles.save(ctx.store, p, s.user.username)],
+  'import.profiles.default': [null, (ctx, p, s) => Profiles.selectDefault(ctx.store, p, s.user.username)],
+  'import.profiles.delete': [null, (ctx, p, s) => Profiles.remove(ctx.store, p, s.user.username)],
   'import.preview': [null, (ctx, p, s) => ctx.svc.import.preview({ ...p, user: s.user.username })],
   'import.previewRows': [null, (ctx, p) => ctx.svc.import.previewRows(p)],
   'import.confirm': [null, (ctx, p, s) => ctx.svc.import.confirm({ ...p, clientRequestId: rid(p), user: s.user.username })],
