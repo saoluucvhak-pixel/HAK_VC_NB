@@ -376,15 +376,51 @@ table.t tbody tr.sel td { background: var(--row-hover); } table.t tbody tr.sel t
   .rr-byp table.t :is(th, td):is(:nth-child(2), :nth-child(5)) { display: none; } } /* hẹp: bớt số đợt, dầu nhận ở bảng tổng theo đơn vị */
 
 /* Cấu hình mẫu nhập Excel */
-.import-profile-editor { display: grid; gap: 12px; min-width: 0; }
+.import-profile-editor { display: grid; gap: 14px; min-width: 0; }
 .import-profile-editor h2, .import-profile-editor h3, .import-profile-editor h4 { margin: 0; }
-.import-profile-step { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
-.import-profile-step > * + *, .import-profile-step > div > * + * { margin-top: 9px; }
+.import-profile-step { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.import-profile-step > * + *, .import-profile-step > div > * + * { margin-top: 10px; }
 .import-profile-step > .row > * + *, .import-profile-step > .btns > * + * { margin-top: 0; }
 .import-profile-source-controls, .import-profile-options {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); align-items: end; gap: 10px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); align-items: end; gap: 12px;
 }
-.import-profile-step .tbl-wrap { max-width: 100%; }
+.import-profile-step .tbl-wrap { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
 .import-profile-step td select { width: 100%; min-width: 10rem; }
-.import-profile-headers { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 0 0; margin: 0; list-style: none; }
-.import-profile-headers li { max-width: 100%; overflow-wrap: anywhere; }
+.import-profile-headers { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 10px 0 0; margin: 0; list-style: none; }
+.import-profile-headers li { max-width: 100%; overflow-wrap: anywhere; background: var(--field-bg); border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px; font-size: .82rem; font-family: var(--mono); }
+
+/* Stepper & Badges chuyên nghiệp */
+.import-profile-stepper {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 4px;
+}
+.stepper-step { display: flex; align-items: center; gap: 8px; font-size: .88rem; font-weight: 600; color: var(--text-mute); }
+.stepper-step.active { color: var(--brand-text); font-weight: 700; }
+.stepper-step.done { color: var(--ok); }
+.step-num {
+  width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: .78rem; font-weight: 700; background: var(--line2); color: var(--text-mute);
+}
+.stepper-step.active .step-num { background: var(--brand); color: #fff; }
+.stepper-step.done .step-num { background: var(--ok); color: #fff; }
+.stepper-line { flex: 1; height: 2px; background: var(--line); margin: 0 4px; }
+.stepper-line.active { background: var(--brand); }
+
+.req-pill { color: var(--red); font-weight: 700; margin-left: 2px; }
+.profile-tip {
+  background: var(--note-bg); border: 1px solid var(--note-line); border-radius: 6px; padding: 8px 12px;
+  color: var(--note-fg); font-size: .85rem; line-height: 1.4; margin: 8px 0;
+}
+.trial-kpi-banner {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 10px;
+}
+.trial-pill {
+  padding: 4px 10px; border-radius: 20px; font-size: .82rem; font-weight: 600; background: var(--line2); color: var(--text);
+}
+.trial-pill.ok { background: rgba(27, 175, 122, .15); color: #0f766e; }
+.trial-pill.warn { background: rgba(245, 158, 11, .15); color: #92400e; }
+.profile-management-banner {
+  background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--brand);
+  border-radius: 6px; padding: 10px 14px; font-size: .85rem; color: var(--text-mute); margin-top: 12px;
+}

@@ -27,7 +27,12 @@
 
   D.importTrialResult = (result) => h('div', { class: 'stack', 'aria-label': 'Kết quả đọc thử' },
     h('h3', {}, 'Kết quả đọc thử'),
-    h('p', {}, `${D.vn(result.count)} phiếu hợp lệ / ${D.vn(result.totalRows)} dòng · Tổng ${D.vnAuto(result.totalKg)} kg`),
+    h('div', { class: 'trial-kpi-banner' },
+      h('span', { class: 'trial-pill ok' }, `✅ ${D.vn(result.count)} phiếu hợp lệ`),
+      h('span', { class: 'trial-pill' }, `📋 ${D.vn(result.totalRows)} dòng đọc`),
+      h('span', { class: 'trial-pill' }, `⚖️ Tổng ${D.vnAuto(result.totalKg)} kg`),
+      result.warningCount ? h('span', { class: 'trial-pill warn' }, `⚠️ ${D.vn(result.warningCount)} cảnh báo`) : null),
+    h('p', { class: 'small' }, `${D.vn(result.count)} phiếu hợp lệ / ${D.vn(result.totalRows)} dòng · Tổng ${D.vnAuto(result.totalKg)} kg`),
     ...result.declaredTotals.map((t) => h('p', { class: 'small' }, `Dòng ${t.rowNo} · Tổng công bố ${D.vnAuto(t.kg)} kg · Chênh lệch (đọc − công bố) ${D.vnAuto(t.differenceKg)} kg`)),
     D.table({ rows: result.rows, columns: [
       { key: 'rowNo', label: 'Dòng Excel' },
@@ -51,7 +56,7 @@
       warnings.length ? h('ul', { class: 'small' }, warnings.map((w) => h('li', {}, `Dòng ${w.rowNo} · ${w.message}`))) : '');
   };
 
-  function editor({ profile, fields, initialFile, numberStyle = 'AUTO', onSave, onDefault, onApply }) {
+  function editor({ profile, fields, initialFile, numberStyle = 'AUTO', onSave, onDefault, onApply, onCancel }) {
     const root = h('div', { class: 'card import-profile-editor' });
     const sourceControls = h('div', { class: 'import-profile-source-controls' });
     const headerPreview = h('div', { 'aria-label': 'Xem trước tiêu đề', role: 'region', 'aria-live': 'polite' });
@@ -62,6 +67,27 @@
     const name = h('input', { type: 'text', maxlength: 120, value: profile?.name || '', oninput: () => { saveButton.disabled = !trial?.count || !name.value.trim(); } });
     const fileStatus = h('span', { class: 'small muted' });
     const actions = h('section', { class: 'import-profile-step' });
+
+    const stepperContainer = h('div');
+    const updateStepper = (step) => {
+      stepperContainer.replaceChildren(
+        h('div', { class: 'import-profile-stepper' },
+          h('div', { class: `stepper-step ${step >= 1 ? (step > 1 ? 'done' : 'active') : ''}` },
+            h('span', { class: 'step-num' }, step > 1 ? '✓' : '1'),
+            h('span', {}, '1. Chọn file & Dòng tiêu đề')),
+          h('div', { class: `stepper-line ${step >= 2 ? 'active' : ''}` }),
+          h('div', { class: `stepper-step ${step >= 2 ? (step > 2 ? 'done' : 'active') : ''}` },
+            h('span', { class: 'step-num' }, step > 2 ? '✓' : '2'),
+            h('span', {}, '2. Ghép cột & Đơn vị')),
+          h('div', { class: `stepper-line ${step >= 3 ? 'active' : ''}` }),
+          h('div', { class: `stepper-step ${step >= 3 ? 'active' : ''}` },
+            h('span', { class: 'step-num' }, '3'),
+            h('span', {}, '3. Đọc thử & Lưu mẫu'))
+        )
+      );
+    };
+    updateStepper(1);
+
     root.addEventListener('profile-default', (event) => {
       if (profile?.id === event.detail.id) {
         profile = event.detail;
@@ -85,6 +111,7 @@
         const { trial: read } = await D.api('import.profiles.inspect', payload(), { quiet: true });
         if (version !== revision) return;
         trial = read;
+        updateStepper(3);
         result.replaceChildren(D.importTrialResult(trial));
         saveButton.disabled = !trial.count || (onSave && !name.value.trim());
       } catch (error) {
@@ -121,6 +148,7 @@
       result.replaceChildren();
       saveButton.disabled = true;
       trialButton.disabled = !state;
+      updateStepper(state ? 2 : 1);
     }
 
     async function inspect(sheetName, headerRow, suggest = true) {
@@ -161,8 +189,10 @@
           : h('p', { class: 'small muted' }, 'Dòng này không có ô tiêu đề.'));
 
       const extraFields = ['origin', 'customer', 'ldd', 'weigh_type', 'transport_unit_name', 'row_no'];
+      const requiredKeys = new Set(['ticket_no', 'plate_no', 'weigh1_date', 'net_kg', 'route_code']);
       const headerColumns = new Map(state.headerCells.map(({ title, column }) => [title, excelColumn(column)]));
       const rows = Object.entries(fields).map(([key, title]) => {
+        const isRequired = requiredKeys.has(key);
         const value = mapped[key] || '';
         const available = state.options.find((o) => o.name === value);
         const opts = [option('', '— Bỏ qua —'), ...state.options.map(({ name, duplicate }) => {
@@ -180,10 +210,13 @@
           invalidate();
         });
         source.setAttribute('aria-label', title);
-        return { key, title, source, originalTitle };
+        return { key, title, isRequired, source, originalTitle };
       });
       const mappingTable = (items) => D.table({ rows: items, columns: [
-        { key: 'title', label: 'Trường trên app', wrap: true, render: (row) => h('strong', {}, row.title) },
+        { key: 'title', label: 'Trường trên app', wrap: true, render: (row) => h('strong', {},
+          row.title,
+          row.isRequired ? h('span', { class: 'req-pill', title: 'Bắt buộc' }, ' *') : null
+        ) },
         { key: 'source', label: 'Cột nguồn trong Excel', width: '44%', render: (row) => row.source },
         { key: 'originalTitle', label: 'Tiêu đề gốc', wrap: true, render: (row) => row.originalTitle },
       ] });
@@ -191,13 +224,20 @@
         h('div', { class: 'import-profile-options' }, onSave ? field('Tên mẫu', name) : null,
           field('Đơn vị dự phòng', unit), field('Kiểu số khi đọc thử', style)),
         h('div', { class: 'row' }, h('h4', {}, 'Ghép cột'), button('Gợi ý lại', () => { mapped = { ...state.suggested }; invalidate(); draw(); })),
-        h('p', { class: 'small muted' }, 'Nếu Excel tách ngày và giờ, ghép từng cột vào Ngày cân và Giờ cân tương ứng. Nếu Excel gộp ngày giờ, có thể chọn cùng cột cho Ngày cân và Giờ cân của lần cân đó.'),
+        h('div', { class: 'profile-tip' },
+          h('div', { style: 'font-weight: 600; margin-bottom: 4px;' }, '💡 Hướng dẫn ghép cột và xử lý ngày giờ:'),
+          h('div', {}, '• Tách ngày & giờ: Ghép từng cột vào Ngày cân và Giờ cân tương ứng.'),
+          h('div', {}, '• Gộp ngày giờ: Có thể chọn cùng cột cho Ngày cân và Giờ cân của lần cân đó.'),
+          h('div', {}, '• Cân qua đêm: Nếu giờ cân ra nhỏ hơn giờ vào, hệ thống tự động cộng 1 ngày cho Ngày cân 2.'),
+          h('div', {}, '• Dùng chung 1 cột ngày: Ngày cân 2 có thể ghép cùng cột với Ngày cân 1 (tự động nhận diện).')
+        ),
         mappingTable(rows.filter(({ key }) => !extraFields.includes(key))),
         h('details', { open: extraFields.some((key) => mapped[key]) },
           h('summary', {}, 'Cột bổ sung'), mappingTable(rows.filter(({ key }) => extraFields.includes(key)))));
       mappingStep.hidden = false;
       actions.hidden = false;
       trialButton.disabled = false;
+      updateStepper(2);
     }
 
     const open = button('Chọn file mẫu', async () => {
@@ -213,7 +253,13 @@
     actions.hidden = true;
     trialButton.disabled = true;
     saveButton.disabled = true;
-    root.append(h('h2', {}, onSave ? (profile ? 'Sửa mẫu nhập Excel' : 'Tạo mới mẫu nhập Excel') : 'Ghép cột cho tệp Excel'),
+    const cancelBtn = onCancel ? button('✕ Đóng', onCancel, 'small') : null;
+    root.append(
+      h('div', { class: 'row', style: 'justify-content: space-between; align-items: center; margin-bottom: 8px;' },
+        h('h2', {}, onSave ? (profile ? `Sửa mẫu nhập: ${profile.name}` : 'Tạo mới mẫu nhập Excel') : 'Ghép cột cho tệp Excel'),
+        cancelBtn
+      ),
+      stepperContainer,
       h('section', { class: 'import-profile-step' }, h('h3', {}, '1. Chọn file Excel mẫu và dòng tiêu đề'),
         h('div', { class: 'row' }, open, fileStatus), sourceControls, headerPreview),
       mappingStep, actions);
@@ -241,11 +287,22 @@
         return saved;
       };
       const edit = (profile) => {
-        editing.replaceChildren(editor({ profile, fields, onSave: refresh, onDefault: setDefault }));
+        editing.replaceChildren(editor({
+          profile,
+          fields,
+          onSave: async () => {
+            editing.replaceChildren();
+            await refresh();
+          },
+          onDefault: setDefault,
+          onCancel: () => editing.replaceChildren()
+        }));
       };
       listing.replaceChildren(
         h('div', { class: 'row' }, h('h2', {}, 'Mẫu nhập Excel'), D.tag('info', `Mặc định: ${active?.name || 'Tự nhận diện'}`)),
-        admin ? h('div', { class: 'btns' }, button('Tạo mẫu', () => edit(), 'primary'),
+        admin ? h('div', { class: 'btns' },
+          button('Tạo mẫu', () => edit(), 'primary'),
+          button('Tải mẫu Excel chuẩn', () => D.importTemplate({ importType: 'PHIEU_CAN' })),
           button('Dùng Tự nhận diện', () => setDefault(''))) : null,
         D.table({ rows: items, empty: 'Chưa có mẫu nhập. File mới sẽ dùng Tự nhận diện.', columns: [
           { key: 'name', label: 'Tên mẫu' },
@@ -267,7 +324,11 @@
               editing.replaceChildren();
               await refresh();
             }, 'small danger')) }] : []),
-        ] }));
+        ] }),
+        h('div', { class: 'profile-management-banner' },
+          h('strong', {}, '💡 Chuẩn hóa cấu hình nhập dữ liệu: '),
+          'Sử dụng Mẫu nhập khi các trạm cân xuất file Excel có tên cột hoặc cấu trúc khác nhau (ví dụ: ngày giờ gộp chung, tên cột viết tắt...). Khi file import có tiêu đề khớp với mẫu, phần mềm sẽ tự động áp dụng cấu hình đã lưu mà không cần thiết lập lại.')
+      );
     };
     root.append(listing, editing);
     await refresh();

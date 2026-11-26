@@ -41,8 +41,8 @@ function totalParts(value) {
 }
 const profileError = (message, details = {}) => businessError('E_IMPORT_PROFILE', message, details);
 
-// Một cột Date Time có thể cấp cả ngày và giờ cho cùng một lần cân.
-const dateForTime = { weigh1_time: 'weigh1_date', weigh2_time: 'weigh2_date' };
+// Một cột Date Time có thể cấp cả ngày và giờ cho cùng một lần cân, hoặc ngày cân 2 dùng chung cột với ngày cân 1.
+const dateForTime = { weigh1_time: 'weigh1_date', weigh2_time: 'weigh2_date', weigh2_date: 'weigh1_date' };
 function hasConflictingColumn(mapping) {
   const assigned = Object.entries(mapping).filter(([field, column]) =>
     !Object.hasOwn(dateForTime, field) || mapping[dateForTime[field]] !== column);
@@ -56,7 +56,7 @@ function validateConfig(config) {
   const entries = Object.entries(mapping);
   if (entries.some(([field, name]) => !Object.hasOwn(FIELDS, field) || typeof name !== 'string' || !key(name))) throw profileError('Cách ghép cột không hợp lệ');
   if (hasConflictingColumn(Object.fromEntries(entries.map(([field, name]) => [field, key(name)])))) {
-    throw profileError('Chỉ được ghép chung một cột cho Ngày cân và Giờ cân của cùng lần cân');
+    throw profileError('Chỉ được ghép chung một cột cho Ngày cân và Giờ cân cùng lần hoặc hai lần cân cùng ngày');
   }
   const missing = ['plate_no', 'weigh1_date'].filter((field) => !mapping[field]);
   if (!mapping.net_kg && !(mapping.weight1_kg && mapping.weight2_kg)) missing.push('net_kg');
@@ -250,9 +250,17 @@ function read(wb, sheetName, input, numberStyle = 'AUTO') {
     const time1 = colOf.weigh1_time !== colOf.weigh1_date && present(at('weigh1_time')) ? M.toTime(at('weigh1_time')) : primary.time;
     const time2 = colOf.weigh2_time !== colOf.weigh2_date && present(at('weigh2_time')) ? M.toTime(at('weigh2_time')) : secondary.time;
     const record = Object.fromEntries([...columns].map((field) => [field, M.toText(at(field))]));
+    let date2 = secondary.date.value || primary.date.value || '';
+    if (primary.date.value && time1.value && time2.value && time2.value < time1.value) {
+      if (colOf.weigh2_date === undefined || colOf.weigh2_date === colOf.weigh1_date) {
+        const d = new Date(primary.date.value + 'T00:00:00Z');
+        d.setUTCDate(d.getUTCDate() + 1);
+        date2 = d.toISOString().slice(0, 10);
+      }
+    }
     Object.assign(record, {
       ticket_no: ticket, plate_no: plate, weigh1_date: primary.date.value || '', weigh1_time: time1.value || '',
-      weigh2_date: secondary.date.value || primary.date.value || '', weigh2_time: time2.value || '',
+      weigh2_date: date2, weigh2_time: time2.value || '',
     });
     if (!plate) warn('Thiếu biển số');
     if (!record.weigh1_date) warn(primary.date.error || 'Thiếu ngày cân');

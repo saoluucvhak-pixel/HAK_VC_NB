@@ -16,8 +16,8 @@ const { sha256 } = require('../main/repo/Journal');
 async function fixture(t, kind, withData = false) {
   const ctx = await install('DH', { kind, withData });
   t.after(() => {
-    ctx.store.close();
-    fs.rmSync(ctx.dir, { recursive: true, force: true });
+    try { ctx.store.close(); } catch {}
+    try { fs.rmSync(ctx.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {}
   });
   return ctx;
 }

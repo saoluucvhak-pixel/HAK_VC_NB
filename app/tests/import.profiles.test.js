@@ -188,3 +188,27 @@ test('Một cột Date Time được ghép vào cả ngày và giờ của cùng
   assert.throws(() => Profiles.read(wb, sheetName, { ...config, mapping: { ...config.mapping, weigh2_time: 'Ngày giờ cân 1' } }),
     /Chỉ được ghép chung một cột/);
 });
+
+test('Ngày cân 2 dùng chung cột Ngày cân 1 và tự động qua đêm khi giờ ra nhỏ hơn giờ vào', () => {
+  const rows = [
+    ['Số phiếu', 'Biển số', 'Ngày cân', 'Giờ vào', 'Giờ ra', 'Khối lượng (kg)'],
+    ['00099', '92H-00057', '26/11/2026', '23:45:00', '01:15:00', 3200],
+  ];
+  const wb = { sheets: [{ name: sheetName }], rows: () => rows };
+  const config = { headerRow: 1, mapping: {
+    ticket_no: 'Số phiếu',
+    plate_no: 'Biển số',
+    weigh1_date: 'Ngày cân',
+    weigh2_date: 'Ngày cân',
+    weigh1_time: 'Giờ vào',
+    weigh2_time: 'Giờ ra',
+    net_kg: 'Khối lượng (kg)',
+  } };
+  const result = Profiles.read(wb, sheetName, config).trial;
+  assert.equal(result.count, 1);
+  const ticket = result.rows[0].normalized;
+  assert.deepEqual(
+    [ticket.weigh1_date, ticket.weigh1_time, ticket.weigh2_date, ticket.weigh2_time],
+    ['2026-11-26', '23:45:00', '2026-11-27', '01:15:00']
+  );
+});
