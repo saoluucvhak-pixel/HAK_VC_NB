@@ -60,7 +60,10 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     const row = page.getByLabel('Dòng tiêu đề', { exact: true });
     await row.fill('3');
     await row.press('Tab');
-    await page.getByRole('heading', { name: 'Ghép cột', exact: true }).waitFor();
+    for (const step of ['1. Chọn file Excel mẫu và dòng tiêu đề', '2. Ghép cột và đơn vị tính', '3. Đọc thử và đối chiếu dữ liệu']) {
+      await page.getByRole('heading', { name: step, exact: true }).waitFor();
+    }
+    await page.getByRole('columnheader', { name: 'Cột nguồn trong Excel' }).waitFor();
     const titles = page.getByRole('region', { name: 'Xem trước tiêu đề' });
     await titles.getByRole('heading', { name: 'Tiêu đề Excel · Dòng 3' }).waitFor();
     await titles.getByText('A: Số phiếu', { exact: true }).waitFor();

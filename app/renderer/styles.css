@@ -374,3 +374,17 @@ table.t tbody tr.sel td { background: var(--row-hover); } table.t tbody tr.sel t
 @media (max-width: 900px) { .rr-main table.t :is(th, td):is(:nth-child(1)) { display: none; } .rr-main .rr-psub { display: block; } .rr-main table.t { font-size: .72rem; } .rr-main table.t th, .rr-main table.t td { padding: .3rem .18rem; letter-spacing: 0; } .rr-main table.t th { font-size: .6rem; } }
 @media (max-width: 900px) { .rr-byp table.t, .rr-detail table.t { font-size: .72rem; } .rr-byp table.t th, .rr-byp table.t td, .rr-detail table.t th, .rr-detail table.t td { padding: .3rem .18rem; letter-spacing: 0; } .rr-byp table.t th, .rr-detail table.t th { font-size: .6rem; }
   .rr-byp table.t :is(th, td):is(:nth-child(2), :nth-child(5)) { display: none; } } /* hẹp: bớt số đợt, dầu nhận ở bảng tổng theo đơn vị */
+
+/* Cấu hình mẫu nhập Excel */
+.import-profile-editor { display: grid; gap: 12px; min-width: 0; }
+.import-profile-editor h2, .import-profile-editor h3, .import-profile-editor h4 { margin: 0; }
+.import-profile-step { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+.import-profile-step > * + *, .import-profile-step > div > * + * { margin-top: 9px; }
+.import-profile-step > .row > * + *, .import-profile-step > .btns > * + * { margin-top: 0; }
+.import-profile-source-controls, .import-profile-options {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); align-items: end; gap: 10px;
+}
+.import-profile-step .tbl-wrap { max-width: 100%; }
+.import-profile-step td select { width: 100%; min-width: 10rem; }
+.import-profile-headers { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 0 0; margin: 0; list-style: none; }
+.import-profile-headers li { max-width: 100%; overflow-wrap: anywhere; }
