@@ -30,10 +30,10 @@ class ImportService {
   }
 
   // ─────────────────────────── preview ───────────────────────────
-  async preview({ importType, contractId = '', filePath, sheetName, headerRow, mapping, fixedValues = {}, numberStyle = 'AUTO',
+  async preview({ importType, contractId = '', filePath, sheetName, headerRow, mapping, fixedValues = {}, numberStyle,
     profileId, readConfig, sourceBatchId, replaceBatchId, reuseReading, user = 'system' }) {
     if (!['PHIEU_CAN', 'GIAO_NHAN_DAU'].includes(importType)) throw new AppError('VALIDATION_FAILED', `importType không hợp lệ: ${importType}`);
-    if (!['AUTO', 'VN', 'EN'].includes(numberStyle)) throw new AppError('VALIDATION_FAILED', `numberStyle phải là AUTO, VN hoặc EN: ${numberStyle}`);
+    if (numberStyle !== undefined && !['AUTO', 'VN', 'EN'].includes(numberStyle)) throw new AppError('VALIDATION_FAILED', `numberStyle phải là AUTO, VN hoặc EN: ${numberStyle}`);
     if (importType === 'GIAO_NHAN_DAU') this._checkFuelContract(contractId);
     const wb = await openWorkbook(filePath);
     let applied;
@@ -53,6 +53,9 @@ class ImportService {
         applied = { mode: 'PROFILE', profileId: profile?.id || '', name: readConfig ? 'Ghép cột tùy chỉnh' : profile.name, config: readConfig || profile };
       }
     }
+    // A saved batch records the actual style used. A profile provides the
+    // default only when importing a new file without an explicit override.
+    numberStyle ??= applied?.numberStyle ?? applied?.config?.numberStyle ?? 'AUTO';
     const fixed = Object.fromEntries(Object.entries(fixedValues || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined));
     const known = new Set(M.FIELDS[importType].map((f) => f.key));
     const badFixed = Object.keys(fixed).filter((k) => !known.has(k));
@@ -131,7 +134,7 @@ class ImportService {
     return { mode: 'AUTO', name: 'Tự nhận diện', sheet: batch.sheet_name, headerRow: index + 1, mapping, fixed, numberStyle: 'AUTO' };
   }
 
-  async inspectProfile({ filePath, sheetName, headerRow, config, numberStyle = 'AUTO' }) {
+  async inspectProfile({ filePath, sheetName, headerRow, config, numberStyle }) {
     const wb = await openWorkbook(filePath);
     if (!config) return Profiles.inspect(wb, sheetName, headerRow);
     return Profiles.read(wb, sheetName, config, numberStyle).trial;

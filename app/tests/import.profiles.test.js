@@ -23,7 +23,7 @@ for (const kind of storageKinds()) test(`Mẫu phiếu cân (${kind}) giữ các
   const input = { importType: 'PHIEU_CAN', user };
   const catalog = { plate: store.all('XE')[0].plate_no, route: store.all('TUYEN_VC')[0].route_code };
   const initial = await workbook(dir, 'mau.xlsx', catalog);
-  const reordered = await workbook(dir, 'doi-thu-tu.xlsx', { ...catalog, order: [7, 4, 2, 6, 1, 5, 0, 3] });
+  const reordered = await workbook(dir, 'doi-thu-tu.xlsx', { ...catalog, firstMass: '1.500', order: [7, 4, 2, 6, 1, 5, 0, 3] });
   const inspected = await imp.inspectProfile({ filePath: initial, sheetName, headerRow: 3 });
   assert.equal(inspected.sheets.length, 2);
   assert.equal(inspected.suggested.weigh1_date, 'Ngày\ngiờ cân');
@@ -37,14 +37,15 @@ for (const kind of storageKinds()) test(`Mẫu phiếu cân (${kind}) giữ các
   assert.equal(draft.warnings[0].rowNo, 7);
   assert.equal(store.all('IMPORT_BATCH').length, 0);
 
-  const { item } = await Profiles.save(store, { name: 'Mẫu nhà cung cấp', filePath: initial, sheetName, config: CONFIG }, user);
+  const { item } = await Profiles.save(store, { name: 'Mẫu nhà cung cấp', filePath: initial, sheetName, config: CONFIG, numberStyle: 'EN' }, user);
   const { item: copy } = await Profiles.save(store, { name: 'Bản sao', copyFromId: item.id }, user);
+  assert.equal(copy.numberStyle, 'EN');
   await Profiles.selectDefault(store, { id: item.id }, user);
   const active = Profiles.list(store).items.find((profile) => profile.isDefault);
   const stored = store.get('IMPORT_PROFILE', active.id);
-  assert.deepEqual(Object.keys(JSON.parse(stored.config_json)).sort(), ['fallbackUnit', 'headerRow', 'mapping']);
+  assert.deepEqual(Object.keys(JSON.parse(stored.config_json)).sort(), ['fallbackUnit', 'headerRow', 'mapping', 'numberStyle']);
   assert.ok(!stored.config_json.includes(initial));
-  await Profiles.save(store, { id: active.id, rowVersion: active.rowVersion, name: 'Mẫu đang dùng', filePath: initial, sheetName, config: CONFIG }, user);
+  await Profiles.save(store, { id: active.id, rowVersion: active.rowVersion, name: 'Mẫu đang dùng', filePath: initial, sheetName, config: CONFIG, numberStyle: 'EN' }, user);
 
   for (const [kind, message] of [['missing', /Thiếu tiêu đề “Biển số”/], ['duplicate', /Trùng tiêu đề “Biển số”/], ['unit', /Dòng 4: Đơn vị “bao”/]]) {
     const filePath = await workbook(dir, `${kind}.xlsx`, { ...catalog, malformed: kind });
@@ -57,6 +58,11 @@ for (const kind of storageKinds()) test(`Mẫu phiếu cân (${kind}) giữ các
   assert.equal(pv.summary.ok, 2);
   assert.equal(pv.rows[0].normalized.warehouse, 'Kho A');
   assert.deepEqual(pv.rows.map((row) => row.normalized.net_kg), [1500, 2300]);
+  assert.equal(pv.numberStyle, 'EN');
+  const manual = await imp.preview({ ...input, filePath: reordered, numberStyle: 'AUTO' });
+  assert.equal(manual.numberStyle, 'AUTO');
+  assert.equal(manual.readConfig.config.numberStyle, 'EN');
+  assert.ok(manual.rows[0].issues.some((issue) => issue.code === 'E_NUMBER_AMBIGUOUS'));
   const badReading = { ...CONFIG, mapping: { ...CONFIG.mapping, plate_no: 'Không có' } };
   await assert.rejects(imp.preview({ ...input, filePath: reordered, replaceBatchId: pv.batchId, readConfig: badReading }), /Thiếu tiêu đề/);
   assert.equal(store.get('IMPORT_BATCH', pv.batchId).status, 'PREVIEW');
@@ -72,11 +78,18 @@ for (const kind of storageKinds()) test(`Mẫu phiếu cân (${kind}) giữ các
   storage = newStore(dir, {}, kind).open();
   assert.equal(Profiles.list(storage).items[0].name, 'Mẫu đang dùng');
   assert.equal(Profiles.list(storage).items[0].isDefault, false);
+  assert.equal(Profiles.list(storage).items[0].numberStyle, 'EN');
+  const current = Profiles.list(storage).items[0];
+  await storage.transaction((tx) => tx.update('IMPORT_PROFILE', current.id, { config_json: JSON.stringify(CONFIG) }));
+  assert.equal(Profiles.list(storage).items[0].numberStyle, 'AUTO', 'Mẫu lưu ở bản cũ mặc định tự động');
+  await Profiles.selectDefault(storage, { id: current.id }, user);
   const reopened = new ImportService(storage);
   await assert.rejects(reopened.preview({ ...input, filePath: initial, sourceBatchId: replacement.batchId }), /đúng file Excel gốc/);
-  const historical = await reopened.preview({ ...input, filePath: reordered, sourceBatchId: replacement.batchId });
+  const historical = await reopened.preview({ ...input, filePath: reordered, sourceBatchId: replacement.batchId, numberStyle: 'VN' });
   assert.equal(historical.readConfig.name, 'Bản sao');
-  assert.deepEqual(historical.readConfig.config, CONFIG);
+  assert.equal(historical.numberStyle, 'EN');
+  assert.deepEqual(historical.readConfig.config, { ...CONFIG, numberStyle: 'EN' });
+  assert.equal(historical.rows[0].normalized.net_kg, 1500);
   assert.deepEqual(historical.rows.map((row) => row.normalized.ticket_no), ['000042', '000043']);
   assert.equal(historical.summary.duplicate, 2);
   const id = confirmed.insertedIds[0];

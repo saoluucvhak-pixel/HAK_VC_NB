@@ -3,6 +3,7 @@
 (function () {
   const D = window.DGVC;
   const { h } = D;
+  const numberStyleLabels = { AUTO: 'Tự động', VN: 'Việt Nam', EN: 'Anh / Mỹ' };
   const pickExcel = (title) => D.pickFile({ title, filters: [{ name: 'Excel', extensions: ['xlsx', 'xlsm', 'csv'] }] });
   const option = (value, text, disabled = false) => h('option', { value, disabled }, text);
   const select = (choices, selected, change) => {
@@ -56,7 +57,7 @@
       warnings.length ? h('ul', { class: 'small' }, warnings.map((w) => h('li', {}, `Dòng ${w.rowNo} · ${w.message}`))) : '');
   };
 
-  function editor({ profile, fields, initialFile, numberStyle = 'AUTO', onSave, onDefault, onApply, onCancel }) {
+  function editor({ profile, fields, initialFile, numberStyle = profile?.numberStyle || 'AUTO', onSave, onDefault, onApply, onCancel }) {
     const root = h('div', { class: 'card import-profile-editor' });
     const heading = h('h2', {}, onSave ? (profile ? `Sửa mẫu nhập: ${profile.name}` : 'Tạo mới mẫu nhập Excel') : 'Ghép cột cho tệp Excel');
     const sourceControls = h('div', { class: 'import-profile-source-controls' });
@@ -228,7 +229,7 @@
       ] });
       mappingArea.replaceChildren(
         h('div', { class: 'import-profile-options' }, onSave ? field('Tên mẫu', name) : null,
-          field('Đơn vị dự phòng', unit), field('Kiểu số khi đọc thử', style)),
+          field('Đơn vị dự phòng', unit), field(onSave ? 'Kiểu số của mẫu' : 'Kiểu số trong đợt này', style)),
         h('div', { class: 'row' }, h('h4', {}, 'Ghép cột'), button('Gợi ý lại', () => { mapped = { ...state.suggested }; invalidate(); draw(); })),
         h('div', { class: 'profile-tip small' },
           h('p', {}, 'Ghép Biển số, Ngày cân 1 và Khối lượng hàng hoặc cả hai cột Cân lần 1 và Cân lần 2. Số phiếu là tùy chọn. Nếu file thiếu mã tuyến, chọn tuyến chung lúc nhập.'),
@@ -307,6 +308,7 @@
           { key: 'headerRow', label: 'Dòng tiêu đề' },
           { key: 'mapping', label: 'Cột đã ghép', num: true, render: (item) => Object.keys(item.mapping || {}).length },
           { key: 'fallbackUnit', label: 'Đơn vị dự phòng', render: (item) => ({ kg: 'kg', t: 'Tấn' })[item.fallbackUnit] || '—' },
+          { key: 'numberStyle', label: 'Kiểu số', render: (item) => numberStyleLabels[item.numberStyle] || numberStyleLabels.AUTO },
           { key: 'isDefault', label: 'Trạng thái', render: (item) => item.isDefault ? D.tag('ok', 'Đang dùng') : '' },
           ...(admin ? [{ key: 'actions', label: 'Thao tác', render: (item) => h('div', { class: 'btns' },
             button('Sửa', () => edit(item), 'small'),
@@ -369,7 +371,7 @@
             }, 'primary'),
             button('Sửa cách ghép', () => config.replaceChildren(editor({
               profile: items.find((item) => item.id === choice.value) || previous?.config,
-              fields, initialFile: filePath, numberStyle, onApply: attempt,
+              fields, initialFile: filePath, numberStyle: choice.value === active ? numberStyle : undefined, onApply: attempt,
             })))), config),
         actions: [{ label: 'Quay lại', run: () => true }],
       });
@@ -390,7 +392,7 @@
         h('p', {}, `${c?.name || 'Đợt cũ'} · Sheet ${item.sheet_name}${headerRow ? ` · Dòng tiêu đề ${headerRow}` : ''}`),
         fallbackUnit ? h('p', {}, `Đơn vị dự phòng: ${fallbackUnit === 't' ? 'Tấn' : 'kg'}`) : null,
         c?.fixed?.route_code ? h('p', {}, `Mã tuyến chung: ${c.fixed.route_code}`) : null,
-        c?.numberStyle ? h('p', {}, `Kiểu số: ${{ AUTO: 'Tự động', VN: 'Việt Nam', EN: 'Anh / Mỹ' }[c.numberStyle]}`) : null,
+        c?.numberStyle ? h('p', {}, `Kiểu số: ${numberStyleLabels[c.numberStyle]}`) : null,
         D.table({ rows: entries, columns: [{ key: 'title', label: 'Tiêu đề' }, { key: 'field', label: 'Trường dữ liệu' }] })),
       actions: D.writer() ? [{ label: 'Đọc lại file gốc', primary: true, run: async () => {
         const filePath = await pickExcel('Chọn lại file Excel gốc của đợt');

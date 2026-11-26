@@ -50,7 +50,7 @@ function hasConflictingColumn(mapping) {
 }
 
 function validateConfig(config) {
-  const { headerRow, mapping, fallbackUnit = '' } = config || {};
+  const { headerRow, mapping, fallbackUnit = '', numberStyle = 'AUTO' } = config || {};
   if (!Number.isInteger(headerRow) || headerRow < 1 || headerRow > 1048576) throw profileError('Dòng tiêu đề phải là số nguyên từ 1 đến 1.048.576');
   if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) throw profileError('Chưa ghép cột');
   const entries = Object.entries(mapping);
@@ -62,7 +62,8 @@ function validateConfig(config) {
   if (!mapping.net_kg && !(mapping.weight1_kg && mapping.weight2_kg)) missing.push('net_kg');
   if (missing.length) throw profileError('Cần ghép biển số, ngày cân 1 và khối lượng hàng hoặc cả hai lần cân', { missing });
   if (!['', 'kg', 't'].includes(fallbackUnit)) throw profileError('Đơn vị dự phòng phải là kg hoặc tấn');
-  return { headerRow, mapping: Object.fromEntries(entries.map(([field, name]) => [field, name.trim()])), fallbackUnit };
+  if (!['AUTO', 'VN', 'EN'].includes(numberStyle)) throw new AppError('VALIDATION_FAILED', 'Kiểu số không hợp lệ');
+  return { headerRow, mapping: Object.fromEntries(entries.map(([field, name]) => [field, name.trim()])), fallbackUnit, numberStyle };
 }
 
 function headersAt(rows, headerRow) {
@@ -186,9 +187,10 @@ function generatedTicketNo(row) {
   return `AUTO-${createHash('sha256').update(JSON.stringify(identity)).digest('hex').slice(0, 16).toUpperCase()}`;
 }
 
-function read(wb, sheetName, input, numberStyle = 'AUTO') {
-  if (!['AUTO', 'VN', 'EN'].includes(numberStyle)) throw new AppError('VALIDATION_FAILED', 'Kiểu số không hợp lệ');
+function read(wb, sheetName, input, numberStyle) {
   const config = validateConfig(input);
+  if (numberStyle === undefined) numberStyle = config.numberStyle;
+  if (!['AUTO', 'VN', 'EN'].includes(numberStyle)) throw new AppError('VALIDATION_FAILED', 'Kiểu số không hợp lệ');
   const { sheet, colOf } = chooseSheet(wb, sheetName, config);
   const all = wb.rows(sheet);
   const headerDetails = headersAt(all, config.headerRow);
@@ -311,7 +313,7 @@ function read(wb, sheetName, input, numberStyle = 'AUTO') {
   };
 }
 
-const unpack = (row) => ({ id: row.profile_id, name: row.name, ...JSON.parse(row.config_json), isDefault: row.is_default === true, rowVersion: row.row_version });
+const unpack = (row) => ({ id: row.profile_id, name: row.name, numberStyle: 'AUTO', ...JSON.parse(row.config_json), isDefault: row.is_default === true, rowVersion: row.row_version });
 const list = (store) => ({ items: store.all(TABLE).map(unpack).sort((a, b) => a.name.localeCompare(b.name, 'vi')) });
 
 async function save(store, { id, rowVersion, name, filePath, sheetName, config, numberStyle, copyFromId }, user) {
@@ -319,7 +321,8 @@ async function save(store, { id, rowVersion, name, filePath, sheetName, config, 
   name = typeof name === 'string' ? name.trim() : '';
   if (!name || name.length > 120) throw new AppError('VALIDATION_FAILED', 'Tên mẫu phải có từ 1 đến 120 ký tự');
   if (id && copyFromId) throw new AppError('VALIDATION_FAILED', 'Hãy lưu bản sao thành mẫu mới');
-  const parsed = copyFromId ? null : read(await openWorkbook(filePath), sheetName, config, numberStyle);
+  const savedConfig = numberStyle === undefined ? config : { ...config, numberStyle };
+  const parsed = copyFromId ? null : read(await openWorkbook(filePath), sheetName, savedConfig);
   if (parsed && !parsed.trial.count) throw profileError('File đọc thử cần có ít nhất một phiếu hợp lệ');
   const saved = await store.transaction((tx) => {
     if (tx.all(TABLE).some((row) => row.profile_id !== id && key(row.name) === key(name))) throw profileError(`Tên mẫu “${name}” đã được dùng`);

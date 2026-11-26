@@ -8,7 +8,7 @@ const CONFIG = { headerRow: 3, fallbackUnit: '', mapping: {
   warehouse: 'Kho', import_note: 'Ghi chú', route_code: 'Mã tuyến',
 } };
 
-async function workbook(dir, name, { plate, route, order, splitDates = false, malformed = '', firstTicket = 42 } = {}) {
+async function workbook(dir, name, { plate, route, order, splitDates = false, malformed = '', firstTicket = 42, firstMass = 1.5 } = {}) {
   const wb = new ExcelJS.Workbook();
   wb.addWorksheet('Hướng dẫn').addRow(['File tổng hợp']);
   const ws = wb.addWorksheet('Phiếu nhà cung cấp');
@@ -26,7 +26,7 @@ async function workbook(dir, name, { plate, route, order, splitDates = false, ma
   if (malformed === 'missing') titles[1] = 'Xe mới';
   if (malformed === 'duplicate') titles[5] = 'BIỂN SỐ';
   add(titles);
-  const first = add([firstTicket, plate, splitDates ? '22/09/2026' : new Date('2026-09-22T08:15:30Z'), 1.5, malformed === 'unit' ? 'bao' : 'tấn', 'Kho A', 'Lô sớm', route, '23:50:00', '23/09/2026', '00:30:00']);
+  const first = add([firstTicket, plate, splitDates ? '22/09/2026' : new Date('2026-09-22T08:15:30Z'), firstMass, malformed === 'unit' ? 'bao' : 'tấn', 'Kho A', 'Lô sớm', route, '23:50:00', '23/09/2026', '00:30:00']);
   first.getCell(columns.indexOf(0) + 1).numFmt = '000000';
   add(['000043', plate, splitDates ? '22/09/2026' : '22/09/2026 09:30', 2300, 'KG', 'Kho B', 'Ca sáng', route, '09:30:00', '22/09/2026', '09:45:00']);
   add(['Tổng cộng (kg)', null, null, 3900, null, null, null, null]);

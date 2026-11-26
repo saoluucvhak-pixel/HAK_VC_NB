@@ -41,7 +41,7 @@
     D.toast(`Đã tạo file mẫu: ${r.path} — nhập từ dòng ${r.firstDataRow} sheet ${r.sheet}`, 'ok', 9000);
     if (window.dgvc) D.api('system.openPath', { path: r.path }, { quiet: true }).catch(() => {});
   };
-  D.importWizard = async ({ importType, contractId, onDone, filePath: knownFile, numberStyle = 'AUTO', sourceBatchId,
+  D.importWizard = async ({ importType, contractId, onDone, filePath: knownFile, numberStyle, sourceBatchId,
     preview: knownPreview, reading = {} }) => {
     const filePath = knownFile || await D.pickFile({ title: importType === 'PHIEU_CAN' ? 'Chọn file Excel phiếu cân' : 'Chọn file Excel bảng kê dầu', filters: [{ name: 'Excel', extensions: ['xlsx', 'xlsm', 'csv'] }] });
     if (!filePath) return;
@@ -152,7 +152,7 @@
           control.disabled = true;
           try {
             const next = await D.fixImportReading({ filePath, numberStyle: pv.numberStyle, previous: pv.readConfig,
-              apply: (opts) => read({ ...opts, replaceBatchId: pv.batchId, numberStyle: opts.numberStyle ?? pv.numberStyle }) });
+              apply: (opts) => read({ ...opts, replaceBatchId: pv.batchId }) });
             if (next) await reopen(next);
           } finally { control.disabled = false; }
         } }, 'Đổi cách đọc')) : null,

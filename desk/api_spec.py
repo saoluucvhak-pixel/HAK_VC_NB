@@ -233,7 +233,7 @@ ep('import.profiles.inspect', 'Import', 'Xem sheet, gợi ý ghép cột hoặc 
     ('config', 'object', False, 'có cấu hình thì đọc thử'), ('numberStyle', 'string', False, 'AUTO, VN hoặc EN')], '{sheets, headerCells, options, suggested} hoặc {trial: {rows, totalKg, warnings, declaredTotals}}')
 ep('import.profiles.save', 'Import', 'Tạo, sửa hoặc sao chép mẫu nhập phiếu cân', ADM,
    [('id', 'string', False, ''), ROWV_OPT, ('name', 'string', True, ''), ('filePath', 'string', False, 'cần khi tạo/sửa'),
-    ('sheetName', 'string', False, ''), ('config', 'object', False, ''), ('numberStyle', 'string', False, ''), ('copyFromId', 'string', False, '')],
+    ('sheetName', 'string', False, ''), ('config', 'object', False, ''), ('numberStyle', 'string', False, 'AUTO, VN hoặc EN; lưu cùng mẫu'), ('copyFromId', 'string', False, '')],
    '{item, trial}', writes=['IMPORT_PROFILE'], audit='IMPORT_PROFILE_SAVE', lock=True)
 ep('import.profiles.default', 'Import', 'Đặt mẫu nhập mặc định hoặc tự nhận diện', ADM, [('id', 'string', False, 'trống = tự nhận diện')],
    '{defaultId}', writes=['IMPORT_PROFILE'], audit='IMPORT_PROFILE_DEFAULT', lock=True)
@@ -244,7 +244,7 @@ ep('import.preview', 'Import', 'Bước 1: main process đọc file Excel/CSV th
     ('contractId', 'string', False, 'bắt buộc với GIAO_NHAN_DAU; HĐ bên VC = đơn vị bản cài'), ('filePath', 'string', True, 'từ dialog.openFile'),
     ('sheetName', 'string', False, 'trống = sheet đầu / tự dò sheet có header phù hợp'), ('headerRow', 'integer', False, 'trống = tự dò'),
     ('mapping', 'object', False, 'trống = tự gợi ý; gửi lại để preview với mapping mới'),
-    ('numberStyle', 'enum(AUTO|VN|EN)', False, 'kiểu số của ô chữ: AUTO (mặc định; "17,470" bị báo mơ hồ) · VN 1.234,5 · EN 1,234.5'),
+    ('numberStyle', 'enum(AUTO|VN|EN)', False, 'kiểu số của ô chữ: nếu bỏ qua thì dùng cấu hình đợt hoặc mẫu, mặc định AUTO; "17,470" bị báo mơ hồ ở AUTO · VN 1.234,5 · EN 1,234.5'),
     ('profileId', 'string', False, 'bỏ qua = dùng mặc định; chuỗi trống = tự nhận diện'),
     ('readConfig', 'object', False, 'cấu hình tùy chỉnh cho file hiện tại'),
     ('sourceBatchId', 'string', False, 'đọc lại file gốc bằng cấu hình của đợt'),
