@@ -127,7 +127,11 @@
       const filtered = status.value ? rows.filter((row) => row.status === status.value) : rows;
       preview.replaceChildren(
       D.table({ maxHeight: '46vh', columns: [{ key: 'rowNo', label: 'Dòng', fmt: 'int' }, { key: 'status', label: 'Kiểm tra', render: (r) => h('span', { class: `tag ${{ OK: 'ok', WARNING: 'warn', ERROR: 'err', DUPLICATE: 'mute', UPDATE: 'info' }[r.status]}` }, { OK: 'Hợp lệ', WARNING: 'Cảnh báo', ERROR: 'Lỗi', DUPLICATE: 'Đã có', UPDATE: 'Cập nhật' }[r.status]) },
-        ...(importType === 'PHIEU_CAN' ? [{ key: 'a', label: 'Số phiếu', render: (r) => r.normalized.ticket_no }, { key: 'b', label: 'Ngày cân 1', render: (r) => D.dmy(r.normalized.weigh1_date) }, { key: 'c', label: 'Biển số', render: (r) => r.normalized.plate_no },
+        ...(importType === 'PHIEU_CAN' ? [{ key: 'a', label: 'Số phiếu', render: (r) => r.normalized.ticket_no }, { key: 'weigh1_date', label: 'Ngày cân 1', render: (r) => D.dmy(r.normalized.weigh1_date) },
+          { key: 'weigh1_time', label: 'Giờ cân 1', render: (r) => r.normalized.weigh1_time },
+          { key: 'weigh2_date', label: 'Ngày cân 2', render: (r) => D.dmy(r.normalized.weigh2_date) },
+          { key: 'weigh2_time', label: 'Giờ cân 2', render: (r) => r.normalized.weigh2_time },
+          { key: 'c', label: 'Biển số', render: (r) => r.normalized.plate_no },
           { key: 'd', label: 'KL (KG)', num: true, render: (r) => D.vn(r.normalized.net_kg) }, { key: 'e', label: 'Tuyến', render: (r) => r.normalized.route_code }]
           : [{ key: 'a', label: 'Ngày nhận', render: (r) => D.dmy(r.normalized.receive_date) }, { key: 'b', label: 'Mã xe', render: (r) => r.normalized.fuel_vehicle_code }, { key: 'c', label: 'Biển số', render: (r) => r.normalized.plate_no },
             { key: 'd', label: 'Lít', num: true, render: (r) => D.vnAuto(r.normalized.qty_liter) }, { key: 'e', label: 'Đơn giá', num: true, render: (r) => D.vnAuto(r.normalized.fuel_price_excl_vat) }]),

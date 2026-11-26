@@ -43,7 +43,7 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await button('Vào phần mềm').click();
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     const store = srv.ctx.store;
-    const catalog = { plate: '99A-00001', route: store.all('TUYEN_VC')[0].route_code };
+    const catalog = { splitDates: true, plate: '99A-00001', route: store.all('TUYEN_VC')[0].route_code };
     await store.transaction((tx) => tx.insert('XE', {
       ...store.all('XE')[0], plate_no: catalog.plate, plate_key: '99A00001', note: 'Xe tổng hợp dùng để kiểm thử',
     }));
@@ -86,7 +86,10 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await button('Import từ Excel').click();
     let preview = dialog('Import phiếu cân — xem trước');
     await preview.getByText('Cách đọc: Nhà cung cấp A', { exact: true }).waitFor();
-    await preview.getByRole('cell', { name: '000042', exact: true }).waitFor();
+    const previewTicket = preview.getByRole('row').filter({ has: page.getByRole('cell', { name: '000042', exact: true }) });
+    for (const time of ['22/09/2026', '23:50:00', '23/09/2026', '00:30:00']) {
+      await previewTicket.getByRole('cell', { name: time, exact: true }).waitFor();
+    }
     await preview.getByRole('button', { name: 'Đổi cách đọc' }).click();
     let repair = dialog('Cách đọc file phiếu cân');
     await repair.getByLabel('Mẫu đọc file').selectOption('');
@@ -94,8 +97,13 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await repair.getByRole('alert').waitFor();
     assert.equal(await preview.isVisible(), true);
     await repair.getByRole('button', { name: 'Quay lại' }).click();
+    await preview.getByLabel('Chấp nhận các dòng cảnh báo', { exact: true }).check();
     await preview.getByRole('button', { name: 'Xác nhận import 2 dòng' }).click();
     await page.locator('.toast', { hasText: 'Đã import 2 dòng' }).waitFor();
+    const saved = page.getByRole('row').filter({ has: page.getByRole('cell', { name: '000042', exact: true }) });
+    await saved.waitFor();
+    assert.deepEqual(await saved.getByRole('cell').allTextContents().then((cells) => cells.slice(0, 5)),
+      ['000042', '22/09/2026', '23:50:00', '23/09/2026', '00:30:00']);
 
     await next(changed);
     await button('Import từ Excel').click();
