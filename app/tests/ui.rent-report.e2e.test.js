@@ -1,4 +1,5 @@
 'use strict';
+const { openLegacyInstall } = require('./ui-login-setup');
 /** Giao diện: Báo cáo thuê vận chuyển (bảng tổng hợp + dòng tổng + tổng theo đơn vị, bộ lọc thông minh, chi tiết theo xe, Đối chiếu, sửa đơn giá thuê, xuất Excel, bố cục hẹp, vai trò XEM). */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -28,13 +29,7 @@ test('Giao diện: Báo cáo thuê vận chuyển có số liệu', { skip: !CHR
   const noOverflow = async (w, tag) => { const o = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); assert.ok(o <= 1, `tràn ngang ${o}px ở ${w} (${tag})`); };
   const mainRows = () => page.locator('.rr-main tbody tr');
   try {
-    await page.goto(srv.url);
-    await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill(PW); await page.getByLabel('Nhập lại mật khẩu').fill(PW);
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await openLegacyInstall(page, srv, 'DH', PW);
 
     // dữ liệu mẫu: 2 đợt của 2 đơn vị (số lẻ để làm tròn theo từng xe có ý nghĩa)
     const sub = srv.ctx.svc.subcontract; const dir = path.join(srv.home, 'rent-e2e'); fs.mkdirSync(dir, { recursive: true });
@@ -134,7 +129,7 @@ test('Giao diện: Báo cáo thuê vận chuyển có số liệu', { skip: !CHR
     await page.setViewportSize({ width: 1366, height: 800 });
 
     // vai trò XEM: xem được số liệu và xuất, không thấy nút sửa
-    const xem = await page.evaluate(() => window.DGVC.api('users.save', { record: { username: 'xem.vc', fullName: 'Người xem', role: 'XEM', unitCode: 'DH' } }));
+    const xem = await srv.ctx.svc.auth.saveUser({ record: { username: 'xem.vc', fullName: 'Người xem', role: 'XEM', unitCode: 'DH' }, user: { username: 'legacy-fixture' } });
     await page.getByRole('button', { name: 'Đăng xuất' }).click();
     await page.getByLabel('Tên đăng nhập').fill('xem.vc'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
     await page.getByLabel('Mã kích hoạt').fill(xem.setupCode);

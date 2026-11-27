@@ -37,15 +37,12 @@ test('Giao diện: đi hết luồng chính trên trình duyệt', { skip: !fs.e
     await shot('khoi-tao-2-chon-don-vi');
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    // ── đăng nhập lần đầu: đặt mật khẩu
-    await page.getByLabel('Tên đăng nhập').waitFor();
+    await page.getByRole('radio', { name: 'Sử dụng tài khoản đăng nhập' }).check();
     await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com');
-    await page.getByText('Đặt mật khẩu lần đầu').waitFor();
     await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026');
     await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await shot('dang-nhap-lan-dau');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click();
+    await shot('tai-khoan-lan-dau');
+    await page.getByRole('button', { name: 'Tạo tài khoản và khởi tạo' }).click();
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     assert.match(await page.locator('.install').textContent(), /HAKQN/);
     // ── import phiếu cân

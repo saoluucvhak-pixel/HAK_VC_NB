@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Rà soát #39 — màn Hợp đồng cha–con: đổi thẻ KHÔNG mất chữ đang gõ; rời màn / chọn hợp đồng khác khi còn thay đổi chưa lưu → hỏi trước; thẻ đi bằng phím mũi tên;
  *  bảng tuyến + đơn giá của hợp đồng (#38). */
 const test = require('node:test');
@@ -20,10 +21,7 @@ test('Giao diện ĐH: Hợp đồng — giữ chữ khi đổi thẻ, hỏi tr�
     await page.goto(srv.url);
     await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
 
     await srv.ctx.svc.master.saveContract({ create: true, record: { contractCode: 'DH-HAKK', carrierUnitCode: 'DH', customerUnitCode: 'HAK', effectiveFrom: '2026-10-01' }, user: { username: 'test', role: 'ADMIN' } });
     await nav('Hợp đồng vận chuyển');

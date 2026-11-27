@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Giao diện: Cài đặt → Dữ liệu & sao lưu → "Sao lưu JSON ra thư mục…" và "Khôi phục từ file…" (chọn manifest.json / .zip tự chọn), nội dung thẻ Kho lưu trữ đọc được, không trùng lặp. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -25,10 +26,7 @@ test('Giao diện ĐH: sao lưu JSON ra thư mục, thay đổi dữ liệu, kh�
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     await nav('Phiếu cân'); await next(FILE.DH);
     await page.getByRole('button', { name: 'Import từ Excel' }).click(); await page.getByText('Import phiếu cân — xem trước').waitFor();
     await page.getByLabel('Chấp nhận các dòng cảnh báo').check(); await page.getByRole('button', { name: /Xác nhận import/ }).click(); await toast(/Đã import \d+ dòng/);

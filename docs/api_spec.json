@@ -12,13 +12,13 @@
   {
    "action": "setup.status",
    "group": "Khởi tạo",
-   "desc": "Lần mở đầu: đã có thư mục dữ liệu chưa, bản cài của đơn vị nào, còn user chưa đặt mật khẩu không",
+   "desc": "Lần mở đầu: trạng thái bản cài, chế độ đăng nhập và tài khoản chưa đặt mật khẩu nếu dùng dữ liệu cũ",
    "roles": [
     "(chưa đăng nhập)"
    ],
    "scope": "",
    "input": [],
-   "output": "{initialized, dataFolder, installId, installCode, unitCode, schemaVersion, usersNeedPassword:[username], firstAdminOpen, singleUserName}",
+   "output": "{initialized, dataFolder, installId, installCode, unitCode, schemaVersion, loginMode, usersNeedPassword:[username], firstAdminOpen, singleUserName}",
    "errors": [],
    "reads": [],
    "writes": [],
@@ -36,7 +36,7 @@
    "input": [
     [
      "mode",
-     "enum(NEW|OPEN_EXISTING)",
+     "enum(NEW|ATTACH)",
      true,
      ""
     ],
@@ -53,10 +53,16 @@
      "bắt buộc khi NEW"
     ],
     [
-     "admin",
+     "loginMode",
+     "enum(SINGLE|ACCOUNT)",
+     false,
+     "chọn khi NEW, mặc định SINGLE"
+    ],
+    [
+     "account",
      "object",
      false,
-     "{username, fullName, password} khi NEW"
+     "{username, password}; bắt buộc với ACCOUNT"
     ],
     [
      "catalogPackagePath",
@@ -124,7 +130,7 @@
   {
    "action": "auth.setFirstPassword",
    "group": "Đăng nhập",
-   "desc": "User chưa có mật khẩu đặt mật khẩu lần đầu bằng MÃ KÍCH HOẠT dùng một lần do ADMIN cấp (hạn SETUP_CODE_HOURS giờ); ngoại lệ bản cài mới: ADMIN đầu tiên chưa cần mã",
+   "desc": "Chỉ cho dữ liệu cũ: user chưa có mật khẩu đặt mật khẩu lần đầu bằng MÃ KÍCH HOẠT dùng một lần do ADMIN cấp (hạn SETUP_CODE_HOURS giờ); ngoại lệ bản cài mới: ADMIN đầu tiên chưa cần mã",
    "roles": [
     "(chưa đăng nhập)"
    ],
@@ -254,7 +260,7 @@
    ],
    "scope": "",
    "input": [],
-   "output": "{install:{installId, installCode, unitCode, dataFolder}, units, vehicles, routes, activePrices, contracts (vai trò: CARRIER|CUSTOMER), config, enums, errorCodes, dataVersion}",
+   "output": "{install:{installId, installCode, unitCode, dataFolder}, loginMode, units, vehicles, routes, activePrices, contracts (vai trò: CARRIER|CUSTOMER), config, enums, errorCodes, dataVersion}",
    "errors": [],
    "reads": [
     "DON_VI",
@@ -5165,110 +5171,6 @@
    "lock": false
   },
   {
-   "action": "users.resetPassword",
-   "group": "Quản trị",
-   "desc": "ADMIN xóa mật khẩu của user và cấp MÃ KÍCH HOẠT mới (trả một lần) → user đặt lại mật khẩu bằng mã (must_change_password). Không đặt lại ADMIN cuối cùng đăng nhập được (E_LAST_ADMIN)",
-   "roles": [
-    "ADMIN"
-   ],
-   "scope": "",
-   "input": [
-    [
-     "username",
-     "string",
-     true,
-     ""
-    ],
-    [
-     "reason",
-     "string",
-     true,
-     ""
-    ]
-   ],
-   "output": "{ok, setupCode, setupCodeExpiresAt}",
-   "errors": [
-    "NOT_FOUND",
-    "BUSINESS_RULE:E_LAST_ADMIN"
-   ],
-   "reads": [
-    "USERS"
-   ],
-   "writes": [
-    "USERS"
-   ],
-   "audit": "RESET_PASSWORD",
-   "lock": true
-  },
-  {
-   "action": "users.list",
-   "group": "Quản trị",
-   "desc": "Danh sách người dùng",
-   "roles": [
-    "ADMIN"
-   ],
-   "scope": "",
-   "input": [
-    [
-     "unitCode",
-     "string",
-     false,
-     ""
-    ]
-   ],
-   "output": "{items}",
-   "errors": [],
-   "reads": [
-    "USERS"
-   ],
-   "writes": [],
-   "audit": null,
-   "lock": false
-  },
-  {
-   "action": "users.save",
-   "group": "Quản trị",
-   "desc": "Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này); người dùng mới nhận MÃ KÍCH HOẠT một lần. create=true: tên đã có → DUPLICATE (không ghi đè); create=false: sửa, bắt buộc rowVersion. Không ngừng dùng / hạ vai trò ADMIN cuối cùng đăng nhập được (E_LAST_ADMIN)",
-   "roles": [
-    "ADMIN"
-   ],
-   "scope": "",
-   "input": [
-    [
-     "record",
-     "object",
-     true,
-     ""
-    ],
-    [
-     "rowVersion",
-     "integer",
-     false,
-     "bắt buộc khi sửa tài khoản đã có"
-    ],
-    [
-     "create",
-     "boolean",
-     false,
-     "true = thêm mới (trùng tên → DUPLICATE); false = sửa; bỏ trống = tự nhận biết, sửa vẫn bắt buộc rowVersion"
-    ]
-   ],
-   "output": "{record, created, setupCode?, setupCodeExpiresAt?}",
-   "errors": [
-    "VALIDATION_FAILED",
-    "DUPLICATE",
-    "BUSINESS_RULE:E_LAST_ADMIN"
-   ],
-   "reads": [
-    "USERS"
-   ],
-   "writes": [
-    "USERS"
-   ],
-   "audit": "USER_SAVE",
-   "lock": true
-  },
-  {
    "action": "config.list",
    "group": "Quản trị",
    "desc": "Tham số cấu hình",
@@ -6546,6 +6448,69 @@
    "writes": [],
    "audit": null,
    "lock": false
+  },
+  {
+   "action": "auth.openLocal",
+   "group": "Đăng nhập",
+   "desc": "Mở phiên cục bộ khi đã bật chế độ một người",
+   "roles": [
+    "(chưa đăng nhập)"
+   ],
+   "scope": "",
+   "input": [],
+   "output": "{token, user}",
+   "errors": [
+    "FORBIDDEN"
+   ],
+   "reads": [],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "auth.setLoginMode",
+   "group": "Đăng nhập",
+   "desc": "Đổi cách sử dụng. ACCOUNT tạo một tài khoản; SINGLE yêu cầu lại thông tin tài khoản quản trị đang đăng nhập",
+   "roles": [
+    "ADMIN"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "mode",
+     "enum(SINGLE|ACCOUNT)",
+     true,
+     ""
+    ],
+    [
+     "username",
+     "string",
+     true,
+     ""
+    ],
+    [
+     "password",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{mode} hoặc {token, user}",
+   "errors": [
+    "AUTH_FAILED",
+    "ACCOUNT_LOCKED",
+    "FORBIDDEN",
+    "DUPLICATE",
+    "VALIDATION_FAILED"
+   ],
+   "reads": [
+    "USERS"
+   ],
+   "writes": [
+    "USERS"
+   ],
+   "audit": "CHANGE_LOGIN_MODE",
+   "lock": true
   }
  ],
  "errors": [

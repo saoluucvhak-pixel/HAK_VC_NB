@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** P4 giao diện: gói trao đổi có dòng dầu trùng nội dung với dòng nhập tay → hiện "Dòng dầu nghi trùng", mặc định "Bỏ qua"; nhập xong chỉ còn 1 dòng. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -27,10 +28,7 @@ test('Giao diện HAKQN: dòng dầu nghi trùng khi nhận gói kỳ', { skip: 
     await page.goto(srv.url);
     await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     await srv.ctx.store.transaction((tx) => { tx.insert('GIAO_NHAN_DAU', { ...x, receipt_id: 'GD-TAY-1', import_batch_id: '' }); }, { user: 'test' }); // nhập tay dòng cùng nội dung
     await page.locator('nav button', { hasText: 'Trao đổi dữ liệu' }).click(); await page.getByRole('heading', { name: 'Trao đổi dữ liệu' }).waitFor();
     await fetch(`${srv.url}/dev/next`, { method: 'POST', body: JSON.stringify({ path: file }) }); await page.getByRole('button', { name: 'Chọn gói…' }).click();

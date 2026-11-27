@@ -44,6 +44,12 @@ npm run dist               # đóng gói bộ cài NSIS: electron-builder (dir) 
 ### Chạy trực tiếp tại trạm cân (không cần cài đặt)
 Trên các máy tính trạm cân bị hạn chế quyền Administrator, có thể sao chép trực tiếp thư mục `dist/win-unpacked/` và chạy ngay tệp `DGVC.exe`. Dữ liệu sẽ lưu tại `Documents\DGVC_DATA` của tài khoản đang đăng nhập.
 
+## Chọn cách đăng nhập
+
+Khi khởi tạo dữ liệu mới, chọn **Một người sử dụng** rồi bấm **Bỏ qua** để mở phần mềm trực tiếp. Nếu chọn **Sử dụng tài khoản đăng nhập**, tạo tên đăng nhập và mật khẩu ngay trong bước khởi tạo.
+
+Có thể đổi cách sử dụng tại **Cài đặt → Đăng nhập**. Để tắt đăng nhập, nhập lại tên và mật khẩu của tài khoản quản trị đang dùng. Dữ liệu từ bản cũ vẫn yêu cầu tài khoản hiện có khi mở lần đầu. Việc khôi phục dữ liệu tại chỗ giữ lựa chọn đăng nhập và tài khoản đang dùng.
+
 ## Nâng cấp từ bản cũ (1.8.3 → 1.10.5)
 - **Bảo mật:** Lưu trạng thái máy (`machine-state.json`) ở thư mục cấu hình máy cục bộ để chống triệt để lỗ hổng mở lại ngoại lệ "ADMIN đầu tiên" khi khôi phục các bản sao lưu cũ.
 - **Hiệu năng:** Tự động chuyển sang chế độ xuất luồng (streaming `WorkbookWriter`) khi xuất báo cáo danh sách phiếu cân lớn (>2.000 dòng), giải phóng RAM tức thì cho các máy trạm cân 4GB RAM.

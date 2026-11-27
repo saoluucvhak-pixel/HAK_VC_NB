@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /**
  * Test E2E giao diện:
  *  - (đã gộp menu) Đối chiếu với đối tác: Đối chiếu 3 tiêu chí + Các đợt đã nạp (nhóm Đối tác)
@@ -32,13 +33,7 @@ test('E2E Giao diện: Nhập dữ liệu thuê VC, Xuất gửi đối tác và
     await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com');
-    await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026');
-    await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click();
+    await completeAccountSetup(page);
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
 
     // 1. (đã gộp menu) "Nhập dữ liệu thuê VC" → màn "Đối chiếu dữ liệu": thẻ Đối chiếu 3 tiêu chí có ô chọn file, Các đợt đã nạp quản lý đợt

@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Màn hẹp (820 / 910 / 1093 px): thẻ (tab) không bị che chữ, trang không tràn ngang, tiêu đề không bị cắt; thông báo cùng nội dung không hiện lặp. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -20,10 +21,7 @@ test('Giao diện: màn hẹp không che chữ thẻ, không tràn ngang; thông
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     const screens = [['Hình thức giá', null], ['Đơn giá', null], ['Hợp đồng vận chuyển', null], ['Báo cáo', null], ['Bảng xác nhận KL', null], ['Hướng dẫn & quy trình', null], ['Cài đặt', 'Thông tin']];
     for (const w of [820, 910, 1093]) {
       await page.setViewportSize({ width: w, height: 768 });

@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Rà soát 1.8.2 (lần 2) — lớp chống bấm đúp không được khóa nút vĩnh viễn: nút Lưu của hộp thoại bấm lại được sau khi bị từ chối;
  *  TÍNH GIÁ bấm lại được sau khi xong; bấm đúp TÍNH GIÁ chỉ gửi 1 lệnh. */
 const test = require('node:test');
@@ -22,25 +23,23 @@ test('Giao diện ĐH: nút không bị khóa vĩnh viễn sau lớp chống b�
     await page.goto(srv.url);
     await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     const imp = srv.ctx.svc.import;
     for (const [t, extra] of [['PHIEU_CAN', {}], ['GIAO_NHAN_DAU', { contractId: CONTRACT.DH }]]) {
       const a = await imp.preview({ importType: t, filePath: FILE.DH, user: 'k', ...extra }); await imp.confirm({ batchId: a.batchId, acceptWarnings: true, clientRequestId: rid(), user: 'k' });
     }
 
-    // (1) hộp thoại: Lưu khi thiếu trường bắt buộc → hộp vẫn mở, nút Lưu bấm lại được; điền đủ → lưu được
-    await nav('Cài đặt'); await page.getByRole('tab', { name: 'Người dùng' }).click(); await page.getByRole('button', { name: 'Thêm người dùng' }).click();
-    const save = page.locator('.modal').getByRole('button', { name: 'Lưu' });
-    await save.click(); await page.waitForTimeout(500);
-    assert.equal(await page.locator('.modal').count(), 1, 'thiếu trường → hộp vẫn mở');
-    assert.equal(await save.isDisabled(), false, 'nút Lưu không bị khóa sau khi bị từ chối');
-    await page.locator('.modal label.field', { hasText: 'Tên đăng nhập' }).locator('input').fill('ketoan.moi');
-    const n0 = count('users.save'); await save.click(); await page.getByText(/Mã kích hoạt của ketoan.moi/).waitFor();
-    assert.equal(count('users.save'), n0 + 1, 'lần bấm thứ hai gửi users.save');
-    await page.locator('.modal').getByRole('button', { name: 'Đã ghi lại mã' }).click(); await page.waitForTimeout(300);
+    // Thiếu thông tin không gửi yêu cầu và vẫn có thể thử tiếp trong hộp thoại.
+    await nav('Cài đặt');
+    await page.getByRole('tab', { name: 'Đăng nhập' }).click();
+    await page.getByRole('button', { name: 'Chuyển sang một người sử dụng' }).click();
+    const dialog = page.getByRole('dialog');
+    const save = dialog.getByRole('button', { name: 'Xác nhận chuyển' });
+    await save.click();
+    assert.equal(await dialog.isVisible(), true);
+    assert.equal(await save.isEnabled(), true);
+    assert.equal(count('auth.setLoginMode'), 0);
+    await dialog.getByRole('button', { name: 'Hủy' }).click();
 
     // (2) TÍNH GIÁ: bấm lại được sau khi xong; (3) bấm đúp chỉ 1 lệnh
     await nav('Tính giá vận chuyển');

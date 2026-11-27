@@ -157,7 +157,7 @@ async function exportSqliteToJson({ root, dest, now = () => new Date() } = {}) {
       await out.transaction((tx) => {
         for (const t of Object.keys(SCHEMA.tables)) tx.restoreRows(t, src.all(t).filter((r) => !src.isMountedRow(t, r[SCHEMA.tables[t].pk])).map((r) => ({ ...r })));
         tx.sequences = { ...(m.sequences || {}) };
-        for (const k of ['archives', 'lastBackupAt', 'createdAt']) if (m[k] !== undefined) tx.setManifest(k, m[k]);
+        for (const k of ['archives', 'lastBackupAt', 'createdAt', 'loginSettings']) if (m[k] !== undefined) tx.setManifest(k, m[k]);
       }, { user: 'export-json' });
       const cmp = compareStores(src, out, { checkDataVersion: false });
       if (!cmp.ok) throw new AppError('INTEGRITY_ERROR', `Kiểm chứng xuất ngược thất bại: ${cmp.problems.slice(0, 3).join('; ')}`, { problems: cmp.problems });

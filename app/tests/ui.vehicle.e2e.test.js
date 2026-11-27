@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Giao diện — menu Danh mục → Xe (trước đây Cài đặt → Công ty & xe): thêm nhầm xe → bấm vào xe → sửa biển số; xe đã có phiếu cân thì báo không đổi được. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -27,12 +28,7 @@ test('Giao diện: sửa biển số xe nhập nhầm', { skip: !fs.existsSync(C
     await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com');
-    await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026');
-    await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click();
+    await completeAccountSetup(page);
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     await page.locator('nav button', { hasText: 'Phiếu cân' }).click(); await next(FILE.DH);
     await page.getByRole('button', { name: 'Import từ Excel' }).click();

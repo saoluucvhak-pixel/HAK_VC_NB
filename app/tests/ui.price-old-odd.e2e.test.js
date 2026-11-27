@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Màn "Bảng giá chung (Cách cũ)" cũng hỏi lại số nhầm dấu chấm/phẩy (trước: không có hộp kiểm), và cổng D.api chặn ô số nhập sai (NaN không được đổi thành null = ô trống). */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -19,10 +20,7 @@ test('Màn Đơn giá cách cũ: hỏi lại số nhầm dấu; D.api chặn ô 
     await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
 
     // cổng chung: NaN trong dữ liệu gửi đi bị chặn ngay ở giao diện, báo rõ ô nào (không gửi, không thành null)
     const blocked = await page.evaluate(async () => { const D = window.DGVC; let sent = false; const old = window.dgvc; try { await D.api('prices.list', { routeCode: 'X', record: { fuelNormLPerKm: NaN } }, { quiet: true }); sent = true; } catch (e) { return { sent, msg: e.message, code: e.code }; } return { sent }; });

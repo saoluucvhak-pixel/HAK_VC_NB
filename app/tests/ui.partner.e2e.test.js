@@ -1,4 +1,5 @@
 'use strict';
+const { openLegacyInstall } = require('./ui-login-setup');
 /**
  * Giao diện — luồng đối tác sau khi GỘP menu (bản cài ĐH):
  *  - Đối chiếu dữ liệu: 3 thẻ (Kiểm tra nội bộ · Đối chiếu 3 tiêu chí · Các đợt đã nạp), nút "Tải file mẫu Excel" (phiếu cân + dầu) hiện và tải được;
@@ -36,13 +37,7 @@ test('Giao diện ĐH: Đối chiếu với đối tác — file mẫu, Excel d�
     await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
   };
   try {
-    await page.goto(srv.url);
-    await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill(PW); await page.getByLabel('Nhập lại mật khẩu').fill(PW);
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await openLegacyInstall(page, srv, 'DH', PW);
     const ctx = srv.ctx; const imp = ctx.svc.import;
     const a = await imp.preview({ importType: 'PHIEU_CAN', filePath: FILE.DH, user: 'k' }); await imp.confirm({ batchId: a.batchId, acceptWarnings: true, clientRequestId: rid(), user: 'k' });
     const b = await imp.preview({ importType: 'GIAO_NHAN_DAU', contractId: CONTRACT.DH, filePath: FILE.DH, user: 'k' }); await imp.confirm({ batchId: b.batchId, acceptWarnings: true, clientRequestId: rid(), user: 'k' });

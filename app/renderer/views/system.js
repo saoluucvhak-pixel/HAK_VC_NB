@@ -269,9 +269,9 @@
   // ───────── Cài đặt ─────────
   D.views.settings = {
     async render(p) {
-      const tab = p.tab || 'backup'; const admin = D.can('ADMIN'); const only = p.only || ''; // only: 'units' | 'vehicles' — màn riêng tách từ tab cũ "Công ty & xe"
+      const tab = p.tab === 'users' ? 'login' : p.tab || 'backup'; const admin = D.can('ADMIN'); const only = p.only || ''; // only: 'units' | 'vehicles' — màn riêng tách từ tab cũ "Công ty & xe"
       if (tab === 'units' && !only) { setTimeout(() => D.go('units')); return h('div'); } // đường dẫn cũ D.go('settings', { tab: 'units' }) vẫn chạy
-      const tabs = h('div', { class: 'tabs', role: 'tablist' }, [['backup', 'Dữ liệu & sao lưu'], ['params', 'Tham số tính'], ['importProfiles', 'Mẫu nhập Excel'], ['users', 'Người dùng'], ['info', 'Thông tin']].map(([k, t]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => D.go('settings', { tab: k }) }, t)));
+      const tabs = h('div', { class: 'tabs', role: 'tablist' }, [['backup', 'Dữ liệu & sao lưu'], ['params', 'Tham số tính'], ['importProfiles', 'Mẫu nhập Excel'], ['login', 'Đăng nhập'], ['info', 'Thông tin']].map(([k, t]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => D.go('settings', { tab: k }) }, t)));
       const body = h('div');
       if (tab === 'importProfiles') {
         body.append(await D.renderImportProfiles());
@@ -448,26 +448,37 @@
           D.writer() ? h('p', { class: 'small muted' }, 'Bấm vào 1 xe để sửa chủ xe, mã xe dầu, ghi chú, sửa biển số nhập nhầm, ngừng dùng hoặc xóa xe nhập nhầm.') : null
         ];
         body.append(...vehPart);
-      } else if (tab === 'users') {
-        if (!admin) { body.append(h('p', { class: 'muted' }, 'Chỉ ADMIN quản lý người dùng.')); } else {
-          const d = await D.api('users.list');
-          const UF = [{ key: 'username', label: 'Tên đăng nhập (email)', required: true }, { key: 'fullName', label: 'Họ tên' }, { key: 'role', label: 'Vai trò', type: 'select', options: [['KE_TOAN', 'Kế toán'], ['XEM', 'Chỉ xem'], ['ADMIN', 'ADMIN']] },
-            { key: 'unitCode', label: 'Đơn vị', type: 'select', options: D.unitOptions(true) }, { key: 'canUnlock', label: 'Được mở khóa kỳ', type: 'check' }, { key: 'isActive', label: 'Đang hoạt động', type: 'check' }];
-          // hiện MÃ KÍCH HOẠT đúng một lần (server không lưu mã gốc)
-          const showCode = (username, r) => D.modal({ title: `Mã kích hoạt của ${username}`, body: h('div', {}, h('p', {}, 'Gửi mã này cho người dùng để đặt mật khẩu lần đầu:'),
-            h('p', { class: 'mono', style: { fontSize: '28px', letterSpacing: '4px', margin: '8px 0' } }, r.setupCode),
-            h('p', { class: 'small muted' }, `Hết hạn: ${new Date(r.setupCodeExpiresAt).toLocaleString('vi-VN')}. Mã chỉ hiện một lần — đóng hộp thoại là không xem lại được (cần mã mới thì bấm "Đặt lại mật khẩu").`)),
-            actions: [{ label: 'Sao chép', run: async () => { try { await navigator.clipboard.writeText(r.setupCode); D.toast('Đã sao chép mã', 'ok'); } catch { D.toast('Không sao chép được — hãy chép tay mã trên màn hình', 'err'); } return false; } }, { label: 'Đã ghi lại mã', primary: true, run: () => true }] });
-          body.append(h('div', { class: 'head' }, h('span', { class: 'grow' }), h('button', { class: 'btn primary', onclick: () => D.formModal({ title: 'Thêm người dùng', fields: UF, values: { role: 'KE_TOAN', unitCode: D.state.boot.install.unitCode, isActive: true }, submit: async (x) => { const r = await D.api('users.save', { record: x, create: true }); D.toast('Đã thêm người dùng — cấp mã kích hoạt cho họ', 'ok'); showCode(x.username, r); D.go('settings', { tab: 'users' }); } }) }, 'Thêm người dùng')),
-            h('div', { class: 'card flush' }, D.table({ rows: d.items, onRow: (x) => D.modal({ title: x.username, body: D.form(UF.map((f) => (f.key === 'username' ? { ...f, readonly: true } : f)), x), actions: [
-              { label: 'Đặt lại mật khẩu', danger: true, run: async () => {
-                const self = x.username === D.state.boot.user.username;
-                if (!(await D.confirm({ title: 'Đặt lại mật khẩu', danger: true, okLabel: 'Đặt lại', message: `${self ? 'Đây là TÀI KHOẢN BẠN ĐANG DÙNG — bạn sẽ bị đăng xuất ngay. ' : ''}Mật khẩu của ${x.username} bị xóa, phiên đang mở của họ bị đăng xuất; họ phải nhập mã kích hoạt mới để đặt mật khẩu lại.` }))) return false;
-                const r = await D.api('users.resetPassword', { username: x.username }); D.toast('Đã đặt lại — cấp mã kích hoạt cho người dùng', 'ok'); showCode(x.username, r); D.go('settings', { tab: 'users' }); return true; } }, // đóng hộp sửa (rowVersion đã đổi) và nạp lại danh sách
-              { label: 'Lưu', primary: true, run: async () => { const f = document.querySelector('.modal .form'); await D.api('users.save', { record: f.values ? f.values() : {}, rowVersion: x.rowVersion, create: false }); D.go('settings', { tab: 'users' }); } }] }), // khóa lạc quan: người sửa sau nhận lỗi xung đột phiên bản
-            columns: [{ key: 'username', label: 'Tên đăng nhập' }, { key: 'fullName', label: 'Họ tên' }, { key: 'role', label: 'Vai trò' }, { key: 'unitCode', label: 'Đơn vị' }, { key: 'canUnlock', label: 'Mở khóa', fmt: 'bool' },
-              { key: 'hasPassword', label: 'Đã đặt mật khẩu', fmt: 'bool' }, { key: 'isActive', label: 'Hoạt động', fmt: 'bool' }, { key: 'lastLoginAt', label: 'Đăng nhập gần nhất', fmt: 'datetime' }] })));
-        }
+      } else if (tab === 'login') {
+        const mode = D.state.boot.loginMode;
+        const single = mode === 'SINGLE';
+        const switchMode = () => {
+          const fields = D.loginFields({ creating: single });
+          D.modal({
+            title: single ? 'Tạo tài khoản đăng nhập' : 'Chuyển sang một người sử dụng',
+            body: h('div', { class: 'stack' },
+              !single && h('p', {}, 'Nhập lại tên đăng nhập và mật khẩu hiện tại để xác nhận. Sau khi chuyển, phần mềm mở trực tiếp trên máy này.'),
+              fields.body),
+            actions: [{ label: 'Hủy', run: () => true }, {
+              label: single ? 'Tạo tài khoản' : 'Xác nhận chuyển', primary: true, run: async () => {
+                const credentials = fields.values();
+                if (!credentials) return false;
+                const next = await D.api('auth.setLoginMode', { ...credentials, mode: single ? 'ACCOUNT' : 'SINGLE' });
+                D.state.token = next.token || '';
+                D.state.boot = null;
+                D.toast(single ? 'Đã tạo tài khoản. Hãy đăng nhập để tiếp tục.' : 'Đã chuyển sang một người sử dụng.', 'ok');
+                D.go('login');
+                return true;
+              }
+            }]
+          });
+        };
+        body.append(h('div', { class: 'card stack' },
+          h('h2', {}, 'Cách sử dụng phần mềm'),
+          h('p', {}, single ? 'Đang dùng: Một người sử dụng (không cần đăng nhập).' : 'Đang dùng: Tài khoản đăng nhập.'),
+          admin ? h('div', { class: 'btns' }, h('button', { class: 'btn primary', onclick: switchMode },
+            single ? 'Sử dụng tài khoản đăng nhập' : 'Chuyển sang một người sử dụng')) :
+            h('p', { class: 'muted' }, 'Đăng nhập bằng tài khoản quản trị hiện có để thay đổi cách sử dụng.')));
+
       } else {
         const i = D.state.boot.install; const hl = await D.api('system.health', {}, { quiet: true }).catch(() => null);
         body.append(h('div', { class: 'card' }, h('table', { class: 't info' }, h('tbody', {}, [['Phiên bản APP', i.appVersion], ['Bản cài', `${i.unitCode} · ${i.unitName}`], ['Mã bản cài', i.installId], ['Thư mục dữ liệu', i.dataFolder], ['schemaVersion', i.schemaVersion], ['dataVersion', i.dataVersion],

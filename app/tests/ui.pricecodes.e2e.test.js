@@ -1,4 +1,5 @@
 'use strict';
+const { openLegacyInstall } = require('./ui-login-setup');
 /** Giao diện: màn "Đơn giá" (danh mục phẳng, chính–phụ): thêm đơn giá bằng cách chọn Hình thức giá (cố định / theo giá dầu) từ danh mục → form như cũ → áp dụng → kỳ tính dùng đúng. Ngăn xem chéo Hình thức giá: ui.forms.e2e.test.js. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -30,15 +31,7 @@ test('Giao diện HAKQN: Đơn giá — chọn Hình thức giá, thêm đơn gi
     await pk.getByRole('button', { name: 'Tiếp tục' }).click();
   };
   try {
-    await page.goto(srv.url);
-    await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
-    await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await openLegacyInstall(page, srv, 'HAKQN');
     const ctx = srv.ctx; const contractId = 'HD-HAKQN-QS'; const ct = () => ctx.store.get('HOP_DONG', contractId); const unit = ct().customer_unit_code;
     const imp = ctx.svc.import; const a = await imp.preview({ importType: 'PHIEU_CAN', filePath: FILE.HAKQN, user: 'k' }); await imp.confirm({ batchId: a.batchId, acceptWarnings: true, clientRequestId: rid(), user: 'k' });
 
@@ -128,7 +121,7 @@ test('Giao diện HAKQN: Đơn giá — chọn Hình thức giá, thêm đơn gi
     assert.equal(await page.locator(`${MAIN} tbody tr`, { hasText: 'DG-CU-01' }).count(), 0, 'mã cũ rỗng không có dòng giá');
     assert.equal(await page.getByRole('button', { name: /Tạo mã/ }).count(), 0);
     // vai trò XEM không thấy nút thêm/sửa/áp dụng
-    const xem = await page.evaluate(() => window.DGVC.api('users.save', { record: { username: 'xem.qn', fullName: 'Người xem', role: 'XEM', unitCode: 'HAKQN' } })); // 1.6.1: nhận mã kích hoạt một lần
+    const xem = await srv.ctx.svc.auth.saveUser({ record: { username: 'xem.qn', fullName: 'Người xem', role: 'XEM', unitCode: 'HAKQN' }, user: { username: 'legacy-fixture' } }); // 1.6.1: nhận mã kích hoạt một lần
     await page.getByRole('button', { name: 'Đăng xuất' }).click();
     await page.getByLabel('Tên đăng nhập').fill('xem.qn'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
     await page.getByLabel('Mã kích hoạt').fill(xem.setupCode);

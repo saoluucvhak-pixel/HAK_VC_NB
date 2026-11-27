@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /**
  * Giao diện: ô "ĐVT tính giá" (Tấn / m³) trên form dòng đơn giá — mặc định theo tuyến, nhãn / gợi ý đổi theo lựa chọn,
  * đổi tuyến không ghi đè lựa chọn của người dùng; dòng THEO GIÁ DẦU tính m³ không bắt buộc KL_TB (Thể tích TB bắt buộc) và lưu được.
@@ -31,10 +32,7 @@ test('Giao diện HAKQN: form dòng đơn giá — ô ĐVT tính giá, nhãn m³
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     const ctx = srv.ctx;
     // VC.007 → tuyến m³; VC.008 vẫn tính tấn
     await ctx.store.transaction((tx) => tx.update('TUYEN_VC', 'VC.007', { uom: 'M3' }), { user: 'test' });

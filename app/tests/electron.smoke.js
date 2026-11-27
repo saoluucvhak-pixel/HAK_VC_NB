@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /**
  * Chạy thử BẢN ELECTRON thật (cửa sổ, preload, IPC, hộp thoại được giả lập, in PDF bằng printToPDF).
  *   xvfb-run -a node tests/electron.smoke.js
@@ -33,10 +34,7 @@ let launchedApp;
   await w.getByRole('button', { name: 'Tiếp' }).click();
   await w.locator('.unit-pick label', { hasText: 'DH —' }).click();
   await w.getByRole('button', { name: 'Tiếp' }).click(); await w.getByRole('button', { name: 'Tiếp' }).click();
-  await w.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-  await w.getByLabel('Tên đăng nhập').fill('saoluucvhak@gmail.com');
-  await w.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await w.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-  await w.getByRole('button', { name: 'Vào phần mềm' }).click();
+  await completeAccountSetup(w, 'saoluucvhak@gmail.com');
   await w.getByRole('heading', { name: 'Tổng quan' }).waitFor();
   log("await w.getByRole('heading', { name: 'Tổng quan' }).waitFor();");
   // import phiếu cân qua hộp thoại Windows (giả lập)

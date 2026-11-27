@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Giao diện: Phiếu cân + Giao nhận dầu dùng bộ lọc thông minh (tìm không dấu, kỳ/khoảng ngày, thẻ điều kiện, nhớ lần trước, đặt lại); ngày luôn đi liền nhau một hàng. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -33,10 +34,7 @@ test('Giao diện HAKQN: bộ lọc thông minh ở Phiếu cân và Giao nhận
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     const ctx = srv.ctx; const imp = ctx.svc.import;
     const a = await imp.preview({ importType: 'PHIEU_CAN', filePath: FILE.HAKQN, user: 'k' }); await imp.confirm({ batchId: a.batchId, acceptWarnings: true, clientRequestId: rid(), user: 'k' });
     const f = await imp.preview({ importType: 'GIAO_NHAN_DAU', contractId: CONTRACT.HAKQN, filePath: FILE.HAKQN, user: 'k' }); await imp.confirm({ batchId: f.batchId, acceptWarnings: true, clientRequestId: rid(), user: 'k' });

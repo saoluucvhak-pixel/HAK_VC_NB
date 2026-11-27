@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Bảng màu: ô chọn 4 bảng (Luxury · HAK Enterprise / Xanh ngọc / Trung tính / Vàng champagne), nhớ theo máy, nhãn không bị cắt, tương phản chữ/nền đạt WCAG AA. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -44,10 +45,7 @@ async function login(page, srv) {
   await page.getByRole('button', { name: 'Tiếp' }).click();
   await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
   await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
-  await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-  await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-  await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-  await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+  await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
 }
 
 // Các cặp chữ/nền cần đạt >= 4.5:1 (chữ thường). [nhãn, bộ chọn]

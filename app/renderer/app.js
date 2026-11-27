@@ -424,10 +424,10 @@
           const now = ul.hidden; ul.hidden = !now; head.setAttribute('aria-expanded', String(now)); const o = navClosedGet(); if (now) delete o[gid]; else o[gid] = true; navClosedSet(o); } }, h('span', { class: 'chev', 'aria-hidden': 'true' }, '▾'), glabel);
         return h('li', { class: 'nav-group' }, head, ul);
       }))),
-      h('div', { class: 'me' }, h('div', {}, b.user.fullName || b.user.username), h('div', {}, `${b.user.role} · dữ liệu: `, h('span', { class: 'mono' }, b.install.dataFolder)),
+      h('div', { class: 'me' }, h('div', {}, b.user.fullName || b.user.username), h('div', {}, 'Dữ liệu: ', h('span', { class: 'mono' }, b.install.dataFolder)),
         h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' } },
           h('button', { class: 'theme-btn', 'aria-label': 'Đổi giao diện sáng/tối', onclick: (e) => { D.cycleTheme(); e.currentTarget.textContent = `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`; } }, `Giao diện: ${THEMES.find(([k]) => k === D.themePref())[1]}`),
-          h('button', { onclick: async () => { await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); state.token = ''; state.boot = null; D.go('login'); } }, 'Đăng xuất')),
+          b.loginMode !== 'SINGLE' && h('button', { onclick: async () => { await D.api('auth.logout', {}, { quiet: true }).catch(() => {}); state.token = ''; state.boot = null; D.go('login'); } }, 'Đăng xuất')),
         h('label', { class: 'skin-pick' }, h('span', {}, 'Bảng màu'),
           h('select', { class: 'skin-select', 'aria-label': 'Bảng màu giao diện', onchange: (e) => { D.setSkin(e.currentTarget.value); } }, SKINS.map(([k, n]) => h('option', { value: k, selected: k === D.skinPref() }, n))))));
     root.innerHTML = ''; root.append(h('div', { class: 'app' }, side, main));

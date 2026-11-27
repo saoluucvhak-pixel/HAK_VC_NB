@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Báo cáo thuê vận chuyển: mục menu (nhóm Đối tác, đầu nhóm), hướng dẫn 3 bước, nút điều hướng, bảng báo cáo các đợt đã nạp (chi tiết ở ui.rent-report.e2e), bố cục hẹp. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -24,10 +25,7 @@ test('Giao diện: Báo cáo thuê vận chuyển', { skip: !fs.existsSync(CHROM
     await page.goto(srv.url);
     await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill(PW); await page.getByLabel('Nhập lại mật khẩu').fill(PW);
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await completeAccountSetup(page, 'phuthuy.apple@gmail.com', PW); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
 
     const items = (await page.locator('#nav-g-xchg .nav-txt').allInnerTexts()).map((x) => x.trim());
     assert.equal(items[0], 'Báo cáo thuê vận chuyển'); assert.ok(items.includes('Trao đổi dữ liệu') && items.includes('Đối chiếu dữ liệu'));
