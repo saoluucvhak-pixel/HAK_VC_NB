@@ -148,6 +148,8 @@ table.t tfoot td { background: var(--row-total); font-weight: 700; padding: .6re
 /* thông báo KHÔNG chặn thao tác: bấm xuyên qua được (trước đây chồng lên nút Lưu của hộp thoại, phải chờ hết 9 giây); khi đang mở hộp thoại thì hiện ở trên cùng */
 .toasts { pointer-events: none; } body:has(.overlay) .toasts { top: 14px; bottom: auto; flex-direction: column-reverse; justify-content: flex-end; }
 .toast { background: #0f2740; color: #fff; padding: 11px 15px; border-radius: 12px; box-shadow: 0 10px 30px rgba(16, 35, 58, .25); max-width: 460px; border-left: 4px solid var(--brand-2); overflow-wrap: anywhere; }
+.toast-action { display: block; margin-top: 8px; pointer-events: auto; }
+body:has(.overlay) .toast-action { visibility: hidden; }
 .toast.err { background: var(--surface); color: var(--red-text); border: 1px solid var(--danger-line); border-left: 4px solid var(--red); } .toast.ok { background: var(--brand-dark); color: var(--onBrand, #fff); border-left-color: #7be0e6; } .toast.info { background: #0f2740; }
 
 /* đăng nhập / khởi tạo */

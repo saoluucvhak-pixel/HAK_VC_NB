@@ -277,7 +277,7 @@ ${party('BÊN B (Bên nhận vận chuyển)', C)}
     <th>STT</th>
     <th>Nội dung chỉ tiêu</th>
     <th>ĐVT</th>
-    <th>Giá trị (đồng / tấn / lít)</th>
+    <th>Giá trị</th>
   </tr>
 </thead>
 <tbody>

@@ -461,10 +461,10 @@
     const params = () => ({
       destinationFilePath: destFile,
       batchId: f.values().batchId || selectedBatchId,
-      tolerancePct: Number(f.values().tolerancePct) || 0.5,
+      tolerancePct: f.values().tolerancePct,
       dateFrom: f.values().dateFrom || '',
       dateTo: f.values().dateTo || '',
-      maxHours: Number(f.values().maxHours) || 24
+      maxHours: f.values().maxHours
     });
 
     const run = async () => {

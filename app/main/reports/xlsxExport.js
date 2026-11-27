@@ -532,11 +532,11 @@ async function writeReconciliationStatement(d, file) {
   const secRow = (title) => {
     span(r, 1, N, title, { bold: true, fill: SEC_FILL, border: true, size: 10 }); r++;
   };
-  const itemRow = (no, label, uom, val, bold = false, final = false) => {
+  const itemRow = (no, label, uom, val, { bold = false, final = false, fmt = '#,##0' } = {}) => {
     span(r, 1, 1, no, { h: 'center', border: true, size: 10 });
     span(r, 2, 5, label, { bold, border: true, size: 10 });
     span(r, 6, 6, uom, { h: 'center', border: true, size: 10 });
-    span(r, 7, 8, val, { bold: bold || final, h: 'right', border: true, fmt: typeof val === 'number' ? '#,##0' : undefined, fill: final ? FINAL_FILL : undefined, size: final ? 11 : 10 });
+    span(r, 7, 8, val, { bold: bold || final, h: 'right', border: true, fmt: typeof val === 'number' ? fmt : undefined, fill: final ? FINAL_FILL : undefined, size: final ? 11 : 10 });
     r++;
   };
 
@@ -544,24 +544,24 @@ async function writeReconciliationStatement(d, file) {
   const U = d.fuel;
   secRow('A. DOANH THU CƯỚC VẬN CHUYỂN PHÁT SINH TRONG KỲ');
   itemRow(1, 'Tổng số chuyến vận chuyển thực hiện', 'chuyến', F.trips);
-  itemRow(2, 'Tổng khối lượng vận chuyển', F.uomLabel || 'tấn', F.ton, true);
+  itemRow(2, 'Tổng khối lượng vận chuyển', F.uomLabel || 'tấn', F.ton, { bold: true, fmt: '#,##0.00' });
   itemRow(3, 'Thành tiền cước vận chuyển (chưa VAT)', 'đồng', F.amount);
   itemRow(4, `Thuế GTGT (${F.vatPct}%)`, 'đồng', F.vat);
-  itemRow(5, 'TỔNG GIÁ TRỊ CƯỚC VẬN CHUYỂN ĐÃ GỒM VAT', 'đồng', F.total, true);
+  itemRow(5, 'TỔNG GIÁ TRỊ CƯỚC VẬN CHUYỂN ĐÃ GỒM VAT', 'đồng', F.total, { bold: true });
 
   secRow('B. NHIÊN LIỆU (DẦU DIESEL) BÊN A ĐÃ CẤP CHO BÊN B CẤN TRỪ CƯỚC');
-  itemRow(6, 'Số lượng dầu diesel thực nhận trong kỳ', 'lít', U.qty);
+  itemRow(6, 'Số lượng dầu diesel thực nhận trong kỳ', 'lít', U.qty, { fmt: '#,##0.00' });
   itemRow(7, 'Đơn giá dầu diesel bình quân (chưa VAT)', 'đ/lít', U.avgPrice);
-  itemRow(8, 'TỔNG TIỀN DẦU DIESEL CẤN TRỪ VÀO CƯỚC', 'đồng', U.amount, true);
+  itemRow(8, 'TỔNG TIỀN DẦU DIESEL CẤN TRỪ VÀO CƯỚC', 'đồng', U.amount, { bold: true });
 
-  itemRow(9, 'SỐ TIỀN BÊN A CÒN PHẢI THANH TOÁN CHO BÊN B (RÒNG) = (5) − (8)', 'đồng', d.netPayable, true, true);
+  itemRow(9, 'SỐ TIỀN BÊN A CÒN PHẢI THANH TOÁN CHO BÊN B (RÒNG) = (5) − (8)', 'đồng', d.netPayable, { final: true });
   r++;
 
   para(`Bằng chữ: ${d.netPayableWords}.`, { bold: true, italic: true });
   r++;
 
   span(r, 1, N, 'II. BẢNG KÊ ĐỐI CHIẾU CƯỚC VÀ DẦU PHÂN BỔ THEO TỪNG XE', { bold: true, size: 11 }); r++;
-  const heads = ['STT', 'Biển số xe', 'Số chuyến', 'Khối lượng (tấn)', 'Tiền cước có VAT', 'Dầu cấp (lít)', 'Tiền dầu trừ', 'Còn thanh toán'];
+  const heads = ['STT', 'Biển số xe', 'Số chuyến', `Khối lượng (${F.uomLabel || 'tấn'})`, 'Tiền cước có VAT', 'Dầu cấp (lít)', 'Tiền dầu trừ', 'Còn thanh toán'];
   heads.forEach((t, i) => cell(r, i + 1, t, { bold: true, h: 'center', fill: HEAD_FILL, border: true, size: 10 })); r++;
 
   d.byPlate.forEach((p, i) => {

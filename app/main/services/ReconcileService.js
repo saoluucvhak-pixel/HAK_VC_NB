@@ -530,8 +530,10 @@ class ReconcileService {
   // ─────────────────────────── kiểm soát hao hụt cung đường (cân đầu đi vs cân đầu đến) ───────────────────────────
   async transitLoss({ departureFilePath = '', destinationFilePath = '', batchId = '', tolerancePct = 0.5, dateFrom = '', dateTo = '', maxHours = 24 } = {}) {
     const s = this.store;
-    const tol = Math.max(0, Number(tolerancePct) || 0.5);
-    const maxH = Math.max(1, Number(maxHours) || 24);
+    const tol = tolerancePct === '' ? 0.5 : Number(tolerancePct);
+    const maxH = maxHours === '' ? 24 : Number(maxHours);
+    if (!Number.isFinite(tol) || tol < 0) throw new AppError('VALIDATION_FAILED', 'Định mức hao hụt phải là số từ 0% trở lên');
+    if (!Number.isFinite(maxH) || maxH < 1) throw new AppError('VALIDATION_FAILED', 'Khoảng ghép phải từ 1 giờ trở lên');
 
     let departTickets = [];
     let departSourceText = 'Phiếu cân nội bộ (hệ thống)';

@@ -2442,7 +2442,7 @@
      "report",
      "string",
      true,
-     "BKVC|BKCT|PRICING|INVOICE|PRICING_SHEET|CONTRACT_BASIS|FUEL_HANDOVER…"
+     "BKVC|BKCT|PRICING|INVOICE|PRICING_SHEET|CONTRACT_BASIS|FUEL_HANDOVER|RECONCILIATION_STATEMENT…"
     ],
     [
      "params",
@@ -4926,7 +4926,7 @@
    "input": [
     [
      "report",
-     "enum(BKVC|BKCT|PRICING|PRICING_SHEET|FUEL_HANDOVER|CONTRACT_BASIS|INVOICE|MISA|TICKETS|FUEL_LIST|VOLUME|VEHICLE_LOG)",
+     "enum(BKVC|BKCT|PRICING|PRICING_SHEET|FUEL_HANDOVER|CONTRACT_BASIS|INVOICE|MISA|TICKETS|FUEL_LIST|VOLUME|VEHICLE_LOG|RECONCILIATION_STATEMENT)",
      true,
      "PRICING_SHEET = bảng tính đơn giá mẫu in; FUEL_HANDOVER = biên bản giao nhận dầu diesel (XLSX/PDF); MISA: chỉ XLSX, chỉ bên vận chuyển"
     ],
@@ -5018,7 +5018,7 @@
    "input": [
     [
      "report",
-     "enum(BKVC|PRICING_SHEET|FUEL_HANDOVER|CONTRACT_BASIS|BKCT|PRICING|TICKETS|FUEL_LIST|VOLUME|VEHICLE_LOG)",
+     "enum(BKVC|PRICING_SHEET|FUEL_HANDOVER|CONTRACT_BASIS|BKCT|PRICING|TICKETS|FUEL_LIST|VOLUME|VEHICLE_LOG|RECONCILIATION_STATEMENT)",
      true,
      ""
     ],
@@ -5920,7 +5920,7 @@
    "input": [
     [
      "kind",
-     "enum(AUDIT|COMPARE)",
+     "enum(AUDIT|COMPARE|TRANSIT_LOSS)",
      true,
      ""
     ],
@@ -5928,7 +5928,7 @@
      "params",
      "object",
      true,
-     "như reconcile.audit / reconcile.compare"
+     "như reconcile.audit / reconcile.compare / reconcile.transitLoss"
     ],
     [
      "targetPath",
@@ -6398,6 +6398,153 @@
     "AUDIT_LOG"
    ],
    "audit": "IMPORT_VEHICLES_EXCEL",
+   "lock": false
+  },
+  {
+   "action": "reports.reconciliationStatement",
+   "group": "Báo cáo",
+   "desc": "Biên bản đối chiếu công nợ và cước vận chuyển theo kỳ, có tiền dầu cấn trừ và chi tiết theo xe",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "periodId",
+     "string",
+     true,
+     ""
+    ]
+   ],
+   "output": "{periodCode, freight, fuel, netPayable, byPlate}",
+   "errors": [
+    "NOT_FOUND",
+    "INTEGRITY_ERROR"
+   ],
+   "reads": [
+    "KY_TINH",
+    "BKVC_LINE",
+    "FUEL_DETAIL",
+    "GIAO_NHAN_DAU",
+    "HOP_DONG",
+    "DON_VI",
+    "CONFIG"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reports.fleetTimeline",
+   "group": "Báo cáo",
+   "desc": "Lịch trình từng xe, phân bố theo giờ và thời gian cân / quay vòng với các phiếu đủ giờ",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "periodId",
+     "string",
+     false,
+     ""
+    ],
+    [
+     "date",
+     "date",
+     false,
+     "ngày cân 1, khi không chỉ định kỳ"
+    ],
+    [
+     "plateNo",
+     "string",
+     false,
+     ""
+    ]
+   ],
+   "output": "{periodCode, date, totalTickets, totalPlates, hourlyDistribution, peakHours, bottlenecks, vehicles}",
+   "errors": [
+    "NOT_FOUND"
+   ],
+   "reads": [
+    "KY_TINH",
+    "PHIEU_CAN",
+    "TRANSPORT_DETAIL"
+   ],
+   "writes": [],
+   "audit": null,
+   "lock": false
+  },
+  {
+   "action": "reconcile.transitLoss",
+   "group": "Đối chiếu",
+   "desc": "Đối chiếu hao hụt giữa hai đầu cân theo biển số và khoảng thời gian",
+   "roles": [
+    "ADMIN",
+    "KE_TOAN",
+    "XEM"
+   ],
+   "scope": "",
+   "input": [
+    [
+     "departureFilePath",
+     "string",
+     false,
+     "mặc định dùng phiếu nội bộ"
+    ],
+    [
+     "destinationFilePath",
+     "string",
+     false,
+     "file đầu đến"
+    ],
+    [
+     "batchId",
+     "string",
+     false,
+     "đợt đầu đến thay cho file"
+    ],
+    [
+     "tolerancePct",
+     "number",
+     false,
+     "mặc định 0,5%, chấp nhận 0%"
+    ],
+    [
+     "dateFrom",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "dateTo",
+     "date",
+     false,
+     ""
+    ],
+    [
+     "maxHours",
+     "number",
+     false,
+     "mặc định 24 giờ"
+    ]
+   ],
+   "output": "{tolerancePct, summary, rows, byPlate}",
+   "errors": [
+    "VALIDATION_FAILED",
+    "NOT_FOUND",
+    "INTEGRITY_ERROR",
+    "E_MAPPING_REQUIRED"
+   ],
+   "reads": [
+    "PHIEU_CAN"
+   ],
+   "writes": [],
+   "audit": null,
    "lock": false
   }
  ],

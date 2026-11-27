@@ -73,3 +73,90 @@ test('Nghiệm thu: Hạng mục 2, 3, 4 (Kiểm soát hao hụt 2 đầu cân, 
     assert.ok(Array.isArray(v1.trips), 'Có danh sách trips');
   });
 });
+
+test('Biên bản công nợ cộng đủ các tuyến của một xe và báo lỗi dữ liệu dầu', (t) => {
+  const store = { find: () => [] };
+  const reports = new ReportService(store);
+  t.mock.method(reports, '_period', () => ({ period_code: 'KT', report_date: '2026-11-27' }));
+  t.mock.method(reports, '_meta', () => ({ contract: {}, cfg: {}, signers: { carrier: {}, customer: {} } }));
+  t.mock.method(reports, 'bkvc', () => ({
+    lines: [
+      { plate_no: '92H-00001', trip_count: 1, kg: 1000, ton: 1, uom: 'TAN', amount_incl_vat: 110 },
+      { plate_no: '92H-00001', trip_count: 2, kg: 7000, ton: 9, uom: 'M3', amount_incl_vat: 220 }
+    ],
+    totals: { trips: 3, kg: 8000, ton: 10, amount: 300, vat: 30, total: 330 },
+    header: { vatPct: 10 },
+    uomLabel: 'tấn / m³'
+  }));
+  const stmt = reports.reconciliationStatement({ periodId: 'KT' });
+  assert.equal(stmt.fuel.amount, 0);
+  assert.equal(stmt.freight.ton, 8);
+  assert.equal(stmt.freight.uomLabel, 'tấn');
+  assert.equal(stmt.byPlate.length, 1);
+  assert.equal(stmt.byPlate[0].trips, 3);
+  assert.equal(stmt.byPlate[0].ton, 8);
+  assert.equal(stmt.byPlate[0].netPayable, stmt.netPayable);
+
+  store.find = () => [{ receipt_id: 'missing' }];
+  store.get = () => undefined;
+  assert.throws(() => reports.reconciliationStatement({ periodId: 'KT' }), { code: 'INTEGRITY_ERROR' });
+});
+
+test('Lịch trình tính theo ngày thực và bỏ qua giờ cân thiếu', () => {
+  const tickets = [
+    { weigh1_date: '2026-11-24', weigh1_time: '23:50', weigh2_date: '2026-11-25', weigh2_time: '00:10' },
+    { weigh1_date: '2026-11-25', weigh1_time: '01:00', weigh2_date: '2026-11-25', weigh2_time: '01:30' },
+    { weigh1_date: '2026-11-27', weigh1_time: '01:30', weigh2_date: '2026-11-27', weigh2_time: '01:45' },
+    { weigh1_date: '2026-11-27', weigh1_time: '', weigh2_time: '' }
+  ].map((times, i) => ({ ...times, ticket_id: String(i), plate_no: '92H-00001', net_kg: 2005 }));
+  const reports = new ReportService({ all: (table) => table === 'PHIEU_CAN' ? tickets : [] });
+  const timeline = reports.fleetTimeline();
+  const [v] = timeline.vehicles;
+  assert.equal(timeline.totalTickets, 4);
+  assert.equal(timeline.hourlyDistribution[0].count, 0);
+  assert.equal(timeline.hourlyDistribution[1].ton, 4.01);
+  assert.equal(v.totalTon, 8.02);
+  assert.equal(v.avgDurationMin, 22);
+  assert.equal(v.avgTurnaroundMin, 1465);
+  assert.equal(v.trips.find((t) => t.ticketId === '0').turnaroundNextMin, 50);
+  assert.equal(v.trips.find((t) => t.ticketId === '3').startMin, null);
+});
+
+test('Hao hụt hai đầu cân chấp nhận định mức 0% và từ chối giá trị không hợp lệ', async (t) => {
+  const ticket = { ticket_no: '001', plate_no: '92H-00001', weigh1_date: '2026-11-27', weigh1_time: '07:00', net_kg: 10000 };
+  const reconcile = new ReconcileService({ all: () => [ticket] });
+  t.mock.method(reconcile, '_theirs', async () => ({
+    tickets: [{ ...ticket, weigh1_time: '07:30', net_kg: 9990 }]
+  }));
+  const report = await reconcile.transitLoss({ destinationFilePath: 'dich.xlsx', tolerancePct: 0 });
+  assert.equal(report.tolerancePct, 0);
+  assert.equal(report.summary.excessCount, 1);
+  await assert.rejects(reconcile.transitLoss({ tolerancePct: Infinity }), { code: 'VALIDATION_FAILED' });
+  await assert.rejects(reconcile.transitLoss({ maxHours: -1 }), { code: 'VALIDATION_FAILED' });
+});
+
+test('Biên bản công nợ Excel giữ phần lẻ và ghi đúng đơn vị m³', async (t) => {
+  const { tmpdir } = require('node:os');
+  const { Workbook } = require('exceljs');
+  const { writeReconciliationStatement } = require('../main/reports/xlsxExport');
+  const dir = fs.mkdtempSync(path.join(tmpdir(), 'dgvc-cong-no-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'cong-no.xlsx');
+  const party = { unitName: 'Đơn vị thử', signer: { name: 'Người thử', title: 'Đại diện' } };
+  await writeReconciliationStatement({
+    carrier: party, customer: party, signers: { carrier: party, customer: party }, periodCode: 'KT', dateText: 'ngày 27/11/2026',
+    freight: { trips: 1, ton: 8.75, uomLabel: 'm³', amount: 100, vatPct: 10, vat: 10, total: 110 },
+    fuel: { qty: 1.25, avgPrice: 20, amount: 25 },
+    byPlate: [], netPayable: 85, netPayableWords: 'Tám mươi lăm đồng'
+  }, file);
+  const wb = new Workbook();
+  await wb.xlsx.readFile(file);
+  const ws = wb.getWorksheet(1);
+  const cells = [];
+  ws.eachRow((row) => row.eachCell((cell) => cells.push(cell)));
+  for (const qty of [8.75, 1.25]) {
+    const quantity = cells.find((cell) => cell.col === 7 && cell.value === qty);
+    assert.equal(quantity?.numFmt, '#,##0.00');
+  }
+  assert.ok(cells.some((cell) => cell.value === 'Khối lượng (m³)'));
+});

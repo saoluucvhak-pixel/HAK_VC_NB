@@ -432,15 +432,15 @@
           );
 
           const vehicleRows = d.vehicles.slice(0, 25).map((veh) => {
-            const pills = veh.trips.map((t) => {
+            const pills = veh.trips.filter((t) => t.startMin != null && t.durationMin != null).map((t) => {
               const startPct = Math.min(99, Math.max(0, (t.startMin / 1440) * 100));
-              const dur = Math.max(15, t.durationMin || 30);
+              const dur = Math.max(15, t.durationMin);
               const widthPct = Math.min(100 - startPct, Math.max(1.8, (dur / 1440) * 100));
               const isBottleneck = (t.durationMin || 0) > 45;
               return h('div', {
                 class: `timeline-pill ${isBottleneck ? 'bottleneck' : 'normal'}`,
                 style: { left: `${startPct}%`, width: `${widthPct}%` },
-                title: `Xe ${veh.plateNo} · Phiếu ${t.ticketNo} · Tuyến ${t.routeCode}\nCân 1: ${t.weigh1Time} → Cân 2: ${t.weigh2Time} (${dur} phút)\nKhối lượng: ${t.netTon} tấn`
+                title: `Xe ${veh.plateNo} · Phiếu ${t.ticketNo} · Tuyến ${t.routeCode}\nCân 1: ${t.weigh1Time} → Cân 2: ${t.weigh2Time} (${t.durationMin} phút)\nKhối lượng: ${t.netTon} tấn`
               }, `${t.routeCode} (${t.netTon}t)`);
             });
 
@@ -453,7 +453,7 @@
           out.append(h('div', { class: 'fleet-timeline-card' },
             h('div', { class: 'card-h' },
               h('h2', {}, `Trục thời gian chạy xe 24h (Timeline Tracker)`),
-              h('span', { class: 'small muted' }, 'Thanh xanh = Chuyến bình thường · Thanh đỏ = Chuyến bị nghẽn trạm cân (> 45p)')
+              h('span', { class: 'small muted' }, 'Chỉ hiện chuyến có đủ giờ cân · Thanh đỏ: thời gian cân trên 45 phút')
             ),
             axis,
             vehicleRows
@@ -468,8 +468,8 @@
                 { key: 'plateNo', label: 'Biển số xe', render: (r) => h('b', {}, r.plateNo) },
                 { key: 'tripCount', label: 'Số chuyến', fmt: 'int' },
                 { key: 'totalTon', label: 'Sản lượng (Tấn)', fmt: 'dec2' },
-                { key: 'avgDurationMin', label: 'Thời gian cân TB', render: (r) => `${r.avgDurationMin} phút` },
-                { key: 'avgTurnaroundMin', label: 'Quay vòng TB', render: (r) => (r.avgTurnaroundMin ? `${r.avgTurnaroundMin} phút` : '—') },
+                { key: 'avgDurationMin', label: 'Thời gian cân TB', render: (r) => r.avgDurationMin == null ? '—' : `${r.avgDurationMin} phút` },
+                { key: 'avgTurnaroundMin', label: 'Quay vòng TB', render: (r) => (r.avgTurnaroundMin == null ? '—' : `${r.avgTurnaroundMin} phút`) },
                 { key: 'impossibleTurnaroundCount', label: 'Quay vòng < 45p', render: (r) => (r.impossibleTurnaroundCount ? h('span', { class: 'tag warn' }, `${r.impossibleTurnaroundCount} chuyến`) : '0') }
               ]
             })
