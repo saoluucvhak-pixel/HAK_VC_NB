@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -26,11 +27,7 @@ test('Danh mục/Xe vận chuyển menu và hiển thị trang', async (t) => {
     await w.locator('.unit-pick label', { hasText: 'DH —' }).click();
     await w.getByRole('button', { name: 'Tiếp' }).click();
     await w.getByRole('button', { name: 'Tiếp' }).click();
-    await w.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await w.getByLabel('Tên đăng nhập').fill('saoluucvhak@gmail.com');
-    await w.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026');
-    await w.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await w.getByRole('button', { name: 'Vào phần mềm' }).click();
+    await completeAccountSetup(w, 'saoluucvhak@gmail.com');
     await w.getByRole('heading', { name: 'Tổng quan' }).waitFor();
 
     // Menu Danh mục phải có nút 'Xe vận chuyển'

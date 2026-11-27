@@ -9,6 +9,34 @@
   const left = (title, sub, extra) => h('section', { class: 'gl' }, h('div', { class: 'logo', style: { width: '52px', height: '52px', fontSize: '20px' } }, 'VC'),
     h('h1', {}, title), h('p', { class: 'sub' }, sub), extra || null);
 
+  D.loginFields = ({ creating = false } = {}) => {
+    const username = h('input', { required: true, autocomplete: 'username', maxlength: 64 });
+    const password = h('input', { required: true, type: 'password', autocomplete: creating ? 'new-password' : 'current-password' });
+    const repeat = creating ? h('input', { required: true, type: 'password', autocomplete: 'new-password' }) : null;
+    const field = (label, input) => h('label', { class: 'field' }, h('span', {}, label), input);
+    return {
+      body: h('div', { class: 'stack' }, field('Tên đăng nhập', username), field('Mật khẩu', password),
+        repeat && field('Nhập lại mật khẩu', repeat),
+        creating && h('p', { class: 'small muted' }, 'Mật khẩu có ít nhất 8 ký tự, gồm chữ và số.')),
+      values() {
+        if (!username.reportValidity() || !password.reportValidity() || (repeat && !repeat.reportValidity())) return null;
+        if (repeat && password.value !== repeat.value) {
+          D.toast('Hai lần nhập mật khẩu không giống nhau', 'err');
+          repeat.focus();
+          return null;
+        }
+        return { username: username.value.trim(), password: password.value };
+      }
+    };
+  };
+
+  const enter = async (session, username) => {
+    D.state.token = session.token;
+    if (username) lsSet('dgvc.lastUser', username);
+    await D.refreshBoot();
+    D.go('dashboard');
+  };
+
   D.views.setup = {
     async render() {
       const st = D.state.setup || await D.api('setup.status');
@@ -43,19 +71,45 @@
             nav(() => { s.packagePath = inp.value.trim(); return true; }));
         } else {
           const inp = h('input', { value: s.mirrorFolder, placeholder: 'vd E:\\ (USB) hoặc G:\\My Drive (Google Drive for Desktop)' });
-          box.append(h('h2', {}, 'Bước 4 — Sao lưu ra ngoài'), h('p', { class: 'muted small' }, 'APP tự sao lưu mỗi ngày trong thư mục dữ liệu. Chọn thêm USB / Google Drive để chép bản sao lưu ra ngoài máy (có thể bỏ trống, chọn sau trong Cài đặt).'),
-            h('label', { class: 'field' }, h('span', {}, 'Thư mục sao lưu ngoài'), h('div', { class: 'row' }, inp, h('button', { class: 'btn', onclick: async () => { const p = await D.pickFolder('Chọn USB / Google Drive'); if (p) inp.value = p; } }, 'Chọn…'))),
-            h('p', { class: 'small muted' }, 'Sau khi khởi tạo, ADMIN đầu tiên đặt mật khẩu ở màn hình đăng nhập; các tài khoản khác do ADMIN tạo và cấp mã kích hoạt.'),
-            h('div', { class: 'btns', style: { marginTop: '16px', justifyContent: 'space-between' } }, h('button', { class: 'btn', onclick: () => { s.step = 3; draw(); } }, 'Quay lại'),
-              h('button', { class: 'btn primary', 'data-hotkey': 'primary', onclick: async (e) => { s.mirrorFolder = inp.value.trim(); e.target.disabled = true; try { await finish(); } finally { e.target.disabled = false; } } }, 'Khởi tạo bản cài')));
+          const choice = (mode, label) => h('label', { class: 'check' }, h('input', { type: 'radio', name: 'login-mode', value: mode,
+            checked: mode === 'SINGLE', onchange: () => {
+              const withAccount = mode === 'ACCOUNT';
+              account.body.hidden = !withAccount;
+              skip.hidden = withAccount;
+              create.hidden = !withAccount;
+            } }), label);
+          const account = D.loginFields({ creating: true });
+          account.body.hidden = true;
+          const complete = async (loginMode) => {
+            const credentials = loginMode === 'ACCOUNT' ? account.values() : null;
+            if (loginMode === 'ACCOUNT' && !credentials) return;
+            s.mirrorFolder = inp.value.trim();
+            const controls = [...box.querySelectorAll('button, input')].filter((el) => !el.disabled);
+            controls.forEach((el) => { el.disabled = true; });
+            try { await finish(loginMode, credentials); } catch { /* lỗi được hiển thị bởi D.api */ }
+            finally { controls.forEach((el) => { el.disabled = false; }); }
+          };
+          const skip = h('button', { class: 'btn primary', type: 'button', onclick: () => complete('SINGLE') }, 'Bỏ qua');
+          const create = h('button', { class: 'btn primary', type: 'button', hidden: true, onclick: () => complete('ACCOUNT') }, 'Tạo tài khoản và khởi tạo');
+          box.append(h('h2', {}, 'Bước 4 — Cách sử dụng phần mềm'),
+            h('fieldset', { class: 'stack' }, h('legend', {}, 'Đăng nhập'), choice('SINGLE', 'Một người sử dụng (không cần đăng nhập)'),
+              choice('ACCOUNT', 'Sử dụng tài khoản đăng nhập'), account.body),
+            h('label', { class: 'field' }, h('span', {}, 'Thư mục sao lưu ngoài (tùy chọn)'), h('div', { class: 'row' }, inp,
+              h('button', { class: 'btn', onclick: async () => { const p = await D.pickFolder('Chọn USB / Google Drive'); if (p) inp.value = p; } }, 'Chọn…'))),
+            h('div', { class: 'btns', style: { marginTop: '16px', justifyContent: 'space-between' } },
+              h('button', { class: 'btn', onclick: () => { s.step = 3; draw(); } }, 'Quay lại'), skip, create));
         }
       };
       const nav = (check) => h('div', { class: 'btns', style: { marginTop: '16px', justifyContent: 'space-between' } }, h('button', { class: 'btn', onclick: () => { s.step -= 1; draw(); } }, 'Quay lại'),
         h('button', { class: 'btn primary', onclick: () => { if (check() !== false) { s.step += 1; draw(); } } }, 'Tiếp'));
-      const finish = async () => {
-        const r = await D.api('setup.init', { mode: s.mode, dataFolder: s.dataFolder, unitCode: s.unitCode, catalogPackagePath: s.packagePath, mirrorFolder: s.mirrorFolder });
+      const finish = async (loginMode, account) => {
+        const r = await D.api('setup.init', { mode: s.mode, dataFolder: s.dataFolder, unitCode: s.unitCode, catalogPackagePath: s.packagePath, mirrorFolder: s.mirrorFolder, loginMode, account });
         D.toast(`Đã khởi tạo bản cài ${r.unitCode}${r.catalogImport ? ' và cập nhật danh mục từ gói' : ''}`, 'ok');
-        D.state.setup = r; D.go('login');
+        D.state.setup = r;
+        if (loginMode === 'ACCOUNT') {
+          try { await enter(await D.api('auth.login', account), account.username); return; } catch { /* mở màn đăng nhập để thử lại */ }
+        }
+        D.go('login');
       };
       draw();
       return h('div', { class: 'gate' }, left('Khởi tạo bản cài', 'Một bộ cài dùng cho mọi nhà máy của HAK Group. Dữ liệu lưu trong thư mục trên máy, chạy không cần Internet.'), h('section', { class: 'gr' }, box));
@@ -66,6 +120,16 @@
     async render() {
       const st = await D.api('setup.status', {}, { quiet: true });
       if (!st.initialized) { D.state.setup = st; setTimeout(() => D.go('setup')); return h('div'); }
+      if (st.loginMode === 'SINGLE') {
+        try {
+          const session = await D.api('auth.openLocal', {}, { quiet: true });
+          await enter(session);
+          return h('div');
+        } catch (error) {
+          return h('div', { class: 'card', role: 'alert' }, error.message,
+            h('button', { class: 'btn', onclick: () => D.go('login') }, 'Thử lại'));
+        }
+      }
       const need = new Set(st.usersNeedPassword || []);
       const user = h('input', { autocomplete: 'username', value: lsGet('dgvc.lastUser') || st.singleUserName || '', 'aria-label': 'Tên đăng nhập' });
       const pw = h('input', { type: 'password', autocomplete: 'current-password', 'aria-label': 'Mật khẩu' });
@@ -88,8 +152,7 @@
             D.toast(err.message, 'err'); return;
           }
         }
-        D.state.token = r.token; lsSet('dgvc.lastUser', u);
-        await D.refreshBoot(); D.go('dashboard');
+        await enter(r, u);
       };
       const form = h('form', { class: 'box card', onsubmit: go }, title, note,
         h('label', { class: 'field' }, h('span', {}, 'Tên đăng nhập'), user), h('label', { class: 'field', style: { marginTop: '10px' } }, h('span', {}, 'Mật khẩu'), pw), second, codeBox,

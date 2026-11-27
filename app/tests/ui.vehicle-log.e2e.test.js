@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Giao diện — Báo cáo → Nhật trình xe: chọn xe, tháng / quý → bảng + tổng, đổi sang quý có dòng cộng tháng. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -25,11 +26,7 @@ test('Giao diện: Nhật trình xe theo tháng / quý', { skip: !fs.existsSync(
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com');
-    await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click();
+    await completeAccountSetup(page);
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     for (const [menu, title] of [['Phiếu cân', 'Import phiếu cân — xem trước'], ['Giao nhận dầu', 'Import bảng kê dầu — xem trước']]) {
       await page.locator('nav button', { hasText: menu }).click();

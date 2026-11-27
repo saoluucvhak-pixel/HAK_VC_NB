@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Giá 3 tầng (đợt 2, Task 6 + B2): màn Giao nhận dầu báo "toàn tuyến cố định — không cần nhập dầu"; khối "Thống kê giao nhận dầu" (chỉ đọc) ở màn Hợp đồng chỉ khi có tuyến theo giá dầu; menu Hợp đồng → Giao nhận dầu → Tính giá. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -19,10 +20,7 @@ test('Giao diện HAKQN: luồng Hợp đồng → Giao nhận dầu → Tính g
     await page.goto(srv.url);
     await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     const ctx = srv.ctx; const contractId = 'HD-HAKQN-QS'; const cat = ctx.svc.catalog; const unit = ctx.store.get('HOP_DONG', contractId).customer_unit_code;
     const imp = ctx.svc.import; const a = await imp.preview({ importType: 'PHIEU_CAN', filePath: FILE.HAKQN, user: 'k' }); await imp.confirm({ batchId: a.batchId, acceptWarnings: true, clientRequestId: rid(), user: 'k' });
 

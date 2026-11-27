@@ -24,10 +24,8 @@ test('Giao diện HAKQN: Hợp đồng — Tuyến và đơn giá vận chuyển
     return d.locator('#ct-panel-price');
   };
   try {
+    await srv.ctx.init({ dataFolder: path.join(srv.home, 'DGVC_DATA'), unitCode: 'HAKQN' });
     await page.goto(srv.url);
-    await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
     await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
     await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
     await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
@@ -117,7 +115,7 @@ test('Giao diện HAKQN: Hợp đồng — Tuyến và đơn giá vận chuyển
     assert.equal(ctx.store.get('HOP_DONG', contractId).price_code || '', codeBefore, 'lưu hợp đồng không đổi mã đơn giá');
 
     // vai trò XEM: không thấy "Thêm đơn giá" / "Gỡ"
-    const xem = await page.evaluate(() => window.DGVC.api('users.save', { record: { username: 'xem.qn', fullName: 'Người xem', role: 'XEM', unitCode: 'HAKQN' } }));
+    const xem = await srv.ctx.svc.auth.saveUser({ record: { username: 'xem.qn', fullName: 'Người xem', role: 'XEM', unitCode: 'HAKQN' }, user: { username: 'legacy-fixture' } });
     await page.getByRole('button', { name: 'Đăng xuất' }).click();
     await page.getByLabel('Tên đăng nhập').fill('xem.qn'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
     await page.getByLabel('Mã kích hoạt').fill(xem.setupCode);

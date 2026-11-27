@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /**
  * Giao diện — Đối chiếu dữ liệu (bản cài ĐH): chốt kỳ 18–23/09 → xe A gửi về muộn 1 phiếu ngày 20/09 → import thấy cảnh báo "nhập muộn"
  * → menu Đối chiếu dữ liệu có số nhắc, liệt kê "Về muộn", nút mở đúng kỳ → tab Đối chiếu 3 tiêu chí: chọn file Excel phiếu cân của xe A.
@@ -38,12 +39,7 @@ test('Giao diện ĐH: phiếu cân về muộn được phát hiện và đối
     await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com');
-    await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026');
-    await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click();
+    await completeAccountSetup(page);
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     for (const [menu, title] of [['Phiếu cân', 'Import phiếu cân — xem trước'], ['Giao nhận dầu', 'Import bảng kê dầu — xem trước']]) {
       await nav(menu); await next(FILE.DH);

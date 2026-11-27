@@ -15,7 +15,7 @@ async function boot(kind) {
   const home = tmp(kind);
   const ctx = new AppContext({ configFile: path.join(home, 'c.json'), documentsDir: home, defaultStorage: kind });
   const r = new Router(ctx);
-  await r.handle('setup.init', { dataFolder: path.join(home, 'DATA'), unitCode: 'DH' });
+  await ctx.init({ dataFolder: path.join(home, 'DATA'), unitCode: 'DH' });
   const t = (await r.handle('auth.setFirstPassword', { username: ADMIN, newPassword: PW })).data.token;
   const call = (a, p = {}) => r.handle(a, p, t);
   assert.equal(ctx.storageKind(), kind);

@@ -22,7 +22,6 @@ const hash = (pw, salt) => crypto.scryptSync(pw, Buffer.from(salt, 'hex'), SCRYP
 function hexEq(a, b) {
   try { const x = Buffer.from(String(a || ''), 'hex'); const y = Buffer.from(String(b || ''), 'hex'); return x.length > 0 && x.length === y.length && crypto.timingSafeEqual(x, y); } catch { return false; }
 }
-const isoPlus = (ms) => new Date(Date.now() + ms).toISOString();
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // bỏ 0 O 1 I L cho khỏi nhầm
 const newSetupCode = () => Array.from({ length: 8 }, () => CODE_ALPHABET[crypto.randomInt(CODE_ALPHABET.length)]).join('');
 const NO_CODE = { setup_code_hash: '', setup_code_salt: '', setup_code_expires_at: '' };
@@ -33,6 +32,22 @@ function checkStrength(pw) {
   if (typeof pw !== 'string' || pw.length < 8 || !/[A-Za-zÀ-ỹ]/.test(pw) || !/\d/.test(pw)) {
     throw new AppError('VALIDATION_FAILED', 'Mật khẩu phải có ít nhất 8 ký tự, gồm cả chữ và số');
   }
+}
+
+const LOCAL_USERNAME = '.dgvc-local';
+const loginSettings = (store) => store.loginSettings ?? { mode: 'LEGACY' };
+const usernameKey = (value) => String(value || '').trim().toLowerCase();
+
+function ownerAccount({ username, password } = {}, unitCode) {
+  username = usernameKey(username);
+  if (username === LOCAL_USERNAME || !/^[a-z0-9._@-]{3,64}$/.test(username)) {
+    throw new AppError('VALIDATION_FAILED', 'Tên đăng nhập từ 3–64 ký tự gồm chữ, số hoặc . _ @ -');
+  }
+  checkStrength(password);
+  const salt = crypto.randomBytes(16).toString('hex');
+  return { username, full_name: username, unit_code: unitCode, role: 'ADMIN', can_unlock: true, is_active: true,
+    password_hash: hash(password, salt), password_salt: salt, password_algo: ALGO, must_change_password: false,
+    failed_attempts: 0, locked_until: '', last_login_at: '', ...NO_CODE };
 }
 
 class AuthService {
@@ -62,6 +77,55 @@ class AuthService {
     const u = this.store.get('USERS', String(username || '').trim().toLowerCase());
     return u || null;
   }
+
+  settings() {
+    const setting = loginSettings(this.store);
+    return { mode: setting.mode };
+  }
+
+  _localUser() {
+    return { username: LOCAL_USERNAME, full_name: 'Người sử dụng', role: 'ADMIN', unit_code: this.store.unitCode, is_active: true, can_unlock: true };
+  }
+
+  openLocal() {
+    if (this.settings().mode !== 'SINGLE') throw new AppError('FORBIDDEN', 'Bản cài yêu cầu đăng nhập bằng tài khoản');
+    return this._newSession(this._localUser());
+  }
+
+  async setLoginMode({ mode, username, password, token }) {
+    if (!['SINGLE', 'ACCOUNT'].includes(mode)) throw new AppError('VALIDATION_FAILED', 'Chọn cách sử dụng phần mềm');
+    const initial = this.check(token).user;
+    const requested = usernameKey(username);
+    const owner = mode === 'ACCOUNT' ? ownerAccount({ username, password }, this.store.unitCode) : null;
+
+    const error = await this.store.transaction((tx) => {
+      const session = this.check(token);
+      const setting = loginSettings(this.store);
+      const current = setting.mode;
+      if (session.user.role !== 'ADMIN' || session.user.username !== initial.username || current === mode) {
+        throw new AppError('FORBIDDEN', 'Cách sử dụng đã thay đổi hoặc bạn không có quyền thay đổi');
+      }
+      if (mode === 'ACCOUNT') {
+        if (current !== 'SINGLE') throw new AppError('FORBIDDEN', 'Bản cài đang dùng tài khoản đăng nhập');
+        const existing = tx.get('USERS', owner.username);
+        if (existing && setting.username !== owner.username) throw new AppError('DUPLICATE', 'Tên đăng nhập đã có trong dữ liệu cũ. Hãy chọn tên khác');
+        if (existing) tx.update('USERS', owner.username, { ...owner, full_name: existing.full_name });
+        else tx.insert('USERS', owner);
+      } else {
+        if (requested !== session.user.username) throw new AppError('AUTH_FAILED', 'Nhập lại tên và mật khẩu của tài khoản đang đăng nhập');
+        const problem = this._checkCredentials(tx, requested, password);
+        if (problem) return problem;
+        tx.update('USERS', requested, { failed_attempts: 0, locked_until: '' });
+      }
+      tx.setManifest('loginSettings', { mode, username: owner ? owner.username : requested });
+      tx.audit('CHANGE_LOGIN_MODE', 'DATA', this.store.installId, { mode: current }, { mode });
+      return null;
+    }, { user: initial.username });
+    if (error) throw error;
+    this.sessions.clear();
+    return mode === 'SINGLE' ? this.openLocal() : { mode };
+  }
+
   _idleMs() { return cfgNum(this.store, 'SESSION_IDLE_MINUTES', 60) * 60000; }
 
   /**
@@ -97,28 +161,48 @@ class AuthService {
     return { code, expires, patch: { setup_code_hash: hash(code, salt), setup_code_salt: salt, setup_code_expires_at: expires } };
   }
 
-  usersNeedPassword() { return this.store.find('USERS', (u) => u.is_active && !u.password_hash).map((u) => u.username); }
+  usersNeedPassword() { return this.settings().mode === 'LEGACY' ? this.store.find('USERS', (u) => u.is_active && !u.password_hash).map((u) => u.username) : []; }
+
+  _checkCredentials(tx, username, password) {
+    const u = tx.get('USERS', username);
+    if (!u || !u.is_active) return new AppError('AUTH_FAILED', 'Sai tên đăng nhập hoặc mật khẩu');
+    if (u.locked_until && Date.parse(u.locked_until) > this.now()) {
+      return new AppError('ACCOUNT_LOCKED', 'Tài khoản đang bị khóa do nhập sai mật khẩu nhiều lần', { lockedUntil: u.locked_until });
+    }
+    if (!u.password_hash) return new AppError('PASSWORD_NOT_SET', 'Tài khoản chưa có mật khẩu — hãy đặt mật khẩu lần đầu', { username });
+    if (hexEq(hash(String(password || ''), u.password_salt), u.password_hash)) return null;
+    const max = cfgNum(this.store, 'LOGIN_MAX_FAILED', 5);
+    const n = (u.failed_attempts || 0) + 1;
+    const minutes = cfgNum(this.store, 'LOGIN_LOCK_MINUTES', 15);
+    const patch = n >= max ? { failed_attempts: 0, locked_until: new Date(this.now() + minutes * 60000).toISOString() } : { failed_attempts: n };
+    tx.update('USERS', username, patch);
+    if (patch.locked_until) {
+      tx.audit('ACCOUNT_LOCKED', 'USERS', username);
+      return new AppError('ACCOUNT_LOCKED', `Sai mật khẩu ${max} lần — tài khoản bị khóa ${minutes} phút`, { lockedUntil: patch.locked_until });
+    }
+    return new AppError('AUTH_FAILED', `Sai tên đăng nhập hoặc mật khẩu (còn ${max - n} lần thử)`);
+  }
 
   async login({ username, password }) {
-    const u = this._user(username);
-    if (!u || !u.is_active) throw new AppError('AUTH_FAILED', 'Sai tên đăng nhập hoặc mật khẩu');
-    if (u.locked_until && Date.parse(u.locked_until) > this.now()) {
-      throw new AppError('ACCOUNT_LOCKED', `Tài khoản đang bị khóa đến ${new Date(Date.parse(u.locked_until)).toLocaleTimeString('vi-VN')} do nhập sai mật khẩu nhiều lần`, { lockedUntil: u.locked_until });
-    }
-    if (!u.password_hash) throw new AppError('PASSWORD_NOT_SET', 'Tài khoản chưa có mật khẩu — hãy đặt mật khẩu lần đầu', { username: u.username });
-    const ok = hexEq(hash(String(password || ''), u.password_salt), u.password_hash);
-    if (!ok) {
-      const max = cfgNum(this.store, 'LOGIN_MAX_FAILED', 5); const n = (u.failed_attempts || 0) + 1;
-      const patch = n >= max ? { failed_attempts: 0, locked_until: isoPlus(cfgNum(this.store, 'LOGIN_LOCK_MINUTES', 15) * 60000) } : { failed_attempts: n };
-      await this.store.transaction((tx) => { tx.update('USERS', u.username, patch); if (patch.locked_until) tx.audit('ACCOUNT_LOCKED', 'USERS', u.username); }, { user: u.username });
-      if (patch.locked_until) throw new AppError('ACCOUNT_LOCKED', `Sai mật khẩu ${max} lần — tài khoản bị khóa ${cfgNum(this.store, 'LOGIN_LOCK_MINUTES', 15)} phút`, { lockedUntil: patch.locked_until });
-      throw new AppError('AUTH_FAILED', `Sai tên đăng nhập hoặc mật khẩu (còn ${max - n} lần thử)`);
-    }
-    await this.store.transaction((tx) => { tx.update('USERS', u.username, { failed_attempts: 0, locked_until: '', last_login_at: tx.now }); tx.audit('LOGIN', 'USERS', u.username); }, { user: u.username });
-    return this._newSession(this._user(u.username));
+    const name = usernameKey(username);
+    const out = await this.store.transaction((tx) => {
+      const { mode, username: owner } = loginSettings(this.store);
+      if (mode !== 'LEGACY' && (mode !== 'ACCOUNT' || owner !== name || !owner)) {
+        return { error: new AppError('AUTH_FAILED', 'Sai tên đăng nhập hoặc mật khẩu') };
+      }
+      const error = this._checkCredentials(tx, name, password);
+      if (error) return { error };
+      const { after: user } = tx.update('USERS', name, { failed_attempts: 0, locked_until: '', last_login_at: tx.now });
+      tx.audit('LOGIN', 'USERS', name);
+      return { user, mode };
+    }, { user: name });
+    if (out.error) throw out.error;
+    if (this.settings().mode !== out.mode) throw new AppError('SESSION_EXPIRED', 'Cách sử dụng đã thay đổi. Hãy mở lại phần mềm');
+    return this._newSession(out.user);
   }
 
   async setFirstPassword({ username, newPassword, setupCode }) {
+    if (this.settings().mode !== 'LEGACY') throw new AppError('FORBIDDEN', 'Chỉ dùng cho dữ liệu tài khoản cũ');
     const u = this._user(username);
     if (!u || !u.is_active) throw new AppError('NOT_FOUND', 'Không có tài khoản');
     if (u.password_hash) throw new AppError('FORBIDDEN', 'Tài khoản đã có mật khẩu — dùng đổi mật khẩu');
@@ -126,7 +210,7 @@ class AuthService {
       throw new AppError('ACCOUNT_LOCKED', `Tài khoản đang bị khóa đến ${new Date(Date.parse(u.locked_until)).toLocaleTimeString('vi-VN')} do nhập sai mã nhiều lần`, { lockedUntil: u.locked_until });
     }
     if (!(u.role === 'ADMIN' && !u.setup_code_hash && this.firstAdminOpen())) await this._checkSetupCode(u, setupCode); // ngoại lệ bản cài mới: ADMIN đầu tiên (chưa được cấp mã) không cần mã
-    return this._setPassword(u, newPassword, 'SET_FIRST_PASSWORD');
+    return this._setPassword(u, newPassword, 'SET_FIRST_PASSWORD', 'LEGACY');
   }
 
   async _checkSetupCode(u, code) {
@@ -143,15 +227,19 @@ class AuthService {
 
   async changePassword({ token, oldPassword, newPassword }) {
     const s = this.check(token); const u = this._user(s.user.username);
+    if (!u || s.mode === 'SINGLE') throw new AppError('FORBIDDEN', 'Bản cài đang dùng chế độ một người');
     if (!hexEq(hash(String(oldPassword || ''), u.password_salt), u.password_hash)) throw new AppError('AUTH_FAILED', 'Mật khẩu cũ không đúng');
-    return this._setPassword(u, newPassword, 'CHANGE_PASSWORD');
+    return this._setPassword(u, newPassword, 'CHANGE_PASSWORD', s.mode);
   }
 
-  async _setPassword(u, pw, action) {
+  async _setPassword(u, pw, action, mode) {
     checkStrength(pw);
     const salt = crypto.randomBytes(16).toString('hex');
     await this.store.transaction((tx) => {
-      tx.update('USERS', u.username, { password_hash: hash(pw, salt), password_salt: salt, password_algo: ALGO, must_change_password: false, failed_attempts: 0, locked_until: '', last_login_at: tx.now, ...NO_CODE });
+      if (this.settings().mode !== mode) throw new AppError('SESSION_EXPIRED', 'Cách sử dụng đã thay đổi. Hãy đăng nhập lại');
+      tx.update('USERS', u.username, { password_hash: hash(pw, salt), password_salt: salt, password_algo: ALGO,
+        must_change_password: false, failed_attempts: 0, locked_until: '', last_login_at: tx.now, ...NO_CODE },
+      { expectedRowVersion: u.row_version });
       tx.audit(action, 'USERS', u.username);
     }, { user: u.username });
     if (u.role === 'ADMIN') {
@@ -159,12 +247,13 @@ class AuthService {
       const id = this.store.installId;
       this._setMachineState({ firstAdminCompleted: true, firstAdminInstalls: id && !done.includes(id) ? [...done, id] : done, completedAt: new Date(this.now()).toISOString() });
     }
+    if (this.settings().mode !== mode) throw new AppError('SESSION_EXPIRED', 'Cách sử dụng đã thay đổi. Hãy đăng nhập lại');
     return this._newSession(this._user(u.username));
   }
 
   _newSession(u) {
     const token = crypto.randomBytes(24).toString('hex');
-    const s = { token, user: publicUser(u), lastSeen: this.now() };
+    const s = { token, user: publicUser(u), lastSeen: this.now(), mode: this.settings().mode, installId: this.store.installId, passwordHash: u.password_hash };
     this.sessions.set(token, s);
     return { token, user: s.user };
   }
@@ -174,8 +263,11 @@ class AuthService {
     const s = token && this.sessions.get(token);
     if (!s) throw new AppError('SESSION_EXPIRED', 'Chưa đăng nhập hoặc phiên đã hết — hãy đăng nhập lại');
     if (this.now() - s.lastSeen > this._idleMs()) { this.sessions.delete(token); throw new AppError('SESSION_EXPIRED', 'Không thao tác quá lâu — hãy đăng nhập lại'); }
-    const u = this._user(s.user.username);
-    if (!u || !u.is_active) { this.sessions.delete(token); throw new AppError('SESSION_EXPIRED', 'Tài khoản đã bị khóa'); }
+    const setting = loginSettings(this.store);
+    const u = s.mode === 'SINGLE' ? this._localUser() : this._user(s.user.username);
+    const invalid = s.installId !== this.store.installId || s.mode !== setting.mode ||
+      (setting.mode === 'ACCOUNT' && (setting.username !== u?.username || s.passwordHash !== u?.password_hash));
+    if (invalid || !u || !u.is_active) { this.sessions.delete(token); throw new AppError('SESSION_EXPIRED', 'Tài khoản đã bị khóa'); }
     s.user = publicUser(u); s.lastSeen = this.now();
     return s;
   }
@@ -225,4 +317,4 @@ class AuthService {
 }
 const pick = (o, p) => Object.fromEntries(Object.keys(p).map((k) => [k, o[k]]));
 
-module.exports = { AuthService, checkStrength, publicUser };
+module.exports = { AuthService, checkStrength, ownerAccount, publicUser };

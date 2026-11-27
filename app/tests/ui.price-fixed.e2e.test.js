@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /**
  * Giao diện — bản cài ĐH: tạo phiên bản giá ĐƠN GIÁ CỐ ĐỊNH cho tuyến VC.007 (giá riêng HĐ), chỉ hiện ô đơn giá cố định;
  * kích hoạt → Tính giá báo tuyến cố định có dầu → bấm "Bỏ 16 dòng dầu khỏi kỳ" → đơn giá 95.500 → TÍNH GIÁ lưu kỳ.
@@ -31,12 +32,7 @@ test('Giao diện ĐH: đơn giá cố định theo tuyến', { skip: !fs.exists
     await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com');
-    await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026');
-    await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click();
+    await completeAccountSetup(page);
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     for (const [menu, title] of [['Phiếu cân', 'Import phiếu cân — xem trước'], ['Giao nhận dầu', 'Import bảng kê dầu — xem trước']]) {
       await nav(menu); await next(FILE.DH);

@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Giao diện — cửa sổ nhập liệu (Thêm hợp đồng) không tự đóng khi bôi đen chữ kéo ra ngoài / bấm ra nền khi đang nhập; lưu được. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -20,11 +21,7 @@ test('Giao diện: Thêm hợp đồng — không mất dữ liệu đang nhập
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com');
-    await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click();
+    await completeAccountSetup(page);
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     await page.locator('nav button', { hasText: 'Hợp đồng vận chuyển' }).click();
     // cửa sổ chưa nhập gì: bấm ra nền thì đóng (như cũ)

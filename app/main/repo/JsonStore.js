@@ -153,6 +153,10 @@ class JsonStore {
   get installCode() { return this.manifest.installCode; }
   get dataVersion() { return this.manifest.dataVersion; }
   get installId() { return this.manifest.installId; }
+  get loginSettings() {
+    const setting = this.manifest.loginSettings;
+    return setting && { ...setting };
+  }
   get storageKind() { return 'json'; }
   /** Bảng nhớ chống bấm hai lần theo tên nhóm (import / kỳ / phiếu / dầu). Kho JSON: chỉ trong RAM (mất khi khởi động lại). */
   requestMap(_ns) { return new Map(); }

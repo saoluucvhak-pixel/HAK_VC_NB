@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Giao diện — bên thuê HAKQN nhận gói kỳ của 2 máy cùng đơn vị DH (cùng kỳ): gói thứ 2 hiện XUNG ĐỘT kèm so sánh, không "Thay bản cũ"; giải thích các chữ. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -41,12 +42,7 @@ test('Giao diện HAKQN: gói kỳ cùng kỳ từ máy khác → xung đột c�
     await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com');
-    await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026');
-    await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click();
+    await completeAccountSetup(page);
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     const open = async (f) => {
       await page.locator('nav button', { hasText: 'Trao đổi dữ liệu' }).click();

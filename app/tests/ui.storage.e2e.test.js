@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Giao diện — Cài đặt → Dữ liệu & sao lưu → "Kho lưu trữ dữ liệu (thí điểm SQLite)": chạy thử → chuyển → ứng dụng vẫn chạy trên SQLite → quay lại JSON. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -27,12 +28,7 @@ test('Giao diện ĐH: thí điểm kho SQLite (chạy thử, chuyển, dùng b�
     await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com');
-    await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026');
-    await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click();
+    await completeAccountSetup(page);
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     await nav('Phiếu cân'); await next(FILE.DH);
     await page.getByRole('button', { name: 'Import từ Excel' }).click();

@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Màn Đơn giá: nút Xóa trên dòng — nháp xóa hẳn; đã áp dụng chưa dùng thì đóng (không còn trong danh mục), mở lại bản trước; dòng đã dùng không có nút Xóa. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -21,10 +22,7 @@ test('Giao diện: Đơn giá — Xóa dòng nháp và dòng đã áp dụng ch�
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     const cat = srv.ctx.svc.catalog;
     const draft = (await cat.addCodeLine({ priceCode: 'PT-CD', record: { routeCode: 'VC.007', fixedPrice: 123000, effectiveFrom: '2030-01-01' }, user: KETOAN })).record;
     await page.locator('nav button', { hasText: 'Đơn giá' }).first().click(); await page.waitForTimeout(800);

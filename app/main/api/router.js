@@ -27,13 +27,15 @@ const ROUTES = {
   // khởi tạo, đăng nhập
   'setup.status': [[PUBLIC], (ctx) => ctx.status()],
   'setup.units': [[PUBLIC], (ctx) => ({ items: ctx.installableUnits() })],
-  'setup.init': [[PUBLIC], (ctx, p) => { if (ctx.store) throw new AppError('FORBIDDEN', 'Bản cài đã khởi tạo'); return ctx.init(p); }],
+  'setup.init': [[PUBLIC], (ctx, p) => { if (ctx.store) throw new AppError('FORBIDDEN', 'Bản cài đã khởi tạo'); return ctx.init({ loginMode: 'SINGLE', ...p, user: { username: 'setup' } }); }],
+  'auth.openLocal': [[PUBLIC], (ctx) => needStore(ctx).auth.openLocal()],
+  'auth.setLoginMode': [null, (ctx, p, s) => ctx.svc.auth.setLoginMode({ ...p, token: s.token })],
   'auth.login': [[PUBLIC], (ctx, p) => needStore(ctx).auth.login(p)],
   'auth.setFirstPassword': [[PUBLIC], (ctx, p) => needStore(ctx).auth.setFirstPassword(p)],
   'auth.changePassword': [null, (ctx, p, s) => ctx.svc.auth.changePassword({ ...p, token: s.token })],
   'auth.logout': [null, (ctx, p, s) => ctx.svc.auth.logout({ token: s.token })],
   'auth.me': [null, (ctx, p, s) => ({ user: s.user })],
-  'meta.bootstrap': [null, (ctx, p, s) => ({ ...ctx.svc.query.bootstrap(s), storage: ctx.storageKind(), storageNotice: ctx.storageNotice })],
+  'meta.bootstrap': [null, (ctx, p, s) => ({ ...ctx.svc.query.bootstrap(s), loginMode: ctx.svc.auth.settings().mode, storage: ctx.storageKind(), storageNotice: ctx.storageNotice })],
   'system.health': [null, (ctx) => ctx.svc.query.health()],
   // hộp thoại (Electron) — dev-server trả đường dẫn truyền sẵn trong payload
   'dialog.openFile': [AKX, (ctx, p, s, host) => host.openFile(p)],
@@ -172,9 +174,6 @@ const ROUTES = {
   // tổng quan, lịch sử, cấu hình
   'dashboard.summary': [null, (ctx, p) => ctx.svc.query.dashboard({ ...p, reminders: ctx.svc.sync.list(), backup: ctx.svc.backup.list() })],
   'audit.list': [null, (ctx, p) => ctx.svc.query.audit(p)],
-  'users.list': [null, (ctx) => ctx.svc.auth.listUsers()],
-  'users.save': [null, (ctx, p, s) => ctx.svc.auth.saveUser({ ...p, user: s.user })],
-  'users.resetPassword': [null, (ctx, p, s) => ctx.svc.auth.resetPassword({ ...p, user: s.user })],
   'config.list': [null, (ctx) => ctx.svc.query.configList()],
   'config.save': [null, (ctx, p, s) => ctx.svc.query.configSave({ ...p, user: s.user })],
   // dữ liệu, sao lưu

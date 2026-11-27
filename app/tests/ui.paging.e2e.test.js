@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /**
  * Lỗi xác nhận (rà soát bản 1.3.0): màn Phiếu cân gọi tickets.list với pageSize cố định 5000 và KHÔNG báo bị cắt; "Xóa N phiếu đang lọc" chỉ áp lên các dòng đang hiện.
  *  → kho > 5.000 phiếu: danh sách thiếu phiếu, thao tác xóa hàng loạt bỏ sót. Nay: phân trang (500/trang) + "Hiện a–b / tổng" + thao tác hàng loạt áp lên TOÀN BỘ tập lọc (idsOnly).
@@ -60,12 +61,7 @@ test('Giao diện ĐH: Phiếu cân phân trang 500/trang + xóa hàng loạt á
     await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com');
-    await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026');
-    await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click();
+    await completeAccountSetup(page);
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     await nav('Phiếu cân'); fs.existsSync(FILE.DH);
     const next = (p) => fetch(`${srv.url}/dev/next`, { method: 'POST', body: JSON.stringify({ path: p }) }); await next(FILE.DH);

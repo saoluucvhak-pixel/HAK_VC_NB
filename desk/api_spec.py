@@ -18,18 +18,24 @@ def ep(action, group, desc, roles, inp, out, errors=(), reads=(), writes=(), aud
                    errors=list(errors), reads=list(reads), writes=list(writes), audit=audit, lock=lock))
 
 # ------------------------------------------------------------ Hệ thống
-ep('setup.status', 'Khởi tạo', 'Lần mở đầu: đã có thư mục dữ liệu chưa, bản cài của đơn vị nào, còn user chưa đặt mật khẩu không', PUBLIC, [],
-   '{initialized, dataFolder, installId, installCode, unitCode, schemaVersion, usersNeedPassword:[username], firstAdminOpen, singleUserName}')
+ep('setup.status', 'Khởi tạo', 'Lần mở đầu: trạng thái bản cài, chế độ đăng nhập và tài khoản chưa đặt mật khẩu nếu dùng dữ liệu cũ', PUBLIC, [],
+   '{initialized, dataFolder, installId, installCode, unitCode, schemaVersion, loginMode, usersNeedPassword:[username], firstAdminOpen, singleUserName}')
 ep('setup.init', 'Khởi tạo', 'Tạo thư mục dữ liệu mới (chọn đơn vị của bản cài, ADMIN đầu tiên) hoặc mở thư mục có sẵn / nhận gói DANH_MUC ban đầu', PUBLIC,
-   [('mode', 'enum(NEW|OPEN_EXISTING)', True, ''), ('dataFolder', 'string', True, 'đường dẫn đã chọn bằng dialog.openFolder'),
-    ('unitCode', 'string', False, 'bắt buộc khi NEW'), ('admin', 'object', False, '{username, fullName, password} khi NEW'),
+   [('mode', 'enum(NEW|ATTACH)', True, ''), ('dataFolder', 'string', True, 'đường dẫn đã chọn bằng dialog.openFolder'),
+    ('unitCode', 'string', False, 'bắt buộc khi NEW'), ('loginMode', 'enum(SINGLE|ACCOUNT)', False, 'chọn khi NEW, mặc định SINGLE'),
+    ('account', 'object', False, '{username, password}; bắt buộc với ACCOUNT'),
     ('catalogPackagePath', 'string', False, 'gói DANH_MUC để nạp danh mục ban đầu')],
    '{manifest}', ['VALIDATION_FAILED', 'STORAGE_ERROR', 'INTEGRITY_ERROR', 'DATA_LOCKED'], [], ['USERS', 'CONFIG', 'DON_VI', 'XE', 'TUYEN_VC', 'PRICE_HISTORY'], 'SETUP', True)
+ep('auth.openLocal', 'Đăng nhập', 'Mở phiên cục bộ khi đã bật chế độ một người', PUBLIC, [], '{token, user}', ['FORBIDDEN'])
+ep('auth.setLoginMode', 'Đăng nhập', 'Đổi cách sử dụng. ACCOUNT tạo một tài khoản; SINGLE yêu cầu lại thông tin tài khoản quản trị đang đăng nhập', ADM,
+   [('mode', 'enum(SINGLE|ACCOUNT)', True, ''), ('username', 'string', True, ''), ('password', 'string', True, '')],
+   '{mode} hoặc {token, user}', ['AUTH_FAILED', 'ACCOUNT_LOCKED', 'FORBIDDEN', 'DUPLICATE', 'VALIDATION_FAILED'],
+   ['USERS'], ['USERS'], 'CHANGE_LOGIN_MODE', True)
 ep('auth.login', 'Đăng nhập', 'Đăng nhập tài khoản nội bộ → sessionToken (giữ trong bộ nhớ main process)', PUBLIC,
    [('username', 'string', True, ''), ('password', 'string', True, '')],
    '{sessionToken, user:{username, fullName, role, unitCode, canUnlock}, mustChangePassword}',
    ['AUTH_FAILED', 'ACCOUNT_LOCKED', 'PASSWORD_NOT_SET'], ['USERS'], ['USERS'], 'LOGIN', True)
-ep('auth.setFirstPassword', 'Đăng nhập', 'User chưa có mật khẩu đặt mật khẩu lần đầu bằng MÃ KÍCH HOẠT dùng một lần do ADMIN cấp (hạn SETUP_CODE_HOURS giờ); ngoại lệ bản cài mới: ADMIN đầu tiên chưa cần mã', PUBLIC,
+ep('auth.setFirstPassword', 'Đăng nhập', 'Chỉ cho dữ liệu cũ: user chưa có mật khẩu đặt mật khẩu lần đầu bằng MÃ KÍCH HOẠT dùng một lần do ADMIN cấp (hạn SETUP_CODE_HOURS giờ); ngoại lệ bản cài mới: ADMIN đầu tiên chưa cần mã', PUBLIC,
    [('username', 'string', True, ''), ('newPassword', 'string', True, '≥ 8 ký tự, có chữ và số'), ('setupCode', 'string', False, 'mã kích hoạt 8 ký tự; service kiểm — bắt buộc trừ ADMIN đầu tiên của bản cài mới')], '{ok}',
    ['VALIDATION_FAILED', 'AUTH_FAILED', 'ACCOUNT_LOCKED', 'BUSINESS_RULE:E_PASSWORD_ALREADY_SET'], ['USERS'], ['USERS'], 'SET_PASSWORD', True)
 ep('auth.changePassword', 'Đăng nhập', 'Đổi mật khẩu', ALL, [('oldPassword', 'string', True, ''), ('newPassword', 'string', True, '')], '{ok}',
@@ -38,7 +44,7 @@ ep('auth.logout', 'Đăng nhập', 'Đăng xuất (hủy session)', ALL, [], '{o
 ep('auth.me', 'Đăng nhập', 'Người dùng hiện tại, quyền, đơn vị bản cài', ALL, [],
    '{username, fullName, role, unitCode, canUnlock, installUnitCode, permissions: [action]}', ['SESSION_EXPIRED'], ['USERS'])
 ep('meta.bootstrap', 'Hệ thống', 'Tải khi mở APP: danh mục, enum, cấu hình hiển thị, mã lỗi, thông tin bản cài', ALL, [],
-   '{install:{installId, installCode, unitCode, dataFolder}, units, vehicles, routes, activePrices, contracts (vai trò: CARRIER|CUSTOMER), config, enums, errorCodes, dataVersion}', [],
+   '{install:{installId, installCode, unitCode, dataFolder}, loginMode, units, vehicles, routes, activePrices, contracts (vai trò: CARRIER|CUSTOMER), config, enums, errorCodes, dataVersion}', [],
    ['DON_VI', 'XE', 'TUYEN_VC', 'PRICE_HISTORY', 'HOP_DONG', 'HOP_DONG_XE', 'CONFIG'])
 ep('system.health', 'Hệ thống', 'Kiểm tra toàn vẹn: manifest, SHA-256 từng file, journal dở dang, dung lượng, lần sao lưu gần nhất', ADM, [],
    '{schemaVersion, files:[{path, rows, sizeBytes, sha256Ok}], pendingJournal, lastBackupAt, freeDiskBytes}', ['INTEGRITY_ERROR'])
@@ -357,11 +363,6 @@ ep('dashboard.summary', 'Báo cáo', 'Dashboard', ALL,
 ep('audit.list', 'Quản trị', 'Lịch sử thao tác', ALL,
    [('entity', 'string', False, ''), ('entityId', 'string', False, ''), ('userEmail', 'string', False, ''), ('action', 'string', False, ''),
     ('dateFrom', 'date', False, ''), ('dateTo', 'date', False, '')] + PAGING, '{items, total}', reads=['AUDIT_LOG'], scope='KE_TOAN/XEM: thao tác trên HĐ mình được xem')
-ep('users.resetPassword', 'Quản trị', 'ADMIN xóa mật khẩu của user và cấp MÃ KÍCH HOẠT mới (trả một lần) → user đặt lại mật khẩu bằng mã (must_change_password). Không đặt lại ADMIN cuối cùng đăng nhập được (E_LAST_ADMIN)', ADM,
-   [('username', 'string', True, ''), ('reason', 'string', True, '')], '{ok, setupCode, setupCodeExpiresAt}', ['NOT_FOUND', 'BUSINESS_RULE:E_LAST_ADMIN'], ['USERS'], ['USERS'], 'RESET_PASSWORD', True)
-ep('users.list', 'Quản trị', 'Danh sách người dùng', ADM, [('unitCode', 'string', False, '')], '{items}', reads=['USERS'])
-ep('users.save', 'Quản trị', 'Thêm / sửa người dùng, gán đơn vị, quyền (mật khẩu KHÔNG đi qua API này); người dùng mới nhận MÃ KÍCH HOẠT một lần. create=true: tên đã có → DUPLICATE (không ghi đè); create=false: sửa, bắt buộc rowVersion. Không ngừng dùng / hạ vai trò ADMIN cuối cùng đăng nhập được (E_LAST_ADMIN)', ADM, [('record', 'object', True, ''), ('rowVersion', 'integer', False, 'bắt buộc khi sửa tài khoản đã có'), ('create', 'boolean', False, 'true = thêm mới (trùng tên → DUPLICATE); false = sửa; bỏ trống = tự nhận biết, sửa vẫn bắt buộc rowVersion')],
-   '{record, created, setupCode?, setupCodeExpiresAt?}', ['VALIDATION_FAILED', 'DUPLICATE', 'BUSINESS_RULE:E_LAST_ADMIN'], ['USERS'], ['USERS'], 'USER_SAVE', True)
 ep('config.list', 'Quản trị', 'Tham số cấu hình', ALL, [], '{items}', reads=['CONFIG'])
 ep('config.save', 'Quản trị', 'Sửa tham số (làm tròn, VAT, người ký…) — áp dụng cho kỳ tính SAU; kỳ cũ giữ snapshot', ADM,
    [('key', 'string', True, ''), ('value', 'string', True, ''), ('reason', 'string', True, '')], '{item}', ['VALIDATION_FAILED'], ['CONFIG'], ['CONFIG'], 'CONFIG_UPDATE', True)

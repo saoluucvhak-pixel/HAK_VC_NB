@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Kiểm tra bộ lọc trên màn Danh mục tuyến: tìm kiếm, đơn vị, ĐVT, tuyến ngừng dùng */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -21,11 +22,7 @@ test('Giao diện: Bộ lọc màn Danh mục tuyến', { skip: !fs.existsSync(C
     await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com');
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026');
-    await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click();
+    await completeAccountSetup(page);
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
 
     // Vào Danh mục tuyến

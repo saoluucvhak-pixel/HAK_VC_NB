@@ -59,9 +59,8 @@ test('F5: Router từ chối thao tác sửa khi thiếu rowVersion; có rowVers
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-f5-'));
   const ctx = new AppContext({ configFile: path.join(home, 'userData', 'dgvc-config.json') });
   const r = new Router(ctx);
-  const ADM = 'phuthuy.apple@gmail.com';
   await r.handle('setup.init', { dataFolder: path.join(home, 'D'), unitCode: 'DH', mirrorFolder: '' }, '');
-  const { data } = await r.handle('auth.setFirstPassword', { username: ADM, newPassword: 'HakGroup2026' }, '');
+  const { data } = await r.handle('auth.openLocal');
   const tk = data.token;
   for (const action of ['periods.confirm', 'periods.lock', 'tickets.update', 'fuel.update', 'vehicles.setActive', 'prices.activate']) {
     const x = await r.handle(action, { periodId: 'X', ticketId: 'X', receiptId: 'X' }, tk);

@@ -53,14 +53,13 @@ test('Thêm người dùng trùng tên → DUPLICATE, tài khoản cũ giữ ngu
   await assert.rejects(s.auth.saveUser({ record: { username: 'khong.co', role: 'XEM' }, create: false, rowVersion: 1, user: A }), (e) => e.code === 'NOT_FOUND');
 });
 
-test('Qua Router (AppContext thật): users.save create=true trùng tên → DUPLICATE', async () => {
+test('Qua Router: dữ liệu cũ giữ đăng nhập, API tạo người dùng cũ đã gỡ', async () => {
   const fs = require('node:fs'); const os = require('node:os'); const path = require('node:path'); const { AppContext } = require('../main/app/AppContext');
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-a182-')); const ctx = new AppContext({ configFile: path.join(home, 'c.json') }); const r = new Router(ctx);
-  await r.handle('setup.init', { dataFolder: path.join(home, 'D'), unitCode: 'DH' });
+  await ctx.init({ dataFolder: path.join(home, 'D'), unitCode: 'DH' });
   const t = (await r.handle('auth.setFirstPassword', { username: 'phuthuy.apple@gmail.com', newPassword: PW })).data.token;
-  const first = await r.handle('users.save', { record: { username: 'ke.toan1', role: 'KE_TOAN' }, create: true }, t); assert.equal(first.ok, true, JSON.stringify(first.error));
-  const dup = await r.handle('users.save', { record: { username: 'ke.toan1', role: 'XEM' }, create: true }, t);
-  assert.equal(dup.ok, false); assert.equal(dup.error.code, 'DUPLICATE');
+  const oldAction = await r.handle('users.save', { record: { username: 'ke.toan1', role: 'KE_TOAN' }, create: true }, t);
+  assert.equal(oldAction.error.code, 'NOT_FOUND');
   // ADMIN mẫu thứ hai không còn đặt được mật khẩu không cần mã
   const b = await r.handle('auth.setFirstPassword', { username: 'saoluucvhak@gmail.com', newPassword: PW }); assert.equal(b.ok, false); assert.equal(b.error.code, 'AUTH_FAILED');
   assert.equal((await r.handle('setup.status')).data.firstAdminOpen, false);

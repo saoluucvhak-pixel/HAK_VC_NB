@@ -321,7 +321,18 @@ class BackupService {
     const swapSub = () => { for (const dir of sideDirs) { const cur = path.join(root, dir); const bak = path.join(root, `${dir}.before-restore`); rmq(bak); if (fs.existsSync(cur)) fs.renameSync(cur, bak); moved.push(dir); fs.renameSync(path.join(root, `${dir}.restoring`), cur); } };
     const undoSub = () => { for (const dir of sideDirs) { if (moved.includes(dir)) { const cur = path.join(root, dir); const bak = path.join(root, `${dir}.before-restore`); rmq(cur); try { if (fs.existsSync(bak)) fs.renameSync(bak, cur); } catch { /* cố hết sức */ } } rmq(path.join(root, `${dir}.restoring`)); } };
     const doneSub = () => { for (const dir of sideDirs) { rmq(path.join(root, `${dir}.before-restore`)); rmq(path.join(root, `${dir}.restoring`)); } };
-    const auditRestore = (store) => store.transaction((tx) => tx.audit('RESTORE', 'DATA', path.basename(file), { dataVersionBefore: safety && safety.sha256 }, { file: path.basename(file), dataVersion: manifest.dataVersion, storageFormat, safety: path.basename(safety.file) }, { reason }), { user: user.username });
+    // Khôi phục dữ liệu tại chỗ vẫn giữ lựa chọn đăng nhập và thông tin xác thực hiện tại.
+    const loginSettings = this.store.loginSettings;
+    const users = this.store.all('USERS');
+    const auditRestore = (store) => store.transaction((tx) => {
+      if (loginSettings || store.loginSettings) {
+        tx.setManifest('loginSettings', loginSettings);
+        tx.removeMany('USERS', new Set(tx.all('USERS').map((u) => u.username)));
+        tx.restoreRows('USERS', users);
+      }
+      tx.audit('RESTORE', 'DATA', path.basename(file), { dataVersionBefore: safety && safety.sha256 },
+        { file: path.basename(file), dataVersion: manifest.dataVersion, storageFormat, safety: path.basename(safety.file) }, { reason });
+    }, { user: user.username });
     this.store.close();
     let store = null;
     if (kind === 'json') {

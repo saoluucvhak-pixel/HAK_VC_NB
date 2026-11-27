@@ -27,9 +27,9 @@ async function machine(unitCode, { mirror = '' } = {}) {
   const ok = async (action, payload) => { const x = await call(action, payload); assert.equal(x.ok, true, `${action}: ${x.error && `${x.error.code} ${x.error.message}`}`); return x.data; };
   const st = await ok('setup.status');
   assert.equal(st.initialized, false);
-  const init = await ok('setup.init', { dataFolder: path.join(home, 'DGVC_DATA'), unitCode, mirrorFolder: mirror });
+  const init = await ok('setup.init', { dataFolder: path.join(home, 'DGVC_DATA'), unitCode, mirrorFolder: mirror, loginMode: 'ACCOUNT', account: { username: ADMIN, password: PW } });
   assert.equal(init.unitCode, unitCode);
-  const login = await ok('auth.setFirstPassword', { username: ADMIN, newPassword: PW });
+  const login = await ok('auth.login', { username: ADMIN, password: PW });
   token = login.token;
   return { ctx, r, call, ok, home, setToken: (t) => { token = t; } };
 }
@@ -54,7 +54,7 @@ test('1 bộ cài cho mọi nhà máy: chọn đơn vị lúc khởi tạo, ch�
 
 test('Đăng nhập: chưa có mật khẩu → đặt lần đầu; mật khẩu yếu bị từ chối; sai 5 lần khóa 15 phút; phiên bắt buộc; quyền theo vai trò', async () => {
   const home = tmp('auth'); const ctx = new AppContext({ configFile: path.join(home, 'c.json') }); const r = new Router(ctx);
-  await r.handle('setup.init', { dataFolder: path.join(home, 'D'), unitCode: 'DH' });
+  await ctx.init({ dataFolder: path.join(home, 'D'), unitCode: 'DH' });
   assert.deepEqual((await r.handle('setup.status')).data.usersNeedPassword.sort(), ['phuthuy.apple@gmail.com', 'saoluucvhak@gmail.com']);
   assert.equal((await r.handle('auth.login', { username: ADMIN, password: 'x' })).error.code, 'PASSWORD_NOT_SET');
   assert.equal((await r.handle('auth.setFirstPassword', { username: ADMIN, newPassword: 'abc' })).error.code, 'VALIDATION_FAILED');
@@ -62,22 +62,22 @@ test('Đăng nhập: chưa có mật khẩu → đặt lần đầu; mật khẩ
   assert.equal((await r.handle('periods.list', {})).error.code, 'SESSION_EXPIRED');
   assert.equal((await r.handle('periods.list', {}, t)).ok, true);
   // ADMIN tạo tài khoản XEM và KẾ TOÁN cho đơn vị
-  const sx = await r.handle('users.save', { record: { username: 'xem.dh', fullName: 'Người xem', role: 'XEM', unitCode: 'DH' } }, t); assert.equal(sx.ok, true); assert.match(sx.data.setupCode, /^[A-Z2-9]{8}$/); // P1 1.6.1: mã kích hoạt một lần
-  const sk = await r.handle('users.save', { record: { username: 'ketoan.dh', fullName: 'Kế toán ĐH', role: 'KE_TOAN', unitCode: 'DH' } }, t); assert.equal(sk.ok, true);
+  const sx = await ctx.svc.auth.saveUser({ record: { username: 'xem.dh', fullName: 'Người xem', role: 'XEM', unitCode: 'DH' }, user: { username: ADMIN } }); assert.match(sx.setupCode, /^[A-Z2-9]{8}$/); // P1 1.6.1: mã kích hoạt một lần
+  const sk = await ctx.svc.auth.saveUser({ record: { username: 'ketoan.dh', fullName: 'Kế toán ĐH', role: 'KE_TOAN', unitCode: 'DH' }, user: { username: ADMIN } });
   assert.equal((await r.handle('auth.setFirstPassword', { username: 'xem.dh', newPassword: 'Xem12345' })).error.code, 'AUTH_FAILED', 'thiếu mã kích hoạt');
-  const tx = (await r.handle('auth.setFirstPassword', { username: 'xem.dh', newPassword: 'Xem12345', setupCode: sx.data.setupCode })).data.token;
+  const tx = (await r.handle('auth.setFirstPassword', { username: 'xem.dh', newPassword: 'Xem12345', setupCode: sx.setupCode })).data.token;
   assert.equal((await r.handle('periods.list', {}, tx)).ok, true, 'XEM xem được');
   assert.equal((await r.handle('import.preview', { importType: 'PHIEU_CAN', filePath: FILE.DH }, tx)).error.code, 'FORBIDDEN', 'XEM không import được');
-  assert.equal((await r.handle('users.list', {}, tx)).error.code, 'FORBIDDEN');
-  const tk = (await r.handle('auth.setFirstPassword', { username: 'ketoan.dh', newPassword: 'Ketoan2026', setupCode: sk.data.setupCode })).data.token;
-  assert.equal((await r.handle('users.save', { record: { username: 'x1', role: 'ADMIN' } }, tk)).error.code, 'FORBIDDEN', 'kế toán không tạo user');
+  assert.equal((await r.handle('users.list', {}, tx)).error.code, 'NOT_FOUND');
+  const tk = (await r.handle('auth.setFirstPassword', { username: 'ketoan.dh', newPassword: 'Ketoan2026', setupCode: sk.setupCode })).data.token;
+  assert.equal((await r.handle('auth.setLoginMode', { mode: 'SINGLE' }, tk)).error.code, 'FORBIDDEN');
   // sai mật khẩu 5 lần → khóa
   for (let i = 1; i <= 4; i++) assert.match((await r.handle('auth.login', { username: 'ketoan.dh', password: 'sai' })).error.message, new RegExp(`còn ${5 - i} lần`));
   const locked = await r.handle('auth.login', { username: 'ketoan.dh', password: 'sai' });
   assert.equal(locked.error.code, 'ACCOUNT_LOCKED');
   assert.equal((await r.handle('auth.login', { username: 'ketoan.dh', password: 'Ketoan2026' })).error.code, 'ACCOUNT_LOCKED', 'đúng mật khẩu vẫn bị khóa trong 15 phút');
   // ADMIN đặt lại mật khẩu → user tự đặt lại
-  assert.equal((await r.handle('users.resetPassword', { username: 'ketoan.dh' }, t)).ok, true);
+  await ctx.svc.auth.resetPassword({ username: 'ketoan.dh', user: { username: ADMIN } });
   assert.equal((await r.handle('auth.login', { username: 'ketoan.dh', password: 'Ketoan2026' })).error.code, 'PASSWORD_NOT_SET');
   // đổi mật khẩu, đăng xuất
   assert.equal((await r.handle('auth.changePassword', { oldPassword: PW, newPassword: 'MoiMoi2026' }, t)).ok, true);

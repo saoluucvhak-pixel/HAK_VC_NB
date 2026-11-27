@@ -2,7 +2,7 @@
 /* Hướng dẫn & quy trình — nội dung tĩnh, đối chiếu với docs/HUONG_DAN_CAI_DAT_VA_SU_DUNG.md và quy tắc kỳ tính (PeriodService / TicketService) */
 (function () {
   const D = window.DGVC; const { h } = D;
-  const TABS = [['flow', 'Quy trình hằng kỳ'], ['fix', 'Sửa sai sót'], ['roles', 'Vai trò & quyền'], ['tips', 'Lưu ý nhanh']];
+  const TABS = [['flow', 'Quy trình hằng kỳ'], ['fix', 'Sửa sai sót'], ['login', 'Đăng nhập'], ['tips', 'Lưu ý nhanh']];
   const link = (label, view, params) => h('button', { class: 'btn small', onclick: () => D.go(view, params || {}) }, label);
   const b = (t) => h('b', {}, t);
 
@@ -67,17 +67,10 @@
       ...TASKS.map(([t, a, btn, rest, btn2, rest2]) => h('div', { class: 'card' }, h('h2', {}, t), h('p', {}, a, b(btn), rest, btn2 ? b(btn2) : null, rest2 || null))));
   }
 
-  // ── 3. Vai trò & quyền ──
-  function rolesTab() {
-    const u = D.state.boot.user; const can = D.can('ADMIN') || u.canUnlock;
-    return h('div', {},
-      h('div', { class: 'card' }, h('h2', {}, 'Tài khoản của bạn'), h('p', {}, b(u.fullName || u.username), ` · vai trò ${u.role}`, can ? ' · có quyền mở khóa' : '')),
-      h('div', { class: 'card flush' }, plain([['Việc', 'a'], ['Ai làm được', 'b']], [
-        { a: 'Nhập liệu, tính giá, xác nhận kỳ, khóa kỳ, xuất gói', b: 'ADMIN, KE_TOAN' },
-        { a: 'Mở khóa kỳ, Trả về nháp, sửa phiếu ở kỳ đã khóa, sửa số liệu tính của danh mục đã dùng', b: 'ADMIN hoặc người được cấp quyền mở khóa — luôn ghi lý do' },
-        { a: 'Xem, in, xuất báo cáo', b: 'Mọi tài khoản' },
-        { a: 'Quản lý người dùng, cấp quyền mở khóa', b: 'Cài đặt → Người dùng (ADMIN)' }])),
-      h('p', { class: 'small muted' }, 'Mọi thao tác sửa / mở khóa đều ghi vào ', b('Lịch sử thao tác'), ' (người, lúc, trước / sau, lý do).'), link('Mở Lịch sử thao tác', 'audit'));
+  function loginTab() {
+    return h('div', { class: 'card' }, h('h2', {}, 'Cách vào phần mềm'),
+      h('p', {}, 'Chế độ một người mở trực tiếp trên máy. Chế độ tài khoản yêu cầu tên đăng nhập và mật khẩu.'),
+      h('p', {}, 'Đổi chế độ tại Cài đặt → Đăng nhập. Nếu đang dùng tài khoản, nhập lại thông tin tài khoản hiện tại để chuyển sang một người.'));
   }
 
   // ── 4. Lưu ý nhanh ──
@@ -92,9 +85,9 @@
 
   D.views.guide = {
     async render(params = {}) {
-      const tab = TABS.some(([k]) => k === params.tab) ? params.tab : 'flow';
+      const tab = params.tab === 'roles' ? 'login' : TABS.some(([k]) => k === params.tab) ? params.tab : 'flow';
       const tabs = h('div', { class: 'tabs', role: 'tablist' }, TABS.map(([k, t]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => D.go('guide', { tab: k }) }, t)));
-      const body = { flow: flowTab, fix: fixTab, roles: rolesTab, tips: tipsTab }[tab]();
+      const body = { flow: flowTab, fix: fixTab, login: loginTab, tips: tipsTab }[tab]();
       return D.page('Hướng dẫn & quy trình', 'Trợ giúp', [], tabs, body);
     },
   };

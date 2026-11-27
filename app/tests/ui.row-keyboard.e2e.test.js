@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Dòng bảng bấm được dùng được bằng bàn phím (Tab/Enter/Space) và ở màn hẹp ngăn xem chéo được cuộn vào tầm nhìn sau khi chọn dòng. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -20,10 +21,7 @@ test('Giao diện: dòng tuyến mở bằng Enter/Space; màn hẹp cuộn tớ
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     await page.locator('nav button', { hasText: 'Danh mục tuyến' }).first().click(); await page.waitForTimeout(700);
     // bàn phím: dòng có tabindex; Enter mở ngăn đơn giá của tuyến
     const row = page.locator('tbody tr.click').first(); await row.waitFor();

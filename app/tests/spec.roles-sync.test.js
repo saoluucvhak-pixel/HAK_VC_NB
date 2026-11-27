@@ -59,7 +59,7 @@ test('Mở khóa kỳ: KE_TOAN không can_unlock → FORBIDDEN; có can_unlock �
 
 test('Router: XEM gọi periods.unlock / reopen → FORBIDDEN; KE_TOAN qua được cổng quyền (kiểm nghiệp vụ nằm ở dịch vụ)', async () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'dgvc-roles-')); const ctx = new AppContext({ configFile: path.join(home, 'c.json') }); const r = new Router(ctx);
-  await r.handle('setup.init', { dataFolder: path.join(home, 'D'), unitCode: 'DH' });
+  await ctx.init({ dataFolder: path.join(home, 'D'), unitCode: 'DH' });
   const unit = ctx.store.get('USERS', ctx.store.all('USERS')[0].username).unit_code || 'DH';
   const mkUser = async (username, role, can) => { await ctx.store.transaction((tx) => { tx.insert('USERS', { username, full_name: username, unit_code: unit, role, can_unlock: can, is_active: true, password_hash: '', password_salt: '', password_algo: '', must_change_password: false, failed_attempts: 0, locked_until: '', last_login_at: '' }); }, { user: 'test' }); return ctx.svc.auth._newSession(ctx.svc.auth._user(username)).token; };
   const tx = await mkUser('xem.test', 'XEM', false); const tk = await mkUser('kt.khong', 'KE_TOAN', false); const tkr = await mkUser('kt.co', 'KE_TOAN', true);

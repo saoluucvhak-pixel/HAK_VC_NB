@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Kiểm tra mô hình cha-con: Hợp đồng (cha) -> thẻ Tuyến và đơn giá vận chuyển (một bảng, không gán mã) */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -22,10 +23,7 @@ test('Giao diện Hợp đồng cha-con: Hợp đồng -> Tuyến và đơn giá
     await page.getByRole('button', { name: 'Tiếp' }).click();
     await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click();
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
 
     const ctx = srv.ctx; const contractId = 'HD-HAKQN-QS';
     const imp = ctx.svc.import;

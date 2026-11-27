@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Rà soát 1.8.2 — giao diện: Ctrl+Enter đúng nút; lưu thẻ này không mất thẻ kia; hết phiên gỡ hộp thoại; "Thôi xem" hỏi trước; đặt lại mật khẩu hỏi xác nhận. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -26,10 +27,7 @@ test('Giao diện ĐH: các lỗi rà soát 1.8.2', { skip: !fs.existsSync(CHROM
     await page.goto(srv.url);
     await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await completeAccountSetup(page); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
 
     await nav('Hợp đồng vận chuyển'); await page.locator('.ct-items button').first().click(); await page.getByRole('tab', { name: 'Thông tin' }).waitFor();
 
@@ -63,14 +61,12 @@ test('Giao diện ĐH: các lỗi rà soát 1.8.2', { skip: !fs.existsSync(CHROM
     await page.evaluate(() => window.DGVC.archiveBanner([]));
     await page.getByRole('button', { name: 'Lưu hợp đồng' }).click(); await page.waitForTimeout(500); // lưu để rời màn không bị hỏi
 
-    // (L) Đặt lại mật khẩu → hỏi xác nhận; Hủy thì không gọi API
-    await nav('Cài đặt'); await page.getByRole('tab', { name: 'Người dùng' }).click();
-    await page.locator('table tr', { hasText: 'saoluucvhak@gmail.com' }).first().click();
-    await page.locator('.modal').getByRole('button', { name: 'Đặt lại mật khẩu' }).click();
-    await page.getByText(/Mật khẩu của saoluucvhak@gmail.com bị xóa/).waitFor();
-    await page.locator('.modal').last().getByRole('button', { name: 'Hủy' }).click();
-    assert.equal(count('users.resetPassword'), 0, 'Hủy → không đặt lại');
-    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    // Hủy trong hộp đổi chế độ không gửi yêu cầu.
+    await nav('Cài đặt');
+    await page.getByRole('tab', { name: 'Đăng nhập' }).click();
+    await page.getByRole('button', { name: 'Chuyển sang một người sử dụng' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Hủy' }).click();
+    assert.equal(count('auth.setLoginMode'), 0);
 
     // (H) hết phiên khi đang mở hộp thoại → về màn đăng nhập, không còn lớp phủ, đăng nhập được ngay
     await nav('Danh mục tuyến'); await page.getByRole('button', { name: /Thêm tuyến/ }).first().click(); await page.locator('.modal').waitFor();

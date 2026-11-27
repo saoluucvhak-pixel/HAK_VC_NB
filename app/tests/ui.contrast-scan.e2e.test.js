@@ -21,9 +21,9 @@ const CHROME = process.env.CHROMIUM_PATH || (fs.existsSync('/opt/pw-browsers/chr
 const COMBOS = ['light', 'dark'].flatMap((t) => SKINS.map((s) => [t, s]));
 // Các màn chính (đủ kiểu thành phần: thẻ KPI, bảng, ô tìm, thẻ tab, hộp hướng dẫn, viên trạng thái, liên kết, nút nhỏ).
 const VIEWS = [['dashboard'], ['guide'], ['units'], ['vehicles'], ['routes'], ['contracts'], ['forms'], ['pricecodes'], ['tickets'], ['fuel'], ['calc'], ['bkvc'], ['bkct'], ['reports'], ['basis'], ['rentreport'],
-  ['exchange', { tab: 'import' }], ['exchange', { tab: 'history' }], ['reconcile', { tab: 'compare' }], ['settings', { tab: 'backup' }], ['settings', { tab: 'users' }]];
+  ['exchange', { tab: 'import' }], ['exchange', { tab: 'history' }], ['reconcile', { tab: 'compare' }], ['settings', { tab: 'backup' }], ['settings', { tab: 'login' }]];
 // Hộp thoại mở bằng nút: [màn, tham số, tên nút]
-const MODALS = [['units', {}, 'Sửa thông tin công ty'], ['vehicles', {}, 'Thêm xe'], ['routes', {}, 'Thêm tuyến'], ['contracts', {}, 'Thêm hợp đồng'], ['forms', {}, 'Thêm hình thức'], ['pricecodes', {}, 'Thêm đơn giá'], ['settings', { tab: 'users' }, 'Thêm người dùng']];
+const MODALS = [['units', {}, 'Sửa thông tin công ty'], ['vehicles', {}, 'Thêm xe'], ['routes', {}, 'Thêm tuyến'], ['contracts', {}, 'Thêm hợp đồng'], ['forms', {}, 'Thêm hình thức'], ['pricecodes', {}, 'Thêm đơn giá'], ['settings', { tab: 'login' }, 'Chuyển sang một người sử dụng']];
 
 /** Gói kỳ tính mẫu từ máy khác đơn vị (DH): nhập vào bản cài HAKQN để các màn có kỳ / phiếu cân / dầu / hợp đồng thật. */
 async function samplePackage(file) {
@@ -47,16 +47,19 @@ test('Tương phản: mọi chữ đạt 4.5:1 (chữ lớn 3:1) ở 4 bảng m�
   const everyCombo = async (label) => { for (const [t, s] of COMBOS) { await apply(t, s); fails.push(...await measure(page, `${s}/${t} · ${label}`)); states += 1; } };
   const go = async (view, params) => { await page.evaluate(([v, p]) => window.DGVC.go(v, p || {}), [view, params]); await page.waitForFunction(() => !document.querySelector('main[aria-busy="true"]'), null, { timeout: 8000 }); };
   try {
-    // ── khởi tạo: chọn thư mục → đơn vị → bước kế → tạo bản cài → đăng nhập → đặt mật khẩu lần đầu ──
+    // ── khởi tạo: chọn thư mục → đơn vị → bước kế → chọn đăng nhập → tạo tài khoản ──
     await page.goto(srv.url);
     await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA')); await everyCombo('khởi tạo 1 (thư mục)');
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click(); await everyCombo('khởi tạo 2 (đơn vị)');
     await page.getByRole('button', { name: 'Tiếp' }).click(); await everyCombo('khởi tạo 3');
     await page.getByRole('button', { name: 'Tiếp' }).click(); await everyCombo('khởi tạo 4 (xác nhận)');
-    await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor(); await everyCombo('đặt mật khẩu lần đầu');
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await page.getByRole('radio', { name: 'Sử dụng tài khoản đăng nhập' }).check();
+    await everyCombo('tạo tài khoản đăng nhập');
+    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com');
+    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026');
+    await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
+    await page.getByRole('button', { name: 'Tạo tài khoản và khởi tạo' }).click();
+    await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     // ── nạp dữ liệu mẫu (gói kỳ tính của máy khác) rồi quét các màn chính ──
     const imp = await page.evaluate(async (fp) => { const D = window.DGVC; const pv = await D.api('exchange.previewPackage', { filePath: fp, ticketsOnly: false }); const r = await D.api('exchange.importPackage', { previewId: pv.previewId, decisions: {} }); await D.refreshBoot(); return Object.keys(r.counts || {}); }, pkgFile);
     assert.ok(imp.length > 0, 'đã nhập dữ liệu mẫu');

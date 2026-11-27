@@ -1,4 +1,5 @@
 'use strict';
+const { completeAccountSetup } = require('./ui-login-setup');
 /** Rà soát 1.8.2 — nút hiện đúng quyền api_spec (KE_TOAN không sửa công ty; XEM không thấy Sao lưu ngay / Chọn gói…); bấm đúp nút cấp trang chỉ gửi 1 lệnh. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -25,10 +26,7 @@ test('Giao diện ĐH: quyền hiển thị nút + chống bấm đúp (1.8.2)',
     await page.goto(srv.url);
     await page.getByRole('textbox', { name: 'Thư mục dữ liệu' }).fill(path.join(srv.home, 'DGVC_DATA'));
     await page.getByRole('button', { name: 'Tiếp' }).click(); await page.locator('.unit-pick label', { hasText: 'DH —' }).click();
-    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Khởi tạo bản cài' }).click();
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill(PW); await page.getByLabel('Nhập lại mật khẩu').fill(PW);
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await page.getByRole('button', { name: 'Tiếp' }).click(); await page.getByRole('button', { name: 'Tiếp' }).click(); await completeAccountSetup(page, 'phuthuy.apple@gmail.com', PW); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
 
     // bấm đúp "Lưu hợp đồng" → chỉ 1 lệnh contracts.save
     await nav('Hợp đồng vận chuyển'); await page.locator('.ct-items button').first().click(); await page.getByRole('button', { name: 'Lưu hợp đồng' }).waitFor();

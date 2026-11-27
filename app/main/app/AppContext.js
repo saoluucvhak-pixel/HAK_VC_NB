@@ -13,7 +13,7 @@ const crypto = require('node:crypto');
 const { createStorage, newStore, storageKinds } = require('../repo/createStore');
 // Loại kho của bản cài lấy từ cấu hình máy (dgvc-config.json: storage). Mặc định 'json'; chỉ trình di chuyển (migrateStorage) mới đặt 'sqlite'. Không đọc biến môi trường.
 const { AppError } = require('../../shared/errors');
-const { AuthService } = require('../services/AuthService');
+const { AuthService, ownerAccount } = require('../services/AuthService');
 const { ImportService } = require('../import/ImportService');
 const { ImportTemplates } = require('../import/templates');
 const { PeriodService } = require('../services/PeriodService');
@@ -141,9 +141,13 @@ class AppContext {
     const kind = this.storageKind();
     const exists = this._hasData(folder, kind);
     const manifest = exists ? this._readManifest(folder, kind) : null;
+    const auth = this.store && this.svc.auth;
+    const loginMode = auth?.settings().mode || null;
     return { initialized: exists && !!manifest, dataFolder: folder, defaultDataFolder: this.defaultFolder, installId: manifest && manifest.installId,
       installCode: manifest && manifest.installCode, unitCode: manifest && manifest.unitCode, schemaVersion: manifest && manifest.schemaVersion,
-      usersNeedPassword: this.svc ? this.svc.auth.usersNeedPassword() : [], firstAdminOpen: this.svc ? this.svc.auth.firstAdminOpen() : false, singleUserName: this.svc ? this.svc.auth.singleUserName() : '', units: exists ? [] : this.installableUnits(), appVersion: APP_VERSION, opened: !!this.store };
+      loginMode, usersNeedPassword: auth?.usersNeedPassword() || [],
+      firstAdminOpen: loginMode === 'LEGACY' && auth.firstAdminOpen(), singleUserName: auth?.singleUserName() || '',
+      units: exists ? [] : this.installableUnits(), appVersion: APP_VERSION, opened: !!this.store };
   }
 
   /**
@@ -152,7 +156,7 @@ class AppContext {
    *   mode ATTACH : dùng thư mục dữ liệu có sẵn (cài lại máy, chuyển máy, khôi phục từ ổ khác)
    * Tùy chọn: catalogPackagePath (gói DANH_MUC mới nhất nhận từ nhà máy khác), mirrorFolder (USB / Google Drive).
    */
-  async init({ mode = 'NEW', dataFolder, unitCode, catalogPackagePath = '', mirrorFolder = '', user = { username: 'setup' } }) {
+  async init({ mode = 'NEW', dataFolder, unitCode, catalogPackagePath = '', mirrorFolder = '', loginMode, account, user = { username: 'setup' } }) {
     if (!dataFolder) throw new AppError('VALIDATION_FAILED', 'Chọn thư mục dữ liệu');
     if (this.store) throw new AppError('VALIDATION_FAILED', 'Bản cài đã khởi tạo');
     const hasJson = fs.existsSync(path.join(dataFolder, 'manifest.json')); const hasSqlite = fs.existsSync(path.join(dataFolder, 'dgvc.sqlite'));
@@ -163,8 +167,13 @@ class AppContext {
       const storage = hasSqlite && (!hasJson || fs.existsSync(path.join(dataFolder, 'STORAGE_MIGRATED.json'))) ? 'sqlite' : 'json';
       this.writeConfig({ ...this.readConfig(), dataFolder, storage });
       this.open();
+      await this.migrated;
       return { mode, ...this.status() };
     }
+    if (loginMode !== undefined && !['SINGLE', 'ACCOUNT'].includes(loginMode)) {
+      throw new AppError('VALIDATION_FAILED', 'Chọn cách sử dụng phần mềm');
+    }
+    const owner = loginMode === 'ACCOUNT' ? ownerAccount(account || {}, unitCode) : null;
     if (hasData) throw new AppError('VALIDATION_FAILED', `Thư mục ${dataFolder} đã có dữ liệu — chọn "Dùng dữ liệu có sẵn" hoặc chọn thư mục khác`);
     const cat = this.catalog().tables;
     const unit = cat.DON_VI.find((u) => u.unit_code === unitCode && u.is_active);
@@ -177,6 +186,7 @@ class AppContext {
     const mine = new Set(cat.HOP_DONG.filter((c) => c.carrier_unit_code === unitCode || c.customer_unit_code === unitCode).map((c) => c.contract_id));
     await store.transaction((tx) => {
       for (const t of CATALOG_TABLES) {
+        if (t === 'USERS' && loginMode) continue;
         for (const r of cat[t]) {
           if ((t === 'HOP_DONG' || t === 'HOP_DONG_XE') && !mine.has(r.contract_id)) continue;
           if (t === 'PRICE_HISTORY' && r.contract_id && !mine.has(r.contract_id)) continue;
@@ -188,11 +198,14 @@ class AppContext {
           tx.insert(t, row);
         }
       }
+      if (owner) tx.insert('USERS', owner);
+      if (loginMode) tx.setManifest('loginSettings', { mode: loginMode, username: owner?.username || '' });
       tx.audit('SETUP_INIT', 'DATA', unitCode, null, { unitCode, dataFolder, contracts: [...mine], catalog: path.basename(this.catalogFile) });
     }, { user: user.username });
     store.close();
     this.writeConfig({ ...this.readConfig(), dataFolder, storage: kindNew });
     this.open();
+    await this.migrated;
     let catalogImport = null;
     if (catalogPackagePath) {
       const pv = this.svc.exchange.previewPackage({ filePath: catalogPackagePath, user });

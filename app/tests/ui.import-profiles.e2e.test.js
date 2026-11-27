@@ -3,7 +3,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { randomUUID } = require('node:crypto');
 const path = require('node:path');
 const { start } = require('../tools/dev-server');
 const { workbook } = require('./import.profiles-fixture');
@@ -17,7 +16,6 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
   const page = await browser.newPage({ viewport: { width: 1536, height: 1050 }, locale: 'vi-VN' });
   page.setDefaultTimeout(10000);
   const errors = [];
-  const testPassword = `1a-${randomUUID()}`;
   page.on('pageerror', (error) => errors.push(error.message));
   const next = (file) => fetch(`${srv.url}/dev/next`, { method: 'POST', body: JSON.stringify({ path: file }) });
   const button = (name) => page.getByRole('button', { name, exact: true });
@@ -34,13 +32,7 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await page.locator('.unit-pick label', { hasText: 'HAKQN —' }).click();
     await button('Tiếp').click();
     await button('Tiếp').click();
-    await button('Khởi tạo bản cài').click();
-    const admin = srv.ctx.store.all('USERS').find((user) => user.role === 'ADMIN');
-    await page.getByLabel('Tên đăng nhập').fill(admin.username);
-    await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill(testPassword);
-    await page.getByLabel('Nhập lại mật khẩu').fill(testPassword);
-    await button('Vào phần mềm').click();
+    await button('Bỏ qua').click();
     await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
     const store = srv.ctx.store;
     const catalog = { splitDates: true, firstMass: '1.500', plate: '99A-00001', route: store.all('TUYEN_VC')[0].route_code };
@@ -172,8 +164,6 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await button('Dùng Tự nhận diện').click();
     await page.getByText('Mặc định: Tự nhận diện', { exact: true }).waitFor();
     await page.reload();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill(testPassword);
-    await button('Vào phần mềm').click();
     await openSettings();
     await page.getByText('Mặc định: Tự nhận diện', { exact: true }).waitFor();
     await page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Nhà cung cấp A', exact: true }) })
