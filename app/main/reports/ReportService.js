@@ -256,13 +256,16 @@ class ReportService {
    * BIÊN BẢN GIAO NHẬN DẦU DIESEL của kỳ: các dòng dầu đã tính vào kỳ (FUEL_DETAIL hiện hành), mỗi BÊN GIAO 1 biên bản.
    * Bên nhận = bên vận chuyển. Có bảng chi tiết từng lần nhận + tổng hợp theo xe + kết luận làm căn cứ tính chênh lệch dầu.
    */
-  fuelHandover({ periodId }) {
+  fuelHandover({ periodId }, { allowEmpty = false } = {}) {
     const p = this._period(periodId); const s = this.store;
     const { contract, cfg, signers, periodText } = this._meta(p);
     const fd = s.find('FUEL_DETAIL', (f) => f.period_id === periodId && f.is_current);
-    if (!fd.length) throw new AppError('NOT_FOUND', `Kỳ ${p.period_code} không có dòng dầu nào`);
-    const rec = fd.map((f) => ({ f, r: s.get('GIAO_NHAN_DAU', f.receipt_id) })).filter((x) => x.r)
-      .sort((a, b) => (a.r.receive_date + a.r.plate_no).localeCompare(b.r.receive_date + b.r.plate_no));
+    if (!fd.length && !allowEmpty) throw new AppError('NOT_FOUND', `Kỳ ${p.period_code} không có dòng dầu nào`);
+    const rec = fd.map((f) => {
+      const r = s.get('GIAO_NHAN_DAU', f.receipt_id);
+      if (!r) throw new AppError('INTEGRITY_ERROR', `Kỳ ${p.period_code} thiếu phiếu giao nhận dầu ${f.receipt_id}`);
+      return { f, r };
+    }).sort((a, b) => (a.r.receive_date + a.r.plate_no).localeCompare(b.r.receive_date + b.r.plate_no));
     const rd = p.report_date || today();
     const sideOf = (code) => {
       if (code === contract.customer_unit_code) return signers.customer;
@@ -347,60 +350,35 @@ class ReportService {
     const { contract, cfg, signers, periodText, placeDate } = this._meta(p);
     const bk = this.bkvc({ periodId });
 
-    let totalFuelQty = 0;
-    let totalFuelAmount = 0;
-    let fuelHandoverDoc = null;
-    try {
-      fuelHandoverDoc = this.fuelHandover({ periodId });
-      if (fuelHandoverDoc && fuelHandoverDoc.docs && fuelHandoverDoc.docs.length) {
-        for (const doc of fuelHandoverDoc.docs) {
-          totalFuelQty += doc.totals.qty;
-          totalFuelAmount += doc.totals.amount;
-        }
-      }
-    } catch {
-      // Kỳ không có dầu
-    }
-
+    const { docs } = this.fuelHandover({ periodId }, { allowEmpty: true });
+    const totalFuelQty = docs.reduce((sum, doc) => sum + doc.totals.qty, 0);
+    const totalFuelAmount = docs.reduce((sum, doc) => sum + doc.totals.amount, 0);
     const fuelAvgPrice = totalFuelQty > 0 ? Math.round(totalFuelAmount / totalFuelQty) : 0;
     const totalFreight = bk.totals.total;
     const netPayable = totalFreight - totalFuelAmount;
-
+    // Một tổng duy nhất cần cùng ĐVT. Với kỳ có cả tấn và m³, dùng khối lượng thực của phiếu cân.
+    const useVolume = bk.uomLabel === 'm³';
     const plateMap = new Map();
-    for (const l of bk.lines) {
-      plateMap.set(l.plate_no, {
-        plateNo: l.plate_no,
-        trips: l.trip_count,
-        ton: l.ton,
-        uom: l.uom,
-        freightAmount: l.amount_incl_vat,
-        fuelQty: 0,
-        fuelAmount: 0,
-        netPayable: l.amount_incl_vat
-      });
+    const plateOf = (plateNo) => {
+      if (!plateMap.has(plateNo)) {
+        plateMap.set(plateNo, { plateNo, trips: 0, ton: 0, uom: useVolume ? 'M3' : 'TAN',
+          freightAmount: 0, fuelQty: 0, fuelAmount: 0, netPayable: 0 });
+      }
+      return plateMap.get(plateNo);
+    };
+    for (const line of bk.lines) {
+      const row = plateOf(line.plate_no);
+      row.trips += line.trip_count;
+      row.ton += useVolume ? line.ton : line.kg / 1000;
+      row.freightAmount += line.amount_incl_vat;
+      row.netPayable += line.amount_incl_vat;
     }
-
-    if (fuelHandoverDoc && fuelHandoverDoc.docs) {
-      for (const doc of fuelHandoverDoc.docs) {
-        for (const bp of doc.byPlate) {
-          if (plateMap.has(bp.plateNo)) {
-            const row = plateMap.get(bp.plateNo);
-            row.fuelQty += bp.qty;
-            row.fuelAmount += bp.amount;
-            row.netPayable -= bp.amount;
-          } else {
-            plateMap.set(bp.plateNo, {
-              plateNo: bp.plateNo,
-              trips: 0,
-              ton: 0,
-              uom: 'tấn',
-              freightAmount: 0,
-              fuelQty: bp.qty,
-              fuelAmount: bp.amount,
-              netPayable: -bp.amount
-            });
-          }
-        }
+    for (const doc of docs) {
+      for (const fuel of doc.byPlate) {
+        const row = plateOf(fuel.plateNo);
+        row.fuelQty += fuel.qty;
+        row.fuelAmount += fuel.amount;
+        row.netPayable -= fuel.amount;
       }
     }
 
@@ -423,15 +401,15 @@ class ReportService {
       freight: {
         trips: bk.totals.trips,
         kg: bk.totals.kg,
-        ton: bk.totals.ton,
-        uomLabel: bk.uomLabel,
+        ton: useVolume ? bk.totals.ton : bk.totals.kg / 1000,
+        uomLabel: useVolume ? 'm³' : 'tấn',
         amount: bk.totals.amount,
         vatPct: bk.header.vatPct,
         vat: bk.totals.vat,
         total: bk.totals.total
       },
       fuel: {
-        hasFuel: totalFuelQty > 0,
+        hasFuel: docs.length > 0,
         qty: Math.round(totalFuelQty * 100) / 100,
         avgPrice: fuelAvgPrice,
         amount: totalFuelAmount
@@ -453,7 +431,7 @@ class ReportService {
     if (periodId) {
       const p = this._period(periodId);
       periodCode = p.period_code;
-      const tIds = new Set(s.find('TRANSPORT_DETAIL', (d) => d.period_id === periodId && d.is_current).map((d) => d.ticket_id));
+      const tIds = new Set(s.find('TRANSPORT_DETAIL', (d) => d.period_id === periodId && d.is_current && d.usage_state !== 'RELEASED').map((d) => d.ticket_id));
       tickets = s.all('PHIEU_CAN').filter((t) => !t.is_deleted && tIds.has(t.ticket_id));
     } else if (date) {
       tickets = s.all('PHIEU_CAN').filter((t) => !t.is_deleted && t.weigh1_date === date);
@@ -469,33 +447,32 @@ class ReportService {
       tickets = tickets.filter((t) => t.plate_no === plateNo);
     }
 
-    const toMin = (t) => {
-      if (!t) return null;
-      const parts = t.split(':').map((x) => Number(x) || 0);
-      return parts[0] * 60 + parts[1];
+    const toMin = (time) => {
+      const match = /^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/.exec(time);
+      return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+    };
+    const dayMin = (date) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+      const stamp = Date.parse(date);
+      return Number.isFinite(stamp) && new Date(stamp).toISOString().slice(0, 10) === date ? stamp / 60000 : null;
     };
 
-    const hourlyDistribution = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: 0, ton: 0 }));
+    const hourlyDistribution = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: 0, kg: 0 }));
     const bottlenecks = [];
     const vehicleTripsMap = new Map();
 
     for (const t of tickets) {
       const t1 = toMin(t.weigh1_time);
       const t2 = toMin(t.weigh2_time);
-      const hour = t1 != null ? Math.floor(t1 / 60) : 0;
-      if (hour >= 0 && hour < 24) {
-        hourlyDistribution[hour].count++;
-        hourlyDistribution[hour].ton = Math.round((hourlyDistribution[hour].ton + (t.net_kg || 0) / 1000) * 100) / 100;
-      }
-
-      let durationMin = null;
-      if (t1 != null && t2 != null) {
-        durationMin = t2 - t1;
-        if (t.weigh2_date && t.weigh1_date && t.weigh2_date > t.weigh1_date) {
-          durationMin += 1440;
-        } else if (durationMin < 0) {
-          durationMin += 1440;
-        }
+      const day1 = dayMin(t.weigh1_date);
+      const day2 = t.weigh2_date ? dayMin(t.weigh2_date) : day1;
+      const start = t1 == null || day1 == null ? null : day1 + t1;
+      const end = t2 == null || day2 == null ? null : day2 + t2;
+      const durationMin = start != null && end != null && end >= start ? end - start : null;
+      if (start != null) {
+        const hour = hourlyDistribution[Math.floor(t1 / 60)];
+        hour.count++;
+        hour.kg += t.net_kg || 0;
       }
 
       const tripInfo = {
@@ -503,10 +480,10 @@ class ReportService {
         ticketNo: t.ticket_no,
         plateNo: t.plate_no,
         date: t.weigh1_date,
-        weigh1Time: t.weigh1_time || '00:00',
-        weigh2Time: t.weigh2_time || '00:00',
-        startMin: t1 ?? 0,
-        endMin: (t2 ?? t1) ?? 0,
+        weigh1Time: t.weigh1_time || '',
+        weigh2Time: t.weigh2_time || '',
+        startMin: start == null ? null : t1,
+        endMin: end == null ? null : t2,
         durationMin,
         netKg: t.net_kg || 0,
         netTon: Math.round((t.net_kg || 0) / 10) / 100,
@@ -524,48 +501,42 @@ class ReportService {
       if (!vehicleTripsMap.has(t.plate_no)) {
         vehicleTripsMap.set(t.plate_no, []);
       }
-      vehicleTripsMap.get(t.plate_no).push(tripInfo);
+      vehicleTripsMap.get(t.plate_no).push({ start, end: durationMin == null ? null : end, trip: tripInfo });
     }
 
     const vehicles = [];
     for (const [pNo, vTrips] of vehicleTripsMap.entries()) {
-      vTrips.sort((a, b) => (a.date + a.weigh1Time).localeCompare(b.date + b.weigh1Time));
-
-      let totalDuration = 0;
-      let totalIdle = 0;
-      let impossibleTurnaroundCount = 0;
-
+      vTrips.sort((a, b) => (a.trip.date || '').localeCompare(b.trip.date || '')
+        || (a.start ?? Infinity) - (b.start ?? Infinity));
+      const durations = [];
+      const gaps = [];
       for (let i = 0; i < vTrips.length; i++) {
-        const cur = vTrips[i];
-        if (cur.durationMin != null) totalDuration += cur.durationMin;
-
-        if (i < vTrips.length - 1) {
-          const next = vTrips[i + 1];
-          let gap = next.startMin - cur.endMin;
-          if (next.date > cur.date) gap += 1440;
-          if (gap >= 0) {
-            totalIdle += gap;
-            cur.turnaroundNextMin = gap;
-            if (gap < 45) impossibleTurnaroundCount++;
-          }
+        const { trip, end } = vTrips[i];
+        if (trip.durationMin != null) durations.push(trip.durationMin);
+        const next = vTrips[i + 1];
+        if (next?.start != null && end != null && next.start >= end) {
+          trip.turnaroundNextMin = next.start - end;
+          gaps.push(trip.turnaroundNextMin);
         }
       }
 
-      const totalTon = vTrips.reduce((a, b) => a + b.netTon, 0);
+      const totalKg = vTrips.reduce((sum, { trip }) => sum + trip.netKg, 0);
+      const average = (values) => values.length ? Math.round(values.reduce((sum, n) => sum + n, 0) / values.length) : null;
       vehicles.push({
         plateNo: pNo,
         tripCount: vTrips.length,
-        totalTon: Math.round(totalTon * 100) / 100,
-        avgDurationMin: vTrips.length ? Math.round(totalDuration / vTrips.length) : 0,
-        avgTurnaroundMin: vTrips.length > 1 ? Math.round(totalIdle / (vTrips.length - 1)) : 0,
-        impossibleTurnaroundCount,
-        trips: vTrips
+        totalTon: Math.round(totalKg / 10) / 100,
+        avgDurationMin: average(durations),
+        avgTurnaroundMin: average(gaps),
+        impossibleTurnaroundCount: gaps.filter((gap) => gap < 45).length,
+        trips: vTrips.map(({ trip }) => trip)
       });
     }
 
     vehicles.sort((a, b) => b.tripCount - a.tripCount || b.totalTon - a.totalTon);
     bottlenecks.sort((a, b) => (b.durationMin || 0) - (a.durationMin || 0));
-    const peakHours = [...hourlyDistribution].sort((a, b) => b.count - a.count).slice(0, 3).filter((h) => h.count > 0);
+    const hours = hourlyDistribution.map(({ hour, count, kg }) => ({ hour, count, ton: Math.round(kg / 10) / 100 }));
+    const peakHours = [...hours].sort((a, b) => b.count - a.count).slice(0, 3).filter((h) => h.count > 0);
 
     return {
       periodCode,
@@ -573,7 +544,7 @@ class ReportService {
       plateNo,
       totalTickets: tickets.length,
       totalPlates: vehicles.length,
-      hourlyDistribution,
+      hourlyDistribution: hours,
       peakHours,
       bottlenecks,
       vehicles

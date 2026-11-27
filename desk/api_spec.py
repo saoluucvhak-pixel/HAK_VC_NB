@@ -161,7 +161,7 @@ ep('sync.markDone', 'Đồng bộ', 'Đánh dấu nhà máy đã sửa danh mụ
    [('unitCode', 'string', True, ''), ('reminderIds', 'array<string>', False, 'rỗng = mọi nhắc đang mở'), ('how', 'string', False, 'MANUAL|PACKAGE'), ('note', 'string', False, '')],
    '{updated}', ['VALIDATION_FAILED'], ['SYNC_REMINDER'], ['SYNC_REMINDER'], 'SYNC_DONE', True)
 ep('reports.html', 'Báo cáo', 'HTML báo cáo để xem trước trong giao diện', ALL,
-   [('report', 'string', True, 'BKVC|BKCT|PRICING|INVOICE|PRICING_SHEET|CONTRACT_BASIS|FUEL_HANDOVER…'), ('params', 'object', True, 'như reports.export')], '{html}', ['NOT_FOUND', 'VALIDATION_FAILED'])
+   [('report', 'string', True, 'BKVC|BKCT|PRICING|INVOICE|PRICING_SHEET|CONTRACT_BASIS|FUEL_HANDOVER|RECONCILIATION_STATEMENT…'), ('params', 'object', True, 'như reports.export')], '{html}', ['NOT_FOUND', 'VALIDATION_FAILED'])
 ep('reports.invoice', 'Báo cáo', 'Dữ liệu dòng hóa đơn của một kỳ (MISA)', ALL,
    [('periodId', 'string', True, '')], '{lines, totals, …}', ['NOT_FOUND'], ['BKVC_LINE'])
 ep('contracts.setVehicles', 'Hợp đồng', 'Ghi phạm vi xe (danh sách + hiệu lực)', EDIT,
@@ -335,14 +335,19 @@ ep('reports.volume', 'Báo cáo', 'Tổng hợp khối lượng vận chuyển t
 ep('reports.vehicleLog', 'Báo cáo', 'Nhật trình vận chuyển 1 xe theo tháng / quý / năm: ngày, tuyến, cự ly, số chuyến, số km (đi + về), KL hàng, dầu nhận, dầu định mức, chủ hàng; xuất Excel / PDF qua reports.export VEHICLE_LOG', ALL,
    [('plateNo', 'string', True, ''), ('dateFrom', 'date', True, ''), ('dateTo', 'date', True, ''), ('label', 'string', False, 'vd "Tháng 09/2026", "Quý 3/2026"')],
    '{title, subtitle, columns, rows[{stt, date, route, distance_km, trips, km, odo, ton, fuel, depot, norm, owner, ticket_nos, _b?}], totalsRow, odo{readings, segments[{fromText, toText, odoStart, odoEnd, odoKm, trips, routeKm, diffKm, diffPct, fuel, per100}], total}, summary{trips, km, ton, fuel, norm, per100, odoKm, odoRouteKm, odoDiffKm, odoDiffPct, per100Odo}}', ['VALIDATION_FAILED', 'NOT_FOUND'], ['PHIEU_CAN', 'GIAO_NHAN_DAU', 'TUYEN_VC', 'PRICE_HISTORY', 'HOP_DONG', 'HOP_DONG_XE', 'DON_VI'])
+ep('reports.reconciliationStatement', 'Báo cáo', 'Biên bản đối chiếu công nợ và cước vận chuyển theo kỳ, có tiền dầu cấn trừ và chi tiết theo xe', ALL,
+   [('periodId', 'string', True, '')], '{periodCode, freight, fuel, netPayable, byPlate}', ['NOT_FOUND', 'INTEGRITY_ERROR'], ['KY_TINH', 'BKVC_LINE', 'FUEL_DETAIL', 'GIAO_NHAN_DAU', 'HOP_DONG', 'DON_VI', 'CONFIG'])
+ep('reports.fleetTimeline', 'Báo cáo', 'Lịch trình từng xe, phân bố theo giờ và thời gian cân / quay vòng với các phiếu đủ giờ', ALL,
+   [('periodId', 'string', False, ''), ('date', 'date', False, 'ngày cân 1, khi không chỉ định kỳ'), ('plateNo', 'string', False, '')],
+   '{periodCode, date, totalTickets, totalPlates, hourlyDistribution, peakHours, bottlenecks, vehicles}', ['NOT_FOUND'], ['KY_TINH', 'PHIEU_CAN', 'TRANSPORT_DETAIL'])
 ep('reports.export', 'Báo cáo', 'Xuất file ra đường dẫn đã chọn (XLSX: exceljs; PDF: in HTML báo cáo bằng printToPDF; CSV: UTF-8 BOM)', ALL,
-   [('report', 'enum(BKVC|BKCT|PRICING|PRICING_SHEET|FUEL_HANDOVER|CONTRACT_BASIS|INVOICE|MISA|TICKETS|FUEL_LIST|VOLUME|VEHICLE_LOG)', True, 'PRICING_SHEET = bảng tính đơn giá mẫu in; FUEL_HANDOVER = biên bản giao nhận dầu diesel (XLSX/PDF); MISA: chỉ XLSX, chỉ bên vận chuyển'), ('format', 'enum(XLSX|CSV|PDF)', True, ''), ('params', 'object', True, 'như API báo cáo tương ứng'),
+   [('report', 'enum(BKVC|BKCT|PRICING|PRICING_SHEET|FUEL_HANDOVER|CONTRACT_BASIS|INVOICE|MISA|TICKETS|FUEL_LIST|VOLUME|VEHICLE_LOG|RECONCILIATION_STATEMENT)', True, 'PRICING_SHEET = bảng tính đơn giá mẫu in; FUEL_HANDOVER = biên bản giao nhận dầu diesel (XLSX/PDF); MISA: chỉ XLSX, chỉ bên vận chuyển'), ('format', 'enum(XLSX|CSV|PDF)', True, ''), ('params', 'object', True, 'như API báo cáo tương ứng'),
     ('targetPath', 'string', True, 'từ dialog.saveFile')],
    '{path, sizeBytes, warnings}', ['NOT_FOUND', 'STORAGE_ERROR', 'FORBIDDEN'], [], [], 'EXPORT')
 ep('reports.misa', 'Báo cáo', 'Dữ liệu hóa đơn theo mẫu MISA meInvoice "Hóa đơn GTGT 1 thuế suất": 1 kỳ = 1 hóa đơn, mỗi xe 1 dòng; VAT = làm tròn(tổng tiền hàng × thuế suất)', ALL,
    [('periodId', 'string', False, ''), ('periodIds', 'string[]', False, 'nhiều kỳ → nhiều hóa đơn trong 1 file'), ('invoiceDate', 'date', False, 'mặc định ngày lập báo cáo của kỳ')],
    '{invoices:[{no, date, buyer, payment, currency, vatPct, vat, lines, totals, bkvc}], warnings}', ['NOT_FOUND', 'FORBIDDEN'], ['KY_TINH', 'BKVC_LINE', 'DON_VI', 'CONFIG'])
-ep('reports.print', 'Báo cáo', 'In trực tiếp BKVC / Bảng tính đơn giá / Biên bản giao nhận dầu / BKCT (hộp thoại in của Windows)', ALL, [('report', 'enum(BKVC|PRICING_SHEET|FUEL_HANDOVER|CONTRACT_BASIS|BKCT|PRICING|TICKETS|FUEL_LIST|VOLUME|VEHICLE_LOG)', True, ''), ('params', 'object', True, '')], '{printed}', audit='PRINT')
+ep('reports.print', 'Báo cáo', 'In trực tiếp BKVC / Bảng tính đơn giá / Biên bản giao nhận dầu / BKCT (hộp thoại in của Windows)', ALL, [('report', 'enum(BKVC|PRICING_SHEET|FUEL_HANDOVER|CONTRACT_BASIS|BKCT|PRICING|TICKETS|FUEL_LIST|VOLUME|VEHICLE_LOG|RECONCILIATION_STATEMENT)', True, ''), ('params', 'object', True, '')], '{printed}', audit='PRINT')
 ep('dashboard.summary', 'Báo cáo', 'Dashboard', ALL,
    [('dateFrom', 'date', True, ''), ('dateTo', 'date', True, ''), ('routeCode', 'string', False, ''), ('contractId', 'string', False, ''), ('ownerUnitCode', 'string', False, '')],
    '{trips, kg, ton, actualFuel, standardFuel, fuelDiff, avgTransportPrice (bình quân gia quyền theo tấn), routeCount, unassignedTickets, flaggedTickets}', [],
@@ -428,8 +433,13 @@ ep('reconcile.compare', 'Đối chiếu', 'Đối chiếu dữ liệu của đ�
    '{source{fileName, sourceText, rows, unreadable, duplicates}, dateFrom, dateTo, summary{KHOP,LECH,KHAC_SO_PHIEU,THIEU_BEN_MINH,THIEU_BEN_KIA}, totals, rows[{kind, date, plateNo, ticketNo, theirTicketNo, mineKg, theirKg, diffKg, fields, periodCode}], byPlate, matched, problems}',
    errors=['VALIDATION_FAILED', 'INTEGRITY_ERROR', 'E_MAPPING_REQUIRED'],
    reads=['PHIEU_CAN', 'TRANSPORT_DETAIL', 'KY_TINH'])
+ep('reconcile.transitLoss', 'Đối chiếu', 'Đối chiếu hao hụt giữa hai đầu cân theo biển số và khoảng thời gian', ALL,
+   [('departureFilePath', 'string', False, 'mặc định dùng phiếu nội bộ'), ('destinationFilePath', 'string', False, 'file đầu đến'),
+    ('batchId', 'string', False, 'đợt đầu đến thay cho file'), ('tolerancePct', 'number', False, 'mặc định 0,5%, chấp nhận 0%'),
+    ('dateFrom', 'date', False, ''), ('dateTo', 'date', False, ''), ('maxHours', 'number', False, 'mặc định 24 giờ')],
+   '{tolerancePct, summary, rows, byPlate}', ['VALIDATION_FAILED', 'NOT_FOUND', 'INTEGRITY_ERROR', 'E_MAPPING_REQUIRED'], ['PHIEU_CAN'])
 ep('reconcile.export', 'Đối chiếu', 'Xuất Excel kết quả đối chiếu (nhiều sheet: Tổng hợp · Chi tiết …)', ALL,
-   [('kind', 'enum(AUDIT|COMPARE)', True, ''), ('params', 'object', True, 'như reconcile.audit / reconcile.compare'), ('targetPath', 'string', False, 'từ dialog.saveFile')],
+   [('kind', 'enum(AUDIT|COMPARE|TRANSIT_LOSS)', True, ''), ('params', 'object', True, 'như reconcile.audit / reconcile.compare / reconcile.transitLoss'), ('targetPath', 'string', False, 'từ dialog.saveFile')],
    '{path, sizeBytes}', ['VALIDATION_FAILED', 'STORAGE_ERROR'], [], [], 'EXPORT')
 
 # ------------------------------------------------------------ Hành động bổ sung
