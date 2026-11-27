@@ -25,12 +25,20 @@ jobs:
           npx playwright-core install --with-deps chromium
           echo "CHROMIUM_PATH=$(node -e "console.log(require('playwright-core').chromium.executablePath())")" >> "$GITHUB_ENV"
       - name: Chạy toàn bộ test (không được bỏ qua test nào)
+        env:
+          DGVC_PROFILE_SHOT: ${{ runner.temp }}/mau-nhap-excel.png
         run: |
           rc=0; xvfb-run -a npm test > /tmp/test.log 2>&1 || rc=$?
           grep -E -A12 '^not ok' /tmp/test.log || true   # in tên + lỗi của test đỏ để chẩn đoán
           tail -12 /tmp/test.log
           [ "$rc" -eq 0 ]
           grep -E '^# skipped 0$' /tmp/test.log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mau-nhap-excel-chromium
+          path: ${{ runner.temp }}/mau-nhap-excel.png
+          if-no-files-found: error
 
   test-sqlite:
     # Giai đoạn 1 kế hoạch lưu trữ: cùng bộ test chạy trên kho SQLite (cờ DGVC_STORAGE=sqlite, chỉ dev/CI) + parity JSON ↔ SQLite + kill -9

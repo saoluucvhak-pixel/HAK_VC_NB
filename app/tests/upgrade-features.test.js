@@ -134,3 +134,29 @@ test('Hao hụt hai đầu cân chấp nhận định mức 0% và từ chối g
   await assert.rejects(reconcile.transitLoss({ tolerancePct: Infinity }), { code: 'VALIDATION_FAILED' });
   await assert.rejects(reconcile.transitLoss({ maxHours: -1 }), { code: 'VALIDATION_FAILED' });
 });
+
+test('Biên bản công nợ Excel giữ phần lẻ và ghi đúng đơn vị m³', async (t) => {
+  const { tmpdir } = require('node:os');
+  const { Workbook } = require('exceljs');
+  const { writeReconciliationStatement } = require('../main/reports/xlsxExport');
+  const dir = fs.mkdtempSync(path.join(tmpdir(), 'dgvc-cong-no-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'cong-no.xlsx');
+  const party = { unitName: 'Đơn vị thử', signer: { name: 'Người thử', title: 'Đại diện' } };
+  await writeReconciliationStatement({
+    carrier: party, customer: party, signers: { carrier: party, customer: party }, periodCode: 'KT', dateText: 'ngày 27/11/2026',
+    freight: { trips: 1, ton: 8.75, uomLabel: 'm³', amount: 100, vatPct: 10, vat: 10, total: 110 },
+    fuel: { qty: 1.25, avgPrice: 20, amount: 25 },
+    byPlate: [], netPayable: 85, netPayableWords: 'Tám mươi lăm đồng'
+  }, file);
+  const wb = new Workbook();
+  await wb.xlsx.readFile(file);
+  const ws = wb.getWorksheet(1);
+  const cells = [];
+  ws.eachRow((row) => row.eachCell((cell) => cells.push(cell)));
+  for (const qty of [8.75, 1.25]) {
+    const quantity = cells.find((cell) => cell.col === 7 && cell.value === qty);
+    assert.equal(quantity?.numFmt, '#,##0.00');
+  }
+  assert.ok(cells.some((cell) => cell.value === 'Khối lượng (m³)'));
+});

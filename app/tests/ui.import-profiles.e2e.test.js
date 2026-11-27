@@ -117,7 +117,10 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await button('Đặt mẫu này làm mặc định').click();
     await page.getByText('Mặc định: Nhà cung cấp A', { exact: true }).waitFor();
     if (process.env.DGVC_PROFILE_SHOT) {
-      await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+        window.scrollTo(0, 0);
+      });
       await page.screenshot({ path: process.env.DGVC_PROFILE_SHOT, fullPage: true, style: '.toast { visibility: hidden }' });
     }
 
