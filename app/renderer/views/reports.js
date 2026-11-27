@@ -40,7 +40,12 @@
     async render(p) {
       const frame = h('iframe', { class: 'preview', title: 'Xem trước chứng từ in' }); const side = h('div');
       let pid = ''; let doc = p.doc || 'BKVC';
-      const DOCS = [['BKVC', 'Bảng xác nhận khối lượng'], ['PRICING_SHEET', 'Bảng tính đơn giá'], ['FUEL_HANDOVER', 'Biên bản giao nhận dầu']];
+      const DOCS = [
+        ['BKVC', 'Bảng xác nhận khối lượng'],
+        ['RECONCILIATION_STATEMENT', 'Biên bản đối chiếu công nợ'],
+        ['PRICING_SHEET', 'Bảng tính đơn giá'],
+        ['FUEL_HANDOVER', 'Biên bản giao nhận dầu']
+      ];
       const tabs = h('div', { class: 'tabs', role: 'tablist' });
       const show = async (k) => {
         doc = k; tabs.innerHTML = '';
@@ -53,7 +58,7 @@
         ...DOCS.slice(1).map(([key, t]) => h('div', { style: { marginBottom: '10px' } }, h('div', { class: 'b', style: { fontWeight: 600, marginBottom: '4px' } }, t),
           h('div', { class: 'btns' }, h('button', { class: 'btn small', onclick: () => show(key) }, 'Xem'), h('button', { class: 'btn small', onclick: async () => { await D.api('reports.print', { report: key, params: { periodId: pid } }); } }, 'In'),
             ...exportBtns(key, () => ({ periodId: pid }), ['PDF', 'XLSX']).map((b) => { b.classList.add('small'); b.classList.remove('primary'); return b; })))),
-        h('p', { class: 'small muted' }, 'Bảng tính đơn giá: 20 chỉ tiêu đánh số, có công thức và thay số. Biên bản giao nhận dầu: chi tiết từng lần nhận, tổng hợp theo xe, kết luận — mỗi bên giao 1 biên bản.'));
+        h('p', { class: 'small muted' }, 'Biên bản đối chiếu công nợ: tổng hợp cước, khấu trừ dầu cấp, xác định số tiền thanh toán ròng (Net Pay) và khung chữ ký 2 bên. Bảng tính đơn giá: 20 chỉ tiêu đánh số, có công thức và thay số. Biên bản giao nhận dầu: chi tiết từng lần nhận, tổng hợp theo xe.'));
       const load = async (id) => {
         pid = id; if (!pid) return;
         const d = await D.api('reports.bkvc', { periodId: pid });
@@ -72,7 +77,7 @@
           docCard(), d.header.canInvoice ? misaBox(pid, d) : ''));
       };
       const pk = await periodPicker(p, load);
-      const page = D.page('Bảng xác nhận KL & chứng từ in', '7 · BKVC · Bảng tính đơn giá · Biên bản giao nhận dầu', [h('label', { class: 'field wide' }, h('span', {}, 'Kỳ'), pk.sel)], h('div', { class: 'grid doc-split' }, h('div', { class: 'card' }, tabs, frame), side));
+      const page = D.page('Bảng xác nhận KL & chứng từ in', '7 · BKVC · Biên bản đối chiếu công nợ · Bảng tính đơn giá · Biên bản giao nhận dầu', [h('label', { class: 'field wide' }, h('span', {}, 'Kỳ'), pk.sel)], h('div', { class: 'grid doc-split' }, h('div', { class: 'card' }, tabs, frame), side));
       await load(pk.first);
       return page;
     },

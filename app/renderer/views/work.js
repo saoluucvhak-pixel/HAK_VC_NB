@@ -263,7 +263,12 @@
           if (st === 'DA_XAC_NHAN' && unlocker) btns.push(act('Trả về nháp', async () => { const r = await D.confirm({ title: 'Trả kỳ về nháp', message: 'Kỳ về nháp để sửa / tính lại.', reason: true }); if (r) { await D.api('periods.reopen', { periodId: saved.period_id, rowVersion: saved.row_version, reason: r }); reload(); } }));
           if (['DA_XAC_NHAN', 'DA_KHOA'].includes(st)) btns.push(act('Xuất gói gửi bên thuê', async () => { const x = await D.api('exchange.exportPackage', { packageType: 'KY_TINH', periodIds: [saved.period_id] }); D.toast(`Đã xuất gói: ${x.file}`, 'ok', 8000); }));
         }
-        btns.push(act('Bảng xác nhận KL', () => D.go('bkvc', { periodId: saved.period_id })), act('Chi tiết vận chuyển', () => D.go('bkct', { periodId: saved.period_id })));
+        btns.push(
+          act('Bảng xác nhận KL', () => D.go('bkvc', { periodId: saved.period_id })),
+          act('Biên bản đối chiếu công nợ', () => D.go('bkvc', { periodId: saved.period_id, doc: 'RECONCILIATION_STATEMENT' })),
+          act('Chi tiết vận chuyển', () => D.go('bkct', { periodId: saved.period_id })),
+          act('Lịch trình & Năng suất xe', () => D.go('fleetTimeline', { periodId: saved.period_id }))
+        );
         card.append(h('div', { class: 'btns' }, btns));
         return card;
       };
@@ -347,4 +352,152 @@
   const FUEL_COLS = D.FUEL_COLS = [{ key: 'receive_date', label: 'Ngày nhận', fmt: 'date' }, { key: 'route_code', label: 'Tuyến' }, { key: 'fuel_vehicle_code', label: 'Mã xe trong file' },
     { key: 'plate_no', label: 'Biển số' }, { key: 'uom', label: 'ĐVT' }, { key: 'qty_liter', label: 'Số lít', fmt: 'auto' }, { key: 'fuel_price_excl_vat', label: 'Đơn giá (chưa VAT)', fmt: 'auto' },
     { key: 'purchase_date', label: 'Ngày mua', fmt: 'date' }, { key: 'giver_unit_code', label: 'Bên giao' }, { key: 'fuel_depot', label: 'Kho nhận dầu' }];
+
+  // ───────── Biểu đồ Lịch trình & Năng suất Đội xe (Fleet Timeline & Bottleneck Radar) ─────────
+  D.views.fleetTimeline = {
+    async render(p = {}) {
+      const periodRes = await D.api('periods.list', {}).catch(() => ({ items: [] }));
+      const periods = (periodRes.items || []).filter((x) => x.status !== 'HUY');
+      const periodOpts = [
+        ['', '— Chọn theo Kỳ tính —'],
+        ...periods.map((pr) => [pr.period_id, `${pr.period_code} · ${pr.contract_code || pr.contract_id} (${D.dmy(pr.date_from)} → ${D.dmy(pr.date_to)})`])
+      ];
+
+      const f = D.form([
+        { key: 'periodId', label: 'Kỳ tính', type: 'select', options: periodOpts },
+        { key: 'date', label: 'Hoặc lọc theo ngày', type: 'date' },
+        { key: 'plateNo', label: 'Biển số xe', type: 'text', placeholder: 'Tất cả xe' }
+      ], {
+        periodId: p.periodId || (periods[0] && periods[0].period_id) || '',
+        date: p.date || '',
+        plateNo: p.plateNo || ''
+      });
+      f.className = 'filters';
+
+      const out = h('div');
+
+      const load = async () => {
+        out.innerHTML = '<p class="muted">Đang tải biểu đồ lịch trình và phân tích năng suất đội xe...</p>';
+        try {
+          const d = await D.api('reports.fleetTimeline', f.values());
+          out.innerHTML = '';
+
+          // 1. KPIs
+          const maxHourly = Math.max(1, ...d.hourlyDistribution.map((h) => h.count));
+          out.append(h('div', { class: 'kpis' },
+            kpi('Tổng số xe chạy', D.vn(d.totalPlates), `${D.vn(d.totalTickets)} chuyến vận chuyển`, 'main'),
+            kpi('Kẹt trạm cân (> 45p)', D.vn(d.bottlenecks.length), 'Cần kiểm tra trạm cân', d.bottlenecks.length ? 'bad' : 'ok'),
+            kpi('Giờ cao điểm kẹt nhất', d.peakHours.length ? `${String(d.peakHours[0].hour).padStart(2, '0')}:00 – ${String(d.peakHours[0].hour + 1).padStart(2, '0')}:00` : '—', d.peakHours.length ? `${d.peakHours[0].count} chuyến vào cân` : '', 'warn')
+          ));
+
+          // 2. Bottlenecks Radar nếu có
+          if (d.bottlenecks.length) {
+            out.append(h('div', { class: 'anomaly-radar-card' },
+              h('div', { class: 'anomaly-radar-header' },
+                h('h3', {}, h('span', {}, '⏱️'), `Radar Điểm nghẽn Trạm cân (${d.bottlenecks.length} chuyến chờ quá lâu)`),
+                h('span', { class: 'small muted' }, 'Thời gian từ Cân lần 1 đến Cân lần 2 vượt quá 45 phút — gây ứ đọng cả đoàn xe')
+              ),
+              h('div', { class: 'stack', style: { gap: '4px' } }, d.bottlenecks.slice(0, 10).map((b) =>
+                h('div', { class: 'anomaly-item' },
+                  h('span', { class: `anomaly-badge ${b.severity === 'err' ? 'danger' : 'warn'}` }, b.issue),
+                  h('span', { class: 'anomaly-text' }, `Xe ${b.plateNo} · Phiếu ${b.ticketNo} · Ngày ${D.dmy(b.date)}: Vào cân ${b.weigh1Time} → Ra cân ${b.weigh2Time} (${b.durationMin} phút, Tuyến ${b.routeCode}, ${b.netTon} tấn)`)
+                )
+              ))
+            ));
+          }
+
+          // 3. Biểu đồ Giờ cao điểm (Hourly Congestion Heatmap)
+          const barCols = d.hourlyDistribution.map((hRow) => {
+            const pctHeight = Math.max(2, Math.round((hRow.count / maxHourly) * 90));
+            const isPeak = d.peakHours.some((ph) => ph.hour === hRow.hour);
+            return h('div', { class: 'hourly-bar-col', title: `Khung ${hRow.hour}:00 – ${hRow.hour + 1}:00: ${hRow.count} chuyến (${D.vn(hRow.ton, 1)} tấn)` },
+              hRow.count > 0 ? h('div', { class: 'hourly-count-tip' }, String(hRow.count)) : null,
+              h('div', { class: `hourly-bar ${isPeak ? 'peak' : ''}`, style: { height: `${pctHeight}%` } }),
+              h('div', { class: 'hourly-label' }, `${hRow.hour}h`)
+            );
+          });
+
+          out.append(h('div', { class: 'card' },
+            h('div', { class: 'card-h' },
+              h('h2', {}, 'Mật độ vào trạm cân theo 24 giờ trong ngày (Hourly Peak Congestion)'),
+              h('span', { class: 'small muted' }, 'Cột vàng = Khung giờ cao điểm có nguy cơ kẹt trạm cân cao nhất')
+            ),
+            h('div', { class: 'hourly-chart-container' }, barCols)
+          ));
+
+          // 4. Trực quan hóa Lịch trình Trục 24h (Fleet Timeline 24h)
+          const hourMarkers = ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00', '24:00'];
+          const axis = h('div', { class: 'timeline-axis' },
+            hourMarkers.map((txt) => h('span', {}, txt))
+          );
+
+          const vehicleRows = d.vehicles.slice(0, 25).map((veh) => {
+            const pills = veh.trips.map((t) => {
+              const startPct = Math.min(99, Math.max(0, (t.startMin / 1440) * 100));
+              const dur = Math.max(15, t.durationMin || 30);
+              const widthPct = Math.min(100 - startPct, Math.max(1.8, (dur / 1440) * 100));
+              const isBottleneck = (t.durationMin || 0) > 45;
+              return h('div', {
+                class: `timeline-pill ${isBottleneck ? 'bottleneck' : 'normal'}`,
+                style: { left: `${startPct}%`, width: `${widthPct}%` },
+                title: `Xe ${veh.plateNo} · Phiếu ${t.ticketNo} · Tuyến ${t.routeCode}\nCân 1: ${t.weigh1Time} → Cân 2: ${t.weigh2Time} (${dur} phút)\nKhối lượng: ${t.netTon} tấn`
+              }, `${t.routeCode} (${t.netTon}t)`);
+            });
+
+            return h('div', { class: 'timeline-vehicle-row' },
+              h('div', { class: 'timeline-plate-label' }, veh.plateNo),
+              h('div', { class: 'timeline-track' }, pills)
+            );
+          });
+
+          out.append(h('div', { class: 'fleet-timeline-card' },
+            h('div', { class: 'card-h' },
+              h('h2', {}, `Trục thời gian chạy xe 24h (Timeline Tracker)`),
+              h('span', { class: 'small muted' }, 'Thanh xanh = Chuyến bình thường · Thanh đỏ = Chuyến bị nghẽn trạm cân (> 45p)')
+            ),
+            axis,
+            vehicleRows
+          ));
+
+          // 5. Bảng xếp hạng năng suất đội xe
+          out.append(h('div', { class: 'card flush' },
+            h('div', { class: 'card-h' }, h('h2', {}, `Bảng xếp hạng năng suất đội xe (${d.vehicles.length} xe)`)),
+            D.table({
+              rows: d.vehicles,
+              columns: [
+                { key: 'plateNo', label: 'Biển số xe', render: (r) => h('b', {}, r.plateNo) },
+                { key: 'tripCount', label: 'Số chuyến', fmt: 'int' },
+                { key: 'totalTon', label: 'Sản lượng (Tấn)', fmt: 'dec2' },
+                { key: 'avgDurationMin', label: 'Thời gian cân TB', render: (r) => `${r.avgDurationMin} phút` },
+                { key: 'avgTurnaroundMin', label: 'Quay vòng TB', render: (r) => (r.avgTurnaroundMin ? `${r.avgTurnaroundMin} phút` : '—') },
+                { key: 'impossibleTurnaroundCount', label: 'Quay vòng < 45p', render: (r) => (r.impossibleTurnaroundCount ? h('span', { class: 'tag warn' }, `${r.impossibleTurnaroundCount} chuyến`) : '0') }
+              ]
+            })
+          ));
+
+        } catch (err) {
+          out.innerHTML = `<p class="err-box">${D.errorText(err)}</p>`;
+        }
+      };
+
+      f.inputs.periodId.addEventListener('change', load);
+      f.inputs.date.addEventListener('change', load);
+
+      const page = D.page(
+        'Lịch trình & Năng suất Đội xe',
+        'Phân tích trục thời gian 24h · Điểm nghẽn trạm cân · Xếp hạng năng suất đoàn xe',
+        [],
+        h('div', { class: 'card' },
+          h('div', { class: 'filters' }, f),
+          h('div', { class: 'btns', style: { marginTop: '8px' } },
+            h('button', { class: 'btn primary', onclick: load }, '🔍 Xem lịch trình & Năng suất')
+          )
+        ),
+        out
+      );
+
+      await load();
+      return page;
+    }
+  };
 })();

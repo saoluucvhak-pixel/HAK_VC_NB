@@ -337,6 +337,249 @@ class ReportService {
       rounding: { contractDigits: cfg.roundContractDigits, mode: cfg.roundPriceMode, int64: cfg.pqInt64Cast }, rows };
   }
 
+  /**
+   * BIÊN BẢN ĐỐI CHIẾU CÔNG NỢ VÀ CƯỚC VẬN CHUYỂN: A4 dọc, tổng hợp cước phát sinh, nhiên liệu cấp cấn trừ,
+   * Net Pay (số tiền thực thanh toán ròng), bảng kê chi tiết theo xe và khung chữ ký 2 bên.
+   */
+  reconciliationStatement({ periodId }) {
+    const p = this._period(periodId);
+    const s = this.store;
+    const { contract, cfg, signers, periodText, placeDate } = this._meta(p);
+    const bk = this.bkvc({ periodId });
+
+    let totalFuelQty = 0;
+    let totalFuelAmount = 0;
+    let fuelHandoverDoc = null;
+    try {
+      fuelHandoverDoc = this.fuelHandover({ periodId });
+      if (fuelHandoverDoc && fuelHandoverDoc.docs && fuelHandoverDoc.docs.length) {
+        for (const doc of fuelHandoverDoc.docs) {
+          totalFuelQty += doc.totals.qty;
+          totalFuelAmount += doc.totals.amount;
+        }
+      }
+    } catch {
+      // Kỳ không có dầu
+    }
+
+    const fuelAvgPrice = totalFuelQty > 0 ? Math.round(totalFuelAmount / totalFuelQty) : 0;
+    const totalFreight = bk.totals.total;
+    const netPayable = totalFreight - totalFuelAmount;
+
+    const plateMap = new Map();
+    for (const l of bk.lines) {
+      plateMap.set(l.plate_no, {
+        plateNo: l.plate_no,
+        trips: l.trip_count,
+        ton: l.ton,
+        uom: l.uom,
+        freightAmount: l.amount_incl_vat,
+        fuelQty: 0,
+        fuelAmount: 0,
+        netPayable: l.amount_incl_vat
+      });
+    }
+
+    if (fuelHandoverDoc && fuelHandoverDoc.docs) {
+      for (const doc of fuelHandoverDoc.docs) {
+        for (const bp of doc.byPlate) {
+          if (plateMap.has(bp.plateNo)) {
+            const row = plateMap.get(bp.plateNo);
+            row.fuelQty += bp.qty;
+            row.fuelAmount += bp.amount;
+            row.netPayable -= bp.amount;
+          } else {
+            plateMap.set(bp.plateNo, {
+              plateNo: bp.plateNo,
+              trips: 0,
+              ton: 0,
+              uom: 'tấn',
+              freightAmount: 0,
+              fuelQty: bp.qty,
+              fuelAmount: bp.amount,
+              netPayable: -bp.amount
+            });
+          }
+        }
+      }
+    }
+
+    const byPlate = [...plateMap.values()].sort((a, b) => a.plateNo.localeCompare(b.plateNo));
+    const rd = p.report_date || today();
+
+    return {
+      title: 'BIÊN BẢN ĐỐI CHIẾU CÔNG NỢ VÀ CƯỚC VẬN CHUYỂN',
+      periodCode: p.period_code,
+      periodText,
+      status: p.status,
+      contractNo: contract.contract_no || contract.contract_code,
+      contractDate: contract.effective_from || '',
+      carrier: { ...signers.carrier, address: noCountry(signers.carrier.address) },
+      customer: { ...signers.customer, address: noCountry(signers.customer.address) },
+      signers,
+      placeDate,
+      dateText: `ngày ${rd.slice(8, 10)} tháng ${rd.slice(5, 7)} năm ${rd.slice(0, 4)}`,
+      signPlace: contract.sign_place || '',
+      freight: {
+        trips: bk.totals.trips,
+        kg: bk.totals.kg,
+        ton: bk.totals.ton,
+        uomLabel: bk.uomLabel,
+        amount: bk.totals.amount,
+        vatPct: bk.header.vatPct,
+        vat: bk.totals.vat,
+        total: bk.totals.total
+      },
+      fuel: {
+        hasFuel: totalFuelQty > 0,
+        qty: Math.round(totalFuelQty * 100) / 100,
+        avgPrice: fuelAvgPrice,
+        amount: totalFuelAmount
+      },
+      netPayable,
+      netPayableWords: E.numberToVietnameseWords(netPayable, { thousand: cfg.amountWordsThousand, suffix: cfg.amountWordsSuffix }),
+      byPlate
+    };
+  }
+
+  /**
+   * ĐỒ THỊ TRỰC QUAN HÓA LỊCH TRÌNH & THỜI GIAN CHẾT CỦA ĐỘI XE:
+   * Phân tích trục thời gian 24h, thời gian cân, thời gian quay vòng (turnaround), phát hiện ùn tắc trạm cân (> 45 phút) và xếp hạng năng suất xe.
+   */
+  fleetTimeline({ periodId = '', date = '', plateNo = '' } = {}) {
+    const s = this.store;
+    let tickets = [];
+    let periodCode = '';
+    if (periodId) {
+      const p = this._period(periodId);
+      periodCode = p.period_code;
+      const tIds = new Set(s.find('TRANSPORT_DETAIL', (d) => d.period_id === periodId && d.is_current).map((d) => d.ticket_id));
+      tickets = s.all('PHIEU_CAN').filter((t) => !t.is_deleted && tIds.has(t.ticket_id));
+    } else if (date) {
+      tickets = s.all('PHIEU_CAN').filter((t) => !t.is_deleted && t.weigh1_date === date);
+    } else {
+      const allP = s.all('KY_TINH').filter((x) => x.status !== 'HUY').sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      if (allP.length) {
+        return this.fleetTimeline({ periodId: allP[0].period_id, plateNo });
+      }
+      tickets = s.all('PHIEU_CAN').filter((t) => !t.is_deleted);
+    }
+
+    if (plateNo) {
+      tickets = tickets.filter((t) => t.plate_no === plateNo);
+    }
+
+    const toMin = (t) => {
+      if (!t) return null;
+      const parts = t.split(':').map((x) => Number(x) || 0);
+      return parts[0] * 60 + parts[1];
+    };
+
+    const hourlyDistribution = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: 0, ton: 0 }));
+    const bottlenecks = [];
+    const vehicleTripsMap = new Map();
+
+    for (const t of tickets) {
+      const t1 = toMin(t.weigh1_time);
+      const t2 = toMin(t.weigh2_time);
+      const hour = t1 != null ? Math.floor(t1 / 60) : 0;
+      if (hour >= 0 && hour < 24) {
+        hourlyDistribution[hour].count++;
+        hourlyDistribution[hour].ton = Math.round((hourlyDistribution[hour].ton + (t.net_kg || 0) / 1000) * 100) / 100;
+      }
+
+      let durationMin = null;
+      if (t1 != null && t2 != null) {
+        durationMin = t2 - t1;
+        if (t.weigh2_date && t.weigh1_date && t.weigh2_date > t.weigh1_date) {
+          durationMin += 1440;
+        } else if (durationMin < 0) {
+          durationMin += 1440;
+        }
+      }
+
+      const tripInfo = {
+        ticketId: t.ticket_id,
+        ticketNo: t.ticket_no,
+        plateNo: t.plate_no,
+        date: t.weigh1_date,
+        weigh1Time: t.weigh1_time || '00:00',
+        weigh2Time: t.weigh2_time || '00:00',
+        startMin: t1 ?? 0,
+        endMin: (t2 ?? t1) ?? 0,
+        durationMin,
+        netKg: t.net_kg || 0,
+        netTon: Math.round((t.net_kg || 0) / 10) / 100,
+        routeCode: t.route_code || ''
+      };
+
+      if (durationMin != null && durationMin > 45) {
+        bottlenecks.push({
+          ...tripInfo,
+          severity: durationMin > 90 ? 'err' : 'warn',
+          issue: `Chờ cân ${durationMin} phút (> 45 phút)`
+        });
+      }
+
+      if (!vehicleTripsMap.has(t.plate_no)) {
+        vehicleTripsMap.set(t.plate_no, []);
+      }
+      vehicleTripsMap.get(t.plate_no).push(tripInfo);
+    }
+
+    const vehicles = [];
+    for (const [pNo, vTrips] of vehicleTripsMap.entries()) {
+      vTrips.sort((a, b) => (a.date + a.weigh1Time).localeCompare(b.date + b.weigh1Time));
+
+      let totalDuration = 0;
+      let totalIdle = 0;
+      let impossibleTurnaroundCount = 0;
+
+      for (let i = 0; i < vTrips.length; i++) {
+        const cur = vTrips[i];
+        if (cur.durationMin != null) totalDuration += cur.durationMin;
+
+        if (i < vTrips.length - 1) {
+          const next = vTrips[i + 1];
+          let gap = next.startMin - cur.endMin;
+          if (next.date > cur.date) gap += 1440;
+          if (gap >= 0) {
+            totalIdle += gap;
+            cur.turnaroundNextMin = gap;
+            if (gap < 45) impossibleTurnaroundCount++;
+          }
+        }
+      }
+
+      const totalTon = vTrips.reduce((a, b) => a + b.netTon, 0);
+      vehicles.push({
+        plateNo: pNo,
+        tripCount: vTrips.length,
+        totalTon: Math.round(totalTon * 100) / 100,
+        avgDurationMin: vTrips.length ? Math.round(totalDuration / vTrips.length) : 0,
+        avgTurnaroundMin: vTrips.length > 1 ? Math.round(totalIdle / (vTrips.length - 1)) : 0,
+        impossibleTurnaroundCount,
+        trips: vTrips
+      });
+    }
+
+    vehicles.sort((a, b) => b.tripCount - a.tripCount || b.totalTon - a.totalTon);
+    bottlenecks.sort((a, b) => (b.durationMin || 0) - (a.durationMin || 0));
+    const peakHours = [...hourlyDistribution].sort((a, b) => b.count - a.count).slice(0, 3).filter((h) => h.count > 0);
+
+    return {
+      periodCode,
+      date,
+      plateNo,
+      totalTickets: tickets.length,
+      totalPlates: vehicles.length,
+      hourlyDistribution,
+      peakHours,
+      bottlenecks,
+      vehicles
+    };
+  }
+
   // ───────────── Báo cáo theo khoảng ngày (không theo kỳ) ─────────────
   _rangeText(dateFrom, dateTo) {
     return dateFrom || dateTo ? `( Từ ngày ${dmy(dateFrom) || '…'} đến ngày ${dmy(dateTo) || '…'} )` : '( Toàn bộ dữ liệu )';
@@ -539,6 +782,7 @@ class ReportService {
     if (report === 'PRICING_SHEET') return html.pricingSheet(this.pricingSheet(params));
     if (report === 'CONTRACT_BASIS') return html.contractBasis(this.contractBasis(params));
     if (report === 'FUEL_HANDOVER') return html.fuelHandover(this.fuelHandover(params));
+    if (report === 'RECONCILIATION_STATEMENT') return html.reconciliationStatement(this.reconciliationStatement(params));
     const b = { BKVC: () => this.bkvc(params), BKCT: () => this.bkct(params), PRICING: () => this.pricing(params), INVOICE: () => this.invoice(params),
       TICKETS: () => this.ticketList(params), FUEL_LIST: () => this.fuelList(params), VOLUME: () => this.volumeSummary(params), VEHICLE_LOG: () => this.vehicleLog(params) }[report];
     if (!b) throw new AppError('VALIDATION_FAILED', `Báo cáo không hỗ trợ: ${report}`);
@@ -548,6 +792,7 @@ class ReportService {
   async export({ report, format, params, targetPath }) {
     const builders = { BKVC: () => this.bkvc(params), BKCT: () => this.bkct(params), PRICING: () => this.pricing(params), INVOICE: () => this.invoice(params), MISA: () => this.misa(params),
       PRICING_SHEET: () => this.pricingSheet(params), FUEL_HANDOVER: () => this.fuelHandover(params), CONTRACT_BASIS: () => this.contractBasis(params),
+      RECONCILIATION_STATEMENT: () => this.reconciliationStatement(params),
       TICKETS: () => this.ticketList(params), FUEL_LIST: () => this.fuelList(params), VOLUME: () => this.volumeSummary(params), VEHICLE_LOG: () => this.vehicleLog(params) };
     if (!builders[report]) throw new AppError('VALIDATION_FAILED', `Báo cáo không hỗ trợ: ${report}`);
     const data = builders[report]();
@@ -557,8 +802,8 @@ class ReportService {
       await xlsx.writeMisa(data, targetPath);
       return { path: targetPath, sizeBytes: fs.statSync(targetPath).size, data, warnings: data.warnings };
     }
-    if (['PRICING_SHEET', 'FUEL_HANDOVER', 'CONTRACT_BASIS'].includes(report)) {
-      const W = { PRICING_SHEET: [xlsx.writePricingSheet, html.pricingSheet], FUEL_HANDOVER: [xlsx.writeFuelHandover, html.fuelHandover], CONTRACT_BASIS: [xlsx.writeContractBasis, html.contractBasis] }[report];
+    if (['PRICING_SHEET', 'FUEL_HANDOVER', 'CONTRACT_BASIS', 'RECONCILIATION_STATEMENT'].includes(report)) {
+      const W = { PRICING_SHEET: [xlsx.writePricingSheet, html.pricingSheet], FUEL_HANDOVER: [xlsx.writeFuelHandover, html.fuelHandover], CONTRACT_BASIS: [xlsx.writeContractBasis, html.contractBasis], RECONCILIATION_STATEMENT: [xlsx.writeReconciliationStatement, html.reconciliationStatement] }[report];
       if (format === 'XLSX') await W[0](data, targetPath);
       else if (format === 'HTML' || format === 'PDF') {
         const page = W[1](data);

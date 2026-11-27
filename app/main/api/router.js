@@ -162,11 +162,13 @@ const ROUTES = {
   }],
   'reports.misa': [null, (ctx, p) => ctx.svc.reports.misa(p)],
   'reports.contractBasis': [null, (ctx, p) => ctx.svc.reports.contractBasis(p)],
+  'reports.reconciliationStatement': [null, (ctx, p) => ctx.svc.reports.reconciliationStatement(p)],
+  'reports.fleetTimeline': [null, (ctx, p) => ctx.svc.reports.fleetTimeline(p)],
   'reports.tickets': [null, (ctx, p) => ctx.svc.reports.ticketList(p)],
   'reports.fuel': [null, (ctx, p) => ctx.svc.reports.fuelList(p)],
   'reports.volume': [null, (ctx, p) => ctx.svc.reports.volumeSummary(p)],
   'reports.vehicleLog': [null, (ctx, p) => ctx.svc.reports.vehicleLog(p)],
-  'reports.print': [null, (ctx, p, s, host) => host.print({ html: ctx.svc.reports.html(p), landscape: !['BKVC', 'PRICING_SHEET', 'FUEL_HANDOVER'].includes(p.report) })],
+  'reports.print': [null, (ctx, p, s, host) => host.print({ html: ctx.svc.reports.html(p), landscape: !['BKVC', 'PRICING_SHEET', 'FUEL_HANDOVER', 'RECONCILIATION_STATEMENT'].includes(p.report) })],
   // tổng quan, lịch sử, cấu hình
   'dashboard.summary': [null, (ctx, p) => ctx.svc.query.dashboard({ ...p, reminders: ctx.svc.sync.list(), backup: ctx.svc.backup.list() })],
   'audit.list': [null, (ctx, p) => ctx.svc.query.audit(p)],
@@ -213,6 +215,7 @@ const ROUTES = {
   // đối chiếu dữ liệu (chỉ đọc)
   'reconcile.audit': [null, (ctx, p) => ctx.svc.reconcile.audit(p)],
   'reconcile.compare': [null, (ctx, p) => ctx.svc.reconcile.compare(p)],
+  'reconcile.transitLoss': [null, (ctx, p) => ctx.svc.reconcile.transitLoss(p)],
   'reconcile.export': [null, async (ctx, p, s) => {
     const stamp = new Date().toISOString().slice(0, 10);
     const r = await ctx.svc.reconcile.export({ ...p, targetPath: p.targetPath || path.join(ctx.store.root, 'exports', `DoiChieu_${p.kind}_${stamp}.xlsx`) });

@@ -458,7 +458,321 @@ class ReconcileService {
       }
       return { company, title: 'BẢNG ĐỐI CHIẾU THUÊ VẬN CHUYỂN TOÀN DIỆN (3 TIÊU CHUẨN)', subtitle: sub, sheets };
     }
+    if (kind === 'TRANSIT_LOSS') {
+      const d = await this.transitLoss(params);
+      const sub = `( Đầu đi: ${d.departSourceText} · Đầu đến: ${d.destSourceText} · Định mức hao hụt: ${d.tolerancePct}% )`;
+      const sheets = [
+        {
+          name: 'Tong hop hao hut',
+          title: 'TỔNG HỢP KIỂM SOÁT HAO HỤT CUNG ĐƯỜNG',
+          columns: [
+            C('Chỉ tiêu', 'label'),
+            C('Giá trị', 'valueText'),
+            C('Ghi chú', 'note')
+          ],
+          rows: [
+            { label: 'Tổng số chuyến phân tích', valueText: d.summary.totalTrips, note: 'Tất cả các chuyến ghi nhận' },
+            { label: 'Số chuyến khớp 2 đầu cân', valueText: d.summary.matchedCount, note: 'Có đủ phiếu cân đi và đến' },
+            { label: 'Chuyến đạt định mức hao hụt', valueText: d.summary.normalCount, note: `Hao hụt ≤ ${d.tolerancePct}%` },
+            { label: 'Chuyến VƯỢT định mức hao hụt', valueText: d.summary.excessCount, note: `Hao hụt > ${d.tolerancePct}% (nghi ngờ rơi vãi/thất thoát)` },
+            { label: 'Chuyến bất thường (đến nặng hơn đi)', valueText: d.summary.negativeCount, note: 'Khối lượng đến > đi (+50kg)' },
+            { label: 'Chuyến thiếu đầu đến', valueText: d.summary.missingDestCount, note: 'Có cân xuất nhưng không thấy cân nhập' },
+            { label: 'Chuyến thiếu đầu đi', valueText: d.summary.missingDepartCount, note: 'Có cân nhập nhưng không tìm thấy cân xuất' },
+            { label: 'Tổng khối lượng đầu đi (Tấn)', valueText: d.summary.totalDepartTon, note: '' },
+            { label: 'Tổng khối lượng đầu đến (Tấn)', valueText: d.summary.totalDestTon, note: '' },
+            { label: 'Tổng lượng hao hụt (KG)', valueText: d.summary.totalLossKg, note: `${d.summary.totalLossTon} tấn` },
+            { label: 'Tỷ lệ hao hụt bình quân toàn đoàn (%)', valueText: `${d.summary.avgLossPct}%`, note: `Định mức cho phép: ${d.tolerancePct}%` }
+          ]
+        },
+        {
+          name: 'Theo xe',
+          title: 'HAO HỤT THEO TỪNG ĐẦU XE',
+          columns: [
+            C('Biển số xe', 'plateNo'),
+            C('Tổng chuyến', 'trips', 'int'),
+            C('Chuyến khớp', 'matchedTrips', 'int'),
+            C('KL đầu đi (Tấn)', 'departTon', 'num'),
+            C('KL đầu đến (Tấn)', 'destTon', 'num'),
+            C('Hao hụt (KG)', 'lossKg', 'int'),
+            C('Tỷ lệ hao hụt (%)', 'lossPct', 'num'),
+            C('Số chuyến vượt định mức', 'excessTrips', 'int'),
+            C('Số chuyến bất thường', 'negativeTrips', 'int')
+          ],
+          rows: d.byPlate
+        },
+        {
+          name: 'Chi tiet tung chuyen',
+          title: 'CHI TIẾT ĐỐI CHIẾU 2 ĐẦU CÂN TỪNG CHUYẾN',
+          columns: [
+            C('STT', 'stt', 'int'),
+            C('Tình trạng', 'statusText'),
+            C('Biển số xe', 'plateNo'),
+            C('Số phiếu đi', 'departTicketNo'),
+            C('Ngày đi', 'departDate', 'date'),
+            C('Giờ đi', 'departTime'),
+            C('KL đi (KG)', 'departKg', 'int'),
+            C('Số phiếu đến', 'destTicketNo'),
+            C('Ngày đến', 'destDate', 'date'),
+            C('Giờ đến', 'destTime'),
+            C('KL đến (KG)', 'destKg', 'int'),
+            C('Hao hụt (KG)', 'lossKg', 'int'),
+            C('Tỷ lệ (%)', 'lossPct', 'num'),
+            C('Tuyến', 'routeCode')
+          ],
+          rows: d.rows.map((r, i) => ({ stt: i + 1, ...r }))
+        }
+      ];
+      return { company, title: 'BÁO CÁO KIỂM SOÁT HAO HỤT CUNG ĐƯỜNG (2 ĐẦU CÂN)', subtitle: sub, sheets };
+    }
     throw new AppError('VALIDATION_FAILED', `Loại đối chiếu không hợp lệ: ${kind}`);
+  }
+
+  // ─────────────────────────── kiểm soát hao hụt cung đường (cân đầu đi vs cân đầu đến) ───────────────────────────
+  async transitLoss({ departureFilePath = '', destinationFilePath = '', batchId = '', tolerancePct = 0.5, dateFrom = '', dateTo = '', maxHours = 24 } = {}) {
+    const s = this.store;
+    const tol = Math.max(0, Number(tolerancePct) || 0.5);
+    const maxH = Math.max(1, Number(maxHours) || 24);
+
+    let departTickets = [];
+    let departSourceText = 'Phiếu cân nội bộ (hệ thống)';
+    if (departureFilePath) {
+      const th = await this._theirs(departureFilePath);
+      departTickets = th.tickets;
+      departSourceText = th.sourceText || path.basename(departureFilePath);
+    } else {
+      departTickets = s.all('PHIEU_CAN').filter((t) => !t.is_deleted).map((t) => ({ ...t }));
+    }
+
+    let destTickets = [];
+    let destSourceText = '';
+    if (destinationFilePath) {
+      const th = await this._theirs(destinationFilePath);
+      destTickets = th.tickets;
+      destSourceText = th.sourceText || path.basename(destinationFilePath);
+    } else if (batchId && this.subcontract) {
+      const b = this.subcontract.getBatch({ batchId });
+      if (b) {
+        const th = await this._theirs(b.filePath);
+        destTickets = th.tickets;
+        destSourceText = `Đợt: ${b.batchName} (${b.partnerName || 'Đối tác'})`;
+      }
+    }
+
+    const filterRange = (list) => list.filter((t) => (!dateFrom || t.weigh1_date >= dateFrom) && (!dateTo || t.weigh1_date <= dateTo));
+    departTickets = filterRange(departTickets);
+    destTickets = filterRange(destTickets);
+
+    const parseDateTime = (d, t) => {
+      if (!d) return null;
+      const timeStr = t || '00:00:00';
+      const [h, m, sec] = timeStr.split(':').map((x) => Number(x) || 0);
+      const dt = new Date(`${d}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec || 0).padStart(2, '0')}`);
+      return isNaN(dt.getTime()) ? null : dt;
+    };
+
+    const departByPlate = new Map();
+    for (const t of departTickets) {
+      const p = String(t.plate_no || '').trim().toUpperCase();
+      if (!p) continue;
+      if (!departByPlate.has(p)) departByPlate.set(p, []);
+      departByPlate.get(p).push(t);
+    }
+
+    const destByPlate = new Map();
+    for (const t of destTickets) {
+      const p = String(t.plate_no || '').trim().toUpperCase();
+      if (!p) continue;
+      if (!destByPlate.has(p)) destByPlate.set(p, []);
+      destByPlate.get(p).push(t);
+    }
+
+    const allPlates = [...new Set([...departByPlate.keys(), ...destByPlate.keys()])].sort();
+    const pairs = [];
+    const usedDestKeys = new Set();
+
+    for (const p of allPlates) {
+      const depList = (departByPlate.get(p) || []).sort((a, b) => (a.weigh1_date + (a.weigh1_time || '')).localeCompare(b.weigh1_date + (b.weigh1_time || '')) || String(a.ticket_no).localeCompare(String(b.ticket_no)));
+      const dstList = (destByPlate.get(p) || []).sort((a, b) => (a.weigh1_date + (a.weigh1_time || '')).localeCompare(b.weigh1_date + (b.weigh1_time || '')) || String(a.ticket_no).localeCompare(String(b.ticket_no)));
+
+      for (const dep of depList) {
+        const depTime = parseDateTime(dep.weigh1_date, dep.weigh1_time);
+        let matchedDst = null;
+        for (const dst of dstList) {
+          const dstKey = `${dst.ticket_no}|${dst.weigh1_date}|${dst.plate_no}|${dst._rowNo || ''}`;
+          if (usedDestKeys.has(dstKey)) continue;
+
+          const dstTime = parseDateTime(dst.weigh1_date, dst.weigh1_time);
+          if (depTime && dstTime) {
+            const diffHours = (dstTime.getTime() - depTime.getTime()) / (3600 * 1000);
+            if (diffHours >= -2 && diffHours <= maxH) {
+              matchedDst = dst;
+              usedDestKeys.add(dstKey);
+              break;
+            }
+          } else if (dst.weigh1_date === dep.weigh1_date) {
+            matchedDst = dst;
+            usedDestKeys.add(dstKey);
+            break;
+          }
+        }
+
+        const depKg = Number(dep.net_kg) || 0;
+        if (matchedDst) {
+          const dstKg = Number(matchedDst.net_kg) || 0;
+          const lossKg = depKg - dstKg;
+          const lossPct = depKg > 0 ? (lossKg / depKg) * 100 : 0;
+          let status = 'NORMAL';
+          let statusText = 'Đạt định mức';
+          let severity = 'ok';
+
+          if (lossKg < -50) {
+            status = 'NEGATIVE_LOSS';
+            statusText = `Đến nặng hơn đi (+${Math.abs(lossKg)} kg)`;
+            severity = 'warn';
+          } else if (lossPct > tol) {
+            status = 'EXCESS_LOSS';
+            statusText = `Vượt định mức (${lossPct.toFixed(2)}% > ${tol}%)`;
+            severity = 'err';
+          }
+
+          pairs.push({
+            status, statusText, severity,
+            plateNo: p,
+            departTicketNo: dep.ticket_no,
+            departDate: dep.weigh1_date,
+            departTime: dep.weigh1_time || '',
+            departKg: depKg,
+            destTicketNo: matchedDst.ticket_no,
+            destDate: matchedDst.weigh1_date,
+            destTime: matchedDst.weigh1_time || '',
+            destKg: dstKg,
+            lossKg,
+            lossPct: Math.round(lossPct * 100) / 100,
+            routeCode: dep.route_code || matchedDst.route_code || '',
+            owner: dep.owner_unit_code || ''
+          });
+        } else {
+          pairs.push({
+            status: 'MISSING_DEST',
+            statusText: 'Thiếu cân đầu đến (chưa khớp)',
+            severity: 'warn',
+            plateNo: p,
+            departTicketNo: dep.ticket_no,
+            departDate: dep.weigh1_date,
+            departTime: dep.weigh1_time || '',
+            departKg: depKg,
+            destTicketNo: '',
+            destDate: '',
+            destTime: '',
+            destKg: null,
+            lossKg: null,
+            lossPct: null,
+            routeCode: dep.route_code || '',
+            owner: dep.owner_unit_code || ''
+          });
+        }
+      }
+
+      for (const dst of dstList) {
+        const dstKey = `${dst.ticket_no}|${dst.weigh1_date}|${dst.plate_no}|${dst._rowNo || ''}`;
+        if (!usedDestKeys.has(dstKey)) {
+          pairs.push({
+            status: 'MISSING_DEPART',
+            statusText: 'Thiếu cân đầu đi (chưa khớp)',
+            severity: 'warn',
+            plateNo: p,
+            departTicketNo: '',
+            departDate: '',
+            departTime: '',
+            departKg: null,
+            destTicketNo: dst.ticket_no,
+            destDate: dst.weigh1_date,
+            destTime: dst.weigh1_time || '',
+            destKg: Number(dst.net_kg) || 0,
+            lossKg: null,
+            lossPct: null,
+            routeCode: dst.route_code || '',
+            owner: dst.owner_unit_code || ''
+          });
+        }
+      }
+    }
+
+    const order = { EXCESS_LOSS: 0, NEGATIVE_LOSS: 1, MISSING_DEST: 2, MISSING_DEPART: 3, NORMAL: 4 };
+    pairs.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || (a.departDate || a.destDate || '').localeCompare(b.departDate || b.destDate || '') || a.plateNo.localeCompare(b.plateNo));
+
+    const matchedPairs = pairs.filter((p) => p.destKg !== null && p.departKg !== null);
+    const totalDepartKg = matchedPairs.reduce((a, b) => a + b.departKg, 0);
+    const totalDestKg = matchedPairs.reduce((a, b) => a + b.destKg, 0);
+    const totalLossKg = totalDepartKg - totalDestKg;
+    const avgLossPct = totalDepartKg > 0 ? (totalLossKg / totalDepartKg) * 100 : 0;
+
+    const excessPairs = matchedPairs.filter((p) => p.status === 'EXCESS_LOSS');
+    const negativePairs = matchedPairs.filter((p) => p.status === 'NEGATIVE_LOSS');
+    const normalPairs = matchedPairs.filter((p) => p.status === 'NORMAL');
+    const missingDestCount = pairs.filter((p) => p.status === 'MISSING_DEST').length;
+    const missingDepartCount = pairs.filter((p) => p.status === 'MISSING_DEPART').length;
+
+    const byPlateMap = new Map();
+    for (const r of pairs) {
+      if (!byPlateMap.has(r.plateNo)) {
+        byPlateMap.set(r.plateNo, {
+          plateNo: r.plateNo,
+          trips: 0,
+          matchedTrips: 0,
+          departKg: 0,
+          destKg: 0,
+          lossKg: 0,
+          excessTrips: 0,
+          negativeTrips: 0,
+          missingTrips: 0
+        });
+      }
+      const b = byPlateMap.get(r.plateNo);
+      b.trips++;
+      if (r.departKg !== null && r.destKg !== null) {
+        b.matchedTrips++;
+        b.departKg += r.departKg;
+        b.destKg += r.destKg;
+        b.lossKg += r.lossKg;
+        if (r.status === 'EXCESS_LOSS') b.excessTrips++;
+        if (r.status === 'NEGATIVE_LOSS') b.negativeTrips++;
+      } else {
+        b.missingTrips++;
+      }
+    }
+
+    const byPlate = [...byPlateMap.values()].map((b) => ({
+      ...b,
+      departTon: Math.round(b.departKg / 10) / 100,
+      destTon: Math.round(b.destKg / 10) / 100,
+      lossPct: b.departKg > 0 ? Math.round((b.lossKg / b.departKg) * 10000) / 100 : 0
+    })).sort((a, b) => (b.excessTrips - a.excessTrips) || (b.lossPct - a.lossPct) || a.plateNo.localeCompare(b.plateNo));
+
+    return {
+      tolerancePct: tol,
+      departSourceText,
+      destSourceText: destSourceText || 'Chưa chọn file đầu đến',
+      dateFrom,
+      dateTo,
+      summary: {
+        totalTrips: pairs.length,
+        matchedCount: matchedPairs.length,
+        normalCount: normalPairs.length,
+        excessCount: excessPairs.length,
+        negativeCount: negativePairs.length,
+        missingDestCount,
+        missingDepartCount,
+        totalDepartTon: Math.round(totalDepartKg / 10) / 100,
+        totalDestTon: Math.round(totalDestKg / 10) / 100,
+        totalLossKg,
+        totalLossTon: Math.round(totalLossKg / 10) / 100,
+        avgLossPct: Math.round(avgLossPct * 100) / 100,
+        totalExcessLossKg: excessPairs.reduce((a, b) => a + Math.max(0, b.lossKg - (b.departKg * tol / 100)), 0)
+      },
+      rows: pairs,
+      byPlate
+    };
   }
 
   async export({ kind, params = {}, targetPath }) {

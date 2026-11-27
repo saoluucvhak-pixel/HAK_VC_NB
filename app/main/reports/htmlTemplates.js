@@ -219,4 +219,142 @@ ${d.rows.some((r) => r.fixed) ? '<p>– Tuyến ghi <i>"Đơn giá cố định"
 ${sign}</div></body></html>`;
 }
 
-module.exports = { bkvc, table, vn, pricingSheet, fuelHandover, contractBasis };
+/** Biên bản đối chiếu công nợ và cước vận chuyển — A4 dọc, Quốc hiệu tiêu ngữ, bảng tổng hợp cước, khấu trừ dầu, Net Pay, bảng chi tiết theo xe, ký 2 bên. */
+function reconciliationStatement(d) {
+  const C = d.carrier;
+  const K = d.customer;
+  const F = d.freight;
+  const U = d.fuel;
+  const party = (label, x) => `<div class="party"><div class="t">${esc(label)}: ${esc(x.unitName)}</div>
+<div class="l"><span>Địa chỉ:</span><span>${esc(x.address || '')}</span>${x.taxCode ? `<span>Mã số thuế:</span><span>${esc(x.taxCode)}</span>` : ''}<span>Đại diện:</span><span><b>${esc(x.signer.name)}</b> — Chức vụ: ${esc(x.signer.title)}</span></div></div>`;
+
+  const rowsPlate = d.byPlate.map((p, i) => `<tr>
+<td class="c">${i + 1}</td>
+<td class="c nw b">${esc(p.plateNo)}</td>
+<td class="r">${vn(p.trips)}</td>
+<td class="r">${vn(p.ton, 2)}</td>
+<td class="r">${vn(p.freightAmount)}</td>
+<td class="r">${vn(p.fuelQty, 2)}</td>
+<td class="r">${vn(p.fuelAmount)}</td>
+<td class="r b ${p.netPayable < 0 ? 'muted' : ''}">${vn(p.netPayable)}</td>
+</tr>`).join('');
+
+  return `${docHead(`${d.title} ${d.periodCode}`)}${draftMark(d.status)}<div class="page">
+<div class="hdr">
+  <div>
+    <div class="co">${esc(C.unitName)}</div>
+    <div>${esc(C.address || '')}</div>
+    ${C.taxCode ? `<div>MST: ${esc(C.taxCode)}</div>` : ''}
+  </div>
+  <div class="nat">
+    <b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b>
+    <u>Độc lập – Tự do – Hạnh phúc</u>
+    <div class="no">Số: ${esc(d.periodCode)}/BBĐC-CN</div>
+  </div>
+</div>
+
+<h1>${esc(d.title)}</h1>
+<div class="sub">${esc(d.periodText)}</div>
+
+<p>– Căn cứ Hợp đồng vận chuyển số <b>${esc(d.contractNo)}</b>${d.contractDate ? ` ngày ${dmy(d.contractDate)}` : ''} giữa <b>${esc(K.unitName)}</b> và <b>${esc(C.unitName)}</b>;</p>
+<p>– Căn cứ Bảng xác nhận khối lượng vận chuyển (BKVC) và Biên bản giao nhận nhiên liệu kỳ <b>${esc(d.periodCode)}</b>.</p>
+<p>Hôm nay, ${esc(d.dateText)}, tại ${esc(d.signPlace || 'trụ sở đơn vị')}, hai bên gồm có:</p>
+${party('BÊN A (Bên thuê vận chuyển)', K)}
+${party('BÊN B (Bên nhận vận chuyển)', C)}
+
+<p>Hai bên cùng tiến hành đối chiếu, thống nhất khối lượng vận chuyển, chi phí nhiên liệu đã nhận và số tiền thanh toán kỳ này như sau:</p>
+
+<h2>I. Tổng hợp Cước vận chuyển & Khấu trừ Nhiên liệu</h2>
+<table>
+<colgroup>
+  <col style="width:8%">
+  <col style="width:48%">
+  <col style="width:14%">
+  <col style="width:30%">
+</colgroup>
+<thead>
+  <tr>
+    <th>STT</th>
+    <th>Nội dung chỉ tiêu</th>
+    <th>ĐVT</th>
+    <th>Giá trị (đồng / tấn / lít)</th>
+  </tr>
+</thead>
+<tbody>
+  <tr class="sec"><td colspan="4">A. DOANH THU CƯỚC VẬN CHUYỂN PHÁT SINH TRONG KỲ</td></tr>
+  <tr><td class="c">1</td><td>Tổng số chuyến vận chuyển thực hiện</td><td class="c">chuyến</td><td class="r">${vn(F.trips)}</td></tr>
+  <tr><td class="c">2</td><td>Tổng khối lượng vận chuyển</td><td class="c">${esc(F.uomLabel || 'tấn')}</td><td class="r b">${vn(F.ton, 2)}</td></tr>
+  <tr><td class="c">3</td><td>Thành tiền cước vận chuyển (chưa VAT)</td><td class="c">đồng</td><td class="r">${vn(F.amount)}</td></tr>
+  <tr><td class="c">4</td><td>Thuế GTGT (${esc(F.vatPct)}%)</td><td class="c">đồng</td><td class="r">${vn(F.vat)}</td></tr>
+  <tr class="strong"><td class="c">5</td><td>TỔNG GIÁ TRỊ CƯỚC VẬN CHUYỂN ĐÃ GỒM VAT</td><td class="c">đồng</td><td class="r b">${vn(F.total)}</td></tr>
+
+  <tr class="sec"><td colspan="4">B. NHIÊN LIỆU (DẦU DIESEL) BÊN A ĐÃ CẤP CHO BÊN B CẤN TRỪ CƯỚC</td></tr>
+  <tr><td class="c">6</td><td>Số lượng dầu diesel thực nhận trong kỳ</td><td class="c">lít</td><td class="r">${vn(U.qty, 2)}</td></tr>
+  <tr><td class="c">7</td><td>Đơn giá dầu diesel bình quân (chưa VAT)</td><td class="c">đ/lít</td><td class="r">${vn(U.avgPrice, 2)}</td></tr>
+  <tr class="strong"><td class="c">8</td><td>TỔNG TIỀN DẦU DIESEL CẤN TRỪ VÀO CƯỚC</td><td class="c">đồng</td><td class="r b">${vn(U.amount)}</td></tr>
+
+  <tr class="final"><td class="c">9</td><td>SỐ TIỀN BÊN A CÒN PHẢI THANH TOÁN CHO BÊN B (RÒNG) = (5) − (8)</td><td class="c">đồng</td><td class="r b" style="font-size:14px;color:#0b5394">${vn(d.netPayable)}</td></tr>
+</tbody>
+</table>
+
+<div class="result">
+  <div class="lb">SỐ TIỀN THỰC THANH TOÁN RÒNG KỲ ${esc(d.periodCode)}:</div>
+  <div class="v">${vn(d.netPayable)} VNĐ</div>
+  <div class="w">Số tiền bằng chữ: <b>${esc(d.netPayableWords)}</b></div>
+</div>
+
+<h2>II. Bảng kê đối chiếu cước và dầu phân bổ theo từng xe</h2>
+<table>
+<colgroup>
+  <col style="width:6%">
+  <col style="width:16%">
+  <col style="width:10%">
+  <col style="width:12%">
+  <col style="width:16%">
+  <col style="width:12%">
+  <col style="width:14%">
+  <col style="width:14%">
+</colgroup>
+<thead>
+  <tr>
+    <th>STT</th>
+    <th>Biển số xe</th>
+    <th>Số chuyến</th>
+    <th>Khối lượng (${esc(F.uomLabel || 'tấn')})</th>
+    <th>Tiền cước có VAT</th>
+    <th>Dầu cấp (lít)</th>
+    <th>Tiền dầu trừ</th>
+    <th>Còn thanh toán</th>
+  </tr>
+</thead>
+<tbody>
+  ${rowsPlate}
+  <tr class="tot">
+    <td colspan="2" class="c">TỔNG CỘNG</td>
+    <td class="r">${vn(F.trips)}</td>
+    <td class="r">${vn(F.ton, 2)}</td>
+    <td class="r">${vn(F.total)}</td>
+    <td class="r">${vn(U.qty, 2)}</td>
+    <td class="r">${vn(U.amount)}</td>
+    <td class="r">${vn(d.netPayable)}</td>
+  </tr>
+</tbody>
+</table>
+
+<h2>III. Điều khoản thanh toán</h2>
+<p>1. Hai bên thống nhất toàn bộ số liệu cước vận chuyển và nhiên liệu cấn trừ theo bảng kê trên là chính xác và không có khiếu nại phát sinh.</p>
+<p>2. Bên A có trách nhiệm thanh toán cho Bên B số tiền <b>${vn(d.netPayable)} VNĐ</b> (bằng chữ: <i>${esc(d.netPayableWords)}</i>) bằng hình thức chuyển khoản qua tài khoản ngân hàng của Bên B trong thời hạn đã thỏa thuận tại Hợp đồng.</p>
+<p>3. Biên bản này được lập thành 04 bản có giá trị pháp lý như nhau, mỗi bên giữ 02 bản làm căn cứ thanh toán và hạch toán kế toán.</p>
+
+<div class="keep">
+  <div class="date">${esc(d.placeDate)}</div>
+  <div class="sign">
+    ${signer(d.signers.carrier, 'ĐẠI DIỆN BÊN B (BÊN VẬN CHUYỂN)', '(Ký, ghi rõ họ tên, đóng dấu)')}
+    ${signer(d.signers.customer, 'ĐẠI DIỆN BÊN A (BÊN THUÊ VẬN CHUYỂN)', '(Ký, ghi rõ họ tên, đóng dấu)')}
+  </div>
+</div>
+
+</div></body></html>`;
+}
+
+module.exports = { bkvc, table, vn, pricingSheet, fuelHandover, contractBasis, reconciliationStatement };

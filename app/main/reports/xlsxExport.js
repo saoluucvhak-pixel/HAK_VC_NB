@@ -486,4 +486,120 @@ async function writeContractBasis(d, file) {
   await wb.xlsx.writeFile(file);
 }
 
-module.exports = { writeBkvc, writeTable, writeTableStream, writeSheets, writeSignBlock, writeMisa, writePricingSheet, writeFuelHandover, writeContractBasis, MISA_TEMPLATE };
+/**
+ * Biên bản đối chiếu công nợ và cước vận chuyển (Excel) — A4 dọc, có công thức tổng cước, tiền dầu, cấn trừ ròng (Net Pay), bảng phân bổ theo xe và ký duyệt 2 bên.
+ */
+async function writeReconciliationStatement(d, file) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'DGVC';
+  const ws = wb.addWorksheet('BIEN_BAN_DOI_CHIEU', {
+    pageSetup: {
+      paperSize: 9,
+      orientation: 'portrait',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: { left: 0.5, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 }
+    }
+  });
+  const N = 8;
+  ws.columns = [6, 16, 12, 14, 18, 14, 16, 18].map((w) => ({ width: w }));
+  const { cell, span } = docHeader(ws, N, d.carrier, `${d.periodCode}/BBĐC-CN`);
+  let r = 5;
+  span(r, 1, N, d.title, { bold: true, size: 15, h: 'center' }); ws.getRow(r).height = 24; r++;
+  span(r, 1, N, d.periodText, { italic: true, h: 'center' }); r += 2;
+
+  const para = (text, o = {}) => { span(r, 1, N, text, { size: 10, ...o }); r++; };
+  para(`– Căn cứ Hợp đồng vận chuyển số ${d.contractNo}${d.contractDate ? ` ngày ${dmy(d.contractDate)}` : ''} giữa ${d.customer.unitName} và ${d.carrier.unitName};`);
+  para(`– Căn cứ Bảng xác nhận khối lượng vận chuyển và Biên bản giao nhận nhiên liệu kỳ ${d.periodCode}.`);
+  para(`Hôm nay, ${d.dateText}, tại ${d.signPlace || 'trụ sở đơn vị'}, hai bên gồm có:`);
+  r++;
+
+  const partyBlock = (label, p) => {
+    span(r, 1, N, `${label}: ${p.unitName}`, { bold: true, size: 10.5 }); r++;
+    span(r, 1, N, `Địa chỉ: ${p.address || ''}    ${p.taxCode ? `MST: ${p.taxCode}` : ''}`, { size: 10 }); r++;
+    span(r, 1, N, `Đại diện: ${p.signer.name} — Chức vụ: ${p.signer.title}`, { size: 10 }); r++;
+  };
+  partyBlock('BÊN A (BÊN THUÊ VẬN CHUYỂN)', d.customer);
+  partyBlock('BÊN B (BÊN NHẬN VẬN CHUYỂN)', d.carrier);
+  r++;
+
+  span(r, 1, N, 'I. TỔNG HỢP CƯỚC VẬN CHUYỂN & KHẤU TRỪ NHIÊN LIỆU', { bold: true, size: 11 }); r++;
+  const colW = [[1, 1], [2, 5], [6, 6], [7, 8]];
+  ['STT', 'Nội dung chỉ tiêu', 'ĐVT', 'Giá trị'].forEach((t, i) =>
+    span(r, colW[i][0], colW[i][1], t, { bold: true, h: 'center', fill: HEAD_FILL, border: true, size: 10 })); r++;
+
+  const secRow = (title) => {
+    span(r, 1, N, title, { bold: true, fill: SEC_FILL, border: true, size: 10 }); r++;
+  };
+  const itemRow = (no, label, uom, val, bold = false, final = false) => {
+    span(r, 1, 1, no, { h: 'center', border: true, size: 10 });
+    span(r, 2, 5, label, { bold, border: true, size: 10 });
+    span(r, 6, 6, uom, { h: 'center', border: true, size: 10 });
+    span(r, 7, 8, val, { bold: bold || final, h: 'right', border: true, fmt: typeof val === 'number' ? '#,##0' : undefined, fill: final ? FINAL_FILL : undefined, size: final ? 11 : 10 });
+    r++;
+  };
+
+  const F = d.freight;
+  const U = d.fuel;
+  secRow('A. DOANH THU CƯỚC VẬN CHUYỂN PHÁT SINH TRONG KỲ');
+  itemRow(1, 'Tổng số chuyến vận chuyển thực hiện', 'chuyến', F.trips);
+  itemRow(2, 'Tổng khối lượng vận chuyển', F.uomLabel || 'tấn', F.ton, true);
+  itemRow(3, 'Thành tiền cước vận chuyển (chưa VAT)', 'đồng', F.amount);
+  itemRow(4, `Thuế GTGT (${F.vatPct}%)`, 'đồng', F.vat);
+  itemRow(5, 'TỔNG GIÁ TRỊ CƯỚC VẬN CHUYỂN ĐÃ GỒM VAT', 'đồng', F.total, true);
+
+  secRow('B. NHIÊN LIỆU (DẦU DIESEL) BÊN A ĐÃ CẤP CHO BÊN B CẤN TRỪ CƯỚC');
+  itemRow(6, 'Số lượng dầu diesel thực nhận trong kỳ', 'lít', U.qty);
+  itemRow(7, 'Đơn giá dầu diesel bình quân (chưa VAT)', 'đ/lít', U.avgPrice);
+  itemRow(8, 'TỔNG TIỀN DẦU DIESEL CẤN TRỪ VÀO CƯỚC', 'đồng', U.amount, true);
+
+  itemRow(9, 'SỐ TIỀN BÊN A CÒN PHẢI THANH TOÁN CHO BÊN B (RÒNG) = (5) − (8)', 'đồng', d.netPayable, true, true);
+  r++;
+
+  para(`Bằng chữ: ${d.netPayableWords}.`, { bold: true, italic: true });
+  r++;
+
+  span(r, 1, N, 'II. BẢNG KÊ ĐỐI CHIẾU CƯỚC VÀ DẦU PHÂN BỔ THEO TỪNG XE', { bold: true, size: 11 }); r++;
+  const heads = ['STT', 'Biển số xe', 'Số chuyến', 'Khối lượng (tấn)', 'Tiền cước có VAT', 'Dầu cấp (lít)', 'Tiền dầu trừ', 'Còn thanh toán'];
+  heads.forEach((t, i) => cell(r, i + 1, t, { bold: true, h: 'center', fill: HEAD_FILL, border: true, size: 10 })); r++;
+
+  d.byPlate.forEach((p, i) => {
+    cell(r, 1, i + 1, { h: 'center', border: true, size: 10 });
+    cell(r, 2, p.plateNo, { h: 'center', bold: true, border: true, size: 10 });
+    cell(r, 3, p.trips, { h: 'right', border: true, fmt: '#,##0', size: 10 });
+    cell(r, 4, p.ton, { h: 'right', border: true, fmt: '#,##0.00', size: 10 });
+    cell(r, 5, p.freightAmount, { h: 'right', border: true, fmt: '#,##0', size: 10 });
+    cell(r, 6, p.fuelQty, { h: 'right', border: true, fmt: '#,##0.00', size: 10 });
+    cell(r, 7, p.fuelAmount, { h: 'right', border: true, fmt: '#,##0', size: 10 });
+    cell(r, 8, p.netPayable, { h: 'right', bold: true, border: true, fmt: '#,##0', size: 10 });
+    r++;
+  });
+
+  cell(r, 1, null, { border: true, fill: SEC_FILL });
+  cell(r, 2, 'TỔNG CỘNG', { bold: true, h: 'center', border: true, fill: SEC_FILL, size: 10 });
+  cell(r, 3, F.trips, { bold: true, h: 'right', border: true, fill: SEC_FILL, fmt: '#,##0', size: 10 });
+  cell(r, 4, F.ton, { bold: true, h: 'right', border: true, fill: SEC_FILL, fmt: '#,##0.00', size: 10 });
+  cell(r, 5, F.total, { bold: true, h: 'right', border: true, fill: SEC_FILL, fmt: '#,##0', size: 10 });
+  cell(r, 6, U.qty, { bold: true, h: 'right', border: true, fill: SEC_FILL, fmt: '#,##0.00', size: 10 });
+  cell(r, 7, U.amount, { bold: true, h: 'right', border: true, fill: SEC_FILL, fmt: '#,##0', size: 10 });
+  cell(r, 8, d.netPayable, { bold: true, h: 'right', border: true, fill: SEC_FILL, fmt: '#,##0', size: 10 });
+  r += 2;
+
+  span(r, 1, N, 'III. ĐIỀU KHOẢN THANH TOÁN', { bold: true, size: 11 }); r++;
+  para('1. Hai bên thống nhất toàn bộ số liệu cước vận chuyển và nhiên liệu cấn trừ theo bảng kê trên là chính xác.');
+  para(`2. Bên A có trách nhiệm thanh toán cho Bên B số tiền ${fmtNum(d.netPayable)} VNĐ theo phương thức chuyển khoản.`);
+  para('3. Biên bản này được lập thành 04 bản có giá trị pháp lý như nhau, mỗi bên giữ 02 bản.');
+  r++;
+
+  const last = writeSignBlock(ws, r, N, {
+    carrier: { ...d.signers.carrier, unitName: `ĐẠI DIỆN BÊN B (BÊN VẬN CHUYỂN)\n${d.signers.carrier.unitName}` },
+    customer: { ...d.signers.customer, unitName: `ĐẠI DIỆN BÊN A (BÊN THUÊ VẬN CHUYỂN)\n${d.signers.customer.unitName}` }
+  }, d.placeDate);
+
+  ws.pageSetup.printArea = `A1:H${last}`;
+  ws.headerFooter.oddFooter = `&L&8Biên bản đối chiếu công nợ · Kỳ ${d.periodCode}&R&8Trang &P/&N`;
+  await wb.xlsx.writeFile(file);
+}
+
+module.exports = { writeBkvc, writeTable, writeTableStream, writeSheets, writeSignBlock, writeMisa, writePricingSheet, writeFuelHandover, writeContractBasis, writeReconciliationStatement, MISA_TEMPLATE };

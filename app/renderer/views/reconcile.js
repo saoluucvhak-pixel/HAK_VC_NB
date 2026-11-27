@@ -419,21 +419,181 @@
     await draw();
   }
 
+  // ───────── Tab 4: kiểm soát hao hụt 2 đầu cân ─────────
+  async function transitTab(body, p = {}) {
+    let destFile = p.destFile || '';
+    let selectedBatchId = p.batchId || '';
+
+    const batchesRes = await D.api('subcontract.list', {}).catch(() => []);
+    const batches = Array.isArray(batchesRes) ? batchesRes : [];
+    const batchOpts = [
+      ['', '— Hoặc chọn đợt đối tác đã nạp —'],
+      ...batches.map((b) => [b.batchId, `${b.batchName} (${b.partnerName || 'Đơn vị'}) · ${D.vn(b.summary ? b.summary.totalTon : 0)} tấn`])
+    ];
+
+    const f = D.form([
+      { key: 'batchId', label: '1. Chọn đợt cân đầu đến', type: 'select', options: batchOpts },
+      { key: 'tolerancePct', label: 'Định mức hao hụt (%)', type: 'number', placeholder: '0.5' },
+      { key: 'dateFrom', label: 'Từ ngày', type: 'date' },
+      { key: 'dateTo', label: 'Đến ngày', type: 'date' },
+      { key: 'maxHours', label: 'Giới hạn giờ giữa 2 cân', type: 'number', placeholder: '24' }
+    ], {
+      batchId: selectedBatchId,
+      tolerancePct: '0.5',
+      dateFrom: '',
+      dateTo: '',
+      maxHours: '24'
+    });
+    f.className = 'filters';
+
+    const fileLbl = h('span', { class: 'mono small' }, destFile || (selectedBatchId ? `Đợt: ${selectedBatchId}` : 'Chưa chọn file đầu đến (dùng file Excel đối tác hoặc đợt)'));
+    const pickDestBtn = h('button', { class: 'btn', type: 'button', onclick: async () => {
+      const picked = window.dgvc ? await D.pickFile({ title: 'Chọn file phiếu cân đầu đến (Excel / .json / .dgvc)', filters: [{ name: 'Dữ liệu', extensions: ['xlsx', 'xlsm', 'xls', 'json', 'dgvc'] }] }) : '';
+      if (!picked) return;
+      destFile = picked;
+      f.inputs.batchId.value = '';
+      selectedBatchId = '';
+      fileLbl.textContent = picked;
+      await run();
+    } }, 'Chọn file cân đầu đến...');
+
+    const out = h('div');
+    const params = () => ({
+      destinationFilePath: destFile,
+      batchId: f.values().batchId || selectedBatchId,
+      tolerancePct: Number(f.values().tolerancePct) || 0.5,
+      dateFrom: f.values().dateFrom || '',
+      dateTo: f.values().dateTo || '',
+      maxHours: Number(f.values().maxHours) || 24
+    });
+
+    const run = async () => {
+      out.innerHTML = '<p class="muted">Đang phân tích hao hụt giữa trạm cân đầu đi và đầu đến...</p>';
+      try {
+        const d = await D.api('reconcile.transitLoss', params());
+        out.innerHTML = '';
+        const S = d.summary;
+
+        out.append(h('div', { class: 'kpis' },
+          kpi('Tổng chuyến', D.vn(S.totalTrips), `${D.vn(S.matchedCount)} chuyến đủ 2 đầu cân`, 'main'),
+          kpi('Đạt định mức', D.vn(S.normalCount), `Hao hụt ≤ ${d.tolerancePct}%`, S.normalCount ? 'ok' : ''),
+          kpi('VƯỢT ĐỊNH MỨC', D.vn(S.excessCount), `Hao hụt > ${d.tolerancePct}% (nghi thất thoát)`, S.excessCount ? 'bad' : ''),
+          kpi('Đến nặng hơn đi', D.vn(S.negativeCount), 'Lệch âm > 50kg (nghi bù nước)', S.negativeCount ? 'warn' : ''),
+          kpi('Tỷ lệ hao hụt BQ', `${D.vn(S.avgLossPct, 2)}%`, `Tổng hao hụt: ${D.vn(S.totalLossKg)} kg`, S.avgLossPct > d.tolerancePct ? 'bad' : 'ok'),
+          kpi('Thất thoát vượt mức', `${D.vn(Math.round(S.totalExcessLossKg))} kg`, 'Đề xuất trừ cước / phạt', S.totalExcessLossKg > 0 ? 'bad' : '')
+        ));
+
+        if (S.excessCount > 0) {
+          out.append(h('div', { class: 'card err-card' },
+            h('b', {}, `⚠️ Phát hiện ${S.excessCount} chuyến hao hụt vượt định mức ${d.tolerancePct}%! `),
+            `Tổng khối lượng rơi vãi/thất thoát vượt định mức ước tính ${D.vn(Math.round(S.totalExcessLossKg))} kg. Đề nghị kiểm tra tài xế và trạm xuất/nhập.`
+          ));
+        }
+
+        // Bảng theo xe
+        out.append(h('div', { class: 'card flush' },
+          h('div', { class: 'card-h' }, h('h2', {}, `Xếp hạng rủi ro hao hụt theo xe (${d.byPlate.length} xe)`)),
+          D.table({
+            rows: d.byPlate,
+            columns: [
+              { key: 'plateNo', label: 'Biển số xe' },
+              { key: 'trips', label: 'Tổng chuyến', fmt: 'int' },
+              { key: 'matchedTrips', label: 'Khớp 2 đầu', fmt: 'int' },
+              { key: 'departTon', label: 'KL đi (Tấn)', fmt: 'dec2' },
+              { key: 'destTon', label: 'KL đến (Tấn)', fmt: 'dec2' },
+              { key: 'lossKg', label: 'Hao hụt (KG)', fmt: 'int', render: (r) => h('span', { class: r.lossKg > 0 ? (r.lossPct > d.tolerancePct ? 'money-bad' : '') : 'muted' }, D.vn(r.lossKg)) },
+              { key: 'lossPct', label: 'Tỷ lệ %', render: (r) => h('span', { class: `tag ${r.lossPct > d.tolerancePct ? 'err' : r.lossPct < 0 ? 'warn' : 'ok'}` }, `${D.vn(r.lossPct, 2)}%`) },
+              { key: 'excessTrips', label: 'Chuyến vượt mức', render: (r) => (r.excessTrips ? h('span', { class: 'tag err' }, `${r.excessTrips} chuyến`) : '0') },
+              { key: 'negativeTrips', label: 'Chuyến âm', render: (r) => (r.negativeTrips ? h('span', { class: 'tag warn' }, `${r.negativeTrips} chuyến`) : '0') }
+            ],
+            footer: {
+              plateNo: 'TỔNG CỘNG',
+              trips: S.totalTrips,
+              matchedTrips: S.matchedCount,
+              departTon: S.totalDepartTon,
+              destTon: S.totalDestTon,
+              lossKg: S.totalLossKg,
+              lossPct: `${S.avgLossPct}%`,
+              excessTrips: `${S.excessCount} chuyến`,
+              negativeTrips: `${S.negativeCount} chuyến`
+            }
+          })
+        ));
+
+        // Bảng chi tiết từng chuyến
+        const STATUS_SEV = { NORMAL: 'ok', EXCESS_LOSS: 'err', NEGATIVE_LOSS: 'warn', MISSING_DEST: 'mute', MISSING_DEPART: 'mute' };
+        out.append(h('div', { class: 'card flush' },
+          h('div', { class: 'card-h' }, h('h2', {}, `Chi tiết đối chiếu 2 đầu cân từng chuyến (${d.rows.length})`)),
+          D.table({
+            rows: d.rows,
+            maxHeight: '60vh',
+            columns: [
+              { key: 'statusText', label: 'Tình trạng', render: (r) => h('span', { class: `tag ${STATUS_SEV[r.status] || 'mute'}` }, r.statusText) },
+              { key: 'plateNo', label: 'Biển số' },
+              { key: 'departTicketNo', label: 'Số phiếu đi' },
+              { key: 'departTimeStr', label: 'Giờ cân đi', render: (r) => (r.departDate ? `${D.dmy(r.departDate)} ${r.departTime}` : '—') },
+              { key: 'departKg', label: 'KL đi (KG)', fmt: 'int' },
+              { key: 'destTicketNo', label: 'Số phiếu đến' },
+              { key: 'destTimeStr', label: 'Giờ cân đến', render: (r) => (r.destDate ? `${D.dmy(r.destDate)} ${r.destTime}` : '—') },
+              { key: 'destKg', label: 'KL đến (KG)', fmt: 'int' },
+              { key: 'lossKg', label: 'Hao hụt (KG)', render: (r) => (r.lossKg != null ? h('b', { class: r.lossKg > 0 ? (r.lossPct > d.tolerancePct ? 'money-bad' : '') : 'muted' }, D.vn(r.lossKg)) : '—') },
+              { key: 'lossPct', label: 'Tỷ lệ %', render: (r) => (r.lossPct != null ? h('span', { class: `tag ${r.lossPct > d.tolerancePct ? 'err' : r.lossPct < 0 ? 'warn' : 'ok'}` }, `${D.vn(r.lossPct, 2)}%`) : '—') },
+              { key: 'routeCode', label: 'Tuyến' }
+            ]
+          })
+        ));
+      } catch (err) {
+        out.innerHTML = `<p class="err-box">${D.errorText(err)}</p>`;
+      }
+    };
+
+    f.inputs.batchId.addEventListener('change', () => {
+      selectedBatchId = f.inputs.batchId.value;
+      if (selectedBatchId) {
+        destFile = '';
+        fileLbl.textContent = `Theo đợt: ${selectedBatchId}`;
+      }
+    });
+
+    body.append(
+      h('div', { class: 'card' },
+        h('h2', {}, 'Kiểm soát hao hụt cung đường (Đối soát Trạm cân Đầu đi vs. Đầu đến)'),
+        h('p', { class: 'small muted', style: { marginTop: 0 } },
+          'So khớp từng chuyến xe giữa trạm cân xuất (Đầu đi - phiếu trong phần mềm) và trạm cân nhập (Đầu đến - file Excel / đợt đối tác nhận). Tự động phát hiện xe rơi vãi, rút ruột hoặc pha tạp nước dọc đường.'
+        ),
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' } },
+          pickDestBtn,
+          fileLbl
+        ),
+        f,
+        h('div', { class: 'btns', style: { marginTop: '12px' } },
+          h('button', { class: 'btn primary', onclick: run }, '🔍 Kiểm soát hao hụt'),
+          h('button', { class: 'btn', onclick: () => saveXlsx('TRANSIT_LOSS', params(), `KiemSoatHaoHut_${D.today()}`) }, 'Tải Excel báo cáo hao hụt')
+        )
+      ),
+      out
+    );
+
+    if (destFile || selectedBatchId) await run();
+  }
+
   D.views.reconcile = {
     async render(p = {}) {
-      const tab = ['audit', 'compare', 'batches'].includes(p.tab) ? p.tab : 'audit';
+      const tab = ['audit', 'compare', 'batches', 'transit'].includes(p.tab) ? p.tab : 'audit';
       const body = h('div');
       const tabs = h('div', { class: 'tabs', role: 'tablist' }, [
         ['audit', 'Kiểm tra nội bộ'],
         ['compare', 'Đối chiếu 3 tiêu chí'],
+        ['transit', 'Kiểm soát hao hụt 2 đầu cân'],
         ['batches', 'Các đợt đã nạp']
       ].map(([k, t]) => h('button', { role: 'tab', 'aria-selected': String(tab === k), onclick: () => D.go('reconcile', { tab: k }) }, t)));
 
       if (tab === 'audit') await auditTab(body);
       else if (tab === 'batches') await batchesTab(body);
+      else if (tab === 'transit') await transitTab(body, p);
       else await compareTab(body, p);
 
-      return D.page('Đối chiếu dữ liệu', 'Đối chiếu với đối tác: kiểm tra nội bộ · 3 tiêu chí (phiếu cân · dầu nhận · đơn giá & thực trả) · các đợt đã nạp', [], tabs, body);
+      return D.page('Đối chiếu dữ liệu', 'Đối chiếu với đối tác: kiểm tra nội bộ · 3 tiêu chí (phiếu cân · dầu nhận · đơn giá & thực trả) · hao hụt 2 đầu cân · các đợt đã nạp', [], tabs, body);
     }
   };
 })();

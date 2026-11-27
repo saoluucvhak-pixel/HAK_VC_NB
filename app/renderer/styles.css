@@ -466,3 +466,65 @@ table.t tbody tr.sel td { background: var(--row-hover); } table.t tbody tr.sel t
   font-size: .75rem; padding: 2px 7px; border-radius: 4px; margin-left: 6px;
   vertical-align: middle; cursor: pointer;
 }
+
+/* Fleet Timeline & Bottleneck Radar */
+.fleet-timeline-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px; margin-bottom: 14px;
+}
+.timeline-axis {
+  display: flex; justify-content: space-between; border-bottom: 2px solid var(--line);
+  padding-bottom: 4px; font-size: .75rem; color: var(--text-mute); font-family: var(--mono);
+  margin-left: 110px; margin-bottom: 8px;
+}
+.timeline-vehicle-row {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+}
+.timeline-plate-label {
+  width: 100px; flex-shrink: 0; font-family: var(--mono); font-weight: 700; font-size: .85rem;
+}
+.timeline-track {
+  flex: 1; height: 26px; background: var(--line2); border-radius: 4px; position: relative;
+  overflow: hidden;
+}
+.timeline-pill {
+  position: absolute; top: 3px; bottom: 3px; border-radius: 3px; background: #2563eb;
+  color: #fff; font-size: .7rem; display: flex; align-items: center; justify-content: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;
+  cursor: pointer; transition: transform .1s ease, filter .1s ease;
+}
+.timeline-pill:hover {
+  filter: brightness(1.15); z-index: 5; transform: scaleY(1.1);
+}
+.timeline-pill.bottleneck {
+  background: #e11d48;
+}
+.timeline-pill.normal {
+  background: #2563eb;
+}
+
+/* Hourly Congestion Distribution Chart */
+.hourly-chart-container {
+  display: flex; align-items: flex-end; gap: 4px; height: 110px; padding-top: 15px;
+  border-bottom: 1px solid var(--line); margin-bottom: 6px;
+}
+.hourly-bar-col {
+  flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%;
+  justify-content: flex-end; position: relative;
+}
+.hourly-bar {
+  width: 100%; max-width: 22px; background: var(--brand); border-radius: 3px 3px 0 0;
+  transition: height .3s ease; min-height: 2px;
+}
+.hourly-bar.peak {
+  background: #f59e0b;
+}
+.hourly-bar-col:hover .hourly-bar {
+  filter: brightness(1.2);
+}
+.hourly-count-tip {
+  font-size: .7rem; font-weight: 600; margin-bottom: 2px;
+}
+.hourly-label {
+  font-size: .7rem; color: var(--text-mute); font-family: var(--mono); margin-top: 4px;
+}
