@@ -1,4 +1,5 @@
 'use strict';
+const { openLegacyInstall } = require('./ui-login-setup');
 /** Giao diện: Danh mục Hình thức giá (chính–phụ) và Đơn giá (chọn Hình thức giá từ danh mục, ngăn hình thức chỉ-xem); vai trò XEM; bố cục hẹp; không lỗi JS. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -22,11 +23,7 @@ test('Giao diện HAKQN: Hình thức giá + Đơn giá — thêm/sửa/xóa, xe
   const noOverflow = async (tag) => { const o = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); assert.ok(o <= 1, `${tag}: tràn ngang ${o}px`); };
   const api = (a, p) => page.evaluate(([x, y]) => window.DGVC.api(x, y), [a, p || {}]);
   try {
-    await srv.ctx.init({ dataFolder: path.join(srv.home, 'DGVC_DATA'), unitCode: 'HAKQN' });
-    await page.goto(srv.url);
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await openLegacyInstall(page, srv, 'HAKQN');
     const ctx = srv.ctx;
 
     // ── menu: Hình thức giá ngay trước Đơn giá, trong nhóm Danh mục; không còn nhãn "DM Đơn giá"

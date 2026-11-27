@@ -1,4 +1,5 @@
 'use strict';
+const { openLegacyInstall } = require('./ui-login-setup');
 /** Màn Hợp đồng — thẻ "Tuyến và đơn giá vận chuyển": thêm đơn giá bằng CHỌN TUYẾN TRƯỚC và bằng CHỌN ĐƠN GIÁ TRƯỚC (tuyến tự điền), thấy dòng trong bảng, gỡ dòng,
  *  vai trò XEM không thấy "Thêm đơn giá"/"Gỡ", không còn nút gán/đổi/bỏ mã, thống kê dầu chỉ đọc (không nút nhập dầu), không tràn ngang ở 1366 và 910 px. */
 const test = require('node:test');
@@ -24,11 +25,7 @@ test('Giao diện HAKQN: Hợp đồng — Tuyến và đơn giá vận chuyển
     return d.locator('#ct-panel-price');
   };
   try {
-    await srv.ctx.init({ dataFolder: path.join(srv.home, 'DGVC_DATA'), unitCode: 'HAKQN' });
-    await page.goto(srv.url);
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await openLegacyInstall(page, srv, 'HAKQN');
     const ctx = srv.ctx; const contractId = 'HD-HAKQN-QS'; const cat = ctx.svc.catalog;
     const imp = ctx.svc.import; const a = await imp.preview({ importType: 'PHIEU_CAN', filePath: FILE.HAKQN, user: 'k' }); await imp.confirm({ batchId: a.batchId, acceptWarnings: true, clientRequestId: rid(), user: 'k' });
     // nguồn để chọn: đơn giá cố định (PT-CD) cho VC.007, đang áp dụng

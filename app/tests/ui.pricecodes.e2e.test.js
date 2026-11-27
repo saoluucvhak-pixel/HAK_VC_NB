@@ -1,4 +1,5 @@
 'use strict';
+const { openLegacyInstall } = require('./ui-login-setup');
 /** Giao diện: màn "Đơn giá" (danh mục phẳng, chính–phụ): thêm đơn giá bằng cách chọn Hình thức giá (cố định / theo giá dầu) từ danh mục → form như cũ → áp dụng → kỳ tính dùng đúng. Ngăn xem chéo Hình thức giá: ui.forms.e2e.test.js. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -30,11 +31,7 @@ test('Giao diện HAKQN: Đơn giá — chọn Hình thức giá, thêm đơn gi
     await pk.getByRole('button', { name: 'Tiếp tục' }).click();
   };
   try {
-    await srv.ctx.init({ dataFolder: path.join(srv.home, 'DGVC_DATA'), unitCode: 'HAKQN' });
-    await page.goto(srv.url);
-    await page.getByLabel('Tên đăng nhập').fill('phuthuy.apple@gmail.com'); await page.getByText('Đặt mật khẩu lần đầu').waitFor();
-    await page.getByLabel('Mật khẩu', { exact: true }).fill('HakGroup2026'); await page.getByLabel('Nhập lại mật khẩu').fill('HakGroup2026');
-    await page.getByRole('button', { name: 'Vào phần mềm' }).click(); await page.getByRole('heading', { name: 'Tổng quan' }).waitFor();
+    await openLegacyInstall(page, srv, 'HAKQN');
     const ctx = srv.ctx; const contractId = 'HD-HAKQN-QS'; const ct = () => ctx.store.get('HOP_DONG', contractId); const unit = ct().customer_unit_code;
     const imp = ctx.svc.import; const a = await imp.preview({ importType: 'PHIEU_CAN', filePath: FILE.HAKQN, user: 'k' }); await imp.confirm({ batchId: a.batchId, acceptWarnings: true, clientRequestId: rid(), user: 'k' });
 
