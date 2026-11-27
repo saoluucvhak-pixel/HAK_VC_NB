@@ -141,6 +141,8 @@ test('Chromium: tạo mẫu, đọc thử, lưu, đặt mặc định, sửa cá
     await preview.getByLabel('Chấp nhận các dòng cảnh báo', { exact: true }).check();
     await preview.getByRole('button', { name: 'Xác nhận import 2 dòng' }).click();
     await page.locator('.toast', { hasText: 'Đã import 2 dòng' }).waitFor();
+    await preview.waitFor({ state: 'hidden' });
+    assert.equal(await dialog('Hoàn tất nhập dữ liệu').count(), 0);
     const saved = page.getByRole('row').filter({ has: page.getByRole('cell', { name: '000042', exact: true }) });
     await saved.waitFor();
     assert.deepEqual(await saved.getByRole('cell').allTextContents().then((cells) => cells.slice(0, 5)),

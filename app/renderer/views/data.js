@@ -295,43 +295,18 @@
       onClose: () => D.api('import.cancel', { batchId: pv.batchId }, { quiet: true }).catch(() => {}),
       actions: [{ label: 'Hủy', run: () => true }, { label: `Xác nhận import ${confirmCount()} dòng`, primary: true, run: async () => {
         const r = await D.api('import.confirm', { batchId: pv.batchId, skipRowNos: [...skip], acceptWarnings: accept.checked, clientRequestId: D.rid() });
-        D.toast(`Đã import ${r.inserted} dòng${r.updated ? ` · cập nhật ${r.updated} phiếu` : ''}${r.restored ? ` · khôi phục ${r.restored} phiếu` : ''} · bỏ qua ${r.duplicates} dòng đã có${r.recalcPeriods && r.recalcPeriods.length ? ` · ${r.recalcPeriods.length} kỳ nháp phải tính lại` : ''}`, 'ok', 8000);
+        const dates = rows.filter((row) => ['OK', 'WARNING', 'UPDATE'].includes(row.status) && !skip.has(row.rowNo))
+          .map((row) => importType === 'PHIEU_CAN' ? row.normalized.weigh1_date : row.normalized.receive_date)
+          .filter(Boolean).sort();
+        const carriers = D.state.boot.contracts.filter((c) => c.role === 'CARRIER' && c.is_active !== false);
+        const target = carriers.find((c) => c.contract_id === contractId)
+          || (!contractId && carriers.length === 1 ? carriers[0] : null);
+        const shortcut = dates.length && target && (r.inserted || r.updated || r.restored) ? {
+          label: 'Tính giá kỳ này',
+          run: () => D.go('calc', { contractId: target.contract_id, dateFrom: dates[0], dateTo: dates.at(-1) })
+        } : null;
+        D.toast(`Đã import ${r.inserted} dòng${r.updated ? ` · cập nhật ${r.updated} phiếu` : ''}${r.restored ? ` · khôi phục ${r.restored} phiếu` : ''} · bỏ qua ${r.duplicates} dòng đã có${r.recalcPeriods && r.recalcPeriods.length ? ` · ${r.recalcPeriods.length} kỳ nháp phải tính lại` : ''}`, 'ok', 8000, shortcut);
         if (onDone) onDone();
-
-        // Nút chuyển nhanh từ Import ➔ Tính giá kỳ (Ưu tiên 1)
-        const validDates = rows.filter((row) => ['OK', 'WARNING', 'UPDATE'].includes(row.status) && !skip.has(row.rowNo))
-          .map((row) => (importType === 'PHIEU_CAN' ? row.normalized.weigh1_date : row.normalized.receive_date))
-          .filter(Boolean)
-          .sort();
-        const minD = validDates[0] || '';
-        const maxD = validDates[validDates.length - 1] || '';
-        const carrierContracts = D.contractOptions(true);
-        const targetContractId = contractId || (carrierContracts[0] || [''])[0];
-
-        if (minD && maxD && targetContractId) {
-          D.modal({
-            title: 'Hoàn tất nhập dữ liệu',
-            body: h('div', { class: 'stack' },
-              h('div', { class: 'trial-kpi-banner' },
-                h('span', { class: 'trial-pill ok' }, `✅ Đã nhập ${r.inserted} dòng`),
-                r.updated ? h('span', { class: 'trial-pill' }, `🔄 Cập nhật ${r.updated}`) : null,
-                h('span', { class: 'trial-pill' }, `📅 Kỳ: ${D.dmy(minD)} ➔ ${D.dmy(maxD)}`)
-              ),
-              h('p', {}, 'Dữ liệu đã được nạp an toàn vào hệ thống. Bạn có muốn chuyển ngay sang màn hình Tính đơn giá cho kỳ này không?')
-            ),
-            actions: [
-              { label: 'Ở lại màn hình hiện tại', run: () => true },
-              {
-                label: '🚀 Chuyển sang Tính giá kỳ này ngay',
-                primary: true,
-                run: () => {
-                  D.go('calc', { contractId: targetContractId, dateFrom: minD, dateTo: maxD });
-                  return true;
-                }
-              }
-            ]
-          });
-        }
         return true;
       } }] });
   };
